@@ -1,0 +1,22 @@
+<section class="absolute bottom-4 right-4">
+	<div class="dropdown dropdown-top dropdown-end fixed right-4 bottom-4">
+		<button type="button" role="button" class="btn {{ className }}">
+			<div>
+				{{ worldName }}
+				<div class="text-xs text-accent">{{ playersOnline }} players</div>
+			</div>
+		</button>
+		<ul class="dropdown-content menu w-max">
+			{{#worlds }}
+			<li class="bg-base-200">
+				<button type="button" flat-oinky="world-selector">
+					<div>
+						<div>{{ name }}</div>
+						<div class="text-xs text-accent">{{ players_online }} players</div>
+					</div>
+				</button>
+			</li>
+			{{/worlds }}
+		</ul>
+	</div>
+</section>

@@ -1,0 +1,42 @@
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+
+@layer base {
+	/* Coping the base styles from preflight to .flat-oinky since html/body is no longer the root */
+	.flat-oinky {
+	  line-height: 1.5;
+	  -webkit-text-size-adjust: 100%;
+	  tab-size: 4;
+	  font-family: var(--default-font-family, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji');
+	  font-feature-settings: var(--default-font-feature-settings, normal);
+	  font-variation-settings: var(--default-font-variation-settings, normal);
+	  -webkit-tap-highlight-color: transparent;
+	}
+}
+
+.flat-oinky { @import "tailwindcss/preflight.css" layer(base) }
+
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@plugin "daisyui";
+
+@config "../tailwind.config.js";
+
+@utility pixelated {
+	image-rendering: pixelated;
+}
+
+
+/* replacing tailwind/daisy styles that aren't respecting the .flat-oinky scope */
+:root, [data-theme] {
+	background: unset;
+	color: unset;
+}
+.flat-oinky, .flat-oinky [data-theme] {
+	color: var(--color-base-content);
+}
+
+[flat-mmo-client-asset=html] button {
+	color: unset;
+}

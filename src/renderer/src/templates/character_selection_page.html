@@ -1,0 +1,28 @@
+{{{ banner }}}
+<section class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5 mx-auto px-5 sm:px-10 lg:px-20 max-w-7xl">
+  {{#characters}}
+  <button type="button" flat-oinky="character-choice" class="cursor-pointer">
+    <div class="card bg-base-200 hover:bg-base-300 border border-base-300">
+      <div class="card-body">
+        <h3 class="text-2xl">{{ username }}</h3>
+        <div>
+          <img class="inline" src="https://flatmmo.com/images/icons/total.png" />
+          <span>Level {{ level }}</span>
+        </div>
+      </div>
+    </div>
+  </button>
+  {{/characters}}
+</section>
+
+<section class="flex gap-5 fixed z-10 bottom-4 left-4">
+  {{#leftActions }}
+  {{{ . }}}
+  {{/leftActions }}
+</section>
+
+<section class="flex gap-5 fixed z-10 bottom-4 right-4">
+	{{#rightActions}}
+	{{{ . }}}
+	{{/rightActions}}
+</section>
