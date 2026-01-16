@@ -1,3 +1,3 @@
 export default {
-  important: '.flat-oinky',
+	important: '.flat-oinky',
 };

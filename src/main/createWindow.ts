@@ -23,6 +23,10 @@ export function createWindow(): void {
 
 	mainWindow.on('ready-to-show', () => mainWindow.show());
 
+	mainWindow.webContents.on('will-frame-navigate', (event) => {
+		if (event.url.endsWith('.php')) event.preventDefault();
+	});
+
 	mainWindow.webContents.setWindowOpenHandler((details) => {
 		shell.openExternal(details.url);
 		return { action: 'deny' };

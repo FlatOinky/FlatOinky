@@ -27,8 +27,8 @@
 	image-rendering: pixelated;
 }
 
-
 /* replacing tailwind/daisy styles that aren't respecting the .flat-oinky scope */
+
 :root, [data-theme] {
 	background: unset;
 	color: unset;
@@ -37,6 +37,42 @@
 	color: var(--color-base-content);
 }
 
-[flat-mmo-client-asset=html] button {
+[fmmo-asset=html] button {
 	color: unset;
+}
+
+/* Now onto customizing flat mmo styles for our own sake */
+
+body {
+	position: relative;
+	height: unset;
+}
+
+[fmmo-container] {
+	position: relative;
+}
+
+[oinky-hide] {
+	display: none !important;
+}
+
+[oinky-chat-expanded=true] [oinky-chat=messages],
+[oinky-chat-expanded=false] [oinky-chat=popups] {
+	@apply opacity-100;
+}
+
+[oinky-chat-expanded=false] [oinky-chat=messages],
+[oinky-chat-expanded=true] [oinky-chat=popups] {
+	@apply opacity-0;
+}
+
+@keyframes fadeOut {
+	0% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+[oinky-chat=popups] li {
+	animation-name: fadeOut;
+	animation-duration: 150ms;
+	animation-delay: 7850ms;
 }

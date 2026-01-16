@@ -1,0 +1,11 @@
+<span class="{{ color }}">{{timestamp}}</span>
+{{#prefixIcons}}
+	<img class="inline-block" src="{{.}}" />
+{{/prefixIcons}}
+{{#segments}}
+	{{{ . }}}
+{{/segments}}
+{{#suffixIcons}}
+	<img class="inline-block" src="{{.}}" />
+{{/suffixIcons}}
+<span oinky-chat-message="message" class="{{ color }}">{{{message}}}</span>

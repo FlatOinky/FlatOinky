@@ -1,6 +1,6 @@
 {
 	"name": "flat-oinky",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "A desktop application for Flat MMO",
 	"main": "./out/main/index.js",
 	"author": "soggypiggy <dev@soggypiggy.com>",
@@ -24,6 +24,7 @@
 		"@electron-toolkit/preload": "^3.0.2",
 		"@electron-toolkit/utils": "^4.0.0",
 		"@tailwindcss/vite": "^4.1.18",
+		"date-fns": "^4.1.0",
 		"mustache": "^4.2.0",
 		"tailwindcss": "^4.1.18"
 	},

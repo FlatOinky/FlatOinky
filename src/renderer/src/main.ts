@@ -1,68 +1,37 @@
-import type { ElectronAPI } from '@electron-toolkit/preload';
-import Mustache from 'mustache';
-import bannerTemplate from './templates/banner.html?raw';
-import loginTemplate from './templates/login_page.html?raw';
-import characterSelectionTemplate from './templates/character_selection_page.html?raw';
-import worldSelectorTemplate from './templates/world_selector.html?raw';
-import clientTemplate from './templates/client_page.html?raw';
-import { htmlTranspiler, scriptTranspiler, styleTranspiler } from './utils/clientTranspiler';
-
-import './assets/main.css';
+import mustache from 'mustache';
+import loginTemplate from './templates/pages/login.html?raw';
+import characterSelectionTemplate from './templates/pages/character_selection.html?raw';
+import clientTemplate from './templates/pages/client.html?raw';
+import bannerTemplate from './templates/components/banner.html?raw';
+import worldSelectorTemplate from './templates/components/world_selector.html?raw';
 import brickBackgroundSrc from './assets/brick.png';
 import bannerLogoSrc from './assets/fmmo_logo-v2oinky.png';
 import bannerLumberjackSrc from './assets/fmmo_lumberjack.gif';
 import bannerMinerSrc from './assets/fmmo_miner.gif';
 import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
+import { FlatMmoCharacter, FlatMmoWorld } from './types';
+import { FlatMmoTranspiler } from './utils/FlatMmoTranspiler';
+import { Client } from './client';
+import './assets/main.css';
 
 // TODO: use this api url for greasyfork to get userscripts
 // https://api.greasyfork.org/en/scripts/by-site/flatmmo.com.json
 
+const { transpileHtml, transpileScript, transpileStyle } = FlatMmoTranspiler;
 const { ipcRenderer } = window.electron;
-
-const renderTemplate = Mustache.render;
 
 let newsLinkText = 'Latest updates';
 
-// #region types
-
-export type FlatMmoWorld = {
-	id: number;
-	name: string;
-	wss: string;
-	players_online: number;
-	max_players_online: number;
-	world_type: string;
-};
-
-export type FlatMmoCharacter = {
-	id: string;
-	username: string;
-	level: string;
-};
-
-type FlatOinkyObject = {
-	page: string;
-	worlds: FlatMmoWorld[] | null;
-	worldIndex: number;
-	characters: FlatMmoCharacter[] | null;
-	characterIndex: number;
-	loading: Record<string, boolean>;
-	errors: Record<string, string>;
-};
-
-declare global {
-	interface Window {
-		flatOinky: FlatOinkyObject;
-		electron: ElectronAPI;
-		api: unknown;
-		setTitle: (labelPrefix?: string) => void;
-	}
-}
-
-// #endregion
-
 // #region window_setup
+
+window.reloadWindow = () => ipcRenderer.send('reloadWindow');
+
+if (import.meta.hot) {
+	import.meta.hot.on('reload-window', () => {
+		window.reloadWindow();
+	});
+}
 
 window.setTitle = (prefixLabel?: string) => {
 	const base = 'Flat Oinky';
@@ -80,6 +49,7 @@ window.flatOinky = window.flatOinky ?? {
 	characterIndex: -1,
 	loading: { app: true },
 	errors: {},
+	client: new Client(),
 };
 
 const { flatOinky } = window;
@@ -88,7 +58,7 @@ const { flatOinky } = window;
 
 // #region helpers
 
-const getRootElement = () => {
+const getRootElement = (): HTMLDivElement => {
 	let rootElement = document.body.querySelector<HTMLDivElement>('div#flat-oinky');
 	if (rootElement) return rootElement;
 	rootElement = document.createElement('div');
@@ -98,13 +68,13 @@ const getRootElement = () => {
 	return rootElement;
 };
 
-const clearElement = (root?: HTMLElement) => {
+const clearElement = (root?: HTMLElement): HTMLElement | void => {
 	if (!root) return;
 	[...root.children].forEach((element) => element.remove());
 	return root;
 };
 
-const parseHtmlText = (htmlText: string) => {
+const parseHtmlText = (htmlText: string): Document => {
 	return new DOMParser().parseFromString(htmlText, 'text/html');
 };
 
@@ -128,20 +98,20 @@ const parseCharactersHtmlText = (htmlText: string): FlatMmoCharacter[] => {
 
 // #region renderers
 
-const renderLoader = (className = '') => {
+const renderLoader = (className = ''): string => {
 	return `<div class="loading loading-spinner ${className}" />`;
 };
 
-const renderAbsoluteLoader = (className = '') => {
-	return renderLoader(`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${className}`);
+const renderLoaderPage = (className = ''): string => {
+	return renderLoader(`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${className}`);
 };
 
-const renderDevtoolButton = () => {
+const renderDevtoolButton = (): string => {
 	if (process.env.NODE_ENV !== 'development') return '';
 	return `<button type="button" flat-oinky="devtools" class="btn btn-sm btn-ghost">Devtools</button>`;
 };
 
-const renderLogoutButton = () => {
+const renderLogoutButton = (): string => {
 	return `
     <div class="tooltip" data-tip="Logout">
       <button type="button" flat-oinky="logout" class="btn btn-sm hover:text-error">
@@ -153,8 +123,8 @@ const renderLogoutButton = () => {
   `.trim();
 };
 
-const renderBanner = () => {
-	return renderTemplate(bannerTemplate, {
+const renderBanner = (): string => {
+	return mustache.render(bannerTemplate, {
 		newsLinkText,
 		logoSrc: bannerLogoSrc,
 		lumberjackSrc: bannerLumberjackSrc,
@@ -164,9 +134,9 @@ const renderBanner = () => {
 	});
 };
 
-const renderWorldSelector = () => {
+const renderWorldSelector = (): string => {
 	const { worlds, worldIndex, loading } = flatOinky;
-	return renderTemplate(worldSelectorTemplate, {
+	return mustache.render(worldSelectorTemplate, {
 		className: loading.worlds || (worlds?.length ?? 0) < 2 ? 'pointer-events-none' : '',
 		worldName: (worlds?.length ?? 0) > 1 ? worlds?.[worldIndex]?.name : '',
 		playersOnline: worlds?.[worldIndex]?.players_online ?? '',
@@ -174,9 +144,9 @@ const renderWorldSelector = () => {
 	});
 };
 
-const renderLoginPage = () => {
+const renderLoginPage = (): string => {
 	const { loading, errors } = flatOinky;
-	return renderTemplate(loginTemplate, {
+	return mustache.render(loginTemplate, {
 		banner: renderBanner(),
 		submitButtonLabel: loading.login ? renderLoader() : 'Login',
 		className: loading.login ? 'pointer-events-none' : '',
@@ -185,9 +155,9 @@ const renderLoginPage = () => {
 	});
 };
 
-const renderCharactersSelectionPage = () => {
+const renderCharactersSelectionPage = (): string => {
 	const { characters } = flatOinky;
-	return renderTemplate(characterSelectionTemplate, {
+	return mustache.render(characterSelectionTemplate, {
 		banner: renderBanner(),
 		characters,
 		leftActions: [renderLogoutButton(), renderDevtoolButton()],
@@ -195,7 +165,7 @@ const renderCharactersSelectionPage = () => {
 	});
 };
 
-const renderClientPage = () => {
+const renderClientPage = (): string => {
 	return clientTemplate;
 };
 
@@ -203,7 +173,7 @@ const renderClientPage = () => {
 
 // #region mounts
 
-const mountDevtoolButton = (rootElement: HTMLDivElement) => {
+const mountDevtoolButton = (rootElement: HTMLDivElement): void => {
 	rootElement
 		.querySelectorAll<HTMLButtonElement>('button[flat-oinky=devtools]')
 		.forEach((element) => {
@@ -211,7 +181,7 @@ const mountDevtoolButton = (rootElement: HTMLDivElement) => {
 		});
 };
 
-const mountLogoutButton = (rootElement: HTMLDivElement) => {
+const mountLogoutButton = (rootElement: HTMLDivElement): void => {
 	rootElement
 		.querySelectorAll<HTMLButtonElement>('button[flat-oinky=logout]')
 		.forEach((element) => {
@@ -228,7 +198,7 @@ const mountLogoutButton = (rootElement: HTMLDivElement) => {
 		});
 };
 
-const mountWorldSelector = (rootElement: HTMLDivElement) => {
+const mountWorldSelector = (rootElement: HTMLDivElement): void => {
 	rootElement
 		.querySelectorAll<HTMLButtonElement>('button[flat-oinky=world-selector]')
 		.forEach((element, index) => {
@@ -244,7 +214,7 @@ const mountWorldSelector = (rootElement: HTMLDivElement) => {
 		});
 };
 
-const mountLoginPage = (rootElement: HTMLDivElement) => {
+const mountLoginPage = (rootElement: HTMLDivElement): void => {
 	window.setTitle('Login');
 	rootElement.innerHTML = renderLoginPage();
 	mountWorldSelector(rootElement);
@@ -278,12 +248,12 @@ const mountLoginPage = (rootElement: HTMLDivElement) => {
 	};
 };
 
-const mountLoaderPage = (rootElement: HTMLDivElement) => {
+const mountLoaderPage = (rootElement: HTMLDivElement): void => {
 	window.setTitle('Loading');
-	rootElement.innerHTML = renderAbsoluteLoader('scale-200');
+	rootElement.innerHTML = renderLoaderPage('scale-200');
 };
 
-const mountCharacterSelectionPage = (rootElement: HTMLDivElement) => {
+const mountCharacterSelectionPage = (rootElement: HTMLDivElement): void => {
 	window.setTitle('Select character');
 	rootElement.innerHTML = renderCharactersSelectionPage();
 	mountDevtoolButton(rootElement);
@@ -299,28 +269,49 @@ const mountCharacterSelectionPage = (rootElement: HTMLDivElement) => {
 		});
 };
 
-const mountClientPage = async (rootElement: HTMLDivElement) => {
+const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	const { characters, characterIndex, worlds, worldIndex } = flatOinky;
 	const character = characters?.[characterIndex];
 	const world = worlds?.[worldIndex];
 	if (!character || !world) return;
 	window.setTitle(character.username);
-	rootElement.innerHTML = renderAbsoluteLoader();
+	flatOinky.client.character = character;
+	flatOinky.client.world = world;
+	rootElement.innerHTML = renderLoaderPage();
 	const clientHtmlText = await ipcRenderer.invoke('getClientHtmlText', character.id, world.id);
-	const clientDocument = parseHtmlText(htmlTranspiler(clientHtmlText));
+	const clientDocument = parseHtmlText(transpileHtml(clientHtmlText));
 
 	// Append the necessary html elements to the document
-	const clientHtmls = [
+	const clientHtmlElements = [
 		clientDocument.body.querySelector('#game')?.parentElement,
 		...clientDocument.body.querySelectorAll('.modal'),
 	].filter((element) => element instanceof HTMLElement);
 	const htmlElement = document.createElement('div');
-	htmlElement.setAttribute('flat-mmo-client-asset', 'html');
+	htmlElement.setAttribute('fmmo-asset', 'html');
 	htmlElement.style = 'display:contents;';
-	htmlElement.innerHTML = clientHtmls
-		.map((element) => htmlTranspiler(element.outerHTML))
-		.join('\n');
-	document.body.appendChild(htmlElement);
+	htmlElement.innerHTML = transpileHtml(
+		clientHtmlElements.map((element) => element.outerHTML).join('\n'),
+	);
+
+	// Find each of the tables <td> containers and attach attributes to hook onto
+	htmlElement
+		.querySelectorAll<HTMLTableCellElement>('td')
+		.values()
+		.forEach((element, index) => {
+			const canvas = element.querySelector('#canvas');
+			if (canvas) {
+				return element.setAttribute('fmmo-container', 'canvas');
+			}
+			const anyUiPanel = element.querySelector('.ui-panel');
+			if (element.id === 'td-ui' || anyUiPanel) {
+				return element.setAttribute('fmmo-container', 'ui');
+			}
+			const topbar = element.querySelector('.top-bar');
+			if (topbar) {
+				return element.setAttribute('fmmo-container', 'topbar');
+			}
+			return element.setAttribute('fmmo-container', `misc${index}`);
+		});
 
 	// Fetch and append styles to the document
 	const clientStyles = clientDocument.querySelectorAll<HTMLLinkElement | HTMLStyleElement>(
@@ -335,9 +326,8 @@ const mountClientPage = async (rootElement: HTMLDivElement) => {
 		}),
 	);
 	const styleElement = document.createElement('style');
-	styleElement.setAttribute('flat-mmo-client-asset', 'style');
-	styleElement.innerHTML = styleContents.map(styleTranspiler).join('\n');
-	document.body.appendChild(styleElement);
+	styleElement.setAttribute('fmmo-asset', 'style');
+	styleElement.innerHTML = transpileStyle(styleContents.join('\n'));
 
 	// Fetch and append scripts to the document
 	const clientScripts = clientDocument.querySelectorAll<HTMLScriptElement>('script');
@@ -350,8 +340,10 @@ const mountClientPage = async (rootElement: HTMLDivElement) => {
 		}),
 	);
 	const scriptElement = document.createElement('script');
-	scriptElement.setAttribute('flat-mmo-client-asset', 'script');
-	scriptElement.innerHTML = scriptContents.map(scriptTranspiler).join('\n');
+	scriptElement.setAttribute('fmmo-asset', 'script');
+	scriptElement.innerHTML = transpileScript(scriptContents.join('\n'));
+	document.body.appendChild(htmlElement);
+	document.body.appendChild(styleElement);
 	document.body.appendChild(scriptElement);
 
 	// Now that the FlatMMO client has been loaded render the contents for oinky
@@ -362,6 +354,7 @@ const mountClientPage = async (rootElement: HTMLDivElement) => {
 
 // #region update_app
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const getAppropriatePage = () => {
 	const { loading, characters, characterIndex } = flatOinky;
 	if (loading.app) return 'loader';
@@ -370,6 +363,7 @@ const getAppropriatePage = () => {
 	return 'client';
 };
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const updateApp = () => {
 	const page = getAppropriatePage();
 	const rootElement = getRootElement();
@@ -406,7 +400,12 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 				}
 			}
 			const characters = parseCharactersHtmlText(dashboardHtmlText);
-			if (characters.length > 0) flatOinky.characters = characters;
+			if (characters.length > 0) {
+				flatOinky.characters = characters;
+				if (process.env.NODE_ENV === 'development') {
+					flatOinky.characterIndex = flatOinky.characters.length - 1;
+				}
+			}
 		})
 		.finally(() => {
 			delete flatOinky.loading.app;

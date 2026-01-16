@@ -1,0 +1,12 @@
+<button oinky-chat="toggle" class="absolute right-full btn btn-sm btn-square m-1">
+	<svg class="w-6 h-6 -m-1 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="transform:scaleY(1);">
+	  <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+	</svg>
+</button>
+<input oinky-chat="input" class="join-item input text w-md" />
+<div oinky-chat="message-popup-container" oinky-chat-expanded="{{ isExpanded }}" style="display:contents;" class="pointer-events-none">
+	<ul oinky-chat="popups" class="absolute left-0 bottom-full m-1 transition-opacity w-xl"></ul>
+	<ul oinky-chat="messages" class="absolute left-0 bottom-full m-1 transition-opacity w-xl bg-base-100/70 rounded max-h-64 overflow-y-scroll">
+		{{#messages}} {{{ . }}} {{/messages}}
+	</ul>
+</div>

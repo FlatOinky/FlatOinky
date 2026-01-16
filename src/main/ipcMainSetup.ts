@@ -1,47 +1,6 @@
-import { BrowserWindow, ipcMain, session } from 'electron';
+import { ipcMain, session } from 'electron';
 
 const flatUrl = 'https://flatmmo.com';
-
-const getWorlds = async () => {
-	const response = await session.defaultSession.fetch(`${flatUrl}/api/worlds.php`, {
-		headers: { Accept: 'application/json' },
-	});
-	if (!response.ok) throw new Error('fetchWorlds: response not ok');
-	const json = await response.json();
-	if (Array.isArray(json) && json.length > 0) return json;
-	throw new Error(`fetchWorlds: json not array, or empty\n${JSON.stringify(json)}`);
-};
-
-const getDashboardHtmlText = async () => {
-	const response = await session.defaultSession.fetch(`${flatUrl}/dashboard.php`);
-	if (!response.ok) throw new Error('getDashboardHtmlText: response not ok');
-	const text = await response.text();
-	if (!text.includes('<html ')) throw new Error('getDashboardHtmlText: no html tag');
-	if (!text.includes('logout-link'))
-		throw new Error('getDashboardHtmlText: no logout link, not signed in');
-	return text;
-};
-
-const getClientHtmlText = async (characterId: string, worldId: string) => {
-	const formData = new FormData();
-	formData.set('char_id', characterId);
-	formData.set('world_id', worldId);
-	const response = await session.defaultSession.fetch(`${flatUrl}/play.php`, {
-		method: 'POST',
-		body: formData,
-	});
-	if (!response.ok) throw new Error('getClientHtmlText: response not ok');
-	const text = await response.text();
-	if (!text.includes('<html ')) throw new Error('getClientHtmlText: no html tag');
-	if (!text.includes('game-wrapper')) throw new Error('getClientHtmlText: no game-wrapper');
-	return text;
-};
-
-const postLogout = async () => {
-	const response = await session.defaultSession.fetch(`${flatUrl}/logout.php`);
-	await session.defaultSession.clearStorageData({ origin: flatUrl });
-	return response.ok;
-};
 
 const flatifyUrl = (url: string) => {
 	if (url.startsWith('http')) return url;
@@ -49,21 +8,24 @@ const flatifyUrl = (url: string) => {
 	return `${flatUrl}/${url}`;
 };
 
-const getClientAsset = async (url: string) => {
-	const assetUrl = flatifyUrl(url);
-	const response = await session.defaultSession.fetch(assetUrl);
-	if (!response.ok) throw new Error('getAsset: response not ok');
-	return await response.text();
-};
-
-export const ipcMainSetup = () => {
+export const ipcMainSetup = (): void => {
 	ipcMain.on('ping', () => console.log('pong'));
 
-	ipcMain.on('openDevTools', () =>
-		BrowserWindow.getAllWindows().forEach((browserWindow) =>
-			browserWindow.webContents.openDevTools(),
-		),
-	);
+	ipcMain.on('openDevTools', ({ sender }) => sender.openDevTools());
+
+	ipcMain.on('reloadWindow', ({ sender }) => {
+		sender.reload();
+	});
+
+	const getWorlds = async () => {
+		const response = await session.defaultSession.fetch(`${flatUrl}/api/worlds.php`, {
+			headers: { Accept: 'application/json' },
+		});
+		if (!response.ok) throw new Error('fetchWorlds: response not ok');
+		const json = await response.json();
+		if (Array.isArray(json) && json.length > 0) return json;
+		throw new Error(`fetchWorlds: json not array, or empty\n${JSON.stringify(json)}`);
+	};
 
 	ipcMain.handle('getWorlds', () => {
 		return new Promise((resolve) => {
@@ -76,6 +38,16 @@ export const ipcMainSetup = () => {
 		});
 	});
 
+	const getDashboardHtmlText = async () => {
+		const response = await session.defaultSession.fetch(`${flatUrl}/dashboard.php`);
+		if (!response.ok) throw new Error('getDashboardHtmlText: response not ok');
+		const text = await response.text();
+		if (!text.includes('<html ')) throw new Error('getDashboardHtmlText: no html tag');
+		if (!text.includes('logout-link'))
+			throw new Error('getDashboardHtmlText: no logout link, not signed in');
+		return text;
+	};
+
 	ipcMain.handle('getDashboardHtmlText', () => {
 		return new Promise((resolve) => {
 			getDashboardHtmlText()
@@ -86,6 +58,21 @@ export const ipcMainSetup = () => {
 				});
 		});
 	});
+
+	const getClientHtmlText = async (characterId: string, worldId: string) => {
+		const formData = new FormData();
+		formData.set('char_id', characterId);
+		formData.set('world_id', worldId);
+		const response = await session.defaultSession.fetch(`${flatUrl}/play.php`, {
+			method: 'POST',
+			body: formData,
+		});
+		if (!response.ok) throw new Error('getClientHtmlText: response not ok');
+		const text = await response.text();
+		if (!text.includes('<html ')) throw new Error('getClientHtmlText: no html tag');
+		if (!text.includes('game-wrapper')) throw new Error('getClientHtmlText: no game-wrapper');
+		return text;
+	};
 
 	ipcMain.handle('getClientHtmlText', (_event, chairId: string, worldId: string) => {
 		return new Promise((resolve) => {
@@ -128,7 +115,20 @@ export const ipcMainSetup = () => {
 		});
 	});
 
+	const postLogout = async () => {
+		const response = await session.defaultSession.fetch(`${flatUrl}/logout.php`);
+		await session.defaultSession.clearStorageData({ origin: flatUrl });
+		return response.ok;
+	};
+
 	ipcMain.handle('postLogout', postLogout);
+
+	const getClientAsset = async (url: string) => {
+		const assetUrl = flatifyUrl(url);
+		const response = await session.defaultSession.fetch(assetUrl);
+		if (!response.ok) throw new Error('getAsset: response not ok');
+		return await response.text();
+	};
 
 	ipcMain.handle('getClientAsset', (_event, assetUrl) => {
 		return new Promise((resolve) => {
