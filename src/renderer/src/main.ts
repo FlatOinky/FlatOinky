@@ -327,7 +327,7 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	);
 	const styleElement = document.createElement('style');
 	styleElement.setAttribute('fmmo-asset', 'style');
-	styleElement.innerHTML = transpileStyle(styleContents.join('\n'));
+	styleElement.innerHTML = `@scope (html) to (.flat-oinky) {\n${transpileStyle(styleContents.join('\n'))}\n}`;
 
 	// Fetch and append scripts to the document
 	const clientScripts = clientDocument.querySelectorAll<HTMLScriptElement>('script');
