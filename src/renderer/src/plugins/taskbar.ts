@@ -1,13 +1,10 @@
 import mustache from 'mustache';
 import taskbarTemplate from '../templates/components/taskbar.html?raw';
-import menuIconSrc from '../assets/menu.png';
 
 const { ipcRenderer } = window.electron;
 
 const renderTaskbar = (): string => {
-	return mustache.render(taskbarTemplate, {
-		menuIconSrc,
-	});
+	return mustache.render(taskbarTemplate, {});
 };
 
 export default (): void => {
