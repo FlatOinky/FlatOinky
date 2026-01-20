@@ -18,7 +18,6 @@ export default (): void => {
 			const canvasContainer = document.querySelector('[fmmo-container=canvas]');
 			if (!canvasContainer) return;
 			const taskbarContainer = document.createElement('div');
-			console.log({ canvasContainer, taskbarContainer });
 			taskbarContainer.className = 'flat-oinky';
 			taskbarContainer.style = 'display:contents;';
 			taskbarContainer.innerHTML = renderTaskbar();
@@ -28,6 +27,6 @@ export default (): void => {
 			if (restartButton) restartButton.onclick = () => ipcRenderer.send('reloadWindow');
 			console.log('Taskbar started', taskbarContainer);
 		},
-		onCleanup: () => {},
+		onCleanup: () => { },
 	});
 };
