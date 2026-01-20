@@ -27,7 +27,7 @@ export function createWindow(): void {
 		if (event.url.endsWith('.php')) event.preventDefault();
 	});
 
-	mainWindow.webContents.on('zoom-changed', (event, direction) => {
+	mainWindow.webContents.on('zoom-changed', (_event, direction) => {
 		const zoomFactor =
 			mainWindow.webContents.zoomFactor +
 			(direction === 'in' ? 0.25 : 0) -

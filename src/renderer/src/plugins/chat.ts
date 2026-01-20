@@ -228,13 +228,13 @@ const handleToggleClick = (): void => {
 
 const handleChatInputKeydown =
 	(chatInput: HTMLInputElement) =>
-		(event: KeyboardEvent): void => {
-			if (event.key === 'Enter') {
-				// @ts-ignore: TS2552
-				Globals.websocket?.send('CHAT=' + selectedChatTabPrefix + chatInput.value);
-				chatInput.value = '';
-			}
-		};
+	(event: KeyboardEvent): void => {
+		if (event.key === 'Enter') {
+			// @ts-ignore: TS2552
+			Globals.websocket?.send('CHAT=' + selectedChatTabPrefix + chatInput.value);
+			chatInput.value = '';
+		}
+	};
 
 const handleAddTabClick = (): void => {
 	const modalId = `oinky/${namespace}/add-tab`;

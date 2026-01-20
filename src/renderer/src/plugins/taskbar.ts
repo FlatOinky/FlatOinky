@@ -27,6 +27,6 @@ export default (): void => {
 			if (restartButton) restartButton.onclick = () => ipcRenderer.send('reloadWindow');
 			console.log('Taskbar started', taskbarContainer);
 		},
-		onCleanup: () => { },
+		onCleanup: () => {},
 	});
 };
