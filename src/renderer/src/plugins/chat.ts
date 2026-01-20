@@ -3,11 +3,14 @@ import { formatDate } from 'date-fns';
 import chatTemplate from '../templates/components/chat.html?raw';
 import chatMessageTemplate from '../templates/components/chat_message.html?raw';
 import yellIconSrc from '../assets/yell.png';
+import pmToconSrc from '../assets/pm_to.png';
+import pmFromIconSrc from '../assets/pm_from.png';
 
 const namespace = 'core/chat';
 
 type ChatMessage = {
-	date: Date;
+	type: 'local' | 'yell' | 'pm_to' | 'pm_from';
+	timestamp: Date;
 	color: string;
 	message: string;
 	username?: string;
@@ -36,21 +39,12 @@ const colorMap: Record<string, string> = {
 	red: 'text-red-400',
 };
 
-const tagClassNames = {
-	donor: 'chat-tag-donor',
-	contributor: 'chat-tag-contributor',
-	investor: 'chat-tag-investor',
-	'investor-plus': 'chat-tag-investor-plus chat-tag-investor-plus-shiny',
-	moderator: 'chat-tag-moderator',
-	owner: 'chat-tag-owner',
-};
-
 // TODO: Make the settings come from the Client
 const settings = { maxChatLength: 250, timestampFormat: 'h:mmaaa' };
 
 const chatMessages: ChatMessage[] = [];
 
-const pmUsernames: string[] = [];
+const pmChatTabUsernames: string[] = [];
 
 let tickTock = true;
 let isExpanded = true;
@@ -58,12 +52,55 @@ let selectedChatTabPrefix = '';
 
 // #region Utils
 
-const chatLinkFormatter = (message: string): string => {
-	if (message.includes('href')) return message;
-	const urlRegex = /(https?:\/\/[^\s]+)/g;
-	return message.replace(urlRegex, (url) => {
-		return `<a class="underline pointer-events-auto" target="_blank" href="${url}">${url}</a>`;
-	});
+const sanitizeMessage = (message: string): string => {
+	const sanitizer = document.createElement('div');
+	sanitizer.innerHTML = message;
+	const sanitizedMessage = sanitizer.textContent;
+	sanitizer.remove();
+	return sanitizedMessage;
+};
+
+const makeChatMessage = (
+	rawUsername: string,
+	tag: string,
+	icon: string,
+	color: string,
+	rawMessage: string,
+): ChatMessage => {
+	const timestamp = new Date();
+	if (rawUsername !== 'none') {
+		const isYelling = rawUsername.endsWith(' yelled');
+		return {
+			timestamp,
+			color,
+			username: isYelling ? rawUsername.slice(0, -7) : rawUsername,
+			type: isYelling ? 'yell' : 'local',
+			tag: tag === 'none' ? undefined : tag,
+			icon: icon === 'none' ? undefined : icon,
+			message: sanitizeMessage(rawMessage),
+		};
+	}
+	const pmMatch = rawMessage.match(/(?:\[PM (to|from) (.*)\] )(.*)/);
+	if (pmMatch) {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const [_wholeMatch, pmDirection, username, message] = pmMatch;
+		return {
+			timestamp,
+			username,
+			color,
+			message: sanitizeMessage(message),
+			type: `pm_${pmDirection.toLowerCase()}` as 'pm_to' | 'pm_from',
+		};
+	}
+	return {
+		timestamp,
+		color,
+		type: 'local',
+		username: rawUsername === 'none' ? undefined : rawUsername,
+		tag: tag === 'none' ? undefined : tag,
+		icon: icon === 'none' ? undefined : icon,
+		message: rawMessage,
+	};
 };
 
 const getMessageContainer = (): HTMLUListElement | null =>
@@ -75,17 +112,7 @@ const getLiChatMessageClassName = (): string => {
 	return className;
 };
 
-const appendChatMessage = (username, tag, icon, color, message): void => {
-	const sanitizer = document.createElement('div');
-	sanitizer.innerHTML = message;
-	const chatMessage = {
-		date: new Date(),
-		message: chatLinkFormatter(sanitizer.textContent),
-		color,
-		username,
-		tag,
-		icon,
-	};
+const appendChatMessage = (chatMessage: ChatMessage): void => {
 	chatMessages.push(chatMessage);
 	while (chatMessages.length > settings.maxChatLength) {
 		chatMessages.shift();
@@ -145,34 +172,52 @@ const appendChatTab = (chatTab: ChatTab): void => {
 
 // #region Renderers
 
-const renderUsername = (username: string, color: string, isYelling: boolean): string | null => {
-	if (!username || username === 'none') return null;
-	return `<span class="${color}">${isYelling ? username?.slice(0, -7) : username + ': '}</span>`;
+const renderUsername = (
+	username: string,
+	type: ChatMessage['type'],
+	colorClassName: string,
+): string | null => {
+	if (!username) return null;
+	return `<span class="${colorClassName}">${username + (type === 'local' ? ': ' : '')}</span>`;
 };
 
 const renderUserTag = (tag: string): string | null => {
 	if (!tag || tag === 'none') return null;
-	return `<span class="${tagClassNames[tag] ?? ''}">${tag}</span>`;
+	const tagName = { 'investor-plus': 'investor' }[tag] ?? tag;
+	const className =
+		{ 'investor-plus': 'chat-tag-investor-plus chat-tag-investor-plus-shiny' }[tag] ??
+		`chat-tag-${tag}`;
+	return `<span class="${className}">${tagName}</span>`;
 };
 
-const renderChatMessage = ({ date, color, message, username, icon, tag }: ChatMessage): string => {
-	const prefixIcons = icon && icon !== 'none' ? [`https://flatmmo.com/${icon}`] : [];
-	const isYelling = username?.endsWith(' yelled') ?? false;
-	const colorClassName = colorMap[color] ?? colorMap.white;
+const renderIcon = (src: string): string => {
+	return `<img class="inline-block" src="${src}" />`;
+};
+
+const renderChatMessage = (chatMessage: ChatMessage): string => {
+	const { type, icon, tag, username } = chatMessage;
+	const prefixIcons = [icon && renderIcon(`https://flatmmo.com/${icon}`)].filter((src) => src);
+	const colorClassName = colorMap[chatMessage.color] ?? colorMap.white;
 	const segments = [
 		tag && renderUserTag(tag),
-		username && renderUsername(username, colorClassName, isYelling),
+		username && renderUsername(username, type, colorClassName),
 	].filter((segment) => typeof segment === 'string' && segment.length > 0);
-	const suffixIcons = isYelling ? [yellIconSrc] : [];
-	// TODO: use settings for this format so others can customize
-	const timestamp = formatDate(date, settings.timestampFormat ?? 'h:mmaaa');
+	const suffixIcons = [
+		type === 'yell' && renderIcon(yellIconSrc),
+		type === 'pm_to' && renderIcon(pmToconSrc),
+		type === 'pm_from' && renderIcon(pmFromIconSrc),
+	].filter((icon) => typeof icon === 'string');
+	const timestamp = formatDate(chatMessage.timestamp, settings.timestampFormat ?? 'h:mmaaa');
+	const message = chatMessage.message.replace(/(https?:\/\/[^\s]+)/g, (url) => {
+		return `<a class="underline pointer-events-auto" target="_blank" href="${url}">${url}</a>`;
+	});
 	return mustache.render(chatMessageTemplate, {
-		message,
 		timestamp,
 		segments,
 		prefixIcons,
 		suffixIcons,
-		color: colorClassName,
+		message,
+		colorClassName,
 	});
 };
 
@@ -187,7 +232,10 @@ const renderChat = (messages: string[]): string => {
 		tabs: [
 			{ prefix: '', name: 'local' },
 			{ prefix: '/y ', name: 'yell' },
-			...pmUsernames.map((username) => ({ prefix: `/pm ${username}`, name: `@${username}` })),
+			...pmChatTabUsernames.map((username) => ({
+				prefix: `/pm ${username}`,
+				name: `@${username}`,
+			})),
 		].map(renderChatTab),
 		isExpanded: `${isExpanded}`,
 	});
@@ -257,9 +305,9 @@ const handleAddTabClick = (): void => {
 		modal.close();
 		const username = input.value.trim().toLowerCase();
 		if (username.length < 1) return;
-		if (pmUsernames.includes(username)) return;
+		if (pmChatTabUsernames.includes(username)) return;
 		appendChatTab({ prefix: `/pm ${username} `, name: `@${username}` });
-		pmUsernames.push(username);
+		pmChatTabUsernames.push(username);
 	};
 	form.onsubmit = handleSubmit;
 	submitButton.onclick = handleSubmit;
@@ -299,13 +347,8 @@ export default (): void => {
 		// #region functionHooks
 		functionHooks: {
 			add_to_chat: (username, tag, icon, color, message) => {
-				appendChatMessage(
-					username === 'none' ? null : username,
-					tag === 'none' ? null : tag,
-					icon === 'none' ? null : icon,
-					color,
-					message,
-				);
+				const chatMessage = makeChatMessage(username, tag, icon, color, message);
+				appendChatMessage(chatMessage);
 				return false;
 			},
 		},
