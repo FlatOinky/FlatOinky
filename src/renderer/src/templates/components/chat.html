@@ -74,3 +74,120 @@
 	opacity: 0;
 }
 </style>
+
+<!-- NOTE: added this directly from the styles since they're scoped now -->
+<style>
+	.chat-tag-donor {
+		border: 1px solid rgb(46, 46, 46);
+		background-color: #ffc6b3;
+		padding-left: 5px;
+		padding-right: 5px;
+		margin-right: 5px;
+		border-radius: 1pt;
+		color: rgb(28, 28, 28);
+		border-radius: 2pt;
+		font-size: 12pt;
+		text-transform: uppercase;
+	}
+
+	.chat-tag-contributor {
+		border: 1px solid rgb(46, 46, 46);
+		background-color: #0eab33;
+		padding-left: 5px;
+		padding-right: 5px;
+		margin-right: 5px;
+		border-radius: 1pt;
+		color: rgb(28, 28, 28);
+		border-radius: 2pt;
+		font-size: 12pt;
+		text-transform: uppercase;
+	}
+
+	.chat-tag-investor {
+		border: 1px solid rgb(46, 46, 46);
+		background-color: #529dff;
+		padding-left: 5px;
+		padding-right: 5px;
+		margin-right: 5px;
+		border-radius: 1pt;
+		color: rgb(28, 28, 28);
+		border-radius: 2pt;
+		font-size: 12pt;
+		text-transform: uppercase;
+	}
+	.chat-tag-investor-plus {
+		position: relative;
+		display: inline-block;
+		border: 1px solid rgb(46, 46, 46);
+		background-image: linear-gradient(rgb(0, 255, 234), rgb(148, 243, 255));
+		color: rgb(0, 59, 254);
+		padding: 2px 6px;
+		margin-right: 5px;
+		border-radius: 2pt;
+		vertical-align: middle;
+		font-size: 12pt;
+		overflow: hidden;
+		font-weight: bold;
+		line-height: 1;
+		text-transform: uppercase;
+	}
+
+	.chat-tag-investor-plus::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: -40%;
+		width: 30%;
+		height: 100%;
+		background: linear-gradient(
+			to right,
+			rgba(255, 255, 255, 0) 0%,
+			rgba(255, 255, 255, 0.5) 50%,
+			rgba(255, 255, 255, 0) 100%
+		);
+		animation: shine 2s infinite;
+		transform: skewX(-20deg);
+		pointer-events: none;
+		z-index: 1;
+	}
+
+	.chat-tag-investor-plus span {
+		position: relative;
+		z-index: 2;
+	}
+
+	@keyframes shine {
+		0% {
+			left: -40%;
+		}
+		100% {
+			left: 100%;
+		}
+	}
+
+	.chat-tag-moderator {
+		border: 1px solid rgb(46, 46, 46);
+		background-color: #dcdcdc;
+		padding-left: 5px;
+		padding-right: 5px;
+		margin-right: 5px;
+		border-radius: 1pt;
+		color: rgb(28, 28, 28);
+		border-radius: 2pt;
+		font-size: 12pt;
+		text-transform: uppercase;
+	}
+
+	.chat-tag-owner {
+		border: 1px solid rgb(46, 46, 46);
+		background-color: #cadb34;
+		padding-left: 5px;
+		padding-right: 5px;
+		margin-right: 5px;
+		border-radius: 1pt;
+		color: rgb(37, 46, 0);
+		border-radius: 2pt;
+		font-size: 12pt;
+		text-transform: uppercase;
+	}
+</style>
