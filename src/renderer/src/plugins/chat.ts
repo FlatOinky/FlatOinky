@@ -88,7 +88,7 @@ const appendChatMessage = (username, tag, icon, color, message): void => {
 	};
 	chatMessages.push(chatMessage);
 	while (chatMessages.length > settings.maxChatLength) {
-		chatMessages.unshift();
+		chatMessages.shift();
 	}
 	const chatMessageContainer = getMessageContainer();
 	const chatPopupContainer = document.querySelector<HTMLUListElement>('[oinky-chat=popups]');
