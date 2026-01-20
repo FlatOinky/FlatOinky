@@ -95,7 +95,7 @@ const appendChatMessage = (username, tag, icon, color, message): void => {
 	if (!chatMessageContainer || !chatPopupContainer) return;
 	const isAtBottom =
 		chatMessageContainer.scrollTop + chatMessageContainer.clientHeight >=
-		chatMessageContainer.scrollHeight - 10;
+		chatMessageContainer.scrollHeight - 100;
 	const chatMessageLi = document.createElement('li');
 	chatMessageLi.className = getLiChatMessageClassName();
 	chatMessageLi.innerHTML = renderChatMessage(chatMessage);
