@@ -1,5 +1,5 @@
+import type { Client, ClientPlugin } from '../client';
 import type { FlatMmoWorld, FlatMmoCharacter } from './flat_mmo';
-import type { ClientPlugin } from './flat_oinky';
 
 export { FlatMmoCharacter, FlatMmoWorld, ClientPlugin };
 
@@ -30,5 +30,9 @@ declare global {
 			tabActive: boolean;
 		};
 		add_player_chat_over_head(username: string, message: string);
+		search_bank(input: HTMLInputElement);
+		has_modal_open(): boolean;
+		opened_modals: Set<string>;
+		ground_items: object[];
 	}
 }

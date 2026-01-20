@@ -27,6 +27,15 @@ export function createWindow(): void {
 		if (event.url.endsWith('.php')) event.preventDefault();
 	});
 
+	mainWindow.webContents.on('zoom-changed', (event, direction) => {
+		const zoomFactor =
+			mainWindow.webContents.zoomFactor +
+			(direction === 'in' ? 0.25 : 0) -
+			(direction === 'out' ? 0.25 : 0);
+
+		mainWindow.webContents.setZoomFactor(Math.max(Math.min(zoomFactor, 3), 0.25));
+	});
+
 	mainWindow.webContents.setWindowOpenHandler((details) => {
 		shell.openExternal(details.url);
 		return { action: 'deny' };

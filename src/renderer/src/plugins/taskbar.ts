@@ -2,18 +2,17 @@ import mustache from 'mustache';
 import taskbarTemplate from '../templates/components/taskbar.html?raw';
 import menuIconSrc from '../assets/menu.png';
 
+const { ipcRenderer } = window.electron;
+
 const renderTaskbar = (): string => {
 	return mustache.render(taskbarTemplate, {
 		menuIconSrc,
 	});
 };
 
-const mountTaskbar = (): void => {};
-
 export default (): void => {
 	window.flatOinky.client.registerPlugin({
-		namespace: 'core',
-		id: 'taskbar',
+		namespace: 'core/taskbar',
 		settings: [],
 		onStartup: () => {
 			const canvasContainer = document.querySelector('[fmmo-container=canvas]');
@@ -24,7 +23,10 @@ export default (): void => {
 			taskbarContainer.style = 'display:contents;';
 			taskbarContainer.innerHTML = renderTaskbar();
 			canvasContainer.appendChild(taskbarContainer);
-			mountTaskbar();
+			const restartButton =
+				taskbarContainer.querySelector<HTMLButtonElement>('[oinky-taskbar=reload]');
+			if (restartButton) restartButton.onclick = () => ipcRenderer.send('reloadWindow');
+			console.log('Taskbar started', taskbarContainer);
 		},
 		onCleanup: () => {},
 	});

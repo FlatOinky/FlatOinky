@@ -1,14 +1,16 @@
-<div class="absolute top-full w-full z-50 -mt-1.5 pr-0.5">
+<div class="absolute top-full w-full -mt-1.5 pr-0.5">
 	<section oinky="taskbar" class="relative bg-base-100 rounded-b-lg border-b border-base-200 flex p-1">
 		<div oinky-taskbar="chat-container" style="display:contents;"></div>
 		<div oinky-taskbar="spacer" class="flex-1"></div>
 		<div oink-taskbar="menu-container" class="flex-none">
-			<button class="btn btn-md btn-ghost btn-square border-transparent" style="anchor-name: --oinky-taskbar-menu-btn;" popovertarget="oinky-taskbar-menu">
-				<img src="{{ menuIconSrc }}" />
+			<button class="btn btohtn-md btn-ghost btn-square border-transparent" style="anchor-name: --oinky-taskbar-menu-btn;" popovertarget="oinky-taskbar-menu">
+				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+				  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+				</svg>
 			</button>
-			<ul class="dropdown dropdown-top dropdown-end menu w-3xs rounded-box bg-base-100 shadow-sm my-2" popover id="oinky-taskbar-menu" style="position-anchor: --oinky-taskbar-menu-btn;">
+			<ul class="dropdown dropdown-top dropdown-end menu w-3xs rounded-box bg-base-100 shadow my-2 border border-base-200" popover id="oinky-taskbar-menu" style="position-anchor: --oinky-taskbar-menu-btn;">
 				<li>
-					Stuff will go here
+					<button oinky-taskbar="reload">Reload Window</button>
 				</li>
 			</ul>
 		</div>

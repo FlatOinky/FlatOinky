@@ -1,9 +1,94 @@
-import type { ClientPlugin, FlatMmoCharacter, FlatMmoWorld } from './types';
+// #region Types
+
+import { FlatMmoCharacter, FlatMmoWorld } from './types';
+
+type ClientPluginSettingLabel = {
+	type: 'label';
+	label: string;
+};
+
+type ClientPluginSettingDivider = {
+	type: 'divider';
+	label?: string;
+};
+
+type ClientPluginSettingInputBase<t> = {
+	id: string;
+	name?: string;
+	description?: string;
+	default?: t;
+};
+
+type ClientPluginSettingCheckbox = ClientPluginSettingInputBase<boolean> & {
+	type: 'checkbox';
+};
+
+type ClientPluginSettingText = ClientPluginSettingInputBase<string> & {
+	type: 'text';
+};
+
+type ClientPluginSettingNumber = ClientPluginSettingInputBase<number> & {
+	type: 'number';
+	min?: number;
+	max?: number;
+};
+
+type ClientPluginSettingRange = ClientPluginSettingInputBase<number> & {
+	type: 'range';
+	min?: number;
+	max?: number;
+};
+
+type ClientPluginSettingColor = ClientPluginSettingInputBase<string> & {
+	type: 'color';
+};
+
+export type ClientPluginSetting =
+	| ClientPluginSettingLabel
+	| ClientPluginSettingDivider
+	| ClientPluginSettingCheckbox
+	| ClientPluginSettingText
+	| ClientPluginSettingNumber
+	| ClientPluginSettingRange
+	| ClientPluginSettingColor;
+
+export type ClientPluginServerCommandHook = (
+	values: string[],
+	rawData: string,
+) => boolean | undefined | null | void;
+
+export type ClientPlugin = {
+	namespace: string;
+	// scope: string;
+	// id: string;
+	settings?: ClientPluginSetting[];
+	dependencies?: string[];
+	onStartup?: () => void;
+	onCleanup?: () => void;
+	onChatMessage?: (message: object) => void;
+	functionHooks?: {
+		add_to_chat: (
+			username: string,
+			tag: string,
+			icon: string,
+			color: string,
+			message: string,
+		) => boolean | undefined | null;
+	};
+	serverCommandHooks?: {
+		chat?: ClientPluginServerCommandHook;
+		yell?: ClientPluginServerCommandHook;
+		chat_local_message?: ClientPluginServerCommandHook;
+		update_objects?: ClientPluginServerCommandHook;
+		reset_ground_items?: ClientPluginServerCommandHook;
+		add_ground_item?: ClientPluginServerCommandHook;
+	};
+};
 
 // #region Variables
 
 const plugins: Record<string, ClientPlugin> = {};
-const enabledPlugins = new Set<string>(['core/taskbar', 'core/chat']);
+const enabledPlugins = new Set<string>(['core/taskbar', 'core/chat', 'core/tweaks']);
 const startedPlugins = new Set<string>();
 
 let hasStarted: boolean = false;
@@ -11,15 +96,13 @@ let hasCoreLoaded: boolean = false;
 
 // #region Helpers
 
-const makePluginKey = (plugin: ClientPlugin): string => `${plugin.namespace}/${plugin.id}`;
-
 const startPlugin = (plugin: ClientPlugin): void => {
 	if (!hasStarted) return;
-	const pluginKey = makePluginKey(plugin);
-	if (!enabledPlugins.has(pluginKey)) return;
-	if (startedPlugins.has(pluginKey)) return;
+	const { namespace } = plugin;
+	if (!enabledPlugins.has(namespace)) return;
+	if (startedPlugins.has(namespace)) return;
 	if (plugin.onStartup) plugin.onStartup();
-	startedPlugins.add(pluginKey);
+	startedPlugins.add(namespace);
 };
 
 // NOTE: Doing hook callbacks so we don't have to use the spread operator to make and discard
@@ -86,10 +169,9 @@ export class Client {
 	}
 
 	registerPlugin = (plugin: ClientPlugin): void => {
-		if (hasCoreLoaded && plugin.namespace == 'core') return;
-		const pluginKey = makePluginKey(plugin);
-		plugins[pluginKey] = plugin;
-		if (hasStarted) startPlugin(plugin);
+		if (hasCoreLoaded && plugin.namespace.startsWith('core/')) return;
+		plugins[plugin.namespace] = plugin;
+		if (hasStarted && !startedPlugins.has(plugin.namespace)) startPlugin(plugin);
 	};
 
 	handleServerCommand(key, values: string[], rawData: string): boolean {

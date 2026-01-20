@@ -56,14 +56,8 @@ body {
 	display: none !important;
 }
 
-[oinky-chat-expanded=true] [oinky-chat=messages],
-[oinky-chat-expanded=false] [oinky-chat=popups] {
-	@apply opacity-100;
-}
-
-[oinky-chat-expanded=false] [oinky-chat=messages],
-[oinky-chat-expanded=true] [oinky-chat=popups] {
-	@apply opacity-0;
+canvas, img {
+	image-rendering: pixelated;
 }
 
 @keyframes fadeOut {
@@ -71,8 +65,8 @@ body {
 	100% { opacity: 0; }
 }
 
-[oinky-chat=popups] li {
-	animation-name: fadeOut;
-	animation-duration: 150ms;
-	animation-delay: 7850ms;
+/* Note: need to add this since FlatMMO's styles are scoped now */
+body {
+	cursor: url('https://flatmmo.com/images/ui/cursor.png'), auto;
+	background-color: none !important;
 }
