@@ -141,7 +141,19 @@ const appendChatMessage = (chatMessage: ChatMessage): void => {
 	}
 };
 
+const updateChatTabInputLabel = (): void => {
+	const label = document.querySelector<HTMLSpanElement>('[oinky-chat=input-label]');
+	if (label && selectedChatTabPrefix === '') {
+		label.style.display = 'none';
+		label.innerText = '';
+	} else if (label) {
+		label.style.display = '';
+		label.innerText = selectedChatTabPrefix.trim();
+	}
+};
+
 const updateChatTabs = (): void => {
+	updateChatTabInputLabel();
 	document.querySelectorAll<HTMLButtonElement>('button[oinky-chat=tab]').forEach((button) => {
 		const prefix = button.getAttribute('oinky-chat-tab-prefix') ?? '';
 		if (prefix === selectedChatTabPrefix) {
