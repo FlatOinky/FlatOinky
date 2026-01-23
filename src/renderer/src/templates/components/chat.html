@@ -1,6 +1,6 @@
 <button oinky-chat="toggle" oinky-chat-expanded="{{ isExpanded }}" class="absolute right-full btn btn-sm btn-square m-1">
 	<svg class="w-6 h-6 -m-1 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-	  <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+		<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
 	</svg>
 </button>
 <label class="join-item input w-md">
@@ -36,19 +36,19 @@
 			<label class="join-item w-full input">
 				<span class="label">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
-					  <path fill-rule="evenodd" d="M5.404 14.596A6.5 6.5 0 1 1 16.5 10a1.25 1.25 0 0 1-2.5 0 4 4 0 1 0-.571 2.06A2.75 2.75 0 0 0 18 10a8 8 0 1 0-2.343 5.657.75.75 0 0 0-1.06-1.06 6.5 6.5 0 0 1-9.193 0ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" clip-rule="evenodd" />
+						<path fill-rule="evenodd" d="M5.404 14.596A6.5 6.5 0 1 1 16.5 10a1.25 1.25 0 0 1-2.5 0 4 4 0 1 0-.571 2.06A2.75 2.75 0 0 0 18 10a8 8 0 1 0-2.343 5.657.75.75 0 0 0-1.06-1.06 6.5 6.5 0 0 1-9.193 0ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" clip-rule="evenodd" />
 					</svg>
 				</span>
 				<input autofocus type="text" />
 			</label>
 			<button oinky-modal="submit" class="btn join-item">
 				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-				  <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+					<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
 				</svg>
 			</button>
 			<button oinky-modal="cancel" class="btn join-item">
 				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-				  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
 				</svg>
 			</button>
 		</div>
@@ -59,28 +59,29 @@
 </dialog>
 
 <style>
-[oinky-chat=popups] li {
-	animation-name: fadeOut;
-	animation-duration: 150ms;
-	animation-delay: 7850ms;
-}
+	[oinky-chat=popups] li {
+		animation-name: fadeOut;
+		animation-duration: 150ms;
+		animation-delay: 7850ms;
+	}
 
-[oinky-chat-expanded=true][oinky-chat=toggle] svg {
-	transform: scaleY(1);
-}
-[oinky-chat-expanded=false][oinky-chat=toggle] svg {
-	transform: scaleY(-1);
-}
+	[oinky-chat-expanded=true][oinky-chat=toggle] svg {
+		transform: scaleY(1);
+	}
 
-[oinky-chat-expanded=true] [oinky-chat=messages],
-[oinky-chat-expanded=false] [oinky-chat=popups] {
-	opacity: 1;
-}
+	[oinky-chat-expanded=false][oinky-chat=toggle] svg {
+		transform: scaleY(-1);
+	}
 
-[oinky-chat-expanded=false] [oinky-chat=messages],
-[oinky-chat-expanded=true] [oinky-chat=popups] {
-	opacity: 0;
-}
+	[oinky-chat-expanded=true] [oinky-chat=messages],
+	[oinky-chat-expanded=false] [oinky-chat=popups] {
+		opacity: 1;
+	}
+
+	[oinky-chat-expanded=false] [oinky-chat=messages],
+	[oinky-chat-expanded=true] [oinky-chat=popups] {
+		opacity: 0;
+	}
 </style>
 
 <!-- NOTE: added this directly from the styles since they're scoped now -->
@@ -90,7 +91,6 @@
 		background-color: #ffc6b3;
 		padding-left: 5px;
 		padding-right: 5px;
-		margin-right: 5px;
 		border-radius: 1pt;
 		color: rgb(28, 28, 28);
 		border-radius: 2pt;
@@ -103,7 +103,6 @@
 		background-color: #0eab33;
 		padding-left: 5px;
 		padding-right: 5px;
-		margin-right: 5px;
 		border-radius: 1pt;
 		color: rgb(28, 28, 28);
 		border-radius: 2pt;
@@ -116,13 +115,13 @@
 		background-color: #529dff;
 		padding-left: 5px;
 		padding-right: 5px;
-		margin-right: 5px;
 		border-radius: 1pt;
 		color: rgb(28, 28, 28);
 		border-radius: 2pt;
 		font-size: 12pt;
 		text-transform: uppercase;
 	}
+
 	.chat-tag-investor-plus {
 		position: relative;
 		display: inline-block;
@@ -130,7 +129,6 @@
 		background-image: linear-gradient(rgb(0, 255, 234), rgb(148, 243, 255));
 		color: rgb(0, 59, 254);
 		padding: 2px 6px;
-		margin-right: 5px;
 		border-radius: 2pt;
 		vertical-align: middle;
 		font-size: 12pt;
@@ -147,12 +145,10 @@
 		left: -40%;
 		width: 30%;
 		height: 100%;
-		background: linear-gradient(
-			to right,
-			rgba(255, 255, 255, 0) 0%,
-			rgba(255, 255, 255, 0.5) 50%,
-			rgba(255, 255, 255, 0) 100%
-		);
+		background: linear-gradient(to right,
+				rgba(255, 255, 255, 0) 0%,
+				rgba(255, 255, 255, 0.5) 50%,
+				rgba(255, 255, 255, 0) 100%);
 		animation: shine 2s infinite;
 		transform: skewX(-20deg);
 		pointer-events: none;
@@ -168,6 +164,7 @@
 		0% {
 			left: -40%;
 		}
+
 		100% {
 			left: 100%;
 		}
@@ -178,7 +175,6 @@
 		background-color: #dcdcdc;
 		padding-left: 5px;
 		padding-right: 5px;
-		margin-right: 5px;
 		border-radius: 1pt;
 		color: rgb(28, 28, 28);
 		border-radius: 2pt;
@@ -191,7 +187,6 @@
 		background-color: #cadb34;
 		padding-left: 5px;
 		padding-right: 5px;
-		margin-right: 5px;
 		border-radius: 1pt;
 		color: rgb(37, 46, 0);
 		border-radius: 2pt;

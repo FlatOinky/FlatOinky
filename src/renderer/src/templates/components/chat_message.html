@@ -1,11 +1,13 @@
-<span class="text-xs {{ colorClassName }}">{{timestamp}}</span>
-{{#prefixIcons}}
-{{{ . }}}
-{{/prefixIcons}}
-{{#segments}}
-{{{ . }}}
-{{/segments}}
-{{#suffixIcons}}
-{{{ . }}}
-{{/suffixIcons}}
-<span oinky-chat-message="message" class="{{ colorClassName }}">{{{message}}}</span>
+<div class="contents {{ colorClassName }} text-shadow-sm text-shadow-black/25">
+	<span class="text-xs">{{timestamp}}</span>
+	{{#prefixIcons}}
+	{{{ . }}}
+	{{/prefixIcons}}
+	{{#segments}}
+	{{{ . }}}
+	{{/segments}}
+	{{#suffixIcons}}
+	{{{ . }}}
+	{{/suffixIcons}}
+	<span>{{{message}}}</span>
+</div>
