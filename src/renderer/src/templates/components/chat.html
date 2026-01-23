@@ -7,21 +7,26 @@
 	<span oinky-chat="input-label" class="label text-xs mr-0 px-2" style="display:none;"></span>
 	<input oinky-chat="input" />
 </label>
-<div oinky-chat="message-popup-container" oinky-chat-expanded="{{ isExpanded }}" style="display:contents;" class="pointer-events-none">
+<div oinky-chat="message-popup-container" oinky-chat-expanded="{{ isExpanded }}" class="contents pointer-events-none">
 	<ul oinky-chat="popups" class="absolute left-0 bottom-full m-1 transition-opacity w-xl"></ul>
 	<ul oinky-chat="messages" class="absolute left-0 bottom-full m-1 transition-opacity w-xl bg-base-100/70 rounded max-h-64 overflow-y-scroll">
 		{{#messages}} {{{ . }}} {{/messages}}
 	</ul>
 </div>
-<div oinky-chat="tabs" role="tablist" class="absolute top-full tabs tabs-lift tabs-bottom tabs-xs max-w-xl">
-	{{#tabs}}
-	{{{ . }}}
-	{{/tabs}}
-	<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs btn-ghost">
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
-		  <path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
-		</svg>
-	</button>
+<div oinky-chat="tabs" class="absolute top-full max-w-xl flex">
+	<div oinky-chat="tabs-container" role="tablist" class="tabs tabs-lift tabs-bottom tabs-xs">
+		{{#tabs}}
+		{{{ . }}}
+		{{/tabs}}
+	</div>
+	<div class="tabs tabs-lift tabs-bottom tabs-xs">
+		<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs btn-ghost">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
+				<path
+					d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
+			</svg>
+		</button>
+	</div>
 </div>
 <dialog oinky-chat="add-tab-modal" class="modal">
 	<div class="modal-box">

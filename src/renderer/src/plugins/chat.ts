@@ -43,12 +43,14 @@ const colorMap: Record<string, string> = {
 const settings = { maxChatLength: 250, timestampFormat: 'h:mmaaa' };
 
 const chatMessages: ChatMessage[] = [];
-
-const pmChatTabUsernames: string[] = [];
+const chatTabs: ChatTab[] = [
+	{ prefix: '', name: 'local' },
+	{ prefix: '/y ', name: 'yell' },
+];
 
 let tickTock = true;
 let isExpanded = true;
-let selectedChatTabPrefix = '';
+let selectedChatTabIndex: number = 0;
 
 // #region Utils
 
@@ -143,43 +145,30 @@ const appendChatMessage = (chatMessage: ChatMessage): void => {
 
 const updateChatTabInputLabel = (): void => {
 	const label = document.querySelector<HTMLSpanElement>('[oinky-chat=input-label]');
-	if (label && selectedChatTabPrefix === '') {
+	if (!label) return;
+	const prefix = chatTabs[selectedChatTabIndex].prefix ?? '';
+	if (prefix === '') {
 		label.style.display = 'none';
 		label.innerText = '';
-	} else if (label) {
+	} else {
 		label.style.display = '';
-		label.innerText = selectedChatTabPrefix.trim();
+		label.innerText = prefix.trim();
 	}
 };
 
 const updateChatTabs = (): void => {
 	updateChatTabInputLabel();
-	document.querySelectorAll<HTMLButtonElement>('button[oinky-chat=tab]').forEach((button) => {
-		const prefix = button.getAttribute('oinky-chat-tab-prefix') ?? '';
-		if (prefix === selectedChatTabPrefix) {
-			button.classList.add('tab-active');
-		} else {
-			button.classList.remove('tab-active');
-		}
-		if (!button.onclick) {
+	const tabsContainer = document.querySelector<HTMLDivElement>('[oinky-chat=tabs-container]');
+	if (!tabsContainer) return;
+	tabsContainer.innerHTML = chatTabs.map(renderChatTab).join('\n');
+	document
+		.querySelectorAll<HTMLButtonElement>('button[oinky-chat=tab]')
+		.forEach((button, index) => {
 			button.onclick = () => {
-				selectedChatTabPrefix = prefix;
+				selectedChatTabIndex = index;
 				updateChatTabs();
 			};
-		}
-	});
-};
-
-const appendChatTab = (chatTab: ChatTab): void => {
-	const otherTabs = [...document.querySelectorAll<HTMLButtonElement>('[oinky-chat=tab]')];
-	if (otherTabs.length < 1) return;
-	const tab = document.createElement('button');
-	tab.className = 'tab';
-	tab.setAttribute('oinky-chat', 'tab');
-	tab.setAttribute('oinky-chat-tab-prefix', chatTab.prefix);
-	tab.innerText = chatTab.name;
-	otherTabs[otherTabs.length - 1].after(tab);
-	updateChatTabs();
+		});
 };
 
 // #region Renderers
@@ -233,22 +222,15 @@ const renderChatMessage = (chatMessage: ChatMessage): string => {
 	});
 };
 
-const renderChatTab = ({ prefix, name }: ChatTab): string => {
-	const isActive = prefix === selectedChatTabPrefix;
+const renderChatTab = ({ prefix, name }: ChatTab, index: number): string => {
+	const isActive = index === selectedChatTabIndex;
 	return `<button oinky-chat="tab" oinky-chat-tab-prefix="${prefix}" class="tab ${isActive ? 'tab-active' : ''}">${name}</button>`;
 };
 
 const renderChat = (messages: string[]): string => {
 	return mustache.render(chatTemplate, {
 		messages,
-		tabs: [
-			{ prefix: '', name: 'local' },
-			{ prefix: '/y ', name: 'yell' },
-			...pmChatTabUsernames.map((username) => ({
-				prefix: `/pm ${username}`,
-				name: `@${username}`,
-			})),
-		].map(renderChatTab),
+		tabs: chatTabs.map(renderChatTab),
 		isExpanded: `${isExpanded}`,
 	});
 };
@@ -290,8 +272,10 @@ const handleChatInputKeydown =
 	(chatInput: HTMLInputElement) =>
 	(event: KeyboardEvent): void => {
 		if (event.key === 'Enter') {
+			const prefix = chatTabs[selectedChatTabIndex].prefix ?? '';
+			const message = chatInput.value;
 			// @ts-ignore: TS2552
-			Globals.websocket?.send('CHAT=' + selectedChatTabPrefix + chatInput.value);
+			Globals.websocket?.send('CHAT=' + prefix + message);
 			chatInput.value = '';
 		}
 	};
@@ -317,9 +301,8 @@ const handleAddTabClick = (): void => {
 		modal.close();
 		const username = input.value.trim().toLowerCase();
 		if (username.length < 1) return;
-		if (pmChatTabUsernames.includes(username)) return;
-		appendChatTab({ prefix: `/pm ${username} `, name: `@${username}` });
-		pmChatTabUsernames.push(username);
+		chatTabs.push({ prefix: `/pm ${username} `, name: `@${username}` });
+		updateChatTabs();
 	};
 	form.onsubmit = handleSubmit;
 	submitButton.onclick = handleSubmit;
