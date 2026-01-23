@@ -263,6 +263,12 @@ const handleKeypress = (): void => {
 
 const handleToggleClick = (): void => {
 	isExpanded = !isExpanded;
+	if (isExpanded) {
+		const chatMessageContainer = getMessageContainer();
+		if (chatMessageContainer) {
+			chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
+		}
+	}
 	document.querySelectorAll('[oinky-chat-expanded]').forEach((element) => {
 		element.setAttribute('oinky-chat-expanded', `${isExpanded}`);
 	});
