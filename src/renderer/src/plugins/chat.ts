@@ -82,7 +82,7 @@ const makeChatMessage = (
 			message: sanitizeMessage(rawMessage),
 		};
 	}
-	const pmMatch = rawMessage.match(/(?:\[PM (to|from) (.*)\] )(.*)/);
+	const pmMatch = rawMessage.match(/^(?:\[PM (to|from) (.+?)\] )(.*)$/);
 	if (pmMatch) {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const [_wholeMatch, pmDirection, username, message] = pmMatch;
