@@ -38,7 +38,7 @@ type ChatTab = {
 const chatMessageLiClassName = { tick: 'p-1 bg-black/10', tock: 'p-1' };
 const chatPopupLiClassName = 'px-1 py-0.5 mt-1 last:mb-0.5 bg-base-100/70 rounded';
 
-const colorMap: Record<string, string> = {
+const colorMap = {
 	pink: 'text-pink-300',
 	grey: 'text-gray-300',
 	cyan: 'text-cyan-300',
@@ -58,7 +58,7 @@ let sentHistoryIndex: number = -1;
 const chatMessages: ChatMessage[] = [];
 const chatTabs: ChatTab[] = [
 	{ prefix: '', name: 'local' },
-	{ prefix: '/y ', name: 'yell' },
+	{ prefix: '/y', name: 'yell' },
 ];
 
 let tickTock = true;
@@ -127,6 +127,24 @@ const makeChatMessage = (
 	return { timestamp, color, tag, icon, type, message: rawMessage };
 };
 
+const chunkMessageBySize = (message: string, chunkSize: number): string[] => {
+	const [chunks] = message.split(' ').reduce(
+		([chunks, chunkIndex]: [string[], number], word) => {
+			const chunk = chunks[chunkIndex];
+			const newChunk = chunk + ' ' + word;
+			if (newChunk.length <= chunkSize) {
+				chunks[chunkIndex] = newChunk;
+				return [chunks, chunkIndex];
+			}
+			const newChunkIndex = chunkIndex + 1;
+			chunks[newChunkIndex] = word;
+			return [chunks, newChunkIndex];
+		},
+		[[''], 0],
+	);
+	return chunks;
+};
+
 const getMessageContainer = (): HTMLUListElement | null =>
 	document.querySelector<HTMLUListElement>('[oinky-chat=messages]');
 
@@ -174,7 +192,7 @@ const updateChatTabInputLabel = (): void => {
 		label.innerText = '';
 	} else {
 		label.style.display = '';
-		label.innerText = prefix.trim();
+		label.innerText = prefix;
 	}
 };
 
@@ -244,9 +262,9 @@ const renderChatMessage = (chatMessage: ChatMessage): string => {
 	});
 };
 
-const renderChatTab = ({ prefix, name }: ChatTab, index: number): string => {
+const renderChatTab = ({ name }: ChatTab, index: number): string => {
 	const isActive = index === selectedChatTabIndex;
-	return `<button oinky-chat="tab" oinky-chat-tab-prefix="${prefix}" class="tab ${isActive ? 'tab-active' : ''}">${name}</button>`;
+	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active' : ''}">${name}</button>`;
 };
 
 const renderChat = (messages: string[]): string => {
@@ -311,7 +329,7 @@ const handleChatInputKeydown =
 				Globals.websocket?.send('CHAT=' + message);
 				return;
 			}
-			const messageChunks = message.match(/.{1,100}/g);
+			const messageChunks = chunkMessageBySize(message, 100 - prefix.length - 1);
 			if (!messageChunks) return;
 			if (messageChunks.length > 2) {
 				// @ts-ignore: TS2552
@@ -320,7 +338,7 @@ const handleChatInputKeydown =
 			}
 			messageChunks.forEach((chunk) => {
 				// @ts-ignore: TS2552
-				Globals.websocket?.send('CHAT=' + prefix + chunk);
+				Globals.websocket?.send('CHAT=' + (prefix ? prefix + ' ' : '') + chunk);
 			});
 			return;
 		}
@@ -362,7 +380,7 @@ const handleAddTabClick = (): void => {
 		modal.close();
 		const username = input.value.trim().toLowerCase();
 		if (username.length < 1) return;
-		chatTabs.push({ prefix: `/pm ${username} `, name: `@${username}` });
+		chatTabs.push({ prefix: `/pm ${username}`, name: `@${username}` });
 		updateChatTabs();
 	};
 	form.onsubmit = handleSubmit;
