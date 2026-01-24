@@ -9,7 +9,17 @@ import pmFromIconSrc from '../assets/pm_from.png';
 const namespace = 'core/chat';
 
 type ChatMessage = {
-	type: 'local' | 'yell' | 'pm_to' | 'pm_from';
+	type:
+		| 'local'
+		| 'yell'
+		| 'pm_to'
+		| 'pm_from'
+		| 'annoucement'
+		| 'level_up'
+		| 'restore'
+		| 'error'
+		| 'warning'
+		| 'achievement';
 	timestamp: Date;
 	color: string;
 	message: string;
@@ -62,23 +72,39 @@ const sanitizeMessage = (message: string): string => {
 	return sanitizedMessage;
 };
 
+const determineServerMessageType = (message: string, color: string): ChatMessage['type'] => {
+	const levelUpMatch = message.match(/^Congratulations! your .* level is now/i);
+	if (levelUpMatch) return 'level_up';
+	if (message.startsWith('[server]')) return 'annoucement';
+	const restoreMatch = message.match(/you.*are now full/i);
+	if (restoreMatch) return 'restore';
+	if (message.startsWith('You have completed the achievement')) return 'achievement';
+	if (color === 'red') return 'error';
+	if (color === 'orange') return 'warning';
+	return 'local';
+};
+
 const makeChatMessage = (
 	rawUsername: string,
-	tag: string,
-	icon: string,
+	rawTag: string,
+	rawIcon: string,
 	color: string,
 	rawMessage: string,
 ): ChatMessage => {
 	const timestamp = new Date();
-	if (rawUsername !== 'none') {
+	const username =
+		typeof rawUsername !== 'string' || rawUsername === 'none' ? undefined : rawUsername;
+	const tag = rawTag === 'none' ? undefined : rawTag;
+	const icon = rawIcon === 'none' ? undefined : rawIcon;
+	if (username) {
 		const isYelling = rawUsername.endsWith(' yelled');
 		return {
 			timestamp,
 			color,
-			username: isYelling ? rawUsername.slice(0, -7) : rawUsername,
+			tag,
+			icon,
+			username: isYelling ? username.slice(0, -7) : username,
 			type: isYelling ? 'yell' : 'local',
-			tag: tag === 'none' ? undefined : tag,
-			icon: icon === 'none' ? undefined : icon,
 			message: sanitizeMessage(rawMessage),
 		};
 	}
@@ -94,15 +120,8 @@ const makeChatMessage = (
 			type: `pm_${pmDirection.toLowerCase()}` as 'pm_to' | 'pm_from',
 		};
 	}
-	return {
-		timestamp,
-		color,
-		type: 'local',
-		username: rawUsername === 'none' ? undefined : rawUsername,
-		tag: tag === 'none' ? undefined : tag,
-		icon: icon === 'none' ? undefined : icon,
-		message: rawMessage,
-	};
+	const type = determineServerMessageType(rawMessage, color);
+	return { timestamp, color, tag, icon, type, message: rawMessage };
 };
 
 const getMessageContainer = (): HTMLUListElement | null =>
