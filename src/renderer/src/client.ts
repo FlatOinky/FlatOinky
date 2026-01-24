@@ -88,7 +88,7 @@ export type ClientPlugin = {
 // #region Variables
 
 const plugins: Record<string, ClientPlugin> = {};
-const enabledPlugins = new Set<string>(['core/taskbar', 'core/chat', 'core/tweaks']);
+const enabledPlugins = new Set<string>(['core/taskbar', 'core/chat', 'core/tweaks', 'core/alerts']);
 const startedPlugins = new Set<string>();
 
 let hasStarted: boolean = false;
@@ -120,12 +120,14 @@ const callPluginHooks = (
 	hookCallback: ClientPluginHookCallback,
 ): boolean => {
 	if (!hasStarted) return true;
-	return Object.entries(plugins)
-		.filter(
-			([pluginKey, plugin]) =>
-				enabledPlugins.has(pluginKey) && typeof plugin[hookCategory]?.[hook] === 'function',
-		)
-		.map(([, plugin]) => hookCallback(plugin[hookCategory][hook], plugin) ?? true)
+	return [...enabledPlugins.values()]
+		.map((pluginKey) => {
+			const plugin = plugins[pluginKey];
+			if (!plugin) return true;
+			const pluginHook = plugin[hookCategory]?.[hook];
+			if (typeof pluginHook !== 'function') return true;
+			return hookCallback(pluginHook, plugin) ?? true;
+		})
 		.every((resume) => resume === true);
 };
 

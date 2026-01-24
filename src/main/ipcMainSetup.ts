@@ -1,4 +1,4 @@
-import { ipcMain, session } from 'electron';
+import { ipcMain, Notification, session } from 'electron';
 
 const flatUrl = 'https://flatmmo.com';
 
@@ -15,6 +15,12 @@ export const ipcMainSetup = (): void => {
 
 	ipcMain.on('reloadWindow', ({ sender }) => {
 		sender.reload();
+	});
+
+	ipcMain.on('createNotification', (_event, title: string, message: string) => {
+		console.log('createNotification', { title, message });
+		const notification = new Notification({ title, body: message });
+		notification.show();
 	});
 
 	const getWorlds = async () => {
