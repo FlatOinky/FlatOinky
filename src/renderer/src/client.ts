@@ -73,7 +73,7 @@ export type ClientPlugin = {
 			icon: string,
 			color: string,
 			message: string,
-		) => boolean | undefined | null;
+		) => boolean | void | undefined | null;
 	};
 	serverCommandHooks?: {
 		chat?: ClientPluginServerCommandHook;
