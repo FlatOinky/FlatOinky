@@ -52,6 +52,9 @@ const colorMap: Record<string, string> = {
 // TODO: Make the settings come from the Client
 const settings = { maxChatLength: 250, timestampFormat: 'h:mmaaa' };
 
+const sentHistory: string[] = [];
+let sentHistoryIndex: number = -1;
+
 const chatMessages: ChatMessage[] = [];
 const chatTabs: ChatTab[] = [
 	{ prefix: '', name: 'local' },
@@ -299,10 +302,38 @@ const handleChatInputKeydown =
 		if (event.key === 'Enter') {
 			const prefix = chatTabs[selectedChatTabIndex].prefix ?? '';
 			const message = chatInput.value;
-			// @ts-ignore: TS2552
-			Globals.websocket?.send('CHAT=' + prefix + message);
+			if (message === '') return;
+			sentHistory.unshift(message);
+			sentHistoryIndex = -1;
 			chatInput.value = '';
+			const messageChunks = message.match(/.{1,100}/g);
+			if (!messageChunks) return;
+			if (messageChunks.length > 2) {
+				// @ts-ignore: TS2552
+				add_to_chat('none', 'none', 'none', 'red', 'Message length too large');
+				return;
+			}
+			messageChunks.forEach((chunk) => {
+				// @ts-ignore: TS2552
+				Globals.websocket?.send('CHAT=' + prefix + chunk);
+			});
+			return;
 		}
+		if (event.key.length === 1) {
+			sentHistoryIndex = -1;
+			return;
+		}
+		const offset = { ArrowUp: 1, ArrowDown: -1 }[event.key];
+		if (!offset) return;
+		const historySwappable =
+			(chatInput.selectionStart === 0 && chatInput.selectionEnd === 0) ||
+			(chatInput.selectionStart === 0 && chatInput.selectionEnd === chatInput.value.length);
+		if (!historySwappable) return;
+		sentHistoryIndex = Math.max(Math.min(sentHistoryIndex + offset, sentHistory.length - 1), -1);
+		chatInput.value = sentHistory[sentHistoryIndex] ?? '';
+		chatInput.selectionStart = 0;
+		chatInput.selectionEnd = chatInput.value.length;
+		event.preventDefault();
 	};
 
 const handleAddTabClick = (): void => {
