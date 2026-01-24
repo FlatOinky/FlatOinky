@@ -306,6 +306,11 @@ const handleChatInputKeydown =
 			sentHistory.unshift(message);
 			sentHistoryIndex = -1;
 			chatInput.value = '';
+			if (message.startsWith('/')) {
+				// @ts-ignore: TS2552
+				Globals.websocket?.send('CHAT=' + message);
+				return;
+			}
 			const messageChunks = message.match(/.{1,100}/g);
 			if (!messageChunks) return;
 			if (messageChunks.length > 2) {
