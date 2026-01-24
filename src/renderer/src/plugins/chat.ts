@@ -67,13 +67,13 @@ let selectedChatTabIndex: number = 0;
 
 // #region Utils
 
-const sanitizeMessage = (message: string): string => {
-	const sanitizer = document.createElement('div');
-	sanitizer.innerHTML = message;
-	const sanitizedMessage = sanitizer.textContent;
-	sanitizer.remove();
-	return sanitizedMessage;
-};
+const sanitizeMessage = (message: string): string =>
+	message
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#039;');
 
 const determineServerMessageType = (message: string, color: string): ChatMessage['type'] => {
 	const levelUpMatch = message.match(/^Congratulations! your .* level is now/i);
