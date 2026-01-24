@@ -438,14 +438,15 @@ export default (): void => {
 			const container = document.querySelector('[oinky-taskbar=chat-container]');
 			if (!container) return;
 			const currentMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')]
-				.map((element) =>
-					mustache.render(
-						`<li class="${getLiChatMessageClassName()}">${chatMessageTemplate}</li>`,
-						{
-							segments: [element.outerHTML],
-						},
-					),
-				)
+				.map((element) => {
+					const template = `<li class="${getLiChatMessageClassName()}">${chatMessageTemplate}</li>`;
+					const colorClassName = colorMap[element.style.color] ?? colorMap.white;
+					element.style.color = '';
+					return mustache.render(template, {
+						segments: [element.outerHTML],
+						colorClassName,
+					});
+				})
 				.concat(chatMessages.map(renderChatMessage));
 			container.innerHTML = renderChat(currentMessages);
 			const chatInput = container.querySelector<HTMLInputElement>('[oinky-chat=input]');
