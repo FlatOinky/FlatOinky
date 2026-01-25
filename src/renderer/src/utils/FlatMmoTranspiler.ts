@@ -52,6 +52,11 @@ export class FlatMmoTranspiler {
 
 	convertScriptRelativeUrls(): typeof this {
 		this.asset = this.asset
+			.replace(
+				'play_sound(values[0], values[1]);',
+				'play_sound("https://flatmmo.com/" + values[0], values[1]);',
+			)
+			.replaceAll(/"<img src='"/g, `"<img src='https://flatmmo.com/"`)
 			.replaceAll(/(\.(?:src|href) ?=[ \n]*)(["']?(?!http)\w)/g, '$1"https://flatmmo.com/" + $2')
 			.replaceAll(/( src=["'])((?!http)\w)/g, '$1https://flatmmo.com/$2')
 			.replaceAll(
@@ -63,7 +68,6 @@ export class FlatMmoTranspiler {
 				"url('https://flatmmo.com/images/ui/cursor_red.png')",
 			)
 			.replaceAll(/(play_sound\(['"])((?!http)\w)/g, '$1https://flatmmo.com/$2')
-
 			.replaceAll(/window\.open\((['"])(?!http)(\w)/g, 'window.open($1https://flatmmo.com/$2');
 		return this;
 	}
