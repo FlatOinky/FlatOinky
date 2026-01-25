@@ -4,6 +4,10 @@ import type { FlatMmoWorld, FlatMmoCharacter } from './flat_mmo';
 export { FlatMmoCharacter, FlatMmoWorld, ClientPlugin };
 
 declare global {
+	module '*.html' {
+		let src: string;
+		export { src as default };
+	}
 	interface Window {
 		// Electron stuff
 		electron: ElectronAPI;

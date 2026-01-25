@@ -1,5 +1,5 @@
 import mustache from 'mustache';
-import taskbarTemplate from '../templates/components/taskbar.html?raw';
+import taskbarTemplate from '../templates/components/taskbar.html';
 
 const { ipcRenderer } = window.electron;
 
