@@ -30,8 +30,8 @@ export function createWindow(): void {
 	mainWindow.webContents.on('zoom-changed', (_event, direction) => {
 		const zoomFactor =
 			mainWindow.webContents.zoomFactor +
-			(direction === 'in' ? 0.25 : 0) -
-			(direction === 'out' ? 0.25 : 0);
+			(direction === 'in' ? 0.05 : 0) -
+			(direction === 'out' ? 0.05 : 0);
 
 		mainWindow.webContents.setZoomFactor(Math.max(Math.min(zoomFactor, 3), 0.25));
 	});
