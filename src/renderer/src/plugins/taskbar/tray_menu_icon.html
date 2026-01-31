@@ -1,0 +1,15 @@
+<button
+	class="btn btn-xs btn-circle btn-ghost btn-neutral text-base-content"
+	style="anchor-name: --oinky-taskbar-{{ id }}-tray-icon"
+	popovertarget="oinky-taskbar-{{ id }}-tray-menu"
+>
+	{{{ buttonIcon }}}
+</button>
+<div
+	popover
+	id="oinky-taskbar-{{ id }}-tray-menu"
+	style="position-anchor: --oinky-taskbar-{{ id }}-tray-icon"
+	class="dropdown dropdown-top dropdown-end menu w-3xs rounded-box bg-base-100 shadow my-4 border border-base-content/20 flex"
+>
+	{{{ menuContents }}}
+</div>

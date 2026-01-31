@@ -2,7 +2,7 @@ import { ipcMain, Notification, session } from 'electron';
 
 const flatUrl = 'https://flatmmo.com';
 
-const flatifyUrl = (url: string) => {
+const flatifyUrl = (url: string): string => {
 	if (url.startsWith('http')) return url;
 	if (url.startsWith('/')) return `${flatUrl}${url}`;
 	return `${flatUrl}/${url}`;
@@ -23,7 +23,8 @@ export const ipcMainSetup = (): void => {
 		notification.show();
 	});
 
-	const getWorlds = async () => {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const getWorlds = async (): Promise<any[]> => {
 		const response = await session.defaultSession.fetch(`${flatUrl}/api/worlds.php`, {
 			headers: { Accept: 'application/json' },
 		});
@@ -44,7 +45,7 @@ export const ipcMainSetup = (): void => {
 		});
 	});
 
-	const getDashboardHtmlText = async () => {
+	const getDashboardHtmlText = async (): Promise<string> => {
 		const response = await session.defaultSession.fetch(`${flatUrl}/dashboard.php`);
 		if (!response.ok) throw new Error('getDashboardHtmlText: response not ok');
 		const text = await response.text();
@@ -65,7 +66,7 @@ export const ipcMainSetup = (): void => {
 		});
 	});
 
-	const getClientHtmlText = async (characterId: string, worldId: string) => {
+	const getClientHtmlText = async (characterId: string, worldId: string): Promise<string> => {
 		const formData = new FormData();
 		formData.set('char_id', characterId);
 		formData.set('world_id', worldId);
@@ -91,7 +92,7 @@ export const ipcMainSetup = (): void => {
 		});
 	});
 
-	const postLogin = async (username, password) => {
+	const postLogin = async (username, password): Promise<string> => {
 		const formData = new FormData();
 		formData.set('username', username);
 		formData.set('password', password);
@@ -121,7 +122,7 @@ export const ipcMainSetup = (): void => {
 		});
 	});
 
-	const postLogout = async () => {
+	const postLogout = async (): Promise<boolean> => {
 		const response = await session.defaultSession.fetch(`${flatUrl}/logout.php`);
 		await session.defaultSession.clearStorageData({ origin: flatUrl });
 		return response.ok;
@@ -129,7 +130,7 @@ export const ipcMainSetup = (): void => {
 
 	ipcMain.handle('postLogout', postLogout);
 
-	const getClientAsset = async (url: string) => {
+	const getClientAsset = async (url: string): Promise<string> => {
 		const assetUrl = flatifyUrl(url);
 		const response = await session.defaultSession.fetch(assetUrl);
 		if (!response.ok) throw new Error('getAsset: response not ok');

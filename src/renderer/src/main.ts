@@ -10,15 +10,14 @@ import bannerLumberjackSrc from './assets/fmmo_lumberjack.gif';
 import bannerMinerSrc from './assets/fmmo_miner.gif';
 import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
-import { FlatMmoCharacter, FlatMmoWorld } from './types';
-import { FlatMmoTranspiler } from './utils/FlatMmoTranspiler';
-import { Client } from './client';
+import { FMCharacter, FMWorld } from './types';
+import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
+import { FOClient } from './client';
 import './assets/main.css';
 
 // TODO: use this api url for greasyfork to get userscripts
 // https://api.greasyfork.org/en/scripts/by-site/flatmmo.com.json
 
-const { transpileHtml, transpileScript, transpileStyle } = FlatMmoTranspiler;
 const { ipcRenderer } = window.electron;
 
 let newsLinkText = 'Latest updates';
@@ -49,7 +48,7 @@ window.flatOinky = window.flatOinky ?? {
 	characterIndex: -1,
 	loading: { app: true },
 	errors: {},
-	client: new Client(),
+	client: new FOClient(),
 };
 
 const { flatOinky } = window;
@@ -78,7 +77,7 @@ const parseHtmlText = (htmlText: string): Document => {
 	return new DOMParser().parseFromString(htmlText, 'text/html');
 };
 
-const parseCharactersHtmlText = (htmlText: string): FlatMmoCharacter[] => {
+const parseCharactersHtmlText = (htmlText: string): FMCharacter[] => {
 	if (typeof htmlText !== 'string' || htmlText.length < 1) return [];
 	const charactersDocument = parseHtmlText(htmlText);
 	const characterElements = charactersDocument.querySelectorAll(
@@ -396,7 +395,7 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 				if (worlds.length < 1) {
 					errors.worlds = 'Unable to get worlds';
 				} else {
-					flatOinky.worlds = worlds as FlatMmoWorld[];
+					flatOinky.worlds = worlds as FMWorld[];
 				}
 			}
 			const characters = parseCharactersHtmlText(dashboardHtmlText);

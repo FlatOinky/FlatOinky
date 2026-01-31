@@ -4,11 +4,11 @@ const addBankSearchClearer = (): void => {
 	const clearButton = document.createElement('button');
 	clearButton.setAttribute('oinky-tweaks', 'bank-search-clearer');
 	clearButton.innerText = '×';
+	clearButton.className = 'button hover';
 	clearButton.style.margin = '5px';
 	clearButton.style.height = '28px';
 	clearButton.style.display = 'inline-grid';
 	clearButton.style.placeContent = 'center';
-	clearButton.style.cursor = `url('https://flatmmo.com/images/ui/cursor_red.png'), auto`;
 	clearButton.onclick = () => {
 		searchInput.value = '';
 		window.search_bank(searchInput);

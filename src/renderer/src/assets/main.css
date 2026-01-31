@@ -1,25 +1,50 @@
 @layer theme, base, components, utilities;
 
-@import "tailwindcss/theme.css" layer(theme);
+@import 'tailwindcss/theme.css' layer(theme);
 
 @layer base {
 	/* Coping the base styles from preflight to .flat-oinky since html/body is no longer the root */
 	.flat-oinky {
-	  line-height: 1.5;
-	  -webkit-text-size-adjust: 100%;
-	  tab-size: 4;
-	  font-family: var(--default-font-family, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji');
-	  font-feature-settings: var(--default-font-feature-settings, normal);
-	  font-variation-settings: var(--default-font-variation-settings, normal);
-	  -webkit-tap-highlight-color: transparent;
+		line-height: 1.5;
+		-webkit-text-size-adjust: 100%;
+		tab-size: 4;
+		font-family: var(
+			--default-font-family,
+			ui-sans-serif,
+			system-ui,
+			sans-serif,
+			'Apple Color Emoji',
+			'Segoe UI Emoji',
+			'Segoe UI Symbol',
+			'Noto Color Emoji'
+		);
+		font-feature-settings: var(--default-font-feature-settings, normal);
+		font-variation-settings: var(--default-font-variation-settings, normal);
+		-webkit-tap-highlight-color: transparent;
 	}
 }
 
-.flat-oinky { @import "tailwindcss/preflight.css" layer(base) }
+@scope (.flat-oinky) {
+	@import 'tailwindcss/preflight.css' layer(base);
+}
 
-@import "tailwindcss/utilities.css" layer(utilities);
+@layer base {
+	@scope (html) to (.flat-oinky) {
+		button {
+			background: rgb(239, 239, 239);
+			color: black;
+		}
+		button:hover {
+			background: rgb(219, 219, 219);
+		}
+	}
+}
 
-@plugin "daisyui";
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@plugin "daisyui" {
+	themes: all;
+}
 
 @config "../tailwind.config.js";
 
@@ -29,16 +54,14 @@
 
 /* replacing tailwind/daisy styles that aren't respecting the .flat-oinky scope */
 
-:root, [data-theme] {
+:root,
+[data-theme] {
 	background: unset;
 	color: unset;
 }
-.flat-oinky, .flat-oinky [data-theme] {
+.flat-oinky,
+.flat-oinky [data-theme] {
 	color: var(--color-base-content);
-}
-
-[fmmo-asset=html] button {
-	color: unset;
 }
 
 /* Now onto customizing flat mmo styles for our own sake */
@@ -56,13 +79,18 @@ body {
 	display: none !important;
 }
 
-canvas, img {
+canvas,
+img {
 	image-rendering: pixelated;
 }
 
 @keyframes fadeOut {
-	0% { opacity: 1; }
-	100% { opacity: 0; }
+	0% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
 }
 
 /* Note: need to add this since FlatMMO's styles are scoped now */

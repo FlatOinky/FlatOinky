@@ -1,4 +1,4 @@
-export type FlatMmoWorld = {
+export type FMWorld = {
 	id: number;
 	name: string;
 	wss: string;
@@ -7,7 +7,7 @@ export type FlatMmoWorld = {
 	world_type: string;
 };
 
-export type FlatMmoCharacter = {
+export type FMCharacter = {
 	id: string;
 	username: string;
 	level: string;

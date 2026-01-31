@@ -164,7 +164,7 @@ const appendChatMessage = (chatMessage: ChatMessage): void => {
 	if (!chatMessageContainer || !chatPopupContainer) return;
 	const isAtBottom =
 		chatMessageContainer.scrollTop + chatMessageContainer.clientHeight >=
-		chatMessageContainer.scrollHeight - chatMessageContainer.clientHeight / 2;
+		chatMessageContainer.scrollHeight - chatMessageContainer.clientHeight / 3;
 	const chatMessageLi = document.createElement('li');
 	chatMessageLi.className = getLiChatMessageClassName();
 	chatMessageLi.innerHTML = renderChatMessage(chatMessage);
