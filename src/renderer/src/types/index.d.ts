@@ -1,7 +1,7 @@
-import type { FOClient, FOPlugin } from '../client';
-import type { FMWorld, FMCharacter } from './flat_mmo';
+import type { OinkyClient } from '../client';
+import type { FMMOWorld, FMMOCharacter } from './flat_mmo';
 
-export { FMCharacter, FMWorld, FOPlugin };
+export { FMMOCharacter, FMMOWorld };
 
 declare global {
 	module '*.html' {
@@ -17,13 +17,13 @@ declare global {
 		reloadWindow: () => void;
 		flatOinky: {
 			page: string;
-			worlds: FMWorld[] | null;
+			worlds: FMMOWorld[] | null;
 			worldIndex: number;
-			characters: FMCharacter[] | null;
+			characters: FMMOCharacter[] | null;
 			characterIndex: number;
 			loading: Record<string, boolean>;
 			errors: Record<string, string>;
-			client: FOClient;
+			client: OinkyClient;
 		};
 		// FlatMMO stuff
 		Globals: {

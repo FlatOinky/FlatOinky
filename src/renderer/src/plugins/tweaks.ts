@@ -1,3 +1,5 @@
+import { OinkyPlugin } from '../client';
+
 const addBankSearchClearer = (): void => {
 	const searchInput = document.querySelector<HTMLInputElement>('#text-search-bank-input');
 	if (!searchInput) return;
@@ -21,14 +23,15 @@ const removeBankSearchClearer = (): void => {
 	if (clearButton) clearButton.remove();
 };
 
-export default (): void => {
-	window.flatOinky.client.registerPlugin({
-		namespace: 'core/tweaks',
-		onStartup: () => {
-			addBankSearchClearer();
-		},
-		onCleanup: () => {
-			removeBankSearchClearer();
-		},
-	});
-};
+export class TweaksPlugin extends OinkyPlugin {
+	public static namespace = 'core/tweaks';
+	public static name = 'UI Tweaks';
+
+	public onStartup(): void {
+		addBankSearchClearer();
+	}
+
+	public onCleanup(): void {
+		removeBankSearchClearer();
+	}
+}

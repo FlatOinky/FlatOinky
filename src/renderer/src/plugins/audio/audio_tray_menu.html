@@ -1,3 +1,6 @@
+{{#messages}}
+<div>{{{ . }}}</div>
+{{/messages}}
 <div class="flex gap-2">
 	<label class="btn btn-circle btn-primary btn-xs swap flex-none">
 		<input oinky-audio-tray-menu="toggle" type="checkbox" {{{ checked }}} />
@@ -36,7 +39,7 @@
 		type="range"
 		min="0"
 		max="1"
-		value="0.5"
+		value="{{ volume }}"
 		step="0.01"
 		class="range"
 	/>

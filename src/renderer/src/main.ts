@@ -10,9 +10,9 @@ import bannerLumberjackSrc from './assets/fmmo_lumberjack.gif';
 import bannerMinerSrc from './assets/fmmo_miner.gif';
 import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
-import { FMCharacter, FMWorld } from './types';
+import { FMMOCharacter, FMMOWorld } from './types';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
-import { FOClient } from './client';
+import { OinkyClient } from './client';
 import './assets/main.css';
 
 // TODO: use this api url for greasyfork to get userscripts
@@ -48,7 +48,7 @@ window.flatOinky = window.flatOinky ?? {
 	characterIndex: -1,
 	loading: { app: true },
 	errors: {},
-	client: new FOClient(),
+	client: new OinkyClient(),
 };
 
 const { flatOinky } = window;
@@ -77,7 +77,7 @@ const parseHtmlText = (htmlText: string): Document => {
 	return new DOMParser().parseFromString(htmlText, 'text/html');
 };
 
-const parseCharactersHtmlText = (htmlText: string): FMCharacter[] => {
+const parseCharactersHtmlText = (htmlText: string): FMMOCharacter[] => {
 	if (typeof htmlText !== 'string' || htmlText.length < 1) return [];
 	const charactersDocument = parseHtmlText(htmlText);
 	const characterElements = charactersDocument.querySelectorAll(
@@ -395,7 +395,7 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 				if (worlds.length < 1) {
 					errors.worlds = 'Unable to get worlds';
 				} else {
-					flatOinky.worlds = worlds as FMWorld[];
+					flatOinky.worlds = worlds as FMMOWorld[];
 				}
 			}
 			const characters = parseCharactersHtmlText(dashboardHtmlText);

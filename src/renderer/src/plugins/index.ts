@@ -1,14 +1,14 @@
 // import './bank_interface';
-import Taskbar from './taskbar';
-import Chat from './chat';
-import Tweaks from './tweaks';
-import Alerts from './alerts';
-import Audio from './audio';
+import { TaskbarPlugin } from './taskbar';
+import { ChatPlugin } from './chat';
+import { TweaksPlugin } from './tweaks';
+import { AlertsPlugin } from './alerts';
+import { AudioPlugin } from './audio';
 
 export default {
-	Taskbar,
-	Chat,
-	Tweaks,
-	Alerts,
-	Audio,
+	TaskbarPlugin,
+	ChatPlugin,
+	TweaksPlugin,
+	AlertsPlugin,
+	AudioPlugin,
 };

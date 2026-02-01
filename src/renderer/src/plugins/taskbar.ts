@@ -1,7 +1,8 @@
 import mustache from 'mustache';
-import taskbarTemplate from '../templates/components/taskbar.html';
+import taskbarTemplate from './taskbar/taskbar.html';
 import trayMenuIconTemplate from './taskbar/tray_menu_icon.html';
 import { version } from '../../../../package.json';
+import { OinkyPlugin } from '../client';
 
 const { ipcRenderer } = window.electron;
 
@@ -13,8 +14,6 @@ const renderTrayMenuIcon = (id: string, buttonIcon: string, menuContents: string
 	return mustache.render(trayMenuIconTemplate, { id, buttonIcon, menuContents });
 };
 
-const insertedMenuActions = new Map<string, HTMLElement>();
-
 const getMenuItemContainer = (id: string): HTMLLIElement => {
 	const existing = document.querySelector<HTMLLIElement>(`li[oinky-taskbar-menu=${id}]`);
 	if (existing) return existing;
@@ -23,14 +22,18 @@ const getMenuItemContainer = (id: string): HTMLLIElement => {
 	return container;
 };
 
-export const upsertTaskbarMenuAction = (id: string, element: HTMLElement): void => {
-	insertedMenuActions.set(id, element);
+export const upsertTaskbarMenuAction = (id: string, title: string, onClick: () => void): void => {
 	const actionsContainer = document.querySelector('[oinky-taskbar=menu-actions]');
 	if (!actionsContainer) return;
+	const buttonElement = document.createElement('button');
+	buttonElement.textContent = title;
+	buttonElement.onclick = onClick;
 	const itemContainer = getMenuItemContainer(id);
 	itemContainer.innerHTML = '';
-	itemContainer.appendChild(element);
-	actionsContainer.appendChild(itemContainer);
+	itemContainer.appendChild(buttonElement);
+	if (!actionsContainer.contains(itemContainer)) {
+		actionsContainer.appendChild(itemContainer);
+	}
 };
 
 const getTrayItemContainer = (id: string): HTMLDivElement => {
@@ -56,30 +59,30 @@ export const upsertTaskbarTrayMenuIcon = (
 	return iconContainer;
 };
 
-const mountTaskbar = (): void => {
-	const canvasContainer = document.querySelector('[fmmo-container=canvas]');
-	if (!canvasContainer) return;
-	const taskbarContainer = document.createElement('div');
-	taskbarContainer.className = 'flat-oinky';
-	taskbarContainer.style = 'display:contents;';
-	taskbarContainer.innerHTML = renderTaskbar();
-	canvasContainer.appendChild(taskbarContainer);
-	const restartButton = document.createElement('button');
-	restartButton.textContent = 'Reload Window';
-	restartButton.onclick = () => ipcRenderer.send('reloadWindow');
-	upsertTaskbarMenuAction('restart', restartButton);
-	if (process.env.NODE_ENV === 'development') {
-		const devtoolsButton = document.createElement('button');
-		devtoolsButton.onclick = () => ipcRenderer.send('openDevTools');
-		devtoolsButton.textContent = 'Open DevTools';
-		upsertTaskbarMenuAction('devtools', devtoolsButton);
-	}
-};
+export class TaskbarPlugin extends OinkyPlugin {
+	public static namespace = 'core/taskbar';
+	public static name = 'Taskbar';
 
-export default (): void => {
-	window.flatOinky.client.registerPlugin({
-		namespace: 'core/taskbar',
-		onStartup: () => mountTaskbar(),
-		onCleanup: () => {},
-	});
-};
+	public onStartup(): void {
+		const canvasContainer = document.querySelector('[fmmo-container=canvas]');
+		if (!canvasContainer) return;
+		const taskbarContainer = document.createElement('div');
+		taskbarContainer.className = 'flat-oinky';
+		taskbarContainer.style = 'display:contents;';
+		taskbarContainer.innerHTML = renderTaskbar();
+		taskbarContainer.setAttribute('flat-oinky', 'taskbar');
+		canvasContainer.appendChild(taskbarContainer);
+		upsertTaskbarMenuAction('restart', 'Reload Window', () => ipcRenderer.send('reloadWindow'));
+		if (process.env.NODE_ENV === 'development') {
+			upsertTaskbarMenuAction('devtools', 'Open DevTools', () =>
+				ipcRenderer.send('openDevTools'),
+			);
+		}
+	}
+
+	public onCleanup(): void {
+		const taskbarContainer = document.querySelector('[flat-oinky=taskbar]');
+		if (!taskbarContainer) return;
+		taskbarContainer.remove();
+	}
+}

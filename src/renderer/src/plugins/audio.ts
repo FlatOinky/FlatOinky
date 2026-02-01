@@ -1,15 +1,7 @@
 import mustache from 'mustache';
 import trayMenuTemplate from './audio/audio_tray_menu.html';
 import { upsertTaskbarTrayMenuIcon } from './taskbar';
-
-const namespace = 'core/audio';
-
-export const settings = {
-	enabled: false,
-	music: { enabled: true, volume: 0.5 },
-	sound: { enabled: true, volume: 0.5 },
-	alert: { enabled: true, volume: 0.5 },
-};
+import { OinkyPlugin, OinkyPluginContext } from '../client';
 
 const icons = {
 	music: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4"><path d="M14 1.75a.75.75 0 0 0-.89-.737l-7.502 1.43a.75.75 0 0 0-.61.736v2.5c0 .018 0 .036.002.054V9.73a1 1 0 0 1-.813.983l-.58.11a1.978 1.978 0 0 0 .741 3.886l.603-.115c.9-.171 1.55-.957 1.55-1.873v-1.543l-.001-.043V6.3l6-1.143v3.146a1 1 0 0 1-.813.982l-.584.111a1.978 1.978 0 0 0 .74 3.886l.326-.062A2.252 2.252 0 0 0 14 11.007V1.75Z" /></svg>`,
@@ -20,62 +12,24 @@ const icons = {
 const soundCache = new Map<string, HTMLAudioElement>();
 const musicCache = new Map<string, HTMLAudioElement>();
 
-let currentMusicTrack: HTMLAudioElement | undefined;
-
-// #region Sound
-
-const playSound = (url: string, volume: number): void => {
-	if (!settings.sound.enabled) return;
+const loadSound = (url: string): HTMLAudioElement => {
 	let sound = soundCache.get(url);
 	if (!sound) {
 		sound = new Audio(url);
 		soundCache.set(url, sound);
 	}
-	sound.volume = (volume ?? 1) * settings.sound.volume;
-	sound.play();
+	return sound;
 };
 
 // #region Music
 
-const loadMusic = (url: string): void => {
+const loadMusicTrack = (url: string): HTMLAudioElement => {
 	let track = musicCache.get(url);
 	if (!track) {
 		track = new Audio(url);
 		musicCache.set(url, track);
 	}
-	currentMusicTrack = track;
-};
-
-const updateMusicVolume = (): void => {
-	if (!currentMusicTrack) return;
-	currentMusicTrack.volume = 0.1 * settings.music.volume;
-};
-
-const pauseMusic = (): void => {
-	if (!currentMusicTrack) return;
-	currentMusicTrack.pause();
-};
-
-const stopMusic = (): void => {
-	if (!currentMusicTrack) return;
-	currentMusicTrack.pause();
-	currentMusicTrack.currentTime = 0;
-};
-
-const playMusic = (): void => {
-	if (!currentMusicTrack) return;
-	if (!settings.music.enabled) return;
-	updateMusicVolume();
-	currentMusicTrack.onended = () => {
-		setTimeout(
-			() => {
-				stopMusic();
-				playMusic();
-			},
-			Math.random() * (60 * 1000 + 20000),
-		);
-	};
-	currentMusicTrack.play();
+	return track;
 };
 
 // #region Setup Helpers
@@ -110,9 +64,11 @@ const ensureAudioEnabled = (): void => {
 
 // #region render
 
-const renderTrayMenu = (type: string): string => {
+const renderTrayMenu = (enbaled: boolean, volume: number, messages: string[] = []): string => {
 	return mustache.render(trayMenuTemplate, {
-		checked: (settings[type].enabled ?? false) ? 'checked' : '',
+		messages,
+		volume,
+		checked: enbaled ? 'checked' : '',
 	});
 };
 
@@ -141,74 +97,131 @@ const mountTrayVolume = (
 };
 
 const mountAudioTrayMenuIcon = (
-	type: string,
+	type: 'music' | 'sound',
+	menuContents: string,
 	onToggle: () => void,
 	onVolumeChange: (volume: number) => void,
 ): void => {
-	const buttonIcon = icons[type] ?? icons.sound;
-	const menuContents = renderTrayMenu(type);
+	const buttonIcon = icons[type];
 	const container = upsertTaskbarTrayMenuIcon(`audio-${type}`, buttonIcon, menuContents);
 	if (!container) return;
 	mountTrayToggle(container, onToggle);
 	mountTrayVolume(container, onVolumeChange);
 };
-
-const mountTrayItems = (): void => {
-	mountAudioTrayMenuIcon(
-		'sound',
-		() => void (settings.sound.enabled = !settings.sound.enabled),
-		(volume) => void (settings.sound.volume = volume),
-	);
-	mountAudioTrayMenuIcon(
-		'music',
-		() => {
-			settings.music.enabled = !settings.music.enabled;
-			settings.music.enabled ? playMusic() : pauseMusic();
-		},
-		(volume) => {
-			settings.music.volume = volume;
-			updateMusicVolume();
-		},
-	);
-};
-
 const dismountTrayItems = (): void => {};
 
-export default (): void => {
-	window.flatOinky.client.registerPlugin({
-		namespace,
-		onStartup: () => {
-			settings.enabled = true;
-			hideDefaultButtons();
-			mountTrayItems();
-			ensureAudioEnabled();
-		},
-		onCleanup: () => {
-			settings.enabled = false;
-			dismountTrayItems();
-			showDefaultButtons();
-		},
-		serverCommandHooks: {
-			audio_settings: (settings) => {
-				if (!settings.music) window.toggle_music();
-				if (!settings.sound) window.toggle_sound();
-			},
-		},
-		functionHooks: {
-			play_sound: (url, volume) => {
-				playSound(url, volume);
-				return false;
-			},
-			play_track(url) {
-				stopMusic();
-				loadMusic(url);
-				playMusic();
-				return false;
-			},
-			pause_track: () => {
-				stopMusic();
-				return false;
-			},
-		},
-	});
-};
+// type Context = OinkyPluginContext<AudioPlugin>;
+
+export class AudioPlugin extends OinkyPlugin {
+	public static namespace = 'core/audio';
+	public static name = 'Audio';
+
+	public musicEnabled = true;
+	public musicVolume = 0.5;
+	public soundEnabled = true;
+	public soundVolume = 0.5;
+
+	public currentMusicTrack: HTMLAudioElement | undefined;
+
+	constructor(context: OinkyPluginContext) {
+		super(context);
+		this.musicEnabled = this.storage.get('musicEnabled', (value) => value !== 'false');
+		this.musicVolume = this.storage.get('musicVolume', (value) => parseFloat(value ?? '0.5'));
+		this.soundEnabled = this.storage.get('soundEnabled', (value) => value !== 'false');
+		this.soundVolume = this.storage.get('soundVolume', (value) => parseFloat(value ?? '0.5'));
+		// TODO: Move stuff into class and load settings here
+	}
+
+	private toggleSound = (): void => {
+		this.soundEnabled = !this.soundEnabled;
+		this.storage.set('soundEnabled', this.soundEnabled);
+	};
+
+	private setSoundVolume = (volume: number): void => {
+		this.soundVolume = volume;
+		this.storage.set('soundVolume', volume);
+	};
+
+	private toggleMusic = (): void => {
+		this.musicEnabled = !this.musicEnabled;
+		this.musicEnabled ? this.currentMusicTrack?.play() : this.currentMusicTrack?.pause();
+		this.storage.set('musicEnabled', this.musicEnabled);
+	};
+
+	private setMusicVolume = (volume): void => {
+		this.musicVolume = volume;
+		if (this.currentMusicTrack) {
+			this.currentMusicTrack.volume = 0.1 * volume;
+		}
+		this.storage.set('musicVolume', volume);
+	};
+
+	public onStartup(): void {
+		hideDefaultButtons();
+		mountAudioTrayMenuIcon(
+			'sound',
+			renderTrayMenu(this.soundEnabled, this.soundVolume),
+			this.toggleSound,
+			this.setSoundVolume,
+		);
+		mountAudioTrayMenuIcon(
+			'music',
+			renderTrayMenu(this.musicEnabled, this.musicVolume, [
+				`<div class="text-warning text-sm text-center mb-1">Music breaks, will fix later</div>`,
+			]),
+			this.toggleMusic,
+			this.setMusicVolume,
+		);
+		ensureAudioEnabled();
+	}
+
+	public onCleanup(): void {
+		dismountTrayItems();
+		showDefaultButtons();
+	}
+
+	public hookServerCommand(key: string, values: string[]): void {
+		if (key !== 'audio_settings') return;
+		const isMusicEnabled = values[0] === '0';
+		if (!isMusicEnabled) window.toggle_music();
+		const isSoundEnabled = values[0] === '0';
+		if (!isSoundEnabled) window.toggle_sound();
+	}
+
+	public hookPlaySound(url: string, volume: number): boolean {
+		const sound = loadSound(url);
+		sound.volume = volume * this.soundVolume;
+		sound.play();
+		return false;
+	}
+
+	public hookPlayTrack(url: string): boolean {
+		if (this.currentMusicTrack) {
+			this.currentMusicTrack.pause();
+			this.currentMusicTrack.currentTime = 0;
+		}
+		const track = loadMusicTrack(url);
+		track.volume = 0.1 * this.musicVolume;
+		track.onended = () => {
+			setTimeout(
+				() => {
+					track.pause();
+					track.currentTime = 0;
+					if (this.musicEnabled) track.play();
+				},
+				Math.random() * (60 * 1000 + 20000),
+			);
+		};
+		if (this.musicEnabled) track.play();
+		this.currentMusicTrack = track;
+		return false;
+	}
+
+	public hookPauseTrack(): boolean {
+		if (this.currentMusicTrack) {
+			this.currentMusicTrack.pause();
+			this.currentMusicTrack.currentTime = 0;
+		}
+		return false;
+	}
+}

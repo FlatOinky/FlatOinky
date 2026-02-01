@@ -1,4 +1,4 @@
-export type FMWorld = {
+export type FMMOWorld = {
 	id: number;
 	name: string;
 	wss: string;
@@ -7,7 +7,7 @@ export type FMWorld = {
 	world_type: string;
 };
 
-export type FMCharacter = {
+export type FMMOCharacter = {
 	id: string;
 	username: string;
 	level: string;

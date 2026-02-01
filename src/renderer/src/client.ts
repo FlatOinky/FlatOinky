@@ -1,171 +1,78 @@
-// #region Types
+import { FMMOCharacter, FMMOWorld } from './types';
+import { OinkyPlugin, OinkyPluginContext } from './client/plugin';
+import { createStorage } from './client/storage';
+import { createChatMessage, OinkyChatMessage } from './client/chat_message';
 
-import { FMCharacter, FMWorld } from './types';
-
-type FOPluginSettingLabel = {
-	type: 'label';
-	label: string;
-};
-
-type FOPluginSettingDivider = {
-	type: 'divider';
-	label?: string;
-};
-
-type FOPluginSettingInputBase<t> = {
-	id: string;
-	name?: string;
-	description?: string;
-	default?: t;
-};
-
-type FOPluginSettingCheckbox = FOPluginSettingInputBase<boolean> & {
-	type: 'checkbox';
-};
-
-type FOPluginSettingText = FOPluginSettingInputBase<string> & {
-	type: 'text';
-};
-
-type FOPluginSettingNumber = FOPluginSettingInputBase<number> & {
-	type: 'number';
-	min?: number;
-	max?: number;
-};
-
-type FOPluginSettingRange = FOPluginSettingInputBase<number> & {
-	type: 'range';
-	min?: number;
-	max?: number;
-};
-
-type FOPluginSettingColor = FOPluginSettingInputBase<string> & {
-	type: 'color';
-};
-
-export type FOPluginSetting =
-	| FOPluginSettingLabel
-	| FOPluginSettingDivider
-	| FOPluginSettingCheckbox
-	| FOPluginSettingText
-	| FOPluginSettingNumber
-	| FOPluginSettingRange
-	| FOPluginSettingColor;
-
-type HookResult = boolean | undefined | null | void;
-
-export type FOPluginServerCommandHook = (values: string[], rawData: string) => HookResult;
-
-export type FOPlugin = {
-	namespace: string;
-	// scope: string;
-	// id: string;
-	settings?: FOPluginSetting[];
-	dependencies?: string[];
-	onStartup?: () => void;
-	onCleanup?: () => void;
-	onChatMessage?: (message: object) => void;
-	onLoggedIn?: () => void;
-	functionHooks?: {
-		add_to_chat?: (
-			username: string,
-			tag: string,
-			icon: string,
-			color: string,
-			message: string,
-		) => HookResult;
-		play_sound?: (url: string, volume: number) => HookResult;
-		play_track?: (url: string) => HookResult;
-		pause_track?: () => HookResult;
-	};
-	serverCommandHooks?: {
-		chat?: FOPluginServerCommandHook;
-		yell?: FOPluginServerCommandHook;
-		chat_local_message?: FOPluginServerCommandHook;
-		update_objects?: FOPluginServerCommandHook;
-		reset_ground_items?: FOPluginServerCommandHook;
-		add_ground_item?: FOPluginServerCommandHook;
-		audio_settings?: (settings: { music: boolean; sound: boolean }) => HookResult;
-	};
-};
+export { OinkyPlugin };
+export type { OinkyPluginContext, OinkyChatMessage };
 
 // #region Variables
 
-const plugins: Record<string, FOPlugin> = {};
-const enabledPlugins = new Set<string>([
+type OinkyPluginNamespace = (typeof OinkyPlugin)['namespace'];
+const pluginClasses = new Map<OinkyPluginNamespace, typeof OinkyPlugin>();
+const pluginInstances = new Map<OinkyPluginNamespace, OinkyPlugin>();
+const startedPlugins = new Set<OinkyPluginNamespace>([]);
+const enabledPlugins = new Set<OinkyPluginNamespace>([
 	'core/taskbar',
 	'core/chat',
 	'core/tweaks',
 	'core/alerts',
 	'core/audio',
 ]);
-const startedPlugins = new Set<string>();
 
-let hasStarted: boolean = false;
-let hasLoggedIn: boolean = false;
-let hasCoreLoaded: boolean = false;
+let isClientStarted: boolean = false;
+let isCoreLoaded: boolean = false;
 
 // #region Helpers
 
-const startPlugin = (plugin: FOPlugin): void => {
-	if (!hasStarted) return;
-	const { namespace } = plugin;
+const startPlugin = (Plugin: typeof OinkyPlugin): void => {
+	if (!isClientStarted) return;
+	const { namespace, dependencies = [] } = Plugin;
 	if (!enabledPlugins.has(namespace)) return;
 	if (startedPlugins.has(namespace)) return;
-	console.log('Starting ' + namespace);
-	if (plugin.onStartup) {
-		plugin.onStartup();
-		if (hasLoggedIn && plugin.onLoggedIn) plugin.onLoggedIn();
+	const isDependenciesStarted = dependencies.every((namespace) => startedPlugins.has(namespace));
+	if (!isDependenciesStarted) return;
+	let plugin = pluginInstances.get(namespace);
+	if (!plugin) {
+		console.log(`Initializing plugin ${namespace}`);
+		plugin = new Plugin({
+			storage: createStorage(namespace),
+			sessionStorage: createStorage(namespace),
+		});
+		pluginInstances.set(namespace, plugin);
 	}
+	console.log(`Starting plugin ${namespace}`);
+	if (plugin.onStartup) plugin.onStartup();
 	startedPlugins.add(namespace);
 };
 
-// NOTE: Doing hook callbacks so we don't have to use the spread operator to make and discard
-// array objects for each call
-
-type FOPluginHookCallback = (
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	hookCallback: (...args: any[]) => boolean,
-	plugin: FOPlugin,
-) => boolean;
-
-const callPluginHooks = (
-	hookCategory: string,
-	hook: string,
-	hookCallback: FOPluginHookCallback,
-): boolean => {
-	if (!hasStarted) return true;
-	return [...enabledPlugins.values()]
-		.map((pluginKey) => {
-			const plugin = plugins[pluginKey];
-			if (!plugin) return true;
-			const pluginHook = plugin[hookCategory]?.[hook];
-			if (typeof pluginHook !== 'function') return true;
-			return hookCallback(pluginHook, plugin) ?? true;
-		})
-		.every((resume) => resume === true);
+const startAllPlugins = (): void => {
+	let previousSize = -1;
+	let currentSize = 0;
+	do {
+		previousSize = pluginInstances.size;
+		pluginClasses.values().forEach((Plugin) => startPlugin(Plugin));
+		currentSize = pluginInstances.size;
+	} while (previousSize < currentSize);
 };
-
-const callServerCommandHooks = (hook: string, hookCallback: FOPluginHookCallback): boolean =>
-	callPluginHooks('serverCommandHooks', hook, hookCallback);
-
-const callFunctionHooks = (hook: string, hookCallback: FOPluginHookCallback): boolean =>
-	callPluginHooks('functionHooks', hook, hookCallback);
 
 // #region Client
 
-export class FOClient {
-	world?: FMWorld;
-	character?: FMCharacter;
+export class OinkyClient {
+	world?: FMMOWorld;
+	character?: FMMOCharacter;
 
 	constructor() {
-		import('./plugins').then(({ default: corePlugins }) => {
-			Object.entries(corePlugins).forEach(([name, init]) => {
-				console.log(`Initializing ${name} Plugin`);
-				init();
-			});
-			hasCoreLoaded = true;
-		});
+		import('./plugins')
+			.then(({ default: Plugins }) => {
+				[...Object.values(Plugins)].forEach((Plugin) =>
+					pluginClasses.set(Plugin.namespace, Plugin),
+				);
+				startAllPlugins();
+				console.log(Plugins, pluginClasses, pluginInstances);
+				isCoreLoaded = true;
+			})
+			.catch((error) => console.error(error));
 	}
 
 	get enabledPlugins(): string[] {
@@ -177,56 +84,54 @@ export class FOClient {
 	}
 
 	start(): void {
-		if (hasStarted) return;
+		if (isClientStarted) return;
 		console.log('Starting Flat Oinky Client');
-		hasStarted = true;
-		Object.entries(plugins).forEach(([pluginKey, plugin]) => {
-			if (!enabledPlugins.has(pluginKey)) return;
-			if (startedPlugins.has(pluginKey)) return;
-			startPlugin(plugin);
-		});
+		isClientStarted = true;
+		startAllPlugins();
 	}
 
-	registerPlugin = (plugin: FOPlugin): void => {
-		if (hasCoreLoaded && plugin.namespace.startsWith('core/')) return;
-		plugins[plugin.namespace] = plugin;
-		if (hasStarted && !startedPlugins.has(plugin.namespace)) startPlugin(plugin);
+	registerPlugin = (Plugin: typeof OinkyPlugin): void => {
+		const { namespace } = Plugin;
+		if (isCoreLoaded && namespace.startsWith('core/')) return;
+		pluginClasses.set(namespace, Plugin);
+		startPlugin(Plugin);
 	};
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	handleServerCommand(key, values: any[], rawData: string): boolean {
-		switch (key) {
-			case 'CHAT_LOCAL_MESSAGE':
-			case 'CHAT':
-			case 'YELL':
-				return callServerCommandHooks(key.toLowerCase(), (pluginHook) =>
-					pluginHook(values, rawData),
-				);
-			case 'AUDIO_SETTINGS':
-				return callServerCommandHooks('audio_settings', (pluginHook) =>
-					pluginHook({ music: values[0] == 0, sound: values[1] == 0 }),
-				);
-
-			case 'LOGGED_IN':
-				hasLoggedIn = true;
-				return true;
-
-			default:
-				return true;
-		}
+	handleServerCommand(key, values: string[], rawData: string): boolean {
+		return pluginInstances
+			.values()
+			.every((plugin) =>
+				plugin.hookServerCommand
+					? (plugin.hookServerCommand(key, values, rawData) ?? true)
+					: true,
+			);
 	}
 
-	handleFnHook_add_to_chat(username, tag, icon, color, message): boolean {
-		return callFunctionHooks('add_to_chat', (pluginHook) =>
-			pluginHook(username, tag, icon, color, message),
-		);
+	handleFnHook_add_to_chat(
+		username: string,
+		tag: string,
+		icon: string,
+		color: string,
+		message: string,
+	): boolean {
+		const chatMessage = createChatMessage(username, tag, icon, color, message);
+		return pluginInstances.values().every((plugin) => {
+			if (plugin.onChatMessage) plugin.onChatMessage(chatMessage);
+			return plugin.hookAddToChat
+				? (plugin.hookAddToChat(username, tag, icon, color, message) ?? true)
+				: true;
+		});
 	}
 
 	handleFnHook_play_sound(rawUrl, rawVolume): boolean {
 		if (typeof rawUrl !== 'string') return true;
 		const url = rawUrl.startsWith('http') ? rawUrl : 'https://flatmmo.com/' + rawUrl;
 		const volume = rawVolume ? parseFloat(rawVolume) : 1;
-		return callFunctionHooks('play_sound', (pluginHook) => pluginHook(url, volume));
+		return pluginInstances
+			.values()
+			.every((plugin) =>
+				plugin.hookPlaySound ? (plugin.hookPlaySound(url, volume) ?? true) : true,
+			);
 	}
 
 	handleFnHook_play_track(rawUrl): boolean {
@@ -234,10 +139,14 @@ export class FOClient {
 		const url = rawUrl.startsWith('http')
 			? rawUrl
 			: 'https://flatmmo.com/sounds/tracks/' + rawUrl;
-		return callFunctionHooks('play_track', (pluginHook) => pluginHook(url));
+		return pluginInstances
+			.values()
+			.every((plugin) => (plugin.hookPlayTrack ? (plugin.hookPlayTrack(url) ?? true) : true));
 	}
 
 	handleFnHook_pause_track(): boolean {
-		return callFunctionHooks('pause_track', (pluginHook) => pluginHook());
+		return pluginInstances
+			.values()
+			.every((plugin) => (plugin.hookPauseTrack ? (plugin.hookPauseTrack() ?? true) : true));
 	}
 }
