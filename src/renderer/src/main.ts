@@ -340,7 +340,10 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	);
 	const scriptElement = document.createElement('script');
 	scriptElement.setAttribute('fmmo-asset', 'script');
-	scriptElement.innerHTML = transpileScript(scriptContents.join('\n'));
+	scriptElement.innerHTML = transpileScript(
+		scriptContents.join('\n'),
+		OinkyClient.hookedFunctions,
+	);
 	document.body.appendChild(htmlElement);
 	document.body.appendChild(styleElement);
 	document.body.appendChild(scriptElement);

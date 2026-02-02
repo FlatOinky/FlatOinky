@@ -19,26 +19,33 @@ const removeObstructingScripts = (input: string): string => {
 		);
 };
 
-const createScriptHooks = (input: string): string => {
-	return input
-		.replace(
-			/function server_command\((.*)\)/g,
-			`function server_command($1) {
-					const resume = window.flatOinky.client.handleServerCommand($1);
-					if (!resume) return;
-					hookedFn_server_command($1);
-				}
-				function hookedFn_server_command($1)`,
-		)
-		.replace(
-			/(Globals.websocket.send\(['"]CONNECT=['"])/,
-			`window?.flatOinky?.client?.start();\n$1`,
-		)
-		.replaceAll(
-			/\nfunction (add_to_chat|play_sound|play_track|pause_track)\(([\S, ]*)\)[ \n]*\{/g,
-			`\nfunction $1($2) {\n    const resume = window.flatOinky.client.handleFnHook_$1($2);\n    if (!resume) return;\n    hookedFn_$1($2);\n}\nfunction hookedFn_$1($2) {`,
-		);
+const serverCommandReplacement = `
+function server_command($1) {
+	const resume = window.flatOinky.client.handleServerCommand($1);
+	if (!resume) return;
+	hookedFn_server_command($1);
+}
+function hookedFn_server_command($1)
+`.trim();
+
+const makeFunctionHooksRegex = (hookedFunctions: string[]): RegExp => {
+	return new RegExp(`\\nfunction (${hookedFunctions.join('|')})\\(([\\S, ]*)\\)[ \n]*\\{`, 'g');
 };
+
+const createScriptHooks =
+	(hookedFunctions: string[]) =>
+	(input: string): string => {
+		return input
+			.replace(/function server_command\((.*)\)/g, serverCommandReplacement)
+			.replace(
+				/(\w*)(Globals.websocket.send\(['"]CONNECT=['"])/,
+				`$1window?.flatOinky?.client?.handleBeforeConnect();\n$1$2`,
+			)
+			.replaceAll(
+				makeFunctionHooksRegex(hookedFunctions),
+				`\nfunction $1($2) {\n    const resume = window.flatOinky.client.handleFnHook_$1($2);\n    if (!resume) return;\n    hookedFn_$1($2);\n}\nfunction hookedFn_$1($2) {`,
+			);
+	};
 
 const convertScriptRelativeUrls = (input: string): string => {
 	return input
@@ -73,11 +80,11 @@ const transpileReducer = (input: string, transpilers: ((input: string) => string
 	return transpilers.reduce((input, transpiler) => transpiler(input), input);
 };
 
-export const transpileScript = (script: string): string =>
+export const transpileScript = (script: string, hookedFunctions: string[]): string =>
 	transpileReducer(script, [
 		removeSmittysDevScripts,
 		convertScriptRelativeUrls,
-		createScriptHooks,
+		createScriptHooks(hookedFunctions),
 	]);
 
 export const transpileStyle = (style: string): string =>

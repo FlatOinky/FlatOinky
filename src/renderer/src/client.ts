@@ -59,6 +59,8 @@ const startAllPlugins = (): void => {
 // #region Client
 
 export class OinkyClient {
+	static hookedFunctions = ['add_to_chat', 'play_sound', 'play_track', 'pause_track'];
+
 	world?: FMMOWorld;
 	character?: FMMOCharacter;
 
