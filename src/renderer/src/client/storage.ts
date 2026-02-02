@@ -4,7 +4,7 @@ export type OinkyPluginStorage = {
 	delete: (key: string) => void;
 	reactive: <T extends object>(
 		key: string,
-		obj: T,
+		defaults: T,
 		options?: {
 			encode?: (value: T) => string;
 			decode?: (value: string) => T;
@@ -48,14 +48,13 @@ const setupPluginStorage = (storage: Storage, namespace: string): OinkyPluginSto
 	delete(key) {
 		return storage.removeItem(`oinky/${namespace}/${key}`);
 	},
-	reactive(key, initial, options) {
+	reactive(key, defaults, options) {
 		const storageKey = `oinky/${namespace}/${key}`;
 		const encode = options?.encode ?? ((value) => JSON.stringify(value));
-		const decode = options?.decode ?? ((value) => JSON.parse(value));
+		const decode = options?.decode ?? ((value) => JSON.parse(value) as typeof defaults);
 		const storageResult = storage.getItem(storageKey);
-		const defaults = decode(encode(initial));
-		const obj = storageResult ? decode(storageResult) : {};
-		return deepProxy(obj, defaults, () => {
+		const obj = storageResult ? decode(storageResult) : ({} as typeof defaults);
+		return deepProxy(obj, decode(encode(defaults)), () => {
 			storage.setItem(storageKey, encode(obj));
 		});
 	},

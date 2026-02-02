@@ -1,11 +1,8 @@
 <div class="absolute top-full w-full -mt-1.5 pr-0.5">
-	<section oinky="taskbar" class="relative bg-base-100 rounded-b-lg flex p-1">
+	<section oinky="taskbar" class="relative bg-base-200 rounded-b-lg flex p-1">
 		<div oinky-taskbar="chat-container" class="contents"></div>
 		<div oinky-taskbar="spacer" class="flex-1"></div>
-		<div
-			oinky-taskbar="tray"
-			class="flex-none flex flex-row-reverse gap-2 mx-1 items-center"
-		></div>
+		<div oinky-taskbar="tray" class="flex-none flex gap-1 mx-1 items-center"></div>
 		<div class="flex-none border-r border-base-content/20 my-1 mx-2"></div>
 		<div oink-taskbar="menu-container" class="flex-none">
 			<button
@@ -29,7 +26,7 @@
 				</svg>
 			</button>
 			<div
-				class="dropdown dropdown-top dropdown-end w-3xs rounded-box bg-base-100 shadow my-2 border border-base-content/20"
+				class="dropdown dropdown-top dropdown-end w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20"
 				popover
 				id="oinky-taskbar-menu"
 				style="position-anchor: --oinky-taskbar-menu-btn"
@@ -38,7 +35,6 @@
 					<h2 class="text-sm">Flat Oinky</h2>
 					<h3 class="text-xs">v{{version}}</h3>
 				</div>
-				<div class="divider my-0 mx-2"></div>
 				<ul class="menu w-full">
 					<div oinky-taskbar="menu-actions" class="contents"></div>
 				</ul>

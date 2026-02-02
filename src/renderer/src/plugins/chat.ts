@@ -109,6 +109,7 @@ const renderChatTab = ({ name }: ChatTab, isActive: boolean): string => {
 };
 
 const renderChat = (
+	username: string,
 	messages: string[],
 	chatTabs: ChatTab[],
 	selectedChatTabIndex: number,
@@ -116,6 +117,8 @@ const renderChat = (
 ): string => {
 	return mustache.render(chatTemplate, {
 		messages,
+		// @ts-ignore-next-line
+		placeholder: username && `${username}:`,
 		tabs: chatTabs.map((chatTab, index) =>
 			renderChatTab(chatTab, index === selectedChatTabIndex),
 		),
@@ -314,7 +317,7 @@ export class ChatPlugin extends OinkyPlugin {
 
 	// #region Public Methods
 
-	public onStartup(): void {
+	public onStartup(context: OinkyPluginContext): void {
 		document.body
 			.querySelector<HTMLDivElement>('#chat-input')
 			?.setAttribute('oinky-hide', 'taskbar');
@@ -338,6 +341,7 @@ export class ChatPlugin extends OinkyPlugin {
 				),
 			);
 		container.innerHTML = renderChat(
+			context.character.username,
 			currentMessages,
 			this.chatTabs,
 			this.selectedChatTabIndex,

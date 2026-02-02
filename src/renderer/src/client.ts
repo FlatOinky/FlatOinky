@@ -9,7 +9,7 @@ export type { OinkyPluginContext, OinkyChatMessage };
 // #region Variables
 
 type OinkyPluginNamespace = (typeof OinkyPlugin)['namespace'];
-const pluginClasses = new Map<OinkyPluginNamespace, typeof OinkyPlugin>();
+const pluginRegistry = new Map<OinkyPluginNamespace, typeof OinkyPlugin>();
 const pluginInstances = new Map<OinkyPluginNamespace, OinkyPlugin>();
 const startedPlugins = new Set<OinkyPluginNamespace>([]);
 const enabledPlugins = new Set<OinkyPluginNamespace>([
@@ -21,37 +21,39 @@ const enabledPlugins = new Set<OinkyPluginNamespace>([
 ]);
 
 let isClientStarted: boolean = false;
-let isCoreLoaded: boolean = false;
+let isCoreRegistered: boolean = false;
 
 // #region Helpers
 
-const startPlugin = (Plugin: typeof OinkyPlugin): void => {
+const startPlugin = (Plugin: typeof OinkyPlugin, character: FMMOCharacter): void => {
 	if (!isClientStarted) return;
-	const { namespace, dependencies = [] } = Plugin;
+	const { namespace, name = namespace, dependencies = [] } = Plugin;
 	if (!enabledPlugins.has(namespace)) return;
 	if (startedPlugins.has(namespace)) return;
 	const isDependenciesStarted = dependencies.every((namespace) => startedPlugins.has(namespace));
 	if (!isDependenciesStarted) return;
+	const pluginContext: OinkyPluginContext = {
+		character,
+		storage: createStorage(namespace),
+		sessionStorage: createStorage(namespace),
+	};
 	let plugin = pluginInstances.get(namespace);
 	if (!plugin) {
-		console.log(`Initializing plugin ${namespace}`);
-		plugin = new Plugin({
-			storage: createStorage(namespace),
-			sessionStorage: createStorage(namespace),
-		});
+		console.log(`Initializing plugin ${name}`);
+		plugin = new Plugin(pluginContext);
 		pluginInstances.set(namespace, plugin);
 	}
-	console.log(`Starting plugin ${namespace}`);
-	if (plugin.onStartup) plugin.onStartup();
+	console.log(`Starting plugin ${name}`);
+	if (plugin.onStartup) plugin.onStartup(pluginContext);
 	startedPlugins.add(namespace);
 };
 
-const startAllPlugins = (): void => {
+const startAllPlugins = (character: FMMOCharacter): void => {
 	let previousSize = -1;
 	let currentSize = 0;
 	do {
 		previousSize = pluginInstances.size;
-		pluginClasses.values().forEach((Plugin) => startPlugin(Plugin));
+		pluginRegistry.values().forEach((Plugin) => startPlugin(Plugin, character));
 		currentSize = pluginInstances.size;
 	} while (previousSize < currentSize);
 };
@@ -67,12 +69,8 @@ export class OinkyClient {
 	constructor() {
 		import('./plugins')
 			.then(({ default: Plugins }) => {
-				[...Object.values(Plugins)].forEach((Plugin) =>
-					pluginClasses.set(Plugin.namespace, Plugin),
-				);
-				startAllPlugins();
-				console.log(Plugins, pluginClasses, pluginInstances);
-				isCoreLoaded = true;
+				Object.values(Plugins).forEach((Plugin) => this.registerPlugin(Plugin));
+				isCoreRegistered = true;
 			})
 			.catch((error) => console.error(error));
 	}
@@ -85,18 +83,12 @@ export class OinkyClient {
 		return [...startedPlugins.values()];
 	}
 
-	start(): void {
-		if (isClientStarted) return;
-		console.log('Starting Flat Oinky Client');
-		isClientStarted = true;
-		startAllPlugins();
-	}
-
 	registerPlugin = (Plugin: typeof OinkyPlugin): void => {
 		const { namespace } = Plugin;
-		if (isCoreLoaded && namespace.startsWith('core/')) return;
-		pluginClasses.set(namespace, Plugin);
-		startPlugin(Plugin);
+		if (isCoreRegistered && namespace.startsWith('core/')) return;
+		if (pluginRegistry.has(namespace)) return;
+		pluginRegistry.set(namespace, Plugin);
+		if (isClientStarted && this.character) startPlugin(Plugin, this.character);
 	};
 
 	handleServerCommand(key, values: string[], rawData: string): boolean {
@@ -107,6 +99,14 @@ export class OinkyClient {
 					? (plugin.hookServerCommand(key, values, rawData) ?? true)
 					: true,
 			);
+	}
+
+	handleBeforeConnect(): void {
+		if (isClientStarted) return;
+		if (!this.character) return;
+		console.log('Starting Flat Oinky Client');
+		isClientStarted = true;
+		startAllPlugins(this.character);
 	}
 
 	handleFnHook_add_to_chat(

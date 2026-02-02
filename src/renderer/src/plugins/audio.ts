@@ -112,65 +112,61 @@ const dismountTrayItems = (): void => {};
 
 // type Context = OinkyPluginContext<AudioPlugin>;
 
+const defaultAudioSettings = {
+	enabled: true,
+	volume: 0.5,
+};
+
 export class AudioPlugin extends OinkyPlugin {
 	public static namespace = 'core/audio';
 	public static name = 'Audio';
 
-	public musicEnabled = true;
-	public musicVolume = 0.5;
-	public soundEnabled = true;
-	public soundVolume = 0.5;
+	public music = defaultAudioSettings;
+	public sound = defaultAudioSettings;
 
-	public currentMusicTrack: HTMLAudioElement | undefined;
+	public musicTrack: HTMLAudioElement | undefined;
 
 	constructor(context: OinkyPluginContext) {
 		super(context);
-		this.musicEnabled = this.storage.get('musicEnabled', (value) => value !== 'false');
-		this.musicVolume = this.storage.get('musicVolume', (value) => parseFloat(value ?? '0.5'));
-		this.soundEnabled = this.storage.get('soundEnabled', (value) => value !== 'false');
-		this.soundVolume = this.storage.get('soundVolume', (value) => parseFloat(value ?? '0.5'));
-		// TODO: Move stuff into class and load settings here
+		this.music = this.storage.reactive('musicSettings', defaultAudioSettings);
+		this.sound = this.storage.reactive('soundSettings', defaultAudioSettings);
 	}
 
 	private toggleSound = (): void => {
-		this.soundEnabled = !this.soundEnabled;
-		this.storage.set('soundEnabled', this.soundEnabled);
+		this.sound.enabled = !this.sound.enabled;
 	};
 
 	private setSoundVolume = (volume: number): void => {
-		this.soundVolume = volume;
-		this.storage.set('soundVolume', volume);
+		this.sound.volume = volume;
 	};
 
 	private toggleMusic = (): void => {
-		this.musicEnabled = !this.musicEnabled;
-		this.musicEnabled ? this.currentMusicTrack?.play() : this.currentMusicTrack?.pause();
-		this.storage.set('musicEnabled', this.musicEnabled);
+		this.music.enabled = !this.music.enabled;
+		this.music.enabled ? this.musicTrack?.play() : this.musicTrack?.pause();
 	};
 
 	private setMusicVolume = (volume): void => {
-		this.musicVolume = volume;
-		if (this.currentMusicTrack) {
-			this.currentMusicTrack.volume = 0.1 * volume;
+		this.music.volume = volume;
+		if (this.musicTrack) {
+			this.musicTrack.volume = 0.1 * volume;
 		}
-		this.storage.set('musicVolume', volume);
 	};
 
 	public onStartup(): void {
 		hideDefaultButtons();
 		mountAudioTrayMenuIcon(
-			'sound',
-			renderTrayMenu(this.soundEnabled, this.soundVolume),
-			this.toggleSound,
-			this.setSoundVolume,
-		);
-		mountAudioTrayMenuIcon(
 			'music',
-			renderTrayMenu(this.musicEnabled, this.musicVolume, [
-				`<div class="text-warning text-sm text-center mb-1">Music breaks, will fix later</div>`,
+			renderTrayMenu(this.music.enabled, this.music.volume, [
+				`<div class="text-warning text-sm text-center">Music breaks, will fix later</div>`,
 			]),
 			this.toggleMusic,
 			this.setMusicVolume,
+		);
+		mountAudioTrayMenuIcon(
+			'sound',
+			renderTrayMenu(this.sound.enabled, this.sound.volume),
+			this.toggleSound,
+			this.setSoundVolume,
 		);
 		ensureAudioEnabled();
 	}
@@ -190,37 +186,37 @@ export class AudioPlugin extends OinkyPlugin {
 
 	public hookPlaySound(url: string, volume: number): boolean {
 		const sound = loadSound(url);
-		sound.volume = volume * this.soundVolume;
+		sound.volume = volume * this.sound.volume;
 		sound.play();
 		return false;
 	}
 
 	public hookPlayTrack(url: string): boolean {
-		if (this.currentMusicTrack) {
-			this.currentMusicTrack.pause();
-			this.currentMusicTrack.currentTime = 0;
+		if (this.musicTrack) {
+			this.musicTrack.pause();
+			this.musicTrack.currentTime = 0;
 		}
 		const track = loadMusicTrack(url);
-		track.volume = 0.1 * this.musicVolume;
+		track.volume = 0.1 * this.music.volume;
 		track.onended = () => {
 			setTimeout(
 				() => {
 					track.pause();
 					track.currentTime = 0;
-					if (this.musicEnabled) track.play();
+					if (this.music.enabled) track.play();
 				},
 				Math.random() * (60 * 1000 + 20000),
 			);
 		};
-		if (this.musicEnabled) track.play();
-		this.currentMusicTrack = track;
+		if (this.music.enabled) track.play();
+		this.musicTrack = track;
 		return false;
 	}
 
 	public hookPauseTrack(): boolean {
-		if (this.currentMusicTrack) {
-			this.currentMusicTrack.pause();
-			this.currentMusicTrack.currentTime = 0;
+		if (this.musicTrack) {
+			this.musicTrack.pause();
+			this.musicTrack.currentTime = 0;
 		}
 		return false;
 	}
