@@ -4,10 +4,6 @@ import type { FMMOWorld, FMMOCharacter } from './flat_mmo';
 export { FMMOCharacter, FMMOWorld };
 
 declare global {
-	module '*.html' {
-		let src: string;
-		export { src as default };
-	}
 	interface Window {
 		// Electron stuff
 		electron: ElectronAPI;

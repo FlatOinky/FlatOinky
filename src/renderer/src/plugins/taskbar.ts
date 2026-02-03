@@ -1,6 +1,6 @@
 import mustache from 'mustache';
-import taskbarTemplate from './taskbar/taskbar.html';
-import trayMenuIconTemplate from './taskbar/tray_menu_icon.html';
+import taskbarTemplate from './taskbar/taskbar.html?raw';
+import trayMenuIconTemplate from './taskbar/tray_menu_icon.html?raw';
 import { version } from '../../../../package.json';
 import { OinkyPlugin } from '../client';
 

@@ -1,7 +1,7 @@
 import mustache from 'mustache';
 import { formatDate } from 'date-fns';
-import chatTemplate from './chat/chat.html';
-import chatMessageTemplate from './chat/chat_message.html';
+import chatTemplate from './chat/chat.html?raw';
+import chatMessageTemplate from './chat/chat_message.html?raw';
 import yellIconSrc from '../assets/yell.png';
 import pmToconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
