@@ -1,3 +1,4 @@
+import { FMMOCharacter } from '../types';
 import { OinkyChatMessage } from './chat_message';
 import { OinkyPluginStorage } from './storage';
 
@@ -56,36 +57,33 @@ type HookResume = boolean | undefined | null | void;
 export type OinkyPluginServerCommandHook = (values: string[], rawData: string) => HookResume;
 
 export type OinkyPluginContext = {
+	character: FMMOCharacter;
 	storage: OinkyPluginStorage;
 	sessionStorage: OinkyPluginStorage;
 };
 
-export class OinkyPlugin {
-	public static namespace: string;
-	public static dependencies?: string[];
-	public static settings?: OinkyPluginSetting[];
+export interface OinkyPluginInstance {
+	onStartup?(context: OinkyPluginContext): void;
+	onCleanup?(context: OinkyPluginContext): void;
+	onChatMessage?(chatMessage: OinkyChatMessage): void;
 
-	public storage: OinkyPluginStorage;
-	public sessionStorage: OinkyPluginStorage;
-
-	public onStartup?(): void;
-	public onCleanup?(): void;
-	public onChatMessage?(chatMessage: OinkyChatMessage): void;
-
-	public hookServerCommand?(key: string, values: string[], rawData: string): HookResume;
-	public hookAddToChat?(
+	hookServerCommand?(key: string, values: string[], rawData: string): HookResume;
+	hookAddToChat?(
 		username: string,
 		tag: string,
 		icon: string,
 		color: string,
 		message: string,
 	): HookResume;
-	public hookPlaySound?(url: string, volume: number): HookResume;
-	public hookPlayTrack?(url: string): HookResume;
-	public hookPauseTrack?(): HookResume;
+	hookPlaySound?(url: string, volume: number): HookResume;
+	hookPlayTrack?(url: string): HookResume;
+	hookPauseTrack?(): HookResume;
+}
 
-	constructor(context: OinkyPluginContext) {
-		this.storage = context.storage;
-		this.sessionStorage = context.sessionStorage;
-	}
+export interface OinkyPlugin {
+	namespace: string;
+	name?: string;
+	dependencies?: string[];
+	settings?: OinkyPluginSetting[];
+	initiate: (context: OinkyPluginContext) => OinkyPluginInstance;
 }

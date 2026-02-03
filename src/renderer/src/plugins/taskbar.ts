@@ -59,30 +59,32 @@ export const upsertTaskbarTrayMenuIcon = (
 	return iconContainer;
 };
 
-export class TaskbarPlugin extends OinkyPlugin {
-	public static namespace = 'core/taskbar';
-	public static name = 'Taskbar';
-
-	public onStartup(): void {
-		const canvasContainer = document.querySelector('[fmmo-container=canvas]');
-		if (!canvasContainer) return;
-		const taskbarContainer = document.createElement('div');
-		taskbarContainer.className = 'flat-oinky';
-		taskbarContainer.style = 'display:contents;';
-		taskbarContainer.innerHTML = renderTaskbar();
-		taskbarContainer.setAttribute('flat-oinky', 'taskbar');
-		canvasContainer.appendChild(taskbarContainer);
-		upsertTaskbarMenuAction('restart', 'Reload Window', () => ipcRenderer.send('reloadWindow'));
-		if (process.env.NODE_ENV === 'development') {
-			upsertTaskbarMenuAction('devtools', 'Open DevTools', () =>
-				ipcRenderer.send('openDevTools'),
-			);
-		}
+const attachTaskbar = (): void => {
+	const canvasContainer = document.querySelector('[fmmo-container=canvas]');
+	if (!canvasContainer) return;
+	const taskbarContainer = document.createElement('div');
+	taskbarContainer.className = 'flat-oinky';
+	taskbarContainer.style = 'display:contents;';
+	taskbarContainer.innerHTML = renderTaskbar();
+	taskbarContainer.setAttribute('flat-oinky', 'taskbar');
+	canvasContainer.appendChild(taskbarContainer);
+	upsertTaskbarMenuAction('restart', 'Reload Window', () => ipcRenderer.send('reloadWindow'));
+	if (process.env.NODE_ENV === 'development') {
+		upsertTaskbarMenuAction('devtools', 'Open DevTools', () => ipcRenderer.send('openDevTools'));
 	}
+};
 
-	public onCleanup(): void {
-		const taskbarContainer = document.querySelector('[flat-oinky=taskbar]');
-		if (!taskbarContainer) return;
-		taskbarContainer.remove();
-	}
-}
+const detachTaskbar = (): void => {
+	const taskbarContainer = document.querySelector('[flat-oinky=taskbar]');
+	if (!taskbarContainer) return;
+	taskbarContainer.remove();
+};
+
+export const TaskbarPlugin: OinkyPlugin = {
+	namespace: 'core/taskbar',
+	name: 'Taskbar',
+	initiate: () => ({
+		onStartup: () => attachTaskbar(),
+		onCleanup: () => detachTaskbar(),
+	}),
+};

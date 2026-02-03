@@ -1,16 +1,15 @@
 import { FMMOCharacter, FMMOWorld } from './types';
-import { OinkyPlugin, OinkyPluginContext } from './client/plugin';
+import { OinkyPlugin, OinkyPluginContext, OinkyPluginInstance } from './client/plugin';
 import { createStorage } from './client/storage';
 import { createChatMessage, OinkyChatMessage } from './client/chat_message';
 
-export { OinkyPlugin };
-export type { OinkyPluginContext, OinkyChatMessage };
+export type { OinkyPlugin, OinkyPluginContext, OinkyChatMessage };
 
 // #region Variables
 
-type OinkyPluginNamespace = (typeof OinkyPlugin)['namespace'];
-const pluginRegistry = new Map<OinkyPluginNamespace, typeof OinkyPlugin>();
-const pluginInstances = new Map<OinkyPluginNamespace, OinkyPlugin>();
+type OinkyPluginNamespace = OinkyPlugin['namespace'];
+const pluginRegistry = new Map<OinkyPluginNamespace, OinkyPlugin>();
+const pluginInstances = new Map<OinkyPluginNamespace, OinkyPluginInstance>();
 const startedPlugins = new Set<OinkyPluginNamespace>([]);
 const enabledPlugins = new Set<OinkyPluginNamespace>([
 	'core/taskbar',
@@ -25,7 +24,7 @@ let isCoreRegistered: boolean = false;
 
 // #region Helpers
 
-const startPlugin = (Plugin: typeof OinkyPlugin, character: FMMOCharacter): void => {
+const startPlugin = (Plugin: OinkyPlugin, character: FMMOCharacter): void => {
 	if (!isClientStarted) return;
 	const { namespace, name = namespace, dependencies = [] } = Plugin;
 	if (!enabledPlugins.has(namespace)) return;
@@ -37,14 +36,14 @@ const startPlugin = (Plugin: typeof OinkyPlugin, character: FMMOCharacter): void
 		storage: createStorage(namespace),
 		sessionStorage: createStorage(namespace),
 	};
-	let plugin = pluginInstances.get(namespace);
-	if (!plugin) {
+	let pluginInstance = pluginInstances.get(namespace);
+	if (!pluginInstance) {
 		console.log(`Initializing plugin ${name}`);
-		plugin = new Plugin(pluginContext);
-		pluginInstances.set(namespace, plugin);
+		pluginInstance = Plugin.initiate(pluginContext);
+		pluginInstances.set(namespace, pluginInstance);
 	}
 	console.log(`Starting plugin ${name}`);
-	if (plugin.onStartup) plugin.onStartup(pluginContext);
+	pluginInstance.onStartup?.(pluginContext);
 	startedPlugins.add(namespace);
 };
 
@@ -83,7 +82,7 @@ export class OinkyClient {
 		return [...startedPlugins.values()];
 	}
 
-	registerPlugin = (Plugin: typeof OinkyPlugin): void => {
+	registerPlugin = (Plugin: OinkyPlugin): void => {
 		const { namespace } = Plugin;
 		if (isCoreRegistered && namespace.startsWith('core/')) return;
 		if (pluginRegistry.has(namespace)) return;
@@ -92,13 +91,9 @@ export class OinkyClient {
 	};
 
 	handleServerCommand(key, values: string[], rawData: string): boolean {
-		return pluginInstances
-			.values()
-			.every((plugin) =>
-				plugin.hookServerCommand
-					? (plugin.hookServerCommand(key, values, rawData) ?? true)
-					: true,
-			);
+		return pluginInstances.values().every((plugin) => {
+			return plugin.hookServerCommand?.(key, values, rawData) ?? true;
+		});
 	}
 
 	handleBeforeConnect(): void {
@@ -118,10 +113,8 @@ export class OinkyClient {
 	): boolean {
 		const chatMessage = createChatMessage(username, tag, icon, color, message);
 		return pluginInstances.values().every((plugin) => {
-			if (plugin.onChatMessage) plugin.onChatMessage(chatMessage);
-			return plugin.hookAddToChat
-				? (plugin.hookAddToChat(username, tag, icon, color, message) ?? true)
-				: true;
+			plugin.onChatMessage?.(chatMessage);
+			return plugin.hookAddToChat?.(username, tag, icon, color, message) ?? true;
 		});
 	}
 
@@ -129,11 +122,9 @@ export class OinkyClient {
 		if (typeof rawUrl !== 'string') return true;
 		const url = rawUrl.startsWith('http') ? rawUrl : 'https://flatmmo.com/' + rawUrl;
 		const volume = rawVolume ? parseFloat(rawVolume) : 1;
-		return pluginInstances
-			.values()
-			.every((plugin) =>
-				plugin.hookPlaySound ? (plugin.hookPlaySound(url, volume) ?? true) : true,
-			);
+		return pluginInstances.values().every((plugin) => {
+			return plugin.hookPlaySound?.(url, volume) ?? true;
+		});
 	}
 
 	handleFnHook_play_track(rawUrl): boolean {
@@ -141,14 +132,14 @@ export class OinkyClient {
 		const url = rawUrl.startsWith('http')
 			? rawUrl
 			: 'https://flatmmo.com/sounds/tracks/' + rawUrl;
-		return pluginInstances
-			.values()
-			.every((plugin) => (plugin.hookPlayTrack ? (plugin.hookPlayTrack(url) ?? true) : true));
+		return pluginInstances.values().every((plugin) => {
+			return plugin.hookPlayTrack?.(url) ?? true;
+		});
 	}
 
 	handleFnHook_pause_track(): boolean {
-		return pluginInstances
-			.values()
-			.every((plugin) => (plugin.hookPauseTrack ? (plugin.hookPauseTrack() ?? true) : true));
+		return pluginInstances.values().every((plugin) => {
+			return plugin.hookPauseTrack?.() ?? true;
+		});
 	}
 }
