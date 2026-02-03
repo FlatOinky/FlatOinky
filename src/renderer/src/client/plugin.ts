@@ -85,5 +85,5 @@ export interface OinkyPlugin {
 	name?: string;
 	dependencies?: string[];
 	settings?: OinkyPluginSetting[];
-	initiate: (context: OinkyPluginContext) => OinkyPluginInstance;
+	initiate: (context: OinkyPluginContext) => OinkyPluginInstance | Promise<OinkyPluginInstance>;
 }

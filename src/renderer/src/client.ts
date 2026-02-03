@@ -24,7 +24,7 @@ let isCoreRegistered: boolean = false;
 
 // #region Helpers
 
-const startPlugin = (Plugin: OinkyPlugin, character: FMMOCharacter): void => {
+const startPlugin = async (Plugin: OinkyPlugin, character: FMMOCharacter): Promise<void> => {
 	if (!isClientStarted) return;
 	const { namespace, name = namespace, dependencies = [] } = Plugin;
 	if (!enabledPlugins.has(namespace)) return;
@@ -39,7 +39,7 @@ const startPlugin = (Plugin: OinkyPlugin, character: FMMOCharacter): void => {
 	let pluginInstance = pluginInstances.get(namespace);
 	if (!pluginInstance) {
 		console.log(`Initializing plugin ${name}`);
-		pluginInstance = Plugin.initiate(pluginContext);
+		pluginInstance = await Plugin.initiate(pluginContext);
 		pluginInstances.set(namespace, pluginInstance);
 	}
 	console.log(`Starting plugin ${name}`);
@@ -47,12 +47,12 @@ const startPlugin = (Plugin: OinkyPlugin, character: FMMOCharacter): void => {
 	startedPlugins.add(namespace);
 };
 
-const startAllPlugins = (character: FMMOCharacter): void => {
+const startAllPlugins = async (character: FMMOCharacter): Promise<void> => {
 	let previousSize = -1;
 	let currentSize = 0;
 	do {
 		previousSize = pluginInstances.size;
-		pluginRegistry.values().forEach((Plugin) => startPlugin(Plugin, character));
+		await Promise.all(pluginRegistry.values().map((Plugin) => startPlugin(Plugin, character)));
 		currentSize = pluginInstances.size;
 	} while (previousSize < currentSize);
 };
