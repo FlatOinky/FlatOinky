@@ -37,31 +37,32 @@ const deepProxy = <T extends object>(
 	return proxy;
 };
 
-const setupPluginStorage = (storage: Storage, namespace: string): OinkyPluginStorage => ({
-	get(key, decoder = (string) => JSON.parse(string ?? '')) {
-		const value = storage.getItem(`oinky/${namespace}/${key}`);
-		return decoder(value);
-	},
-	set(key, value, encoder = (value) => JSON.stringify(value)) {
-		return storage.setItem(`oinky/${namespace}/${key}`, encoder(value));
-	},
-	delete(key) {
-		return storage.removeItem(`oinky/${namespace}/${key}`);
-	},
-	reactive(key, defaults, options) {
-		const storageKey = `oinky/${namespace}/${key}`;
-		const encode = options?.encode ?? ((value) => JSON.stringify(value));
-		const decode = options?.decode ?? ((value) => JSON.parse(value) as typeof defaults);
-		const storageResult = storage.getItem(storageKey);
-		const obj = storageResult ? decode(storageResult) : ({} as typeof defaults);
-		return deepProxy(obj, decode(encode(defaults)), () => {
-			storage.setItem(storageKey, encode(obj));
-		});
-	},
-});
-
-export const createStorage = (namespace: string): OinkyPluginStorage =>
-	setupPluginStorage(localStorage, namespace);
-
-export const createSessionStorage = (namespace: string): OinkyPluginStorage =>
-	setupPluginStorage(sessionStorage, namespace);
+export const createPluginStorage = (
+	storage: Storage,
+	namespace: string,
+	profile: string,
+): OinkyPluginStorage => {
+	const pluginKey = `oinky/plugins/${namespace}/${profile}`;
+	return {
+		get(key, decoder = (string) => JSON.parse(string ?? '')) {
+			const value = storage.getItem(`${pluginKey}/${key}`);
+			return decoder(value);
+		},
+		set(key, value, encoder = (value) => JSON.stringify(value)) {
+			return storage.setItem(`${pluginKey}/${key}`, encoder(value));
+		},
+		delete(key) {
+			return storage.removeItem(`${pluginKey}/${key}`);
+		},
+		reactive(key, defaults, options) {
+			const storageKey = `${pluginKey}/${key}`;
+			const encode = options?.encode ?? ((value) => JSON.stringify(value));
+			const decode = options?.decode ?? ((value) => JSON.parse(value) as typeof defaults);
+			const storageResult = storage.getItem(storageKey);
+			const obj = storageResult ? decode(storageResult) : ({} as typeof defaults);
+			return deepProxy(obj, decode(encode(defaults)), () => {
+				storage.setItem(storageKey, encode(obj));
+			});
+		},
+	};
+};
