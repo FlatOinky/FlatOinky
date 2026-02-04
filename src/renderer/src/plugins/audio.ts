@@ -186,6 +186,7 @@ const dismountTrayItems = (): void => {};
 export const AudioPlugin: OinkyPlugin = {
 	namespace: 'core/audio',
 	name: 'Audio',
+	dependencies: ['core/taskbar'],
 	initiate: (context) => {
 		musicSettings = context.storage.reactive('musicSettings', defaultAudioSettings);
 		soundSettings = context.storage.reactive('soundSettings', defaultAudioSettings);

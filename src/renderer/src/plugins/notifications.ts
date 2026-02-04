@@ -85,6 +85,7 @@ const mountTrayMenu = (): void => {
 export const NotificationsPlugin: OinkyPlugin = {
 	namespace: 'core/notifications',
 	name: 'Notifications',
+	dependencies: ['core/taskbar'],
 	initiate: (context) => {
 		noiseSettings = context.storage.reactive('alertSettings', initialNoiseSettings);
 		alertElement = new Audio(notificationMp3);
