@@ -25,6 +25,7 @@
 		"@electron-toolkit/utils": "^4.0.0",
 		"@tailwindcss/vite": "^4.1.18",
 		"date-fns": "^4.1.0",
+		"electron-store": "^11.0.2",
 		"mustache": "^4.2.0",
 		"tailwindcss": "^4.1.18"
 	},
