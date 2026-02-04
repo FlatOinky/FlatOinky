@@ -147,8 +147,11 @@ export class OinkyClient {
 	};
 
 	handleServerCommand = (key: string, values: string[], rawData: string): boolean => {
-		return pluginInstances.values().every((plugin) => {
-			return plugin.hookServerCommand?.(key, values, rawData) ?? true;
+		if (key === 'LOGGED_IN') {
+			pluginInstances.values().every((pluginInstance) => pluginInstance.onLogin?.());
+		}
+		return pluginInstances.values().every((pluginInstance) => {
+			return pluginInstance.hookServerCommand?.(key, values, rawData) ?? true;
 		});
 	};
 

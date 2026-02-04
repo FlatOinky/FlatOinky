@@ -201,6 +201,7 @@ export const AudioPlugin: OinkyPlugin = {
 				dismountTrayItems();
 				showDefaultButtons();
 			},
+			onLogin: () => ensureAudioEnabled(),
 
 			hookServerCommand: (key: string, values: string[]) => {
 				if (key !== 'audio_settings') return;

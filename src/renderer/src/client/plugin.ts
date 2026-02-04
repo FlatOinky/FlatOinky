@@ -64,6 +64,7 @@ export type OinkyPluginContext = {
 export interface OinkyPluginInstance {
 	onStartup?(): void;
 	onCleanup?(): void;
+	onLogin?(): void;
 	onChatMessage?(chatMessage: OinkyChatMessage): void;
 
 	hookServerCommand?(key: string, values: string[], rawData: string): HookResume;
