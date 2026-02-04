@@ -24,9 +24,9 @@ let isCoreRegistered: boolean = false;
 
 // #region Helpers
 
-const startPlugin = async (Plugin: OinkyPlugin, character: FMMOCharacter): Promise<void> => {
+const startPlugin = async (plugin: OinkyPlugin, character: FMMOCharacter): Promise<void> => {
 	if (!isClientStarted) return;
-	const { namespace, name = namespace, dependencies = [] } = Plugin;
+	const { namespace, name = namespace, dependencies = [] } = plugin;
 	if (!enabledPlugins.has(namespace)) return;
 	if (startedPlugins.has(namespace)) return;
 	const isDependenciesStarted = dependencies.every((namespace) => startedPlugins.has(namespace));
@@ -39,7 +39,7 @@ const startPlugin = async (Plugin: OinkyPlugin, character: FMMOCharacter): Promi
 	let pluginInstance = pluginInstances.get(namespace);
 	if (!pluginInstance) {
 		console.log(`Initializing plugin ${name}`);
-		pluginInstance = await Plugin.initiate(pluginContext);
+		pluginInstance = await plugin.initiate(pluginContext);
 		pluginInstances.set(namespace, pluginInstance);
 	}
 	console.log(`Starting plugin ${name}`);
@@ -52,7 +52,7 @@ const startAllPlugins = async (character: FMMOCharacter): Promise<void> => {
 	let currentSize = 0;
 	do {
 		previousSize = pluginInstances.size;
-		await Promise.all(pluginRegistry.values().map((Plugin) => startPlugin(Plugin, character)));
+		await Promise.all(pluginRegistry.values().map((plugin) => startPlugin(plugin, character)));
 		currentSize = pluginInstances.size;
 	} while (previousSize < currentSize);
 };
@@ -67,8 +67,8 @@ export class OinkyClient {
 
 	constructor() {
 		import('./plugins')
-			.then(({ default: Plugins }) => {
-				Object.values(Plugins).forEach((Plugin) => this.registerPlugin(Plugin));
+			.then(({ default: plugins }) => {
+				Object.values(plugins).forEach((plugin) => this.registerPlugin(plugin));
 				isCoreRegistered = true;
 			})
 			.catch((error) => console.error(error));
