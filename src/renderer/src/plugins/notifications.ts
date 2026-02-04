@@ -50,7 +50,7 @@ export const notify = (title: string, message?: string): void => {
 };
 
 const mountTrayMenu = (): void => {
-	const { name = '' } = AlertsPlugin;
+	const { name = '' } = NotificationsPlugin;
 	const container = upsertTaskbarTrayMenuIcon(
 		'alert',
 		alertIcon,
@@ -82,8 +82,8 @@ const mountTrayMenu = (): void => {
 	}
 };
 
-export const AlertsPlugin: OinkyPlugin = {
-	namespace: 'core/alerts',
+export const NotificationsPlugin: OinkyPlugin = {
+	namespace: 'core/notifications',
 	name: 'Notifications',
 	initiate: (context) => {
 		noiseSettings = context.storage.reactive('alertSettings', initialNoiseSettings);
