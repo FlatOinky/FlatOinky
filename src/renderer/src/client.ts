@@ -1,6 +1,6 @@
-import { FMMOCharacter, FMMOWorld } from './types';
+import { FMMOCharacter } from './types';
 import { OinkyPlugin, OinkyPluginContext, OinkyPluginInstance } from './client/plugin';
-import { createStorage } from './client/storage';
+import { createPluginStorage } from './client/storage';
 import { createChatMessage, OinkyChatMessage } from './client/chat_message';
 
 export type { OinkyPlugin, OinkyPluginContext, OinkyChatMessage };
@@ -19,51 +19,101 @@ const enabledPlugins = new Set<OinkyPluginNamespace>([
 	'core/audio',
 ]);
 
+let character: FMMOCharacter;
 let isClientStarted: boolean = false;
 let isCoreRegistered: boolean = false;
 
+const profiles: { id: string; name: string }[] = (() => {
+	const storedProfiles = localStorage.getItem('oinky/profiles');
+	if (!storedProfiles) return [];
+	const profiles = JSON.parse(storedProfiles);
+	if (!Array.isArray(profiles)) return [];
+	return profiles;
+})();
+
+if (profiles.length < 1) {
+	profiles.push({ id: 'default', name: 'Default' });
+}
+
+const getProfileKey = (): string =>
+	localStorage.getItem(`oinky/characters/${character?.username}/profileKey`) ??
+	profiles[0]?.id ??
+	'default';
+
 // #region Helpers
 
-const startPlugin = async (plugin: OinkyPlugin, character: FMMOCharacter): Promise<void> => {
+const startPlugin = async (plugin: OinkyPlugin, profileKey = getProfileKey()): Promise<void> => {
 	if (!isClientStarted) return;
 	const { namespace, name = namespace, dependencies = [] } = plugin;
 	if (!enabledPlugins.has(namespace)) return;
 	if (startedPlugins.has(namespace)) return;
 	const isDependenciesStarted = dependencies.every((namespace) => startedPlugins.has(namespace));
 	if (!isDependenciesStarted) return;
-	const pluginContext: OinkyPluginContext = {
-		character,
-		storage: createStorage(namespace),
-		sessionStorage: createStorage(namespace),
-	};
 	let pluginInstance = pluginInstances.get(namespace);
 	if (!pluginInstance) {
 		console.log(`Initializing plugin ${name}`);
-		pluginInstance = await plugin.initiate(pluginContext);
+		pluginInstance = await plugin.initiate({
+			character,
+			storage: createPluginStorage(localStorage, namespace, profileKey),
+		});
 		pluginInstances.set(namespace, pluginInstance);
 	}
 	console.log(`Starting plugin ${name}`);
-	pluginInstance.onStartup?.(pluginContext);
+	pluginInstance.onStartup?.();
 	startedPlugins.add(namespace);
 };
 
-const startAllPlugins = async (character: FMMOCharacter): Promise<void> => {
+const startAllPlugins = async (): Promise<void> => {
+	const profileKey = getProfileKey();
 	let previousSize = -1;
 	let currentSize = 0;
 	do {
 		previousSize = pluginInstances.size;
-		await Promise.all(pluginRegistry.values().map((plugin) => startPlugin(plugin, character)));
+		await Promise.all(pluginRegistry.values().map((plugin) => startPlugin(plugin, profileKey)));
 		currentSize = pluginInstances.size;
 	} while (previousSize < currentSize);
+};
+
+const stopPlugin = async (
+	namespace: string,
+	pluginInstance: OinkyPluginInstance,
+): Promise<void> => {
+	const plugin = pluginRegistry.get(namespace);
+	if (!plugin) {
+		// Note: If we can't get the plugin just kill the instance
+		console.warn(`plugin instance not found, shutting down ${namespace}`);
+		pluginInstance.onCleanup?.();
+		pluginInstances.delete(namespace);
+		return;
+	}
+	const isPluginDependedOn = pluginInstances
+		.keys()
+		.filter((key) => key !== namespace)
+		.map((key) => pluginRegistry.get(key)?.dependencies ?? [])
+		.some((dependencies) => dependencies.includes(namespace));
+	if (isPluginDependedOn) return;
+	console.log(`Stopping ${namespace}`);
+	pluginInstance.onCleanup?.();
+	pluginInstances.delete(namespace);
+};
+
+const stopAllPlugins = async (): Promise<void> => {
+	if (pluginInstances.size < 1) return;
+	let previousSize = 0;
+	let currentSize = -1;
+	do {
+		previousSize = pluginInstances.size;
+		await Promise.all(
+			pluginInstances.entries().map(([namespace, plugin]) => stopPlugin(namespace, plugin)),
+		);
+		currentSize = pluginInstances.size;
+	} while (previousSize > currentSize);
 };
 
 // #region Client
 
 export class OinkyClient {
 	static hookedFunctions = ['add_to_chat', 'play_sound', 'play_track', 'pause_track'];
-
-	world?: FMMOWorld;
-	character?: FMMOCharacter;
 
 	constructor() {
 		import('./plugins')
@@ -82,52 +132,57 @@ export class OinkyClient {
 		return [...startedPlugins.values()];
 	}
 
-	registerPlugin = (Plugin: OinkyPlugin): void => {
-		const { namespace } = Plugin;
-		if (isCoreRegistered && namespace.startsWith('core/')) return;
-		if (pluginRegistry.has(namespace)) return;
-		pluginRegistry.set(namespace, Plugin);
-		if (isClientStarted && this.character) startPlugin(Plugin, this.character);
+	setCharacter = async (selectedCharacter: FMMOCharacter): Promise<void> => {
+		await stopAllPlugins();
+		character = selectedCharacter;
+		if (isClientStarted) await startAllPlugins();
 	};
 
-	handleServerCommand(key, values: string[], rawData: string): boolean {
+	registerPlugin = (plugin: OinkyPlugin): void => {
+		const { namespace } = plugin;
+		if (isCoreRegistered && namespace.startsWith('core/')) return;
+		if (pluginRegistry.has(namespace)) return;
+		pluginRegistry.set(namespace, plugin);
+		if (isClientStarted && character) startPlugin(plugin);
+	};
+
+	handleServerCommand = (key: string, values: string[], rawData: string): boolean => {
 		return pluginInstances.values().every((plugin) => {
 			return plugin.hookServerCommand?.(key, values, rawData) ?? true;
 		});
-	}
+	};
 
-	handleBeforeConnect(): void {
+	handleBeforeConnect = (): void => {
 		if (isClientStarted) return;
-		if (!this.character) return;
 		console.log('Starting Flat Oinky Client');
 		isClientStarted = true;
-		startAllPlugins(this.character);
-	}
+		startAllPlugins();
+	};
 
-	handleFnHook_add_to_chat(
+	handleFnHook_add_to_chat = (
 		username: string,
 		tag: string,
 		icon: string,
 		color: string,
 		message: string,
-	): boolean {
+	): boolean => {
 		const chatMessage = createChatMessage(username, tag, icon, color, message);
 		return pluginInstances.values().every((plugin) => {
 			plugin.onChatMessage?.(chatMessage);
 			return plugin.hookAddToChat?.(username, tag, icon, color, message) ?? true;
 		});
-	}
+	};
 
-	handleFnHook_play_sound(rawUrl, rawVolume): boolean {
+	handleFnHook_play_sound = (rawUrl: string, rawVolume?: string): boolean => {
 		if (typeof rawUrl !== 'string') return true;
 		const url = rawUrl.startsWith('http') ? rawUrl : 'https://flatmmo.com/' + rawUrl;
 		const volume = rawVolume ? parseFloat(rawVolume) : 1;
 		return pluginInstances.values().every((plugin) => {
 			return plugin.hookPlaySound?.(url, volume) ?? true;
 		});
-	}
+	};
 
-	handleFnHook_play_track(rawUrl): boolean {
+	handleFnHook_play_track = (rawUrl: string): boolean => {
 		if (typeof rawUrl !== 'string') return true;
 		const url = rawUrl.startsWith('http')
 			? rawUrl
@@ -135,11 +190,11 @@ export class OinkyClient {
 		return pluginInstances.values().every((plugin) => {
 			return plugin.hookPlayTrack?.(url) ?? true;
 		});
-	}
+	};
 
-	handleFnHook_pause_track(): boolean {
+	handleFnHook_pause_track = (): boolean => {
 		return pluginInstances.values().every((plugin) => {
 			return plugin.hookPauseTrack?.() ?? true;
 		});
-	}
+	};
 }

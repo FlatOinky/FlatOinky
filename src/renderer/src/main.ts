@@ -274,8 +274,7 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	const world = worlds?.[worldIndex];
 	if (!character || !world) return;
 	window.setTitle(character.username);
-	flatOinky.client.character = character;
-	flatOinky.client.world = world;
+	flatOinky.client.setCharacter(character);
 	rootElement.innerHTML = renderLoaderPage();
 	const clientHtmlText = await ipcRenderer.invoke('getClientHtmlText', character.id, world.id);
 	const clientDocument = parseHtmlText(transpileHtml(clientHtmlText));

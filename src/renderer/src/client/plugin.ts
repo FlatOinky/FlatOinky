@@ -59,12 +59,11 @@ export type OinkyPluginServerCommandHook = (values: string[], rawData: string) =
 export type OinkyPluginContext = {
 	character: FMMOCharacter;
 	storage: OinkyPluginStorage;
-	sessionStorage: OinkyPluginStorage;
 };
 
 export interface OinkyPluginInstance {
-	onStartup?(context: OinkyPluginContext): void;
-	onCleanup?(context: OinkyPluginContext): void;
+	onStartup?(): void;
+	onCleanup?(): void;
 	onChatMessage?(chatMessage: OinkyChatMessage): void;
 
 	hookServerCommand?(key: string, values: string[], rawData: string): HookResume;
