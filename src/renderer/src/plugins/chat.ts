@@ -140,7 +140,7 @@ const renderChat = (
 	return mustache.render(chatTemplate, {
 		messages,
 		// @ts-ignore-next-line
-		placeholder: username && `${username}:`,
+		placeholder: username,
 		tabs: chatTabs.map((chatTab, index) =>
 			renderChatTab(chatTab, index === selectedChatTabIndex),
 		),
