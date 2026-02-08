@@ -21,7 +21,6 @@ const alertableSounds = [
 	{ path: 'sounds/short/gem.ogg', title: 'Gem Drop' },
 	{ path: 'sounds/short/fallingtree.mp3', title: 'Falling Tree' },
 	{ path: 'sounds/short/birdnest.ogg', title: 'Bird Nest' },
-	{ path: 'sounds/short/fullinvent.ogg', title: 'Full Inventory' },
 	{ path: 'sounds/alien.mp3', title: 'Alien Encounter' },
 ];
 
