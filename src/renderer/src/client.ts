@@ -113,6 +113,22 @@ const stopAllPlugins = async (): Promise<void> => {
 	} while (previousSize > currentSize);
 };
 
+/**
+ * Calls plugin 'soft' hooks.
+ *
+ * These hooks do not have impact on the rest of the system and therfore are called in an async
+ * function to let the rest of the fmmo client continue on.
+ */
+const callServerCommandSoftHooks = async (key: string, values: string[], rawData: string) => {
+	switch (key) {
+		case 'LOGGED_IN':
+			return pluginInstances.values().every((pluginInstance) => pluginInstance.onLogin?.());
+
+		default:
+			return;
+	}
+};
+
 // #region Client
 
 export class OinkyClient {
@@ -150,9 +166,7 @@ export class OinkyClient {
 	};
 
 	handleServerCommand = (key: string, values: string[], rawData: string): boolean => {
-		if (key === 'LOGGED_IN') {
-			pluginInstances.values().every((pluginInstance) => pluginInstance.onLogin?.());
-		}
+		callServerCommandSoftHooks(key, values, rawData);
 		return pluginInstances.values().every((pluginInstance) => {
 			return pluginInstance.hookServerCommand?.(key, values, rawData) ?? true;
 		});
