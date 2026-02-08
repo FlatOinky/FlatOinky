@@ -188,8 +188,8 @@ export const AudioPlugin: OinkyPlugin = {
 	name: 'Audio',
 	dependencies: ['core/taskbar'],
 	initiate: (context) => {
-		musicSettings = context.storage.reactive('musicSettings', defaultAudioSettings);
-		soundSettings = context.storage.reactive('soundSettings', defaultAudioSettings);
+		musicSettings = context.characterStorage.reactive('musicSettings', defaultAudioSettings);
+		soundSettings = context.characterStorage.reactive('soundSettings', defaultAudioSettings);
 		return {
 			onStartup: () => {
 				hideDefaultButtons();

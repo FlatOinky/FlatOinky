@@ -1,35 +1,47 @@
+import * as dot from 'dot-prop';
+import {
+	StorageData,
+	updateCharacterStorage,
+	updateGlobalStorage,
+	updateProfileStorage,
+} from './ipcRenderer';
+
+export type OinkyStorage = {
+	get: (keys: string | readonly (string | number)[]) => unknown;
+	set: (keys: string | readonly (string | number)[], value: unknown) => void;
+	delete: (keys: string | readonly (string | number)[]) => void;
+	reactive: <T extends object>(keys: string | readonly (string | number)[], defaults: T) => T;
+};
+
 export type OinkyPluginStorage = {
-	get: <T>(key: string, decoder?: (value: string | null) => T) => T;
-	set: <T>(key: string, value: T, encoder?: (value: T) => string) => void;
-	delete: (key: string) => void;
-	reactive: <T extends object>(
-		key: string,
-		defaults: T,
-		options?: {
-			encode?: (value: T) => string;
-			decode?: (value: string) => T;
-		},
-	) => T;
+	globalStorage: OinkyStorage;
+	profileStorage: OinkyStorage;
+	characterStorage: OinkyStorage;
 };
 
 const deepProxy = <T extends object>(
 	target: T,
 	defaults: T,
-	onChange: () => void,
+	onChange: (keys: readonly (string | number)[], newValue: unknown, oldValue: unknown) => void,
+	keys: readonly (string | number)[] = [],
 	cache = new WeakMap(),
 ): T => {
 	const proxy = new Proxy(target, {
 		get(target, property, receiver) {
-			const defaultValue = Reflect.get(defaults, property, receiver);
-			const value = Reflect.get(target, property, receiver) ?? defaultValue;
+			const key =
+				Array.isArray(target) && property !== 'length' ? Number(property) : String(property);
+			const defaultValue = Reflect.get(defaults, key, receiver);
+			const value = Reflect.get(target, key, receiver) ?? defaultValue;
 			if (typeof value !== 'object' || value === null) return value;
-			return deepProxy(value, defaultValue ?? {}, onChange, cache);
+			return deepProxy(value, defaultValue ?? {}, onChange, [...keys, key], cache);
 		},
 		set(target, property, newValue, receiver) {
-			const oldValue = Reflect.get(target, property, receiver);
+			const key =
+				Array.isArray(target) && property !== 'length' ? Number(property) : String(property);
+			const oldValue = Reflect.get(target, key, receiver);
 			if (oldValue === newValue) return true;
-			Reflect.set(target, property, newValue, receiver);
-			onChange();
+			Reflect.set(target, key, newValue, receiver);
+			onChange([...keys, key], newValue, oldValue);
 			return true;
 		},
 	});
@@ -37,32 +49,54 @@ const deepProxy = <T extends object>(
 	return proxy;
 };
 
-export const createPluginStorage = (
-	storage: Storage,
-	namespace: string,
-	profile: string,
-): OinkyPluginStorage => {
-	const pluginKey = `oinky/plugins/${namespace}/${profile}`;
+const wrapStorageData = <T extends object>(
+	storageData: T,
+	onUpdate: (key: readonly (string | number)[], value: unknown) => void,
+): OinkyStorage => {
 	return {
-		get(key, decoder = (string) => JSON.parse(string ?? '')) {
-			const value = storage.getItem(`${pluginKey}/${key}`);
-			return decoder(value);
+		get(property) {
+			const properties = Array.isArray(property) ? property : [property];
+			return dot.getProperty(storageData, properties);
 		},
-		set(key, value, encoder = (value) => JSON.stringify(value)) {
-			return storage.setItem(`${pluginKey}/${key}`, encoder(value));
+		set(property, value) {
+			const properties = Array.isArray(property) ? property : [property];
+			onUpdate(properties, value);
+			dot.setProperty(storageData, properties, value);
 		},
-		delete(key) {
-			return storage.removeItem(`${pluginKey}/${key}`);
+		delete(property) {
+			const properties = Array.isArray(property) ? property : [property];
+			onUpdate(properties, undefined);
+			dot.deleteProperty(storageData, properties);
 		},
-		reactive(key, defaults, options) {
-			const storageKey = `${pluginKey}/${key}`;
-			const encode = options?.encode ?? ((value) => JSON.stringify(value));
-			const decode = options?.decode ?? ((value) => JSON.parse(value) as typeof defaults);
-			const storageResult = storage.getItem(storageKey);
-			const obj = storageResult ? decode(storageResult) : ({} as typeof defaults);
-			return deepProxy(obj, decode(encode(defaults)), () => {
-				storage.setItem(storageKey, encode(obj));
+		reactive(property, defaults) {
+			const properties = Array.isArray(property) ? property : [property];
+			const data = (dot.getProperty(storageData, properties) ?? {}) as typeof defaults;
+			const clone = <T extends object>(data): T => JSON.parse(JSON.stringify(data));
+			return deepProxy(data, clone(defaults), (keys, value) => {
+				onUpdate([...properties, ...keys], value);
 			});
 		},
+	};
+};
+
+export const createPluginStorages = (
+	storageData: StorageData,
+	namespace: string,
+	profile: string,
+	username: string,
+): OinkyPluginStorage => {
+	const globalData = storageData.global?.[namespace] ?? {};
+	const profileData = storageData.profiles?.[profile]?.[namespace] ?? {};
+	const characterData = storageData.characters?.[username]?.[namespace] ?? {};
+	return {
+		globalStorage: wrapStorageData(globalData, (keys, value) =>
+			updateGlobalStorage([namespace, ...keys], value),
+		),
+		profileStorage: wrapStorageData(profileData, (keys, value) =>
+			updateProfileStorage([profile, namespace, ...keys], value),
+		),
+		characterStorage: wrapStorageData(characterData, (keys, value) =>
+			updateCharacterStorage([username, namespace, ...keys], value),
+		),
 	};
 };

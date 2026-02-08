@@ -1,4 +1,6 @@
 import { ipcMain, Notification, session } from 'electron';
+import * as storage from './storage';
+import type { StorageKey } from './storage';
 
 const flatUrl = 'https://flatmmo.com';
 
@@ -18,7 +20,6 @@ export const ipcMainSetup = (): void => {
 	});
 
 	ipcMain.on('createNotification', (_event, title: string, message: string) => {
-		console.log('createNotification', { title, message });
 		const notification = new Notification({ title, body: message });
 		notification.show();
 	});
@@ -157,5 +158,26 @@ export const ipcMainSetup = (): void => {
 					resolve([]);
 				});
 		});
+	});
+
+	ipcMain.handle('loadStorage', async () => ({
+		global: (await storage.loadGlobalStorage()) ?? {},
+		profiles: (await storage.loadProfileStorage()) ?? {},
+		characters: (await storage.loadCharacterStorage()) ?? {},
+	}));
+
+	ipcMain.on('updateGlobalStorage', (_event, key: StorageKey, value: unknown) => {
+		if ((typeof key !== 'string' && !Array.isArray(key)) || key.length < 1) return;
+		storage.updateGlobalStorage(key, value);
+	});
+
+	ipcMain.on('updateProfileStorage', (_event, key: StorageKey, value: unknown) => {
+		if ((typeof key !== 'string' && !Array.isArray(key)) || key.length < 1) return;
+		storage.updateProfileStorage(key, value);
+	});
+
+	ipcMain.on('updateCharacterStorage', (_event, key: StorageKey, value: unknown) => {
+		if ((typeof key !== 'string' && !Array.isArray(key)) || key.length < 1) return;
+		storage.updateCharacterStorage(key, value);
 	});
 };

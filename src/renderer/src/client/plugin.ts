@@ -56,9 +56,8 @@ type HookResume = boolean | undefined | null | void;
 
 export type OinkyPluginServerCommandHook = (values: string[], rawData: string) => HookResume;
 
-export type OinkyPluginContext = {
+export type OinkyPluginContext = OinkyPluginStorage & {
 	character: FMMOCharacter;
-	storage: OinkyPluginStorage;
 };
 
 export interface OinkyPluginInstance {

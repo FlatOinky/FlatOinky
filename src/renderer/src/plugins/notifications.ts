@@ -1,10 +1,9 @@
-import type { ElectronAPI } from '@electron-toolkit/preload';
-const { ipcRenderer } = window.electron as ElectronAPI;
 import notificationMp3 from '../assets/notification.mp3';
 import { OinkyPlugin } from '../client';
 import { upsertTaskbarTrayMenuIcon } from './taskbar';
 import alertTrayMenuTemplate from './notifications/notifications_tray_menu.html?raw';
 import mustache from 'mustache';
+import { createNotification } from '../client/ipcRenderer';
 
 // #region Vars
 
@@ -44,7 +43,7 @@ const playAlertAudio = (): void => {
 };
 
 export const notify = (title: string, message?: string): void => {
-	ipcRenderer.send('createNotification', title, message);
+	createNotification(title, message);
 	playAlertAudio();
 };
 
@@ -85,7 +84,7 @@ export const NotificationsPlugin: OinkyPlugin = {
 	name: 'Notifications',
 	dependencies: ['core/taskbar'],
 	initiate: (context) => {
-		noiseSettings = context.storage.reactive('alertSettings', initialNoiseSettings);
+		noiseSettings = context.profileStorage.reactive('alertSettings', initialNoiseSettings);
 		alertElement = new Audio(notificationMp3);
 		return {
 			onStartup: () => mountTrayMenu(),

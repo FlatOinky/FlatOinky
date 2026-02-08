@@ -3,8 +3,7 @@ import taskbarTemplate from './taskbar/taskbar.html?raw';
 import trayMenuIconTemplate from './taskbar/tray_menu_icon.html?raw';
 import { version } from '../../../../package.json';
 import { OinkyPlugin } from '../client';
-
-const { ipcRenderer } = window.electron;
+import { openDevTools, reloadWindow } from '../client/ipcRenderer';
 
 const renderTaskbar = (): string => {
 	return mustache.render(taskbarTemplate, { version });
@@ -68,9 +67,9 @@ const attachTaskbar = (): void => {
 	taskbarContainer.innerHTML = renderTaskbar();
 	taskbarContainer.setAttribute('flat-oinky', 'taskbar');
 	canvasContainer.appendChild(taskbarContainer);
-	upsertTaskbarMenuAction('restart', 'Reload Window', () => ipcRenderer.send('reloadWindow'));
+	upsertTaskbarMenuAction('restart', 'Reload Window', () => reloadWindow());
 	if (process.env.NODE_ENV === 'development') {
-		upsertTaskbarMenuAction('devtools', 'Open DevTools', () => ipcRenderer.send('openDevTools'));
+		upsertTaskbarMenuAction('devtools', 'Open DevTools', () => openDevTools());
 	}
 };
 

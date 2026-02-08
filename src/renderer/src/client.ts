@@ -1,11 +1,14 @@
 import { FMMOCharacter } from './types';
 import { OinkyPlugin, OinkyPluginContext, OinkyPluginInstance } from './client/plugin';
-import { createPluginStorage } from './client/storage';
+import { createPluginStorages } from './client/storage';
 import { createChatMessage, OinkyChatMessage } from './client/chat_message';
+import { loadStorage, StorageData } from './client/ipcRenderer';
 
 export type { OinkyPlugin, OinkyPluginContext, OinkyChatMessage };
 
 // #region Variables
+
+const storageData: Promise<StorageData> = loadStorage();
 
 type OinkyPluginNamespace = OinkyPlugin['namespace'];
 const pluginRegistry = new Map<OinkyPluginNamespace, OinkyPlugin>();
@@ -54,7 +57,7 @@ const startPlugin = async (plugin: OinkyPlugin, profileKey = getProfileKey()): P
 		console.log(`Initializing plugin ${name}`);
 		pluginInstance = await plugin.initiate({
 			character,
-			storage: createPluginStorage(localStorage, namespace, profileKey),
+			...createPluginStorages(await storageData, namespace, profileKey, character.username),
 		});
 		pluginInstances.set(namespace, pluginInstance);
 	}
