@@ -38,12 +38,12 @@ if (profiles.length < 1) {
 	profiles.push({ id: 'default', name: 'Default' });
 }
 
+// #region Helpers
+
 const getProfileKey = (): string =>
 	localStorage.getItem(`oinky/characters/${character?.username}/profileKey`) ??
 	profiles[0]?.id ??
 	'default';
-
-// #region Helpers
 
 const startPlugin = async (plugin: OinkyPlugin, profileKey = getProfileKey()): Promise<void> => {
 	if (!isClientStarted) return;
@@ -113,16 +113,33 @@ const stopAllPlugins = async (): Promise<void> => {
 	} while (previousSize > currentSize);
 };
 
+type HookCallback = (pluginInstance: OinkyPluginInstance, index: number) => void | boolean | null;
+
+const callHooks = (callback: HookCallback): boolean =>
+	pluginInstances
+		.values()
+		.map((pluginInstance, index) => callback(pluginInstance, index) ?? true)
+		.every((resume) => resume === true);
+
+const callSoftHooks = async (callback: HookCallback): Promise<void> =>
+	pluginInstances.values().forEach(callback);
+
+// #region Soft Hooks
+
 /**
  * Calls plugin 'soft' hooks.
  *
  * These hooks do not have impact on the rest of the system and therfore are called in an async
  * function to let the rest of the fmmo client continue on.
  */
-const callServerCommandSoftHooks = async (key: string, values: string[], rawData: string) => {
+const callServerCommandSoftHooks = async (
+	key: string,
+	_values: string[],
+	_rawData: string,
+): Promise<void> => {
 	switch (key) {
 		case 'LOGGED_IN':
-			return pluginInstances.values().every((pluginInstance) => pluginInstance.onLogin?.());
+			return callSoftHooks((pluginInstance) => pluginInstance.onLogin?.());
 
 		default:
 			return;
@@ -167,9 +184,9 @@ export class OinkyClient {
 
 	handleServerCommand = (key: string, values: string[], rawData: string): boolean => {
 		callServerCommandSoftHooks(key, values, rawData);
-		return pluginInstances.values().every((pluginInstance) => {
-			return pluginInstance.hookServerCommand?.(key, values, rawData) ?? true;
-		});
+		return callHooks((pluginInstance) =>
+			pluginInstance.hookServerCommand?.(key, values, rawData),
+		);
 	};
 
 	handleBeforeConnect = (): void => {
@@ -187,19 +204,17 @@ export class OinkyClient {
 		message: string,
 	): boolean => {
 		const chatMessage = createChatMessage(username, tag, icon, color, message);
-		return pluginInstances.values().every((plugin) => {
-			plugin.onChatMessage?.(chatMessage);
-			return plugin.hookAddToChat?.(username, tag, icon, color, message) ?? true;
-		});
+		callSoftHooks((pluginInstance) => pluginInstance.onChatMessage?.(chatMessage));
+		return callHooks((pluginInstance) =>
+			pluginInstance.hookAddToChat?.(username, tag, icon, color, message),
+		);
 	};
 
 	handleFnHook_play_sound = (rawUrl: string, rawVolume?: string): boolean => {
 		if (typeof rawUrl !== 'string') return true;
 		const url = rawUrl.startsWith('http') ? rawUrl : 'https://flatmmo.com/' + rawUrl;
 		const volume = rawVolume ? parseFloat(rawVolume) : 1;
-		return pluginInstances.values().every((plugin) => {
-			return plugin.hookPlaySound?.(url, volume) ?? true;
-		});
+		return callHooks((pluginInstance) => pluginInstance.hookPlaySound?.(url, volume));
 	};
 
 	handleFnHook_play_track = (rawUrl: string): boolean => {
@@ -207,14 +222,10 @@ export class OinkyClient {
 		const url = rawUrl.startsWith('http')
 			? rawUrl
 			: 'https://flatmmo.com/sounds/tracks/' + rawUrl;
-		return pluginInstances.values().every((plugin) => {
-			return plugin.hookPlayTrack?.(url) ?? true;
-		});
+		return callHooks((pluginInstance) => pluginInstance.hookPlayTrack?.(url));
 	};
 
 	handleFnHook_pause_track = (): boolean => {
-		return pluginInstances.values().every((plugin) => {
-			return plugin.hookPauseTrack?.() ?? true;
-		});
+		return callHooks((pluginInstance) => pluginInstance.hookPauseTrack?.());
 	};
 }
