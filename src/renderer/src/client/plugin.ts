@@ -80,9 +80,27 @@ export interface OinkyPluginInstance {
 }
 
 export interface OinkyPlugin {
+	/**
+	 * a unique identifier for the plugin. e.g. `core/alerts`, `core/chat`, `soggypiggy/tooltips`,
+	 * ect
+	 */
 	namespace: string;
+	/**
+	 * a friendly name for the plugin
+	 */
 	name?: string;
+	/**
+	 * a list of namespaces the plugin depends on and will wait for to have enabled and started
+	 * before the plugin itself can be initiated/started.
+	 */
 	dependencies?: string[];
+	/**
+	 * TODO (not implemented)
+	 */
 	settings?: OinkyPluginSetting[];
+	/**
+	 * initiates an instance of the plugin which is essentially an object of callbacks
+	 * @param {OinkyPluginContext} context
+	 */
 	initiate: (context: OinkyPluginContext) => OinkyPluginInstance | Promise<OinkyPluginInstance>;
 }
