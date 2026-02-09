@@ -75,6 +75,9 @@ const getLiChatMessageClassName = (): string => {
 const getMessageContainer = (): HTMLUListElement | null =>
 	document.querySelector<HTMLUListElement>('[oinky-chat=messages]');
 
+const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: number) =>
+	scrollTop + clientHeight >= scrollHeight - clientHeight / 3;
+
 // #region Renderers
 
 const renderUsername = (
@@ -180,7 +183,15 @@ const updateChatTabs = (): void => {
 		});
 };
 
-// #region Event Handlers
+const updateToggleIndicator = (active: boolean = true): void => {
+	const toggleIndicator = document.querySelector<HTMLButtonElement>(
+		'[oinky-chat=toggle-indicator]',
+	);
+	if (!toggleIndicator) return;
+	active ? toggleIndicator.classList.remove('hidden') : toggleIndicator.classList.add('hidden');
+};
+
+// #region Handlers
 
 const handleWheel = (event: WheelEvent): void => {
 	if (!isExpanded) return;
@@ -193,8 +204,15 @@ const handleWheel = (event: WheelEvent): void => {
 		event.y <= containerRect.bottom &&
 		event.y >= containerRect.top;
 	if (!hoveringChat) return;
+	const targetScrollTop = chatMessageContainer.scrollTop + event.deltaY;
+	const isAtBottom = checkIsAtBottom(
+		targetScrollTop,
+		chatMessageContainer.clientHeight,
+		chatMessageContainer.scrollHeight,
+	);
+	if (isAtBottom) updateToggleIndicator(false);
 	chatMessageContainer.scroll({
-		top: chatMessageContainer.scrollTop + event.deltaY,
+		top: targetScrollTop,
 		behavior: 'smooth',
 	});
 };
@@ -217,6 +235,7 @@ const handleToggleClick = (): void => {
 	document.querySelectorAll('[oinky-chat-expanded]').forEach((element) => {
 		element.setAttribute('oinky-chat-expanded', `${isExpanded}`);
 	});
+	updateToggleIndicator(false);
 };
 
 const handleChatInputKeydown =
@@ -330,14 +349,14 @@ const mountChat = (username: string): void => {
 		isExpanded,
 	);
 	const chatInput = container.querySelector<HTMLInputElement>('[oinky-chat=input]');
-	const toggle = container.querySelector<HTMLButtonElement>('[oinky-chat=toggle]');
-	const addTab = container.querySelector<HTMLButtonElement>('[oinky-chat=add-tab]');
-	if (!chatInput || !toggle || !addTab) return;
+	const toggleButton = container.querySelector<HTMLButtonElement>('[oinky-chat=toggle]');
+	const addTabButton = container.querySelector<HTMLButtonElement>('[oinky-chat=add-tab]');
+	if (!chatInput || !toggleButton || !addTabButton) return;
 	updateChatTabs();
 	document.addEventListener('wheel', handleWheel);
 	chatInput.onkeydown = handleChatInputKeydown(chatInput);
-	toggle.onclick = handleToggleClick;
-	addTab.onclick = handleAddTabClick;
+	toggleButton.onclick = handleToggleClick;
+	addTabButton.onclick = handleAddTabClick;
 };
 
 const dismountChat = (): void => {
@@ -356,9 +375,11 @@ const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 	const chatMessageContainer = getMessageContainer();
 	const chatPopupContainer = document.querySelector<HTMLUListElement>('[oinky-chat=popups]');
 	if (!chatMessageContainer || !chatPopupContainer) return;
-	const isAtBottom =
-		chatMessageContainer.scrollTop + chatMessageContainer.clientHeight >=
-		chatMessageContainer.scrollHeight - chatMessageContainer.clientHeight / 3;
+	const isAtBottom = checkIsAtBottom(
+		chatMessageContainer.scrollTop,
+		chatMessageContainer.clientHeight,
+		chatMessageContainer.scrollHeight,
+	);
 	const chatMessageLi = document.createElement('li');
 	chatMessageLi.className = getLiChatMessageClassName();
 	chatMessageLi.innerHTML = renderChatMessage(chatMessage, timestampFormat);
@@ -374,6 +395,9 @@ const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 	}
 	if (isAtBottom) {
 		chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
+	}
+	if (!isAtBottom && isExpanded) {
+		updateToggleIndicator(true);
 	}
 };
 
