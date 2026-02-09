@@ -180,6 +180,12 @@ const updateChatTabs = (): void => {
 				selectedChatTabIndex = index;
 				updateChatTabs();
 			};
+			button.oncontextmenu = () => {
+				if (index < 2) return;
+				if (selectedChatTabIndex >= index) selectedChatTabIndex -= 1;
+				chatTabs.splice(index, 1);
+				updateChatTabs();
+			};
 		});
 };
 
