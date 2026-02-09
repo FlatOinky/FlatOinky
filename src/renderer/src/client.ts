@@ -204,7 +204,20 @@ export class OinkyClient {
 		message: string,
 	): boolean => {
 		const chatMessage = createChatMessage(username, tag, icon, color, message);
-		callSoftHooks((pluginInstance) => pluginInstance.onChatMessage?.(chatMessage));
+		callSoftHooks((pluginInstance) => {
+			pluginInstance.onChatMessage?.(chatMessage);
+			switch (chatMessage.type) {
+				case 'level_up': {
+					const { skill, level } = chatMessage.data;
+					if (!isNaN(level) && typeof skill === 'string' && skill.length > 0) {
+						pluginInstance.onLevelUp?.(skill, level);
+					}
+					break;
+				}
+				default:
+					break;
+			}
+		});
 		return callHooks((pluginInstance) =>
 			pluginInstance.hookAddToChat?.(username, tag, icon, color, message),
 		);

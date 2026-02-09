@@ -65,6 +65,7 @@ export interface OinkyPluginInstance {
 	onCleanup?(): void;
 	onLogin?(): void;
 	onChatMessage?(chatMessage: OinkyChatMessage): void;
+	onLevelUp?(skill: string, level: number): void;
 
 	hookServerCommand?(key: string, values: string[], rawData: string): HookResume;
 	hookAddToChat?(

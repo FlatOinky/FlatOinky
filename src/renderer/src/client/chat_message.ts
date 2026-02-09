@@ -1,22 +1,29 @@
-export type OinkyChatMessage = {
-	type:
-		| 'local'
-		| 'yell'
-		| 'pm_to'
-		| 'pm_from'
-		| 'annoucement'
-		| 'level_up'
-		| 'restore'
-		| 'error'
-		| 'warning'
-		| 'achievement';
+type OinkyChatMessageBase = {
 	timestamp: Date;
 	color: string;
 	message: string;
-	username?: string;
+};
+
+type OinkyChatMessageChatter = OinkyChatMessageBase & {
+	type: 'local' | 'yell' | 'pm_to' | 'pm_from';
+	username: string;
 	icon?: string;
 	tag?: string;
 };
+
+type OinkyChatMessageLevelUp = OinkyChatMessageBase & {
+	type: 'level_up';
+	data: { skill: string; level: number };
+};
+
+type OinkyChatMessageOther = OinkyChatMessageBase & {
+	type: 'annoucement' | 'restore' | 'error' | 'warning' | 'achievement' | 'info';
+};
+
+export type OinkyChatMessage =
+	| OinkyChatMessageChatter
+	| OinkyChatMessageLevelUp
+	| OinkyChatMessageOther;
 
 const sanitizeMessage = (message: string): string =>
 	message
@@ -26,16 +33,14 @@ const sanitizeMessage = (message: string): string =>
 		.replaceAll('"', '&quot;')
 		.replaceAll("'", '&#039;');
 
-const determineServerMessageType = (message: string, color: string): OinkyChatMessage['type'] => {
-	const levelUpMatch = message.match(/^Congratulations! your .* level is now/i);
-	if (levelUpMatch) return 'level_up';
+const determineServerMessageType = (message: string, color: string) => {
 	if (message.startsWith('[server]')) return 'annoucement';
+	if (message.startsWith('You have completed the achievement')) return 'achievement';
 	const restoreMatch = message.match(/you.*are now full/i);
 	if (restoreMatch) return 'restore';
-	if (message.startsWith('You have completed the achievement')) return 'achievement';
 	if (color === 'red') return 'error';
 	if (color === 'orange') return 'warning';
-	return 'local';
+	return 'info';
 };
 
 export const createChatMessage = (
@@ -74,6 +79,15 @@ export const createChatMessage = (
 			type: `pm_${pmDirection.toLowerCase()}` as 'pm_to' | 'pm_from',
 		};
 	}
+	if (rawMessage.startsWith('[server]')) {
+		return { timestamp, color, message: rawMessage, type: 'annoucement' };
+	}
+	const levelUpMatch = rawMessage.match(/^congratulations! your (.+?) level is now (\d+)/i);
+	if (levelUpMatch) {
+		const [_match, skill, levelMatch] = levelUpMatch;
+		const level = parseInt(levelMatch);
+		return { timestamp, color, message: rawMessage, type: 'level_up', data: { skill, level } };
+	}
 	const type = determineServerMessageType(rawMessage, color);
-	return { timestamp, color, tag, icon, type, message: rawMessage };
+	return { timestamp, color, type, message: rawMessage };
 };
