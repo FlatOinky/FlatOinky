@@ -14,10 +14,16 @@ type OinkyChatMessageChatter = OinkyChatMessageBase & {
 type OinkyChatMessageLevelUp = OinkyChatMessageBase & {
 	type: 'level_up';
 	data: { skill: string; level: number };
+	username: undefined;
+	icon: undefined;
+	tag: undefined;
 };
 
 type OinkyChatMessageOther = OinkyChatMessageBase & {
 	type: 'annoucement' | 'restore' | 'error' | 'warning' | 'achievement' | 'info';
+	username: undefined;
+	icon: undefined;
+	tag: undefined;
 };
 
 export type OinkyChatMessage =
@@ -80,14 +86,39 @@ export const createChatMessage = (
 		};
 	}
 	if (rawMessage.startsWith('[server]')) {
-		return { timestamp, color, message: rawMessage, type: 'annoucement' };
+		return {
+			timestamp,
+			color,
+			message: rawMessage,
+			type: 'annoucement',
+			username: undefined,
+			icon: undefined,
+			tag: undefined,
+		};
 	}
 	const levelUpMatch = rawMessage.match(/^congratulations! your (.+?) level is now (\d+)/i);
 	if (levelUpMatch) {
 		const [_match, skill, levelMatch] = levelUpMatch;
 		const level = parseInt(levelMatch);
-		return { timestamp, color, message: rawMessage, type: 'level_up', data: { skill, level } };
+		return {
+			timestamp,
+			color,
+			message: rawMessage,
+			type: 'level_up',
+			data: { skill, level },
+			username: undefined,
+			icon: undefined,
+			tag: undefined,
+		};
 	}
 	const type = determineServerMessageType(rawMessage, color);
-	return { timestamp, color, type, message: rawMessage };
+	return {
+		timestamp,
+		color,
+		type,
+		message: rawMessage,
+		username: undefined,
+		icon: undefined,
+		tag: undefined,
+	};
 };
