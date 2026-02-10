@@ -31,7 +31,9 @@ const colorMap = {
 	red: 'text-red-400',
 };
 
+const usernamesCache = new Set<string>();
 const chatMessages: OinkyChatMessage[] = [];
+let usernameSelf = '';
 let tickTock = true;
 
 const sentHistory: string[] = [];
@@ -77,6 +79,13 @@ const getLiChatMessageClassName = (): string => {
 	const className = tickTock ? chatMessageLiClassName.tick : chatMessageLiClassName.tock;
 	tickTock = !tickTock;
 	return className;
+};
+
+const getRandomUsername = (): string => {
+	const { size } = usernamesCache;
+	if (size < 1) return usernameSelf;
+	const picked = Math.floor(Math.random() * size);
+	return [...usernamesCache.values()][picked];
 };
 
 const getMessageContainer = (): HTMLUListElement | null =>
@@ -325,6 +334,7 @@ const handleAddTabClick = (): void => {
 	form.onsubmit = handleSubmit;
 	submitButton.onclick = handleSubmit;
 	cancelButton.onclick = () => modal.close();
+	input.placeholder = getRandomUsername();
 	input.onkeydown = (event) => {
 		if (event.key !== 'Enter') return;
 		handleSubmit();
@@ -391,6 +401,7 @@ const dismountChat = (): void => {
 
 const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 	chatMessages.push(chatMessage);
+	if (chatMessage.username) usernamesCache.add(chatMessage.username);
 	const chatMessageContainer = getMessageContainer();
 	const chatPopupContainer = document.querySelector<HTMLUListElement>('[oinky-chat=popups]');
 	if (!chatMessageContainer || !chatPopupContainer) return;
@@ -427,6 +438,7 @@ export const ChatPlugin: OinkyPlugin = {
 	name: 'Enhanced Chat',
 	dependencies: ['core/taskbar'],
 	initiate: (context) => {
+		usernameSelf = context.character.username;
 		settings = context.profileStorage.reactive('settings', initialSettings);
 		channels = context.characterStorage.reactive('channels', initialChannels);
 
