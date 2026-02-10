@@ -22,26 +22,22 @@ export type OinkyPluginStorage = {
 const deepProxy = <T extends object>(
 	target: T,
 	defaults: T,
-	onChange: (keys: readonly (string | number)[], newValue: unknown, oldValue: unknown) => void,
-	keys: readonly (string | number)[] = [],
+	onChange: (keys: readonly (string | symbol)[], newValue: unknown, oldValue: unknown) => void,
+	keys: readonly (string | symbol)[] = [],
 	cache = new WeakMap(),
 ): T => {
 	const proxy = new Proxy(target, {
 		get(target, property, receiver) {
-			const key =
-				Array.isArray(target) && property !== 'length' ? Number(property) : String(property);
-			const defaultValue = Reflect.get(defaults, key, receiver);
-			const value = Reflect.get(target, key, receiver) ?? defaultValue;
+			const defaultValue = Reflect.get(defaults, property, receiver);
+			const value = Reflect.get(target, property, receiver) ?? defaultValue;
 			if (typeof value !== 'object' || value === null) return value;
-			return deepProxy(value, defaultValue ?? {}, onChange, [...keys, key], cache);
+			return deepProxy(value, defaultValue ?? {}, onChange, [...keys, property], cache);
 		},
 		set(target, property, newValue, receiver) {
-			const key =
-				Array.isArray(target) && property !== 'length' ? Number(property) : String(property);
-			const oldValue = Reflect.get(target, key, receiver);
+			const oldValue = Reflect.get(target, property, receiver);
 			if (oldValue === newValue) return true;
-			Reflect.set(target, key, newValue, receiver);
-			onChange([...keys, key], newValue, oldValue);
+			Reflect.set(target, property, newValue, receiver);
+			onChange([...keys, property], newValue, oldValue);
 			return true;
 		},
 	});

@@ -10,6 +10,7 @@ import { OinkyChatMessage, OinkyPlugin } from '../client';
 const namespace = 'core/chat';
 
 type ChatTab = {
+	type: 'custom' | 'pm';
 	prefix: string;
 	name: string;
 };
@@ -30,21 +31,27 @@ const colorMap = {
 	red: 'text-red-400',
 };
 
-const maxChatLength = 250;
-const timestampFormat = 'h:mmaaa';
+const chatMessages: OinkyChatMessage[] = [];
+let tickTock = true;
 
 const sentHistory: string[] = [];
 let sentHistoryIndex = -1;
 
-const chatMessages: OinkyChatMessage[] = [];
-const chatTabs: ChatTab[] = [
-	{ prefix: '', name: 'local' },
-	{ prefix: '/y', name: 'yell' },
-];
+const initialChannels = {
+	chatTabIndex: 0,
+	chatTabs: [
+		{ type: 'custom', prefix: '', name: 'local' },
+		{ type: 'custom', prefix: '/y', name: 'yell' },
+	] satisfies ChatTab[] as ChatTab[],
+};
+let channels = initialChannels;
 
-let tickTock = true;
-let isExpanded = true;
-let selectedChatTabIndex = 0;
+const initialSettings = {
+	isExpanded: true,
+	maxChatLength: 250,
+	timestampFormat: 'h:mmaaa',
+};
+let settings = initialSettings;
 
 // #region Utils
 
@@ -156,7 +163,7 @@ const renderChat = (
 const updateChatTabInputLabel = (): void => {
 	const label = document.querySelector<HTMLSpanElement>('[oinky-chat=input-label]');
 	if (!label) return;
-	const prefix = chatTabs[selectedChatTabIndex].prefix ?? '';
+	const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
 	if (prefix === '') {
 		label.style.display = 'none';
 		label.innerText = '';
@@ -170,20 +177,21 @@ const updateChatTabs = (): void => {
 	updateChatTabInputLabel();
 	const tabsContainer = document.querySelector<HTMLDivElement>('[oinky-chat=tabs-container]');
 	if (!tabsContainer) return;
-	tabsContainer.innerHTML = chatTabs
-		.map((chatTab, index) => renderChatTab(chatTab, index === selectedChatTabIndex))
+	tabsContainer.innerHTML = channels.chatTabs
+		.map((chatTab, index) => renderChatTab(chatTab, index === channels.chatTabIndex))
 		.join('\n');
 	document
 		.querySelectorAll<HTMLButtonElement>('button[oinky-chat=tab]')
 		.forEach((button, index) => {
 			button.onclick = () => {
-				selectedChatTabIndex = index;
+				channels.chatTabIndex = index;
 				updateChatTabs();
 			};
 			button.oncontextmenu = () => {
 				if (index < 2) return;
-				if (selectedChatTabIndex >= index) selectedChatTabIndex -= 1;
-				chatTabs.splice(index, 1);
+				if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
+				const clonedTabs = JSON.parse(JSON.stringify(channels.chatTabs));
+				channels.chatTabs = [...clonedTabs.slice(0, index), ...clonedTabs.slice(index + 1)];
 				updateChatTabs();
 			};
 		});
@@ -200,7 +208,7 @@ const updateToggleIndicator = (active: boolean = true): void => {
 // #region Handlers
 
 const handleWheel = (event: WheelEvent): void => {
-	if (!isExpanded) return;
+	if (!settings.isExpanded) return;
 	const chatMessageContainer = getMessageContainer();
 	if (!chatMessageContainer) return;
 	const containerRect = chatMessageContainer.getClientRects()[0];
@@ -231,15 +239,15 @@ const handleKeypress = (): void => {
 };
 
 const handleToggleClick = (): void => {
-	isExpanded = !isExpanded;
-	if (isExpanded) {
+	settings.isExpanded = !settings.isExpanded;
+	if (settings.isExpanded) {
 		const chatMessageContainer = getMessageContainer();
 		if (chatMessageContainer) {
 			chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
 		}
 	}
 	document.querySelectorAll('[oinky-chat-expanded]').forEach((element) => {
-		element.setAttribute('oinky-chat-expanded', `${isExpanded}`);
+		element.setAttribute('oinky-chat-expanded', `${settings.isExpanded}`);
 	});
 	updateToggleIndicator(false);
 };
@@ -248,7 +256,7 @@ const handleChatInputKeydown =
 	(chatInput: HTMLInputElement) =>
 	(event: KeyboardEvent): void => {
 		if (event.key === 'Enter') {
-			const prefix = chatTabs[selectedChatTabIndex].prefix ?? '';
+			const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
 			const message = chatInput.value;
 			if (message === '') return;
 			sentHistory.unshift(message);
@@ -310,7 +318,7 @@ const handleAddTabClick = (): void => {
 		modal.close();
 		const username = input.value.trim().toLowerCase();
 		if (username.length < 1) return;
-		chatTabs.push({ prefix: `/pm ${username}`, name: `@${username}` });
+		channels.chatTabs.push({ type: 'pm', prefix: `/pm ${username}`, name: `@${username}` });
 		updateChatTabs();
 	};
 	form.onsubmit = handleSubmit;
@@ -346,13 +354,17 @@ const mountChat = (username: string): void => {
 				colorClassName,
 			});
 		})
-		.concat(chatMessages.map((chatMessage) => renderChatMessage(chatMessage, timestampFormat)));
+		.concat(
+			chatMessages.map((chatMessage) =>
+				renderChatMessage(chatMessage, settings.timestampFormat),
+			),
+		);
 	container.innerHTML = renderChat(
 		username,
 		currentMessages,
-		chatTabs,
-		selectedChatTabIndex,
-		isExpanded,
+		channels.chatTabs,
+		channels.chatTabIndex,
+		settings.isExpanded,
 	);
 	const chatInput = container.querySelector<HTMLInputElement>('[oinky-chat=input]');
 	const toggleButton = container.querySelector<HTMLButtonElement>('[oinky-chat=toggle]');
@@ -388,7 +400,7 @@ const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 	);
 	const chatMessageLi = document.createElement('li');
 	chatMessageLi.className = getLiChatMessageClassName();
-	chatMessageLi.innerHTML = renderChatMessage(chatMessage, timestampFormat);
+	chatMessageLi.innerHTML = renderChatMessage(chatMessage, settings.timestampFormat);
 	chatMessageContainer.appendChild(chatMessageLi);
 	// Create and append popup
 	const popupLi = document.createElement('li');
@@ -396,13 +408,13 @@ const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 	popupLi.innerHTML = chatMessageLi.innerHTML;
 	chatPopupContainer.appendChild(popupLi);
 	setTimeout(() => popupLi?.remove(), 8000);
-	while (chatMessageContainer.children.length > maxChatLength) {
+	while (chatMessageContainer.children.length > settings.maxChatLength) {
 		chatMessageContainer.children[0].remove();
 	}
 	if (isAtBottom) {
 		chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
 	}
-	if (!isAtBottom && isExpanded) {
+	if (!isAtBottom && settings.isExpanded) {
 		updateToggleIndicator(true);
 	}
 };
@@ -413,10 +425,15 @@ export const ChatPlugin: OinkyPlugin = {
 	namespace: 'core/chat',
 	name: 'Enhanced Chat',
 	dependencies: ['core/taskbar'],
-	initiate: (context) => ({
-		onStartup: () => mountChat(context.character.username),
-		onCleanup: () => dismountChat(),
-		onChatMessage: (chatMessage) => mountChatMessage(chatMessage),
-		hookAddToChat: () => false,
-	}),
+	initiate: (context) => {
+		settings = context.profileStorage.reactive('settings', initialSettings);
+		channels = context.characterStorage.reactive('channels', initialChannels);
+
+		return {
+			onStartup: () => mountChat(context.character.username),
+			onCleanup: () => dismountChat(),
+			onChatMessage: (chatMessage) => mountChatMessage(chatMessage),
+			hookAddToChat: () => false,
+		};
+	},
 };

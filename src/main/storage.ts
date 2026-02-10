@@ -35,7 +35,6 @@ const loadFile = async <T extends object>(
 };
 
 const updateFile = async (file: string, key: StorageKey, value: unknown): Promise<void> => {
-	console.log(file, key, value);
 	const data = (await loadFile(file)) ?? {};
 	dot.setProperty(data, key, value);
 	const directory = getDirectory();
