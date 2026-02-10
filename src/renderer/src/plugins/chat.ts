@@ -231,8 +231,9 @@ const handleWheel = (event: WheelEvent): void => {
 	});
 };
 
-const handleKeypress = (): void => {
+const handleKeypress = (event: KeyboardEvent): void => {
 	if (window.has_modal_open()) return;
+	if (!event.key.match(/^[a-zA-Z]$/)) return;
 	const chatInput = document.querySelector<HTMLInputElement>('[oinky-chat=input]');
 	if (!chatInput) return;
 	chatInput.focus();
