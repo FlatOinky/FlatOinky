@@ -1,7 +1,7 @@
 import type { OinkyClient } from '../client';
-import type { FMMOWorld, FMMOCharacter } from './flat_mmo';
+import type { FMMOWorld, FMMOCharacter, FMMOPlayer } from './flat_mmo';
 
-export { FMMOCharacter, FMMOWorld };
+export { FMMOCharacter, FMMOWorld, FMMOPlayer };
 
 declare global {
 	interface Window {
@@ -38,5 +38,6 @@ declare global {
 		toggle_sound: () => void;
 		music_off: boolean;
 		toggle_music: () => void;
+		players: { [username: string]: FMMOPlayer };
 	}
 }
