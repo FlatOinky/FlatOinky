@@ -137,7 +137,7 @@ const renderChatMessage = (chatMessage: OinkyChatMessage, timestampFormat: strin
 };
 
 const renderChatTab = ({ name }: ChatTab, isActive: boolean): string => {
-	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active' : ''}">${name}</button>`;
+	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active bg-base-200' : 'hover:bg-base-200/60'}">${name}</button>`;
 };
 
 const renderChat = (

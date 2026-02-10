@@ -1,30 +1,54 @@
-<button oinky-chat="toggle" oinky-chat-expanded="{{ isExpanded }}" class="absolute right-full btn btn-sm btn-square m-1 indicator">
+<button
+	oinky-chat="toggle"
+	oinky-chat-expanded="{{ isExpanded }}"
+	class="absolute right-full btn btn-sm btn-nuetral hover:btn-primary btn-square m-1 indicator"
+>
 	<div oinky-chat="toggle-indicator" class="indicator-item status status-warning hidden"></div>
-	<svg class="w-6 h-6 -m-1 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-		<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+	<svg
+		class="w-6 h-6 -m-1 transition-transform"
+		xmlns="http://www.w3.org/2000/svg"
+		viewBox="0 0 20 20"
+		fill="currentColor"
+	>
+		<path
+			fill-rule="evenodd"
+			d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+			clip-rule="evenodd"
+		/>
 	</svg>
 </button>
 <label class="join-item input w-md">
-	<span oinky-chat="input-label" class="label text-xs mr-0 px-2" style="display:none;"></span>
+	<span oinky-chat="input-label" class="label text-xs mr-0 px-2" style="display: none"></span>
 	<input oinky-chat="input" placeholder="{{ placeholder }}" />
 </label>
-<div oinky-chat="message-popup-container" oinky-chat-expanded="{{ isExpanded }}" class="contents pointer-events-none">
+<div
+	oinky-chat="message-popup-container"
+	oinky-chat-expanded="{{ isExpanded }}"
+	class="contents pointer-events-none"
+>
 	<ul oinky-chat="popups" class="absolute left-0 bottom-full m-1 transition-opacity w-xl"></ul>
-	<ul oinky-chat="messages" class="absolute left-0 bottom-full m-1 transition-opacity w-xl bg-base-100/70 rounded max-h-64 overflow-y-scroll">
+	<ul
+		oinky-chat="messages"
+		class="absolute left-0 bottom-full m-1 transition-opacity w-xl bg-base-100/70 rounded max-h-64 overflow-y-scroll"
+	>
 		{{#messages}} {{{ . }}} {{/messages}}
 	</ul>
 </div>
-<div oinky-chat="tabs" class="absolute top-full max-w-xl flex">
+<div oinky-chat="tabs" class="absolute top-full max-w-xl flex ml-2">
 	<div oinky-chat="tabs-container" role="tablist" class="tabs tabs-lift tabs-bottom tabs-xs">
-		{{#tabs}}
-		{{{ . }}}
-		{{/tabs}}
+		{{#tabs}} {{{ . }}} {{/tabs}}
 	</div>
 	<div class="tabs tabs-lift tabs-bottom tabs-xs">
-		<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs btn-ghost">
-			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
+		<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs btn-ghost btn-primary">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 16 16"
+				fill="currentColor"
+				class="size-4"
+			>
 				<path
-					d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
+					d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
+				/>
 			</svg>
 		</button>
 	</div>
@@ -36,19 +60,42 @@
 		<div method="dialog" class="join w-full">
 			<label class="join-item w-full input">
 				<span class="label">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
-						<path fill-rule="evenodd" d="M5.404 14.596A6.5 6.5 0 1 1 16.5 10a1.25 1.25 0 0 1-2.5 0 4 4 0 1 0-.571 2.06A2.75 2.75 0 0 0 18 10a8 8 0 1 0-2.343 5.657.75.75 0 0 0-1.06-1.06 6.5 6.5 0 0 1-9.193 0ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" clip-rule="evenodd" />
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="size-5"
+					>
+						<path
+							fill-rule="evenodd"
+							d="M5.404 14.596A6.5 6.5 0 1 1 16.5 10a1.25 1.25 0 0 1-2.5 0 4 4 0 1 0-.571 2.06A2.75 2.75 0 0 0 18 10a8 8 0 1 0-2.343 5.657.75.75 0 0 0-1.06-1.06 6.5 6.5 0 0 1-9.193 0ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
+							clip-rule="evenodd"
+						/>
 					</svg>
 				</span>
 				<input autofocus type="text" />
 			</label>
-			<button oinky-modal="submit" class="btn join-item">
-				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+			<button oinky-modal="submit" class="btn focus:btn-success hover:btn-success join-item">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+					class="size-6"
+				>
 					<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
 				</svg>
 			</button>
-			<button oinky-modal="cancel" class="btn join-item">
-				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+			<button oinky-modal="cancel" class="btn focus:btn-error hover:btn-error join-item">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+					class="size-6"
+				>
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
 				</svg>
 			</button>
@@ -60,27 +107,27 @@
 </dialog>
 
 <style>
-	[oinky-chat=popups] li {
+	[oinky-chat='popups'] li {
 		animation-name: fadeOut;
 		animation-duration: 150ms;
 		animation-delay: 7850ms;
 	}
 
-	[oinky-chat-expanded=true][oinky-chat=toggle] svg {
+	[oinky-chat-expanded='true'][oinky-chat='toggle'] svg {
 		transform: scaleY(1);
 	}
 
-	[oinky-chat-expanded=false][oinky-chat=toggle] svg {
+	[oinky-chat-expanded='false'][oinky-chat='toggle'] svg {
 		transform: scaleY(-1);
 	}
 
-	[oinky-chat-expanded=true] [oinky-chat=messages],
-	[oinky-chat-expanded=false] [oinky-chat=popups] {
+	[oinky-chat-expanded='true'] [oinky-chat='messages'],
+	[oinky-chat-expanded='false'] [oinky-chat='popups'] {
 		opacity: 1;
 	}
 
-	[oinky-chat-expanded=false] [oinky-chat=messages],
-	[oinky-chat-expanded=true] [oinky-chat=popups] {
+	[oinky-chat-expanded='false'] [oinky-chat='messages'],
+	[oinky-chat-expanded='true'] [oinky-chat='popups'] {
 		opacity: 0;
 	}
 </style>
@@ -150,10 +197,12 @@
 		left: -40%;
 		width: 30%;
 		height: 100%;
-		background: linear-gradient(to right,
-				rgba(255, 255, 255, 0) 0%,
-				rgba(255, 255, 255, 0.5) 50%,
-				rgba(255, 255, 255, 0) 100%);
+		background: linear-gradient(
+			to right,
+			rgba(255, 255, 255, 0) 0%,
+			rgba(255, 255, 255, 0.5) 50%,
+			rgba(255, 255, 255, 0) 100%
+		);
 		animation: shine 2s infinite;
 		transform: skewX(-20deg);
 		pointer-events: none;
