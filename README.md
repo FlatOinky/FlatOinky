@@ -55,16 +55,24 @@ Currently there is only Windows and Linux support. If enough feedback requesting
 
 > [!WARNING]
 > If you are using Microsoft Edge you may recieve a warning while downloading.
+>
 > ![windows edge exe download warning](https://raw.githubusercontent.com/FlatOinky/FlatOinky/refs/heads/main/images/edge_warning.png)
+>
 > Click the `⋯` button and select 'Keep' to continue.
 
 2. Run the installer .exe
 
 > [!WARNING]
 > Flat Oinky is not code signed for windows due to the cost. This causes a warning to pop up when trying to run the installer.
+>
 > ![windows exe warning 1](https://raw.githubusercontent.com/FlatOinky/FlatOinky/refs/heads/main/images/windows_warning_1.png)
+>
 > To continue click the 'More info' text in the popup.
+>
+> ---
+>
 > ![windows exe warning 2](https://raw.githubusercontent.com/FlatOinky/FlatOinky/refs/heads/main/images/windows_warning_1.png)
+>
 > You may then continue the installation by clicking the 'Run anyway' button.
 
 3. Install Flat Oinky via the installer
