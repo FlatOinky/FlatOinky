@@ -71,7 +71,7 @@ Currently there is only Windows and Linux support. If enough feedback requesting
 >
 > ---
 >
-> ![windows exe warning 2](https://raw.githubusercontent.com/FlatOinky/FlatOinky/refs/heads/main/images/windows_warning_1.png)
+> ![windows exe warning 2](https://raw.githubusercontent.com/FlatOinky/FlatOinky/refs/heads/main/images/windows_warning_2.png)
 >
 > You may then continue the installation by clicking the 'Run anyway' button.
 
