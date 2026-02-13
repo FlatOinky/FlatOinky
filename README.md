@@ -36,6 +36,7 @@ A desktop application for Flat MMO
 
 Here's a list of some of the features that are planned on making into the client. This list does not represent priority and features may be added to the client out of order.
 
+- Auto updating
 - Plugin settings
 - FlatMMO+ plugins support
 - AFK detection & notifications
