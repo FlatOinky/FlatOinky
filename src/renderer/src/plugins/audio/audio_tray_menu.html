@@ -2,37 +2,28 @@
 <div>{{{ . }}}</div>
 {{/messages}}
 <div class="flex gap-2">
-	<label class="btn btn-circle btn-primary btn-xs swap flex-none">
+	<label class="swap flex-none">
 		<input oinky-audio-tray-menu="toggle" type="checkbox" {{{ checked }}} />
-		<svg
-			class="swap-off fill-base-content"
-			xmlns="http://www.w3.org/2000/svg"
-			viewBox="0 0 16 16"
-			height="16"
-			width="16"
-			fill="currentColor"
-			class="size-4"
-		>
-			<path
-				d="M7.557 2.066A.75.75 0 0 1 8 2.75v10.5a.75.75 0 0 1-1.248.56L3.59 11H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.59l3.162-2.81a.75.75 0 0 1 .805-.124ZM11.28 5.72a.75.75 0 1 0-1.06 1.06L11.44 8l-1.22 1.22a.75.75 0 1 0 1.06 1.06l1.22-1.22 1.22 1.22a.75.75 0 1 0 1.06-1.06L13.56 8l1.22-1.22a.75.75 0 0 0-1.06-1.06L12.5 6.94l-1.22-1.22Z"
-			/>
-		</svg>
-		<svg
-			class="swap-on fill-base-content"
-			xmlns="http://www.w3.org/2000/svg"
-			viewBox="0 0 16 16"
-			height="16"
-			width="16"
-			fill="currentColor"
-			class="size-4"
-		>
-			<path
-				d="M7.557 2.066A.75.75 0 0 1 8 2.75v10.5a.75.75 0 0 1-1.248.56L3.59 11H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.59l3.162-2.81a.75.75 0 0 1 .805-.124ZM12.95 3.05a.75.75 0 1 0-1.06 1.06 5.5 5.5 0 0 1 0 7.78.75.75 0 1 0 1.06 1.06 7 7 0 0 0 0-9.9Z"
-			/>
-			<path
-				d="M10.828 5.172a.75.75 0 1 0-1.06 1.06 2.5 2.5 0 0 1 0 3.536.75.75 0 1 0 1.06 1.06 4 4 0 0 0 0-5.656Z"
-			/>
-		</svg>
+		<div class="swap-off btn btn-circle btn-xs btn-nuetral btn-ghost border border-error">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="size-4 fill-current">
+				<path
+					d="M7.557 2.066A.75.75 0 0 1 8 2.75v10.5a.75.75 0 0 1-1.248.56L3.59 11H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.59l3.162-2.81a.75.75 0 0 1 .805-.124ZM12.95 3.05a.75.75 0 1 0-1.06 1.06 5.5 5.5 0 0 1 0 7.78.75.75 0 1 0 1.06 1.06 7 7 0 0 0 0-9.9Z"
+				/>
+				<path
+					d="M10.828 5.172a.75.75 0 1 0-1.06 1.06 2.5 2.5 0 0 1 0 3.536.75.75 0 1 0 1.06 1.06 4 4 0 0 0 0-5.656Z"
+				/>
+			</svg>
+		</div>
+		<div class="swap-on btn btn-circle btn-xs btn-primary">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="size-4 fill-current">
+				<path
+					d="M7.557 2.066A.75.75 0 0 1 8 2.75v10.5a.75.75 0 0 1-1.248.56L3.59 11H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.59l3.162-2.81a.75.75 0 0 1 .805-.124ZM12.95 3.05a.75.75 0 1 0-1.06 1.06 5.5 5.5 0 0 1 0 7.78.75.75 0 1 0 1.06 1.06 7 7 0 0 0 0-9.9Z"
+				/>
+				<path
+					d="M10.828 5.172a.75.75 0 1 0-1.06 1.06 2.5 2.5 0 0 1 0 3.536.75.75 0 1 0 1.06 1.06 4 4 0 0 0 0-5.656Z"
+				/>
+			</svg>
+		</div>
 	</label>
 	<input
 		oinky-audio-tray-menu="volume"

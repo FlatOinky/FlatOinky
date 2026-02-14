@@ -2,13 +2,13 @@
 import { TaskbarPlugin } from './taskbar';
 import { ChatPlugin } from './chat';
 import { TweaksPlugin } from './tweaks';
-import { NotificationsPlugin } from './notifications';
+import { MonitorPlugin } from './monitor';
 import { AudioPlugin } from './audio';
 
 export default {
 	TaskbarPlugin,
 	ChatPlugin,
 	TweaksPlugin,
-	NotificationsPlugin,
+	MonitorPlugin,
 	AudioPlugin,
 };

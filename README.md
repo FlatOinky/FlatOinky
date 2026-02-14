@@ -6,31 +6,33 @@ A desktop application for Flat MMO
 
 ### Current Features
 
+#### Monitor
+
 - Desktop Notifications
+- Audio Cue
+- listens for
    - Birds nest
    - Tree falling
    - Gem geode
    - Alien
 
-- UI Tweaks
-   - Bank clear search button
+#### UI Tweaks
 
-- Audio Controls (Music, Sounds, and Notifications)
-   - Mute toggles
-   - Volume sliders
+- Bank clear search button
 
-- Chat Interface
-   - PM chat tabs
-   - Max chat messages (reduces long-running client lag)
-   - Collapsible
-   - Pop up messages that fade away when collapsed
-   - Timestamps
-   - Custom icons to represent "yelled" and PMs
-   - Chat tab prefix label (See what the chat tab will append to the front of your message)
-   - `/` command 'escape hatch' (Commands bypass the Yell/PM tab auto prefixing)
-   - Clickable links
-   - Auto captures input focus when letter key is pressed
-   - Message chunking (large messages are broken up into multiple messages)
+#### Chat Interface
+
+- PM chat tabs
+- Max chat messages (reduces long-running client lag)
+- Collapsible
+- Pop up messages that fade away when collapsed
+- Timestamps
+- Custom icons to represent "yelled" and PMs
+- Chat tab prefix label (See what the chat tab will append to the front of your message)
+- `/` command 'escape hatch' (Commands bypass the Yell/PM tab auto prefixing)
+- Clickable links
+- Auto captures input focus when letter key is pressed
+- Message chunking (large messages are broken up into multiple messages)
 
 ### Planned Features
 

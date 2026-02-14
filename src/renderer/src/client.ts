@@ -18,7 +18,7 @@ const enabledPlugins = new Set<OinkyPluginNamespace>([
 	'core/taskbar',
 	'core/chat',
 	'core/tweaks',
-	'core/notifications',
+	'core/monitor',
 	'core/audio',
 ]);
 
