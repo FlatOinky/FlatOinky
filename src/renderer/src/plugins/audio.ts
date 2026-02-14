@@ -96,13 +96,6 @@ const ensureAudioEnabled = (): void => {
 	if (window.sound_off) toggle_sound();
 };
 
-// const revertAudioToInitial = (): void => {
-// 	// @ts-ignore ts(2304)
-// 	if (initialMusicOff !== window.music_off) toggle_music();
-// 	// @ts-ignore ts(2304)
-// 	if (initialSoundOff !== window.sound_off) toggle_sound();
-// };
-
 // #region render
 
 const renderTrayMenu = (enbaled: boolean, volume: number, messages: string[] = []): string => {
@@ -204,10 +197,10 @@ export const AudioPlugin: OinkyPlugin = {
 			onLogin: () => ensureAudioEnabled(),
 
 			hookServerCommand: (key: string, values: string[]) => {
-				if (key !== 'audio_settings') return;
+				if (key !== 'AUDIO_SETTINGS') return;
 				const isMusicEnabled = values[0] === '0';
 				if (!isMusicEnabled) window.toggle_music();
-				const isSoundEnabled = values[0] === '0';
+				const isSoundEnabled = values[1] === '0';
 				if (!isSoundEnabled) window.toggle_sound();
 			},
 
