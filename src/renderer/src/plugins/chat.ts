@@ -249,17 +249,29 @@ const handleKeypress = (event: KeyboardEvent): void => {
 };
 
 const handleToggleClick = (): void => {
-	settings.isExpanded = !settings.isExpanded;
+	const chatMessageContainer = getMessageContainer();
+	if (!chatMessageContainer) return;
+	updateToggleIndicator(false);
 	if (settings.isExpanded) {
-		const chatMessageContainer = getMessageContainer();
-		if (chatMessageContainer) {
-			chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
+		const isAtBottom = checkIsAtBottom(
+			chatMessageContainer.scrollTop,
+			chatMessageContainer.clientHeight,
+			chatMessageContainer.scrollHeight,
+		);
+		if (!isAtBottom) {
+			chatMessageContainer.scroll({
+				top: chatMessageContainer.scrollHeight,
+				behavior: 'smooth',
+			});
+			return;
 		}
+	} else {
+		chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
 	}
+	settings.isExpanded = !settings.isExpanded;
 	document.querySelectorAll('[oinky-chat-expanded]').forEach((element) => {
 		element.setAttribute('oinky-chat-expanded', `${settings.isExpanded}`);
 	});
-	updateToggleIndicator(false);
 };
 
 const handleChatInputKeydown =
