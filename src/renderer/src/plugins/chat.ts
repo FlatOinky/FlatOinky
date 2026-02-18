@@ -279,6 +279,7 @@ const handleChatInputKeydown =
 	(event: KeyboardEvent): void => {
 		if (event.key === 'Enter') {
 			const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
+			const hasPrefix = typeof prefix === 'string' && prefix.length > 0;
 			const message = chatInput.value;
 			if (message === '') return;
 			sentHistory.unshift(message);
@@ -289,7 +290,10 @@ const handleChatInputKeydown =
 				Globals.websocket?.send('CHAT=' + message);
 				return;
 			}
-			const messageChunks = chunkMessageBySize(message, 100 - prefix.length - 1);
+			const messageChunks = chunkMessageBySize(
+				message,
+				hasPrefix ? 100 - prefix.length - 1 : 100,
+			);
 			if (!messageChunks) return;
 			if (messageChunks.length > 2) {
 				// @ts-ignore: TS2552
@@ -298,7 +302,7 @@ const handleChatInputKeydown =
 			}
 			messageChunks.forEach((chunk) => {
 				// @ts-ignore: TS2552
-				Globals.websocket?.send('CHAT=' + (prefix ? prefix + ' ' : '') + chunk);
+				Globals.websocket?.send('CHAT=' + (hasPrefix ? prefix + ' ' : '') + chunk);
 			});
 			return;
 		}
@@ -340,7 +344,11 @@ const handleAddTabClick = (): void => {
 		modal.close();
 		const username = input.value.trim().toLowerCase();
 		if (username.length < 1) return;
-		channels.chatTabs.push({ type: 'pm', prefix: `/pm ${username}`, name: `@${username}` });
+		channels.chatTabs.push({
+			type: 'pm',
+			prefix: `/pm ${username.replace(' ', '_')}`,
+			name: `@${username}`,
+		});
 		updateChatTabs();
 	};
 	form.onsubmit = handleSubmit;
