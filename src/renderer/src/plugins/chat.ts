@@ -133,7 +133,7 @@ const renderChatMessage = (chatMessage: OinkyChatMessage, timestampFormat: strin
 	].filter((icon) => typeof icon === 'string');
 	const timestamp = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
 	const message = chatMessage.message.replace(/(https?:\/\/[^\s]+)/g, (url) => {
-		return `<a class="underline pointer-events-auto" target="_blank" href="${url}">${url}</a>`;
+		return `<a class="underline pointer-events-auto break-all" target="_blank" href="${url}">${url}</a>`;
 	});
 	return mustache.render(chatMessageTemplate, {
 		timestamp,
