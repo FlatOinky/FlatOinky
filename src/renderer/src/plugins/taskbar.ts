@@ -21,6 +21,25 @@ const getMenuItemContainer = (id: string): HTMLLIElement => {
 	return container;
 };
 
+const getWidget = (id: string): HTMLDivElement => {
+	const existing = document.querySelector<HTMLDivElement>(`div[oinky-taskbar-widget=${id}]`);
+	if (existing) return existing;
+	const widget = document.createElement('div');
+	widget.setAttribute('oinky-taskbar-widget', id);
+	return widget;
+};
+
+export const upsertTaskbarWidget = (id: string, element: HTMLElement): HTMLDivElement | null => {
+	const container = document.querySelector<HTMLDivElement>('div[oinky-taskbar=widget-container]');
+	if (!container) return null;
+	const widget = getWidget(id);
+	if (!container.contains(widget)) {
+		container.appendChild(widget);
+	}
+	widget.replaceChildren(element);
+	return widget;
+};
+
 export const upsertTaskbarMenuAction = (id: string, title: string, onClick: () => void): void => {
 	const actionsContainer = document.querySelector('[oinky-taskbar=menu-actions]');
 	if (!actionsContainer) return;
