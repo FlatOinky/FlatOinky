@@ -10,21 +10,7 @@ export const createNotification = (title: string, message?: string): void => {
 	ipcRenderer.send('createNotification', title, message);
 };
 
-type JSONData =
-	| boolean
-	| number
-	| string
-	| { [key: string]: JSONData }
-	| Array<boolean | number | string | { [key: string]: JSONData }>;
-
-export type StorageData = {
-	global: { [namespace: string]: Record<string, JSONData> };
-	profiles: { [profile: string]: { [namespace: string]: Record<string, JSONData> } };
-	characters: { [character: string]: { [namespace: string]: Record<string, JSONData> } };
-};
-
-export const loadStorage = async (): Promise<StorageData> =>
-	await ipcRenderer.invoke('loadStorage');
+export const loadStorage = async <T>(): Promise<T> => await ipcRenderer.invoke('loadStorage');
 
 export type StorageKey = string | readonly (string | number)[];
 

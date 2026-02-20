@@ -1,10 +1,23 @@
 import * as dot from 'dot-prop';
 import {
-	StorageData,
+	loadStorage,
 	updateCharacterStorage,
 	updateGlobalStorage,
 	updateProfileStorage,
 } from './ipcRenderer';
+
+type JSONData =
+	| boolean
+	| number
+	| string
+	| { [key: string]: JSONData }
+	| Array<boolean | number | string | { [key: string]: JSONData }>;
+
+export type StorageData = {
+	global: { [namespace: string]: Record<string, JSONData> };
+	profiles: { [profile: string]: { [namespace: string]: Record<string, JSONData> } };
+	characters: { [character: string]: { [namespace: string]: Record<string, JSONData> } };
+};
 
 export type OinkyStorage = {
 	get: (keys: string | readonly (string | number)[]) => unknown;
@@ -13,11 +26,7 @@ export type OinkyStorage = {
 	reactive: <T extends object>(keys: string | readonly (string | number)[], defaults: T) => T;
 };
 
-export type OinkyPluginStorage = {
-	globalStorage: OinkyStorage;
-	profileStorage: OinkyStorage;
-	characterStorage: OinkyStorage;
-};
+export const storageData = loadStorage<StorageData>();
 
 const deepProxy = <T extends object>(
 	target: T,
@@ -75,15 +84,18 @@ const wrapStorageData = <T extends object>(
 	};
 };
 
-export const createPluginStorages = (
-	storageData: StorageData,
+export const createPluginStorages = async (
 	namespace: string,
 	profile: string,
 	username: string,
-): OinkyPluginStorage => {
-	const globalData = storageData.global?.[namespace] ?? {};
-	const profileData = storageData.profiles?.[profile]?.[namespace] ?? {};
-	const characterData = storageData.characters?.[username]?.[namespace] ?? {};
+): Promise<{
+	globalStorage: OinkyStorage;
+	profileStorage: OinkyStorage;
+	characterStorage: OinkyStorage;
+}> => {
+	const globalData = (await storageData).global?.[namespace] ?? {};
+	const profileData = (await storageData).profiles?.[profile]?.[namespace] ?? {};
+	const characterData = (await storageData).characters?.[username]?.[namespace] ?? {};
 	return {
 		globalStorage: wrapStorageData(globalData, (keys, value) =>
 			updateGlobalStorage([namespace, ...keys], value),

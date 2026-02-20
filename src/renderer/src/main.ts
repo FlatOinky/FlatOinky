@@ -10,7 +10,7 @@ import bannerLumberjackSrc from './assets/fmmo_lumberjack.gif';
 import bannerMinerSrc from './assets/fmmo_miner.gif';
 import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
-import { FMMOCharacter, FMMOWorld } from './types';
+import { FMMOCharacter, FMMOWorld } from '.';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
 import { OinkyClient } from './client';
 import './assets/main.css';
