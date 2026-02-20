@@ -7,7 +7,12 @@ export type StorageKey = string | readonly (string | number)[];
 
 const fileCache = new Map();
 
-const getDirectory = (): string => path.join(app.getPath('userData'), 'storage');
+const getDirectory = (): string =>
+	path.join(
+		app.getPath('userData'),
+		'storage',
+		process.env.NODE_ENV === 'production' ? '.' : (process.env.NODE_ENV ?? '.'),
+	);
 
 const loadFile = async <T extends object>(
 	file: string,
