@@ -140,15 +140,23 @@ export const startPlugin = async (plugin: OinkyPlugin, character: FMMOCharacter)
 	const isDependenciesStarted = dependencies.every((namespace) => startedPlugins.has(namespace));
 	if (!isDependenciesStarted) return;
 	let pluginInstance = pluginInstances.get(namespace);
-	if (!pluginInstance) {
-		console.log(`Initializing plugin ${name}`);
-		const pluginStorages = await createPluginStorages(namespace, profileKey, character.username);
-		pluginInstance = await plugin.initiate({ character, ...pluginStorages });
-		pluginInstances.set(namespace, pluginInstance);
+	try {
+		if (!pluginInstance) {
+			console.log(`Initializing plugin ${name}`);
+			const pluginStorages = await createPluginStorages(
+				namespace,
+				profileKey,
+				character.username,
+			);
+			pluginInstance = await plugin.initiate({ character, ...pluginStorages });
+			pluginInstances.set(namespace, pluginInstance);
+		}
+		console.log(`Starting plugin ${name}`);
+		pluginInstance.onStartup?.();
+		startedPlugins.add(namespace);
+	} catch (error) {
+		console.error(`Unable to start plugin: ${name}\n`, error);
 	}
-	console.log(`Starting plugin ${name}`);
-	pluginInstance.onStartup?.();
-	startedPlugins.add(namespace);
 };
 
 export const startAllPlugins = async (character: FMMOCharacter): Promise<void> => {
@@ -201,10 +209,24 @@ export const callPluginHooks = (
 	callback: (instance: OinkyPluginInstance, index: number) => OinkyHookResult,
 ): boolean =>
 	pluginInstances
-		.values()
-		.map((pluginInstance, index) => callback(pluginInstance, index) ?? true)
+		.entries()
+		.map(([namespace, pluginInstance], index) => {
+			try {
+				return callback(pluginInstance, index) ?? true;
+			} catch (error) {
+				console.error(`Unable to execute plugin hook: ${namespace}\n`, error);
+				return true;
+			}
+		})
 		.every((resume) => resume === true);
 
 export const callPluginSoftHooks = async (
-	callback: (instance: OinkyPluginInstance, index: number) => void | Promise<void>,
-) => pluginInstances.values().forEach(callback);
+	callback: (instance: OinkyPluginInstance, index: number) => void,
+) =>
+	pluginInstances.entries().forEach(([namespace, pluginInstance], index) => {
+		try {
+			callback(pluginInstance, index);
+		} catch (error) {
+			console.error(`Unable to execute plugin soft hook: ${namespace}\n`, error);
+		}
+	});
