@@ -2,7 +2,7 @@ import mustache from 'mustache';
 import { type OinkyPlugin } from '../client';
 import xpWidgetTemplate from './metrics/xp_widget.html?raw';
 import { removeTaskbarWidget, upsertTaskbarWidget } from './taskbar';
-import { Lifecycle, createLifecycle } from '../utils';
+import type { Lifecycle } from '../utils';
 import c3 from 'c3';
 
 type XPDrop = {
@@ -107,11 +107,9 @@ export const MetricsPlugin: OinkyPlugin = {
 	namespace: 'core/metrics',
 	name: 'Metrics',
 	dependencies: ['core/taskbar'],
-	initiate: (context) => {
-		settings = context.profileStorage.reactive('settings', initialSettings);
-		const lifecycle = createLifecycle();
-		const widgetLifecycle = createLifecycle();
-		widgetLifecycle.attachTo(lifecycle);
+	initiate: ({ profileStorage, character, lifecycle }) => {
+		settings = profileStorage.reactive('settings', initialSettings);
+		const widgetLifecycle = lifecycle.spawnLifecycle();
 		return {
 			onStartup: () => {
 				const widget = document.createElement('div');
@@ -124,7 +122,7 @@ export const MetricsPlugin: OinkyPlugin = {
 			},
 			onCleanup: () => lifecycle.cleanup(),
 			onXpDrop: ({ username, skill, xp }) => {
-				if (username !== context.character.username) return;
+				if (username !== character.username) return;
 				if (typeof xp !== 'number') return;
 				xpDrops.push({ skill, xp, timestamp: new Date() });
 			},

@@ -4,6 +4,7 @@ import trayMenuIconTemplate from './taskbar/tray_menu_icon.html?raw';
 import { version } from '../../../../package.json';
 import { OinkyPlugin } from '../client';
 import { openDevTools, reloadWindow } from '../client/ipcRenderer';
+import type { Lifecycle } from '../utils';
 
 const renderTaskbar = (): string => {
 	return mustache.render(taskbarTemplate, { version });
@@ -81,7 +82,7 @@ export const upsertTaskbarTrayMenuIcon = (
 	return iconContainer;
 };
 
-const attachTaskbar = (): void => {
+const attachTaskbar = (lifecycle: Lifecycle): void => {
 	const canvasContainer = document.querySelector('[fmmo-container=canvas]');
 	if (!canvasContainer) return;
 	const taskbarContainer = document.createElement('div');
@@ -90,23 +91,21 @@ const attachTaskbar = (): void => {
 	taskbarContainer.innerHTML = renderTaskbar();
 	taskbarContainer.setAttribute('flat-oinky', 'taskbar');
 	canvasContainer.appendChild(taskbarContainer);
+	lifecycle.onCleanup(() => canvasContainer.removeChild(taskbarContainer));
 	upsertTaskbarMenuAction('restart', 'Reload Window', () => reloadWindow());
 	if (process.env.NODE_ENV === 'development') {
 		upsertTaskbarMenuAction('devtools', 'Open DevTools', () => openDevTools());
 	}
-};
-
-const detachTaskbar = (): void => {
-	const taskbarContainer = document.querySelector('[flat-oinky=taskbar]');
-	if (!taskbarContainer) return;
-	taskbarContainer.remove();
+	lifecycle.onCleanup(() => taskbarContainer.replaceChildren());
 };
 
 export const TaskbarPlugin: OinkyPlugin = {
 	namespace: 'core/taskbar',
 	name: 'Taskbar',
-	initiate: () => ({
-		onStartup: () => attachTaskbar(),
-		onCleanup: () => detachTaskbar(),
-	}),
+	initiate: ({ lifecycle }) => {
+		return {
+			onStartup: () => attachTaskbar(lifecycle),
+			onCleanup: () => lifecycle.cleanup(),
+		};
+	},
 };

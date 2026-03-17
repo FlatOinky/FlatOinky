@@ -2,6 +2,7 @@ import type { FMMOCharacter } from '..';
 import type { OinkyChatMessage } from './chat_message';
 import { createPluginStorages } from './storage';
 import { getProfileKey } from './profiles';
+import { createLifecycle, Lifecycle } from '../utils';
 
 // #region types
 
@@ -61,6 +62,7 @@ export type OinkyPluginServerCommandHook = (values: string[], rawData: string) =
 
 export type OinkyPluginContext = {
 	character: FMMOCharacter;
+	lifecycle: Lifecycle;
 } & Awaited<ReturnType<typeof createPluginStorages>>;
 
 export interface OinkyPluginInstance {
@@ -144,12 +146,13 @@ export const startPlugin = async (plugin: OinkyPlugin, character: FMMOCharacter)
 	try {
 		if (!pluginInstance) {
 			console.log(`Initializing plugin ${name}`);
+			const lifecycle = createLifecycle();
 			const pluginStorages = await createPluginStorages(
 				namespace,
 				profileKey,
 				character.username,
 			);
-			pluginInstance = await plugin.initiate({ character, ...pluginStorages });
+			pluginInstance = await plugin.initiate({ character, lifecycle, ...pluginStorages });
 			pluginInstances.set(namespace, pluginInstance);
 		}
 		console.log(`Starting plugin ${name}`);

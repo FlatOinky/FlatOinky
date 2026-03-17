@@ -7,12 +7,14 @@ export const createLifecycle = () => {
 		registeredCleanups.forEach((callback) => callback());
 		registeredCleanups.splice(0, registeredCleanups.length);
 	};
-	const attachTo = (lifecycle: { onCleanup: typeof onCleanup }) => {
-		lifecycle.onCleanup(() => cleanup());
+	const spawnLifecycle = () => {
+		const lifecycle = createLifecycle();
+		onCleanup(() => lifecycle.cleanup());
+		return lifecycle;
 	};
 	return {
 		onCleanup,
 		cleanup,
-		attachTo,
+		spawnLifecycle,
 	};
 };
