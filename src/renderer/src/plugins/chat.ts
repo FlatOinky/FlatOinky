@@ -132,9 +132,19 @@ const renderChatMessage = (chatMessage: OinkyChatMessage, timestampFormat: strin
 		type === 'pm_from' && renderIcon(pmFromIconSrc),
 	].filter((icon) => typeof icon === 'string');
 	const timestamp = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
-	const message = chatMessage.message.replace(/(https?:\/\/[^\s]+)/g, (url) => {
+	let message = chatMessage.message;
+	message = message
+		.split(' ')
+		.map((word) =>
+			word.length > 34 && !word.startsWith('http')
+				? `<span class="break-all"> ${word} </span>`
+				: word,
+		)
+		.join(' ');
+	message = message.replace(/(https?:\/\/[^\s]+)/g, (url) => {
 		return `<a class="underline pointer-events-auto break-all" target="_blank" href="${url}">${url}</a>`;
 	});
+	message = message.trim();
 	return mustache.render(chatMessageTemplate, {
 		timestamp,
 		segments,
