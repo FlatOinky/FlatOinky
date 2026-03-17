@@ -130,6 +130,7 @@ export const enabledPlugins = new Set<OinkyPluginNamespace>([
 	'core/tweaks',
 	'core/monitor',
 	'core/audio',
+	'core/metrics',
 ]);
 
 export const startPlugin = async (plugin: OinkyPlugin, character: FMMOCharacter): Promise<void> => {
