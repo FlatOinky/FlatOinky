@@ -21,23 +21,27 @@ const getMenuItemContainer = (id: string): HTMLLIElement => {
 	return container;
 };
 
-const getWidget = (id: string): HTMLDivElement => {
-	const existing = document.querySelector<HTMLDivElement>(`div[oinky-taskbar-widget=${id}]`);
+const getWidget = (id: string): null | HTMLDivElement => {
+	const container = document.querySelector<HTMLDivElement>('div[oinky-taskbar=widget-container]');
+	if (!container) return null;
+	const existing = container.querySelector<HTMLDivElement>(`div[oinky-taskbar-widget=${id}]`);
 	if (existing) return existing;
 	const widget = document.createElement('div');
+	container.appendChild(widget);
 	widget.setAttribute('oinky-taskbar-widget', id);
 	return widget;
 };
 
 export const upsertTaskbarWidget = (id: string, element: HTMLElement): HTMLDivElement | null => {
-	const container = document.querySelector<HTMLDivElement>('div[oinky-taskbar=widget-container]');
-	if (!container) return null;
 	const widget = getWidget(id);
-	if (!container.contains(widget)) {
-		container.appendChild(widget);
-	}
-	widget.replaceChildren(element);
+	widget?.replaceChildren(element);
 	return widget;
+};
+
+export const removeTaskbarWidget = (id: string): void => {
+	const widget = getWidget(id);
+	if (!widget) return;
+	widget.replaceChildren();
 };
 
 export const upsertTaskbarMenuAction = (id: string, title: string, onClick: () => void): void => {
