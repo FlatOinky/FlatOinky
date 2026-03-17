@@ -39,8 +39,7 @@ const callServerCommandSoftHooks = async (
 		case 'LOGGED_IN':
 			return callPluginSoftHooks((pluginInstance) => pluginInstance.onLogin?.());
 
-		case 'XP_DROP':
-		case 'LEVEL_UP_DROP': {
+		case 'XP_DROP': {
 			const args = {
 				username: values[0],
 				skill: values[1],
