@@ -17,12 +17,63 @@
 		/>
 	</svg>
 </button>
-<label class="join-item input w-md">
-	<span oinky-chat="input-label" class="label text-xs mr-0 px-2" style="display: none"></span>
-	<input oinky-chat="input" placeholder="{{ placeholder }}" />
-</label>
+
+<div class="w-xl join">
+	<label class="join-item input w-full">
+		<span oinky-chat="input-label" class="label text-xs mr-0 px-2" style="display: none"></span>
+		<input oinky-chat="input" placeholder="{{ placeholder }}" />
+	</label>
+	<button
+		class="join-item btn hover:btn-primary not-hover:border border-base-content/20 px-1"
+		popovertarget="oinky-chat-actions"
+		style="anchor-name: --oinky-chat-actions-toggle"
+	>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			fill="none"
+			viewBox="0 0 24 24"
+			stroke-width="1.5"
+			stroke="currentColor"
+			class="size-6"
+		>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"
+			/>
+		</svg>
+	</button>
+</div>
+
+<dialog oinky-chat="chat-log-modal" class="modal">
+	<div class="modal-box">
+		<h3>Chat Log</h3>
+		<ul
+			oinky-chat="chat-log-container"
+			class="flex flex-col gap-2 my-3 -mx-6 p-2 bg-base-200 h-[50vh] overflow-y-scroll"
+		></ul>
+		<form method="dialog">
+			<!-- if there is a button in form, it will close the modal -->
+			<button class="btn">Close</button>
+		</form>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button>close</button>
+	</form>
+</dialog>
+
+<ul
+	class="dropdown dropdown-top dropdown-right menu w-48 rounded-box bg-base-100 shadow -translate-y-2 translate-x-1 border border-base-content/20"
+	popover
+	id="oinky-chat-actions"
+	style="position-anchor: --oinky-chat-actions-toggle"
+>
+	<li><button oinky-chat="chat-log-action">View Chat Log</button></li>
+	<li><button oinky-chat="settings-action" class="line-through">Open Settings</button></li>
+</ul>
+
 <div
-	oinky-chat="message-popup-container"
+	oinky-chat="messages-container"
 	oinky-chat-expanded="{{ isExpanded }}"
 	class="contents pointer-events-none"
 >
@@ -34,6 +85,7 @@
 		{{#messages}} {{{ . }}} {{/messages}}
 	</ul>
 </div>
+
 <div oinky-chat="tabs" class="absolute top-full max-w-xl flex ml-2">
 	<div oinky-chat="tabs-container" role="tablist" class="tabs tabs-lift tabs-bottom tabs-xs">
 		{{#tabs}} {{{ . }}} {{/tabs}}
@@ -53,6 +105,7 @@
 		</button>
 	</div>
 </div>
+
 <dialog oinky-chat="add-tab-modal" class="modal">
 	<div class="modal-box">
 		<h3>Add PM tab</h3>

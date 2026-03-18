@@ -5,8 +5,7 @@ import chatMessageTemplate from './chat/chat_message.html?raw';
 import yellIconSrc from '../assets/yell.png';
 import pmToconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
-import { OinkyChatMessage, OinkyPlugin } from '../client';
-import { Lifecycle } from '../utils';
+import { OinkyChatMessage, OinkyPlugin, Lifecycle } from '../client';
 
 const namespace = 'core/chat';
 
@@ -18,7 +17,7 @@ type ChatTab = {
 
 // #region Vars
 
-const chatMessageLiClassName = { tick: 'p-1 bg-black/10', tock: 'p-1' };
+const chatMessageLiClassName = { tick: 'p-1', tock: 'p-1 bg-black/10' };
 const chatPopupLiClassName = 'px-1 py-0.5 mt-1 last:mb-0.5 bg-base-100/70 rounded';
 
 const colorMap = {
@@ -33,7 +32,8 @@ const colorMap = {
 };
 
 const usernamesCache = new Set<string>();
-const chatMessages: OinkyChatMessage[] = [];
+const chatMessages: OinkyChatMessage[] =
+	JSON.parse(localStorage.getItem(`oinky/${namespace}/chatMessages`) ?? '[]') ?? [];
 let usernameSelf = '';
 let tickTock = true;
 
@@ -51,12 +51,18 @@ let channels = initialChannels;
 
 const initialSettings = {
 	isExpanded: true,
+	isZebraEnabled: true,
 	maxChatLength: 250,
 	timestampFormat: 'h:mmaaa',
 };
 let settings = initialSettings;
 
 // #region Utils
+
+const storeChatMessage = async (chatMessage: OinkyChatMessage) => {
+	chatMessages.push(chatMessage);
+	localStorage.setItem(`oinky/${namespace}/chatMessages`, JSON.stringify(chatMessages));
+};
 
 const chunkMessageBySize = (message: string, chunkSize: number): string[] => {
 	const [chunks] = message.split(' ').reduce(
@@ -94,6 +100,13 @@ const getMessageContainer = (): HTMLUListElement | null =>
 
 const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: number) =>
 	scrollTop + clientHeight >= scrollHeight - clientHeight / 3;
+
+const wrapMessage = (
+	chatMessageRender: string,
+	isZebraEnabled: boolean = settings.isZebraEnabled ?? true,
+) => {
+	return `<li class="${isZebraEnabled ? getLiChatMessageClassName() : chatMessageLiClassName.tick}">${chatMessageRender}</li>`;
+};
 
 // #region Renderers
 
@@ -376,7 +389,7 @@ const handleAddTabClick = (): void => {
 	modal.show();
 };
 
-// #region (dis)mounts
+// #region mounts
 
 const mountChat = (username: string, lifecycle: Lifecycle): void => {
 	const fmmoChat = document.body.querySelector<HTMLDivElement>('#chat-input');
@@ -393,21 +406,28 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 	lifecycle.onCleanup(() => document.removeEventListener('keypress', handleKeypress));
 	const container = document.querySelector('[oinky-taskbar=chat-container]');
 	if (!container) return;
-	const currentMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')]
-		.map((element) => {
-			const template = `<li class="${getLiChatMessageClassName()}">${chatMessageTemplate}</li>`;
+	const loginMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')].map(
+		(rootElement) => {
+			const element = rootElement.cloneNode(true) as HTMLSpanElement;
 			const colorClassName = colorMap[element.style.color] ?? colorMap.white;
 			element.style.color = '';
-			return mustache.render(template, {
-				segments: [element.outerHTML],
-				colorClassName,
-			});
+			return wrapMessage(
+				mustache.render(chatMessageTemplate, {
+					segments: [element.outerHTML],
+					colorClassName,
+				}),
+			);
+		},
+	);
+	const currentMessages = chatMessages
+		.slice(
+			Math.max(0, chatMessages.length - settings.maxChatLength - loginMessages.length),
+			chatMessages.length,
+		)
+		.map((chatMessage) => {
+			return wrapMessage(renderChatMessage(chatMessage, settings.timestampFormat));
 		})
-		.concat(
-			chatMessages.map((chatMessage) =>
-				renderChatMessage(chatMessage, settings.timestampFormat),
-			),
-		);
+		.concat(loginMessages);
 	container.innerHTML = renderChat(
 		username,
 		currentMessages,
@@ -416,6 +436,9 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 		settings.isExpanded,
 	);
 	lifecycle.onCleanup(() => container.replaceChildren());
+	const messageContainer = getMessageContainer();
+	if (messageContainer) messageContainer.scrollTop = messageContainer.scrollHeight;
+
 	const chatInput = container.querySelector<HTMLInputElement>('[oinky-chat=input]');
 	const toggleButton = container.querySelector<HTMLButtonElement>('[oinky-chat=toggle]');
 	const addTabButton = container.querySelector<HTMLButtonElement>('[oinky-chat=add-tab]');
@@ -426,10 +449,38 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 	chatInput.onkeydown = handleChatInputKeydown(chatInput);
 	toggleButton.onclick = handleToggleClick;
 	addTabButton.onclick = handleAddTabClick;
+	mountChatActions();
+};
+
+const mountChatActions = () => {
+	const modalId = `oinky/${namespace}/`;
+	const chatLogButton = document.querySelector<HTMLButtonElement>(
+		'button[oinky-chat=chat-log-action]',
+	);
+	const chatLogModal = document.querySelector<HTMLDialogElement>(
+		'dialog[oinky-chat=chat-log-modal]',
+	);
+	const chatLogContainer = document.querySelector<HTMLUListElement>(
+		'ul[oinky-chat=chat-log-container]',
+	);
+	if (!chatLogButton || !chatLogModal || !chatLogContainer) return;
+	chatLogButton.onclick = () => {
+		chatLogContainer.innerHTML = chatMessages
+			.map((chatMessage) => {
+				return wrapMessage(renderChatMessage(chatMessage, settings.timestampFormat), false);
+			})
+			.join('\n');
+
+		chatLogModal.showModal();
+		chatLogModal.onclose = () => {
+			// @ts-ignore 2304
+			opened_modals.delete(modalId);
+		};
+	};
 };
 
 const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
-	chatMessages.push(chatMessage);
+	storeChatMessage(chatMessage);
 	if (chatMessage.username) usernamesCache.add(chatMessage.username);
 	const chatMessageContainer = getMessageContainer();
 	const chatPopupContainer = document.querySelector<HTMLUListElement>('[oinky-chat=popups]');
