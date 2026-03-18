@@ -6,6 +6,7 @@ import yellIconSrc from '../assets/yell.png';
 import pmToconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
 import { OinkyChatMessage, OinkyPlugin } from '../client';
+import { Lifecycle } from '../utils';
 
 const namespace = 'core/chat';
 
@@ -377,12 +378,19 @@ const handleAddTabClick = (): void => {
 
 // #region (dis)mounts
 
-const mountChat = (username: string): void => {
-	document.body
-		.querySelector<HTMLDivElement>('#chat-input')
-		?.setAttribute('oinky-hide', 'taskbar');
-	document.body.querySelector<HTMLDivElement>('#chat')?.setAttribute('oinky-hide', 'taskbar');
+const mountChat = (username: string, lifecycle: Lifecycle): void => {
+	const fmmoChat = document.body.querySelector<HTMLDivElement>('#chat-input');
+	if (fmmoChat) {
+		fmmoChat.setAttribute('oinky-hide', 'taskbar');
+		lifecycle.onCleanup(() => fmmoChat.removeAttribute('oinky-hide'));
+	}
+	const fmmoChatInput = document.body.querySelector<HTMLDivElement>('#chat');
+	if (fmmoChatInput) {
+		fmmoChatInput.setAttribute('oinky-hide', 'taskbar');
+		lifecycle.onCleanup(() => fmmoChatInput.removeAttribute('oinky-hide'));
+	}
 	document.addEventListener('keypress', handleKeypress);
+	lifecycle.onCleanup(() => document.removeEventListener('keypress', handleKeypress));
 	const container = document.querySelector('[oinky-taskbar=chat-container]');
 	if (!container) return;
 	const currentMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')]
@@ -407,26 +415,17 @@ const mountChat = (username: string): void => {
 		channels.chatTabIndex,
 		settings.isExpanded,
 	);
+	lifecycle.onCleanup(() => container.replaceChildren());
 	const chatInput = container.querySelector<HTMLInputElement>('[oinky-chat=input]');
 	const toggleButton = container.querySelector<HTMLButtonElement>('[oinky-chat=toggle]');
 	const addTabButton = container.querySelector<HTMLButtonElement>('[oinky-chat=add-tab]');
 	if (!chatInput || !toggleButton || !addTabButton) return;
 	updateChatTabs();
 	document.addEventListener('wheel', handleWheel);
+	lifecycle.onCleanup(() => document.removeEventListener('wheel', handleWheel));
 	chatInput.onkeydown = handleChatInputKeydown(chatInput);
 	toggleButton.onclick = handleToggleClick;
 	addTabButton.onclick = handleAddTabClick;
-};
-
-const dismountChat = (): void => {
-	document.body.querySelector<HTMLDivElement>('#chat')?.removeAttribute('oinky-hide');
-	document.body.querySelector<HTMLDivElement>('#chat-input')?.removeAttribute('oinky-hide');
-	document.removeEventListener('wheel', handleWheel);
-	document.removeEventListener('keypress', handleKeypress);
-	const container = document.querySelector('[oinky-taskbar=chat-container]');
-	if (!container) return;
-	container.innerHTML = '';
-	container.remove();
 };
 
 const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
@@ -467,14 +466,14 @@ export const ChatPlugin: OinkyPlugin = {
 	namespace: 'core/chat',
 	name: 'Enhanced Chat',
 	dependencies: ['core/taskbar'],
-	initiate: (context) => {
-		usernameSelf = context.character.username;
-		settings = context.profileStorage.reactive('settings', initialSettings);
-		channels = context.characterStorage.reactive('channels', initialChannels);
+	initiate: ({ lifecycle, character, profileStorage, characterStorage }) => {
+		usernameSelf = character.username;
+		settings = profileStorage.reactive('settings', initialSettings);
+		channels = characterStorage.reactive('channels', initialChannels);
 
 		return {
-			onStartup: () => mountChat(context.character.username),
-			onCleanup: () => dismountChat(),
+			onStartup: () => mountChat(character.username, lifecycle),
+			onCleanup: () => lifecycle.cleanup(),
 			onChatMessage: (chatMessage) => mountChatMessage(chatMessage),
 			hookAddToChat: () => false,
 		};
