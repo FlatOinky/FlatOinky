@@ -2,36 +2,25 @@ import mustache from 'mustache';
 import { type OinkyPlugin } from '../client';
 import xpWidgetTemplate from './metrics/xp_widget.html?raw';
 import { removeTaskbarWidget, upsertTaskbarWidget } from './taskbar';
-import type { Lifecycle } from '../utils';
-import c3 from 'c3';
+import { Lifecycle, createLineGraph } from '../utils';
 
 type XPDrop = {
 	xp: number;
 	skill: string;
-	timestamp: Date;
+	timestamp: number;
 };
 
 const initialSettings = {
 	widgetChart: {
 		/** minutes */
-		span: 5,
+		timeSpan: 5,
 		/** seconds */
-		interval: 2,
+		updateInterval: 5,
 	},
 };
 let settings = initialSettings;
 
 const xpDrops: XPDrop[] = [];
-const xpDropsEpoch: number = Date.now();
-
-// #region helpers
-
-const getXpChunks = (interval: number) => {
-	return Object.groupBy(xpDrops, ({ timestamp }) => {
-		const chunkIndex = Math.floor((timestamp.getTime() - xpDropsEpoch) / interval);
-		return chunkIndex;
-	});
-};
 
 // #region renderers
 
@@ -46,52 +35,43 @@ const mountWidgetChart = (widget: HTMLDivElement, lifecycle: Lifecycle) => {
 		'[oinky-metrics-xp-widget=button-chart]',
 	);
 	if (!buttonChart) return;
-	const widgetChartSpan = 1000 * 60 * settings.widgetChart.span;
-	const widgetChartInterval = 1000 * settings.widgetChart.interval;
-	const widgetChartNodeCount = Math.ceil(widgetChartSpan / widgetChartInterval);
-	const chart = c3.generate({
-		bindto: buttonChart,
-		size: { width: 94, height: 32 },
-		svg: { classname: 'border-primary fill-transparent bg-transparent' },
-		padding: { top: 0, left: 0, right: 0, bottom: 0 },
-		spline: { interpolation: { type: 'bundle' } },
-		transition: { duration: 200 },
-		data: {
-			type: 'spline',
-			labels: false,
-			columns: [['total', ...new Array(widgetChartNodeCount).fill(null).map(() => 0)]],
-			colors: { total: 'var(--color-accent)' },
-		},
-		grid: {
-			y: {
-				show: true,
-				lines: new Array(10).fill(null).map((_, index) => ({ value: 25 + 25 * index })),
-			},
-		},
-		interaction: { enabled: false },
-		point: { show: false },
-		legend: { show: false },
-		axis: {
-			x: { show: false, height: 32 },
-			y: { show: false, min: 0 },
-		},
-	});
-	lifecycle.onCleanup(() => chart.destroy());
+	const timeSpan = 1000 * 60 * settings.widgetChart.timeSpan;
+	const updateInterval = 1000 * settings.widgetChart.updateInterval;
+	const chunkTimeSpan = Math.ceil(timeSpan / 2.5);
+	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
+	const chartData = new Array(nodeCount).fill(0);
+	const lineChart = createLineGraph({ height: 32, width: 94, data: chartData, lineWidth: 1.5 });
+	buttonChart.appendChild(lineChart.svg);
 
-	let oldIndex = xpDrops.length;
-	let chunkXps = new Array(20).fill(0);
+	let chunkSliceIndex = 0;
+	let lastIntervalSliceIndex = xpDrops.length;
 	const intervalId = setInterval(() => {
-		const newIndex = xpDrops.length;
-		const chunk = xpDrops.slice(oldIndex, newIndex);
-		const newChunkXp = chunk.reduce((previous, { xp }) => previous + xp, 0);
-		chunkXps.splice(0, 1);
-		chunkXps.push(newChunkXp);
-		const chunkXp = chunkXps.reduce((x, y) => x + y) / chunkXps.length;
-		oldIndex = newIndex;
-		chart.flow({
-			columns: [['total', chunkXp]],
-		});
-	}, widgetChartInterval);
+		const intervalXpDrops = xpDrops.slice(lastIntervalSliceIndex);
+		const intervalSum = intervalXpDrops.reduce((total, xpDrop) => total + xpDrop.xp, 0);
+		if (intervalSum === 0) {
+			xpDrops.push({ skill: 'total', xp: 0, timestamp: performance.now() });
+		}
+		lastIntervalSliceIndex = xpDrops.length;
+
+		const oldestTimestamp = performance.now() - chunkTimeSpan;
+		chunkSliceIndex = Math.max(
+			chunkSliceIndex,
+			chunkSliceIndex +
+				xpDrops
+					.slice(chunkSliceIndex)
+					.findIndex((xpDrop) => xpDrop.timestamp >= oldestTimestamp),
+		);
+		const chunkXpDrops = xpDrops.slice(chunkSliceIndex);
+		const chunkAverage =
+			chunkXpDrops.reduce(
+				(total, xpDrop, index) => total + xpDrop.xp * (index / chunkXpDrops.length),
+				0,
+			) / Math.max(1, chunkXpDrops.length);
+
+		chartData.shift();
+		chartData.push(chunkAverage);
+		lineChart.updatePath();
+	}, updateInterval);
 
 	lifecycle.onCleanup(() => clearInterval(intervalId));
 };
@@ -124,7 +104,7 @@ export const MetricsPlugin: OinkyPlugin = {
 			onXpDrop: ({ username, skill, xp }) => {
 				if (username !== character.username) return;
 				if (typeof xp !== 'number') return;
-				xpDrops.push({ skill, xp, timestamp: new Date() });
+				xpDrops.push({ skill, xp, timestamp: performance.now() });
 			},
 		};
 	},
