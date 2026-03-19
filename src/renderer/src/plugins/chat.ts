@@ -241,6 +241,8 @@ const updateToggleIndicator = (active: boolean = true): void => {
 // #region Handlers
 
 const handleWheel = (event: WheelEvent): void => {
+	// @ts-ignore 2304
+	if (opened_modals.size > 0) return;
 	if (!settings.isExpanded) return;
 	const chatMessageContainer = getMessageContainer();
 	if (!chatMessageContainer) return;
@@ -465,6 +467,8 @@ const mountChatActions = () => {
 	);
 	if (!chatLogButton || !chatLogModal || !chatLogContainer) return;
 	chatLogButton.onclick = () => {
+		// @ts-ignore 2304
+		opened_modals.add(modalId);
 		chatLogContainer.innerHTML = chatMessages
 			.map((chatMessage) => {
 				return wrapMessage(renderChatMessage(chatMessage, settings.timestampFormat), false);
