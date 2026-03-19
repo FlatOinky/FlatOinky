@@ -475,6 +475,8 @@ const mountChatActions = () => {
 			})
 			.join('\n');
 
+		chatLogContainer.scrollTop = chatLogContainer.scrollHeight;
+
 		chatLogModal.showModal();
 		chatLogModal.onclose = () => {
 			// @ts-ignore 2304
