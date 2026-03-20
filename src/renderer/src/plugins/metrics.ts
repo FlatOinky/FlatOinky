@@ -37,40 +37,25 @@ const mountWidgetChart = (widget: HTMLDivElement, lifecycle: Lifecycle) => {
 	if (!buttonChart) return;
 	const timeSpan = 1000 * 60 * settings.widgetChart.timeSpan;
 	const updateInterval = 1000 * settings.widgetChart.updateInterval;
-	const chunkTimeSpan = Math.ceil(timeSpan / 2.5);
 	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
+
 	const chartData = new Array(nodeCount).fill(0);
-	const lineChart = createLineGraph({ height: 32, width: 94, data: chartData, lineWidth: 1.5 });
+	const lineChart = createLineGraph({
+		height: 32,
+		width: 94,
+		data: chartData,
+		lineWidth: 1.5,
+		chunkPercent: 0.35,
+	});
 	buttonChart.appendChild(lineChart.svg);
 
-	let chunkSliceIndex = 0;
-	let lastIntervalSliceIndex = xpDrops.length;
+	let sliceIndex = xpDrops.length;
 	const intervalId = setInterval(() => {
-		const intervalXpDrops = xpDrops.slice(lastIntervalSliceIndex);
-		const intervalSum = intervalXpDrops.reduce((total, xpDrop) => total + xpDrop.xp, 0);
-		if (intervalSum === 0) {
-			xpDrops.push({ skill: 'total', xp: 0, timestamp: performance.now() });
-		}
-		lastIntervalSliceIndex = xpDrops.length;
-
-		const oldestTimestamp = performance.now() - chunkTimeSpan;
-		chunkSliceIndex = Math.max(
-			chunkSliceIndex,
-			chunkSliceIndex +
-				xpDrops
-					.slice(chunkSliceIndex)
-					.findIndex((xpDrop) => xpDrop.timestamp >= oldestTimestamp),
-		);
-		const chunkXpDrops = xpDrops.slice(chunkSliceIndex);
-		const chunkAverage =
-			chunkXpDrops.reduce(
-				(total, xpDrop, index) => total + xpDrop.xp * (index / chunkXpDrops.length),
-				0,
-			) / Math.max(1, chunkXpDrops.length);
-
+		const intervalSum = xpDrops.slice(sliceIndex).reduce((total, xpDrop) => total + xpDrop.xp, 0);
 		chartData.shift();
-		chartData.push(chunkAverage);
+		chartData.push(intervalSum);
 		lineChart.updatePath();
+		sliceIndex = xpDrops.length;
 	}, updateInterval);
 
 	lifecycle.onCleanup(() => clearInterval(intervalId));
