@@ -38,24 +38,28 @@ const mountWidgetChart = (widget: HTMLDivElement, lifecycle: Lifecycle) => {
 	const timeSpan = 1000 * 60 * settings.widgetChart.timeSpan;
 	const updateInterval = 1000 * settings.widgetChart.updateInterval;
 	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
-
-	const chartData = new Array(nodeCount).fill(0);
-	const lineChart = createLineGraph({
+	const lineGraph = createLineGraph(new Array(nodeCount).fill(0), {
 		height: 32,
 		width: 94,
-		data: chartData,
 		lineWidth: 1.5,
-		chunkPercent: 0.35,
 	});
-	buttonChart.appendChild(lineChart.svg);
+	buttonChart.appendChild(lineGraph.svg);
 
-	let sliceIndex = xpDrops.length;
+	let sliceIndex = 0;
+	const intervalSums = new Array(Math.ceil(nodeCount * 0.35)).fill(0);
 	const intervalId = setInterval(() => {
-		const intervalSum = xpDrops.slice(sliceIndex).reduce((total, xpDrop) => total + xpDrop.xp, 0);
-		chartData.shift();
-		chartData.push(intervalSum);
-		lineChart.updatePath();
+		const intervalXpDrops = xpDrops.slice(sliceIndex);
 		sliceIndex = xpDrops.length;
+		const intervalSum = intervalXpDrops.reduce((total, xpDrop) => total + xpDrop.xp, 0);
+		intervalSums.shift();
+		intervalSums.push(intervalSum);
+		const value =
+			intervalSums.reduce((total, sum, index) => {
+				return total + sum * (index + 1 / intervalSums.length);
+			}, 0) / intervalSums.length;
+		lineGraph.data.shift();
+		lineGraph.data.push(value);
+		lineGraph.updatePath();
 	}, updateInterval);
 
 	lifecycle.onCleanup(() => clearInterval(intervalId));
