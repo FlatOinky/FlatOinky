@@ -479,6 +479,7 @@ const mountChatActions = () => {
 
 		chatLogModal.showModal();
 		chatLogModal.onclose = () => {
+			chatLogContainer.replaceChildren();
 			// @ts-ignore 2304
 			opened_modals.delete(modalId);
 		};

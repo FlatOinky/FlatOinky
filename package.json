@@ -1,6 +1,6 @@
 {
 	"name": "flat-oinky",
-	"version": "0.7.3",
+	"version": "0.7.4",
 	"description": "A desktop application for Flat MMO",
 	"main": "./out/main/index.js",
 	"author": "soggypiggy <dev@soggypiggy.com>",
