@@ -53,6 +53,7 @@ const initialSettings = {
 	isExpanded: true,
 	isZebraEnabled: true,
 	maxChatLength: 250,
+	maxChatLogLength: 1000,
 	timestampFormat: 'h:mmaaa',
 };
 let settings = initialSettings;
@@ -61,6 +62,10 @@ let settings = initialSettings;
 
 const storeChatMessage = async (chatMessage: OinkyChatMessage) => {
 	chatMessages.push(chatMessage);
+	if (chatMessages.length > settings.maxChatLogLength) {
+		const deleteCount = Math.ceil(chatMessages.length - settings.maxChatLogLength);
+		chatMessages.splice(0, deleteCount);
+	}
 	localStorage.setItem(`oinky/${namespace}/chatMessages`, JSON.stringify(chatMessages));
 };
 
