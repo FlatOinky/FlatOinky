@@ -50,6 +50,7 @@ const callServerCommandSoftHooks = async (
 				showXpDrop: values[5] ? values[5] === 'true' : true,
 				showXpBar: values[6] ? values[6] === 'true' : true,
 			};
+			if (isNaN(args.xp)) return;
 			return callPluginSoftHooks((pluginInstance) => pluginInstance.onXpDrop?.(args));
 		}
 		default:
