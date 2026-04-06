@@ -3,7 +3,7 @@ import { formatDate } from 'date-fns';
 import chatTemplate from './chat/chat.html?raw';
 import chatMessageTemplate from './chat/chat_message.html?raw';
 import yellIconSrc from '../assets/yell.png';
-import pmToconSrc from '../assets/pm_to.png';
+import pmToIconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
 import { OinkyChatMessage, OinkyPlugin, Lifecycle } from '../client';
 
@@ -147,7 +147,7 @@ const renderChatMessage = (chatMessage: OinkyChatMessage, timestampFormat: strin
 	].filter((segment) => typeof segment === 'string' && segment.length > 0);
 	const suffixIcons = [
 		type === 'yell' && renderIcon(yellIconSrc),
-		type === 'pm_to' && renderIcon(pmToconSrc),
+		type === 'pm_to' && renderIcon(pmToIconSrc),
 		type === 'pm_from' && renderIcon(pmFromIconSrc),
 	].filter((icon) => typeof icon === 'string');
 	const timestamp = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
