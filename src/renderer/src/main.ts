@@ -4,7 +4,7 @@ import characterSelectionTemplate from './templates/pages/character_selection.ht
 import clientTemplate from './templates/pages/client.html?raw';
 import bannerTemplate from './templates/components/banner.html?raw';
 import worldSelectorTemplate from './templates/components/world_selector.html?raw';
-import brickBackgroundSrc from './assets/brick.png';
+import backgroundBrickSrc from './assets/backgrounds/brick.png';
 import bannerLogoSrc from './assets/fmmo_logo-v2oinky.png';
 import bannerLumberjackSrc from './assets/fmmo_lumberjack.gif';
 import bannerMinerSrc from './assets/fmmo_miner.gif';
@@ -415,9 +415,13 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 
 	const rootElement = getRootElement();
 	mountLoaderPage(rootElement);
-	const htmlElement = document.body.parentElement;
-	if (htmlElement) {
-		htmlElement.style.backgroundImage = `url(${brickBackgroundSrc})`;
+	if (document.head) {
+		const backgroundStyle = document.createElement('style');
+		backgroundStyle.innerHTML = `
+			html { background-image: url(${backgroundBrickSrc}) !important; }
+			body { background-image: url(${backgroundBrickSrc}) !important; }
+		`;
+		document.head.appendChild(backgroundStyle);
 	}
 }
 
