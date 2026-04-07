@@ -1,7 +1,7 @@
 <button
 	oinky-chat="toggle"
 	oinky-chat-expanded="{{ isExpanded }}"
-	class="absolute right-full btn btn-sm btn-nuetral hover:btn-primary btn-square m-1 indicator"
+	class="absolute right-full btn btn-sm btn-nuetral engaged:btn-primary btn-square m-1 indicator"
 >
 	<div oinky-chat="toggle-indicator" class="indicator-item status status-warning hidden"></div>
 	<svg
@@ -24,7 +24,7 @@
 		<input oinky-chat="input" placeholder="{{ placeholder }}" />
 	</label>
 	<button
-		class="join-item btn hover:btn-primary not-hover:border border-base-content/20 px-1"
+		class="join-item btn not-engaged:bg-base-100 engaged:btn-primary not-engaged:border-base-content/20 px-1"
 		popovertarget="oinky-chat-actions"
 		style="anchor-name: --oinky-chat-actions-toggle"
 	>
@@ -77,21 +77,28 @@
 	oinky-chat-expanded="{{ isExpanded }}"
 	class="contents pointer-events-none"
 >
-	<ul oinky-chat="popups" class="absolute left-0 bottom-full m-1 transition-opacity w-xl"></ul>
 	<ul
-		oinky-chat="messages"
-		class="absolute left-0 bottom-full m-1 transition-opacity w-xl bg-base-100/70 rounded max-h-64 overflow-y-scroll"
+		oinky-chat-expanded-hidden
+		oinky-chat="popups"
+		class="absolute left-0 bottom-full m-1 transition-opacity w-xl"
+	></ul>
+	<div
+		oinky-chat-expanded-visible
+		class="absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity z-10"
 	>
-		{{#messages}} {{{ . }}} {{/messages}}
-	</ul>
+		<div class="absolute inset-y-0 left-full -translate-x-[15px] bg-base-100/70 w-4 -z-10"></div>
+		<ul oinky-chat="messages" class="max-h-64 overflow-y-scroll">
+			{{#messages}} {{{ . }}} {{/messages}}
+		</ul>
+	</div>
 </div>
 
-<div oinky-chat="tabs" class="absolute top-full max-w-xl flex ml-2">
+<div oinky-chat="tabs" class="absolute top-full max-w-xl flex ml-2 -translate-y-px">
 	<div oinky-chat="tabs-container" role="tablist" class="tabs tabs-lift tabs-bottom tabs-xs">
 		{{#tabs}} {{{ . }}} {{/tabs}}
 	</div>
 	<div class="tabs tabs-lift tabs-bottom tabs-xs">
-		<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs btn-ghost btn-primary">
+		<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs engaged:btn-primary">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				viewBox="0 0 16 16"
@@ -128,7 +135,10 @@
 				</span>
 				<input autofocus type="text" />
 			</label>
-			<button oinky-modal="submit" class="btn focus:btn-success hover:btn-success join-item">
+			<button
+				oinky-modal="submit"
+				class="btn btn-ghost btn-success border-base-content/20 join-item"
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					fill="none"
@@ -140,7 +150,10 @@
 					<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
 				</svg>
 			</button>
-			<button oinky-modal="cancel" class="btn focus:btn-error hover:btn-error join-item">
+			<button
+				oinky-modal="cancel"
+				class="btn btn-ghost btn-error border-base-content/20 join-item"
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					fill="none"
@@ -174,13 +187,13 @@
 		transform: scaleY(-1);
 	}
 
-	[oinky-chat-expanded='true'] [oinky-chat='messages'],
-	[oinky-chat-expanded='false'] [oinky-chat='popups'] {
+	[oinky-chat-expanded='true'] [oinky-chat-expanded-visible],
+	[oinky-chat-expanded='false'] [oinky-chat-expanded-hidden] {
 		opacity: 1;
 	}
 
-	[oinky-chat-expanded='false'] [oinky-chat='messages'],
-	[oinky-chat-expanded='true'] [oinky-chat='popups'] {
+	[oinky-chat-expanded='false'] [oinky-chat-expanded-visible],
+	[oinky-chat-expanded='true'] [oinky-chat-expanded-hidden] {
 		opacity: 0;
 	}
 </style>

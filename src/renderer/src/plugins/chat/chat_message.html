@@ -1,13 +1,6 @@
-<div class="contents {{ colorClassName }} text-shadow-sm text-shadow-black/25">
+<div class="contents {{ colorClassName }}">
 	<span class="text-xs">{{timestamp}}</span>
-	{{#prefixIcons}}
-	{{{ . }}}
-	{{/prefixIcons}}
-	{{#segments}}
-	{{{ . }}}
-	{{/segments}}
-	{{#suffixIcons}}
-	{{{ . }}}
-	{{/suffixIcons}}
+	{{#prefixIcons}} {{{ . }}} {{/prefixIcons}} {{#segments}} {{{ . }}} {{/segments}}
+	{{#suffixIcons}} {{{ . }}} {{/suffixIcons}}
 	<span>{{{message}}}</span>
 </div>

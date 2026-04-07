@@ -17,25 +17,23 @@ type ChatTab = {
 
 // #region Vars
 
-const chatMessageLiClassName = { tick: 'p-1', tock: 'p-1 bg-black/10' };
-const chatPopupLiClassName = 'px-1 py-0.5 mt-1 last:mb-0.5 bg-base-100/70 rounded';
+const chatPopupLiClassName = 'px-1 py-0.5 mt-1 last:mb-0.5 bg-base-100/70 rounded-box';
 
 const colorMap = {
-	pink: 'text-pink-300',
-	grey: 'text-gray-300',
-	cyan: 'text-cyan-300',
-	white: 'text-white',
-	green: 'text-green-400',
-	orange: 'text-orange-400',
-	lime: 'text-lime-400',
-	red: 'text-red-400',
+	pink: 'text-accent',
+	grey: 'text-base-content/75',
+	cyan: 'text-info',
+	white: 'text-base-content',
+	green: 'text-success',
+	orange: 'text-warning',
+	lime: 'text-success',
+	red: 'text-error',
 };
 
 const usernamesCache = new Set<string>();
 const chatMessages: OinkyChatMessage[] =
 	JSON.parse(localStorage.getItem(`oinky/${namespace}/chatMessages`) ?? '[]') ?? [];
 let usernameSelf = '';
-let tickTock = true;
 
 const sentHistory: string[] = [];
 let sentHistoryIndex = -1;
@@ -87,11 +85,8 @@ const chunkMessageBySize = (message: string, chunkSize: number): string[] => {
 	return chunks;
 };
 
-const getLiChatMessageClassName = (): string => {
-	const className = tickTock ? chatMessageLiClassName.tick : chatMessageLiClassName.tock;
-	tickTock = !tickTock;
-	return className;
-};
+const getMessageClassName = (): HTMLElement['className'] =>
+	settings.isZebraEnabled ? 'p-1 odd:bg-base-100/70 even:bg-base-300/70' : 'p-1 bg-base-100/70';
 
 const getRandomUsername = (): string => {
 	const { size } = usernamesCache;
@@ -106,11 +101,9 @@ const getMessageContainer = (): HTMLUListElement | null =>
 const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: number) =>
 	scrollTop + clientHeight >= scrollHeight - clientHeight / 3;
 
-const wrapMessage = (
-	chatMessageRender: string,
-	isZebraEnabled: boolean = settings.isZebraEnabled ?? true,
-) => {
-	return `<li class="${isZebraEnabled ? getLiChatMessageClassName() : chatMessageLiClassName.tick}">${chatMessageRender}</li>`;
+const wrapMessage = (chatMessageRender: string, isBackgroundEnabled: boolean = true) => {
+	const className = isBackgroundEnabled ? getMessageClassName() : 'p-1';
+	return `<li class="${className}">${chatMessageRender}</li>`;
 };
 
 // #region Renderers
@@ -175,7 +168,7 @@ const renderChatMessage = (chatMessage: OinkyChatMessage, timestampFormat: strin
 };
 
 const renderChatTab = ({ name }: ChatTab, isActive: boolean): string => {
-	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active bg-base-200' : 'hover:bg-base-200/60'}">${name}</button>`;
+	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active bg-base-200' : 'bg-base-300/80'}">${name}</button>`;
 };
 
 const renderChat = (
@@ -279,7 +272,7 @@ const handleKeypress = (event: KeyboardEvent): void => {
 	chatInput.focus();
 };
 
-const handleToggleClick = (): void => {
+const handleToggleClick = (toggleButton: HTMLButtonElement): void => {
 	const chatMessageContainer = getMessageContainer();
 	if (!chatMessageContainer) return;
 	updateToggleIndicator(false);
@@ -296,9 +289,9 @@ const handleToggleClick = (): void => {
 			});
 			return;
 		}
-	} else {
-		chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
 	}
+	toggleButton.blur();
+	chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
 	settings.isExpanded = !settings.isExpanded;
 	document.querySelectorAll('[oinky-chat-expanded]').forEach((element) => {
 		element.setAttribute('oinky-chat-expanded', `${settings.isExpanded}`);
@@ -413,8 +406,17 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 	lifecycle.onCleanup(() => document.removeEventListener('keypress', handleKeypress));
 	const container = document.querySelector('[oinky-taskbar=chat-container]');
 	if (!container) return;
-	const loginMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')].map(
-		(rootElement) => {
+	const loginMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')];
+	const currentMessages = [
+		...chatMessages
+			.slice(
+				Math.max(0, chatMessages.length - settings.maxChatLength - loginMessages.length),
+				chatMessages.length,
+			)
+			.map((chatMessage) => {
+				return wrapMessage(renderChatMessage(chatMessage, settings.timestampFormat));
+			}),
+		...loginMessages.map((rootElement) => {
 			const element = rootElement.cloneNode(true) as HTMLSpanElement;
 			const colorClassName = colorMap[element.style.color] ?? colorMap.white;
 			element.style.color = '';
@@ -424,17 +426,8 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 					colorClassName,
 				}),
 			);
-		},
-	);
-	const currentMessages = chatMessages
-		.slice(
-			Math.max(0, chatMessages.length - settings.maxChatLength - loginMessages.length),
-			chatMessages.length,
-		)
-		.map((chatMessage) => {
-			return wrapMessage(renderChatMessage(chatMessage, settings.timestampFormat));
-		})
-		.concat(loginMessages);
+		}),
+	];
 	container.innerHTML = renderChat(
 		username,
 		currentMessages,
@@ -454,7 +447,7 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 	document.addEventListener('wheel', handleWheel);
 	lifecycle.onCleanup(() => document.removeEventListener('wheel', handleWheel));
 	chatInput.onkeydown = handleChatInputKeydown(chatInput);
-	toggleButton.onclick = handleToggleClick;
+	toggleButton.onclick = () => handleToggleClick(toggleButton);
 	addTabButton.onclick = handleAddTabClick;
 	mountChatActions();
 };
@@ -503,7 +496,7 @@ const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 		chatMessageContainer.scrollHeight,
 	);
 	const chatMessageLi = document.createElement('li');
-	chatMessageLi.className = getLiChatMessageClassName();
+	chatMessageLi.className = getMessageClassName();
 	chatMessageLi.innerHTML = renderChatMessage(chatMessage, settings.timestampFormat);
 	chatMessageContainer.appendChild(chatMessageLi);
 	// Create and append popup

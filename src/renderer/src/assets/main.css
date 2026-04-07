@@ -21,6 +21,7 @@
 		font-feature-settings: var(--default-font-feature-settings, normal);
 		font-variation-settings: var(--default-font-variation-settings, normal);
 		-webkit-tap-highlight-color: transparent;
+		@apply selection:bg-accent selection:text-accent-content;
 	}
 }
 
@@ -47,6 +48,12 @@
 }
 
 @config "../tailwind.config.js";
+
+@custom-variant engaged {
+	&:is(:hover, :active, :focus) {
+		@slot;
+	}
+}
 
 @utility pixelated {
 	image-rendering: pixelated;
