@@ -22,6 +22,19 @@ const getMenuItemContainer = (id: string): HTMLLIElement => {
 	return container;
 };
 
+export const getActivity = (id: string): null | HTMLDivElement => {
+	const container = document.querySelector<HTMLDivElement>(
+		'div[oinky-taskbar=activities-container]',
+	);
+	if (!container) return null;
+	const existing = container.querySelector<HTMLDivElement>(`div[oinky-taskbar-activity=${id}]`);
+	if (existing) return existing;
+	const activity = document.createElement('div');
+	container.appendChild(activity);
+	activity.setAttribute('oinky-taskbar-activity', id);
+	return activity;
+};
+
 const getWidget = (id: string): null | HTMLDivElement => {
 	const container = document.querySelector<HTMLDivElement>('div[oinky-taskbar=widget-container]');
 	if (!container) return null;

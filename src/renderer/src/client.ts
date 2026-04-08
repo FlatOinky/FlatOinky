@@ -53,6 +53,13 @@ const callServerCommandSoftHooks = async (
 			if (isNaN(args.xp)) return;
 			return callPluginSoftHooks((pluginInstance) => pluginInstance.onXpDrop?.(args));
 		}
+		case 'MAKE_ITEM_UI': {
+			const item = values[0] ?? 'none';
+			if (item === 'none') {
+				return callPluginSoftHooks((pluginInstance) => pluginInstance.onMakeUiChange?.(null));
+			}
+			return callPluginSoftHooks((pluginInstance) => pluginInstance.onMakeUiChange?.(item));
+		}
 		default:
 			return;
 	}

@@ -1,7 +1,8 @@
 import notificationMp3 from '../assets/notification.mp3';
 import { OinkyPlugin } from '../client';
-import { upsertTaskbarTrayMenuIcon } from './taskbar';
+import { getActivity, upsertTaskbarTrayMenuIcon } from './taskbar';
 import trayMenuTemplate from './monitor/monitor_tray_menu.html?raw';
+import craftingActivityTemplate from './monitor/crafting_activity.html?raw';
 import mustache from 'mustache';
 import { createNotification } from '../client/ipcRenderer';
 
@@ -33,6 +34,10 @@ const renderTrayMenu = (): string => {
 		audioChecked: settings.audioEnabled ? 'checked' : '',
 		notificationChecked: settings.notificationEnabled ? 'checked' : '',
 	});
+};
+
+const renderCraftingActivity = (item: string): string => {
+	return mustache.render(craftingActivityTemplate, { item, label: item.replaceAll('_', ' ') });
 };
 
 // let internalSelf: AlertsPlugin;
@@ -83,6 +88,19 @@ const mountTrayMenu = (): void => {
 	}
 };
 
+const updateCraftingActivity = (item: string | null) => {
+	const container = getActivity('crafting');
+	if (!container) return;
+	if (item === null) {
+		container.removeAttribute('item-id');
+		container.replaceChildren();
+		return;
+	}
+	if (container?.getAttribute('item-id') === item) return;
+	container.setAttribute('item-id', item);
+	container.innerHTML = renderCraftingActivity(item);
+};
+
 export const MonitorPlugin: OinkyPlugin = {
 	namespace: 'core/monitor',
 	name: 'Monitor',
@@ -100,6 +118,8 @@ export const MonitorPlugin: OinkyPlugin = {
 					notify(triggerSound.title);
 				});
 			},
+			onMakeUiChange: (item) => updateCraftingActivity(item),
+			hookServerCommand: (command) => command !== 'MAKE_ITEM_UI',
 		};
 	},
 };
