@@ -1,7 +1,7 @@
 <button
 	oinky-chat="toggle"
 	oinky-chat-expanded="{{ isExpanded }}"
-	class="absolute right-full btn btn-sm btn-nuetral engaged:btn-primary btn-square m-1 indicator"
+	class="absolute right-full btn btn-sm engaged:btn-primary btn-square m-1 indicator"
 >
 	<div oinky-chat="toggle-indicator" class="indicator-item status status-warning hidden"></div>
 	<svg
@@ -82,23 +82,23 @@
 		oinky-chat="popups"
 		class="absolute left-0 bottom-full m-1 transition-opacity w-xl"
 	></ul>
-	<div
-		oinky-chat-expanded-visible
-		class="absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity z-10"
-	>
-		<div class="absolute inset-y-0 left-full -translate-x-[15px] bg-base-100/70 w-4 -z-10"></div>
-		<ul oinky-chat="messages" class="max-h-64 overflow-y-scroll">
+	<div class="absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity">
+		<ul
+			oinky-chat-expanded-visible
+			oinky-chat="messages"
+			class="max-h-64 overflow-y-scroll scrollbar-thumb-base-content/50 scrollbar-track-base-200/70"
+		>
 			{{#messages}} {{{ . }}} {{/messages}}
 		</ul>
 	</div>
 </div>
 
-<div oinky-chat="tabs" class="absolute top-full max-w-xl flex ml-2 -translate-y-px">
+<div oinky-chat="tabs" class="absolute top-full max-w-xl flex ml-(--radius-box)">
 	<div oinky-chat="tabs-container" role="tablist" class="tabs tabs-lift tabs-bottom tabs-xs">
 		{{#tabs}} {{{ . }}} {{/tabs}}
 	</div>
 	<div class="tabs tabs-lift tabs-bottom tabs-xs">
-		<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs engaged:btn-primary">
+		<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs engaged:btn-primary text-(--btn-fg)">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				viewBox="0 0 16 16"

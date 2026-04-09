@@ -85,8 +85,12 @@ const chunkMessageBySize = (message: string, chunkSize: number): string[] => {
 	return chunks;
 };
 
-const getMessageClassName = (): HTMLElement['className'] =>
-	settings.isZebraEnabled ? 'p-1 odd:bg-base-100/70 even:bg-base-300/70' : 'p-1 bg-base-100/70';
+let messageBgTickTock = false;
+const getMessageBg = (): HTMLElement['className'] => {
+	if (!settings.isZebraEnabled) return 'bg-base-200/70';
+	messageBgTickTock = !messageBgTickTock;
+	return messageBgTickTock ? 'bg-base-100/70' : 'bg-base-300/70';
+};
 
 const getRandomUsername = (): string => {
 	const { size } = usernamesCache;
@@ -102,8 +106,8 @@ const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: 
 	scrollTop + clientHeight >= scrollHeight - clientHeight / 3;
 
 const wrapMessage = (chatMessageRender: string, isBackgroundEnabled: boolean = true) => {
-	const className = isBackgroundEnabled ? getMessageClassName() : 'p-1';
-	return `<li class="${className}">${chatMessageRender}</li>`;
+	const className = isBackgroundEnabled ? getMessageBg() : '';
+	return `<li class="p-1 ${className}">${chatMessageRender}</li>`;
 };
 
 // #region Renderers
@@ -168,7 +172,7 @@ const renderChatMessage = (chatMessage: OinkyChatMessage, timestampFormat: strin
 };
 
 const renderChatTab = ({ name }: ChatTab, isActive: boolean): string => {
-	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active bg-base-200' : 'bg-base-300/80'}">${name}</button>`;
+	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active' : 'bg-base-300'}">${name}</button>`;
 };
 
 const renderChat = (
@@ -496,7 +500,7 @@ const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 		chatMessageContainer.scrollHeight,
 	);
 	const chatMessageLi = document.createElement('li');
-	chatMessageLi.className = getMessageClassName();
+	chatMessageLi.className = `p-1 ${getMessageBg()}`;
 	chatMessageLi.innerHTML = renderChatMessage(chatMessage, settings.timestampFormat);
 	chatMessageContainer.appendChild(chatMessageLi);
 	// Create and append popup

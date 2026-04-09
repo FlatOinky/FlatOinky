@@ -59,6 +59,40 @@
 	image-rendering: pixelated;
 }
 
+@utility scrollbar-track-* {
+	--tw-oinky-scrollbar-track-color: --value(--color);
+	--tw-oinky-scrollbar-track-opacity: --modifier(--opacity-*, integer, [integer]);
+	scrollbar-color: color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-thumb-color, black)
+				calc(var(--tw-oinky-scrollbar-thumb-opacity, 100) * 1%),
+			transparent
+		)
+		color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-track-color)
+				calc(var(--tw-oinky-scrollbar-track-opacity, 100) * 1%),
+			transparent
+		);
+}
+
+@utility scrollbar-thumb-* {
+	--tw-oinky-scrollbar-thumb-color: --value(--color);
+	--tw-oinky-scrollbar-thumb-opacity: --modifier(--opacity-*, integer, [integer]);
+	scrollbar-color: color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-thumb-color)
+				calc(var(--tw-oinky-scrollbar-thumb-opacity, 100) * 1%),
+			transparent
+		)
+		color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-track-color, white)
+				calc(var(--tw-oinky-scrollbar-track-opacity, 100) * 1%),
+			transparent
+		);
+}
+
 /* replacing tailwind/daisy styles that aren't respecting the .flat-oinky scope */
 
 :root,
