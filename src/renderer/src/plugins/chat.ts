@@ -6,6 +6,7 @@ import yellIconSrc from '../assets/yell.png';
 import pmToIconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
 import { OinkyChatMessage, OinkyPlugin, Lifecycle } from '../client';
+import { ipcRenderer } from '../client/ipc_renderer';
 
 const namespace = 'core/chat';
 
@@ -458,33 +459,67 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 
 const mountChatActions = () => {
 	const modalId = `oinky/${namespace}/`;
-	const chatLogButton = document.querySelector<HTMLButtonElement>(
-		'button[oinky-chat=chat-log-action]',
+	const activatorButton = document.querySelector<HTMLButtonElement>(
+		'button[oinky-chat=log-activator]',
 	);
-	const chatLogModal = document.querySelector<HTMLDialogElement>(
-		'dialog[oinky-chat=chat-log-modal]',
+	const modalDialog = document.querySelector<HTMLDialogElement>('dialog[oinky-chat=log-modal]');
+	const logContainer = document.querySelector<HTMLUListElement>('ul[oinky-chat=log-container]');
+	const exportButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=export-log]');
+	const goTopButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-top-log]');
+	const goUpButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-up-log]');
+	const goDownButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-down-log]');
+	const goBottomButton = document.querySelector<HTMLButtonElement>(
+		'button[oinky-chat=go-bottom-log]',
 	);
-	const chatLogContainer = document.querySelector<HTMLUListElement>(
-		'ul[oinky-chat=chat-log-container]',
-	);
-	if (!chatLogButton || !chatLogModal || !chatLogContainer) return;
-	chatLogButton.onclick = () => {
+	if (
+		!activatorButton ||
+		!modalDialog ||
+		!logContainer ||
+		!exportButton ||
+		!goTopButton ||
+		!goUpButton ||
+		!goDownButton ||
+		!goBottomButton
+	)
+		return;
+	activatorButton.onclick = () => {
 		// @ts-ignore 2304
 		opened_modals.add(modalId);
-		chatLogContainer.innerHTML = chatMessages
+		logContainer.innerHTML = chatMessages
 			.map((chatMessage) => {
 				return wrapMessage(renderChatMessage(chatMessage, settings.timestampFormat), false);
 			})
 			.join('\n');
 
-		chatLogContainer.scrollTop = chatLogContainer.scrollHeight;
+		logContainer.scrollTop = logContainer.scrollHeight;
 
-		chatLogModal.showModal();
-		chatLogModal.onclose = () => {
-			chatLogContainer.replaceChildren();
+		modalDialog.showModal();
+		modalDialog.onclose = () => {
+			logContainer.replaceChildren();
 			// @ts-ignore 2304
 			opened_modals.delete(modalId);
 		};
+	};
+	goTopButton.onclick = () => {
+		goTopButton.blur();
+		logContainer.scrollTo({ top: 0, behavior: 'smooth' });
+	};
+	goUpButton.onclick = () => {
+		const top = logContainer.scrollTop - logContainer.getBoundingClientRect().height;
+		logContainer.scrollTo({ top, behavior: 'smooth' });
+	};
+	goDownButton.onclick = () => {
+		const top = logContainer.scrollTop + logContainer.getBoundingClientRect().height;
+		logContainer.scrollTo({ top, behavior: 'smooth' });
+	};
+	goBottomButton.onclick = () => {
+		goBottomButton.blur();
+		logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: 'smooth' });
+	};
+	exportButton.onclick = () => {
+		const filename = `FlatMMO Chat ${new Date().toISOString()}.txt`;
+		const contents = logContainer.innerText;
+		ipcRenderer.send('requestFileSave', filename, contents);
 	};
 };
 

@@ -1,5 +1,6 @@
 import { ipcMain, Notification, session } from 'electron';
 import * as storage from './storage';
+import { saveFile } from './files';
 import type { StorageKey } from './storage';
 
 const flatUrl = 'https://flatmmo.com';
@@ -17,6 +18,18 @@ export const ipcMainSetup = (): void => {
 
 	ipcMain.on('reloadWindow', ({ sender }) => {
 		sender.reload();
+	});
+
+	let lastRequestFileSaveTimestamp = 0;
+	ipcMain.on('requestFileSave', (_event, filename: string, contents: string) => {
+		const currentTimestamp = performance.now();
+		const timeSinceLastRequest = currentTimestamp - lastRequestFileSaveTimestamp;
+		lastRequestFileSaveTimestamp = currentTimestamp;
+		if (timeSinceLastRequest < 10 * 1000) return;
+		dialog.showSaveDialog({ defaultPath: filename }).then((result) => {
+			if (result.canceled) return;
+			saveFile(result.filePath, contents);
+		});
 	});
 
 	ipcMain.on('createNotification', (_event, title: string, message: string) => {
