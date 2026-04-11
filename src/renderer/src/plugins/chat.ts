@@ -1,6 +1,9 @@
 import mustache from 'mustache';
 import { formatDate } from 'date-fns';
 import chatTemplate from './chat/chat.html?raw';
+import chatTabsTemplate from './chat/chat_tabs.html?raw';
+import chatActionsTemplate from './chat/chat_actions.html?raw';
+import chatLogTemplate from './chat/chat_log.html?raw';
 import chatMessageTemplate from './chat/chat_message.html?raw';
 import yellIconSrc from '../assets/yell.png';
 import pmToIconSrc from '../assets/pm_to.png';
@@ -176,6 +179,22 @@ const renderChatTab = ({ name }: ChatTab, isActive: boolean): string => {
 	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active' : 'bg-base-300'}">${name}</button>`;
 };
 
+const renderChatTabs = (chatTabs: ChatTab[], selectedIndex: number) => {
+	return mustache.render(chatTabsTemplate, {
+		tabs: chatTabs.map((chatTab, index) => {
+			return renderChatTab(chatTab, index === selectedIndex);
+		}),
+	});
+};
+
+const renderChatActions = () => {
+	return mustache.render(chatActionsTemplate, {});
+};
+
+const renderChatLog = () => {
+	return mustache.render(chatLogTemplate, {});
+};
+
 const renderChat = (
 	username: string,
 	messages: string[],
@@ -187,10 +206,10 @@ const renderChat = (
 		messages,
 		// @ts-ignore-next-line
 		placeholder: username,
-		tabs: chatTabs.map((chatTab, index) =>
-			renderChatTab(chatTab, index === selectedChatTabIndex),
-		),
 		isExpanded: `${isExpanded}`,
+		renderedChatTabs: renderChatTabs(chatTabs, selectedChatTabIndex),
+		renderedChatActions: renderChatActions(),
+		renderedChatLog: renderChatLog(),
 	});
 };
 

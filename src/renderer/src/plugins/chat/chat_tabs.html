@@ -1,0 +1,78 @@
+<div oinky-chat="tabs" class="absolute top-full max-w-xl flex ml-(--radius-box)">
+	<div oinky-chat="tabs-container" role="tablist" class="tabs tabs-lift tabs-bottom tabs-xs">
+		{{#tabs}} {{{ . }}} {{/tabs}}
+	</div>
+	<div class="tabs tabs-lift tabs-bottom tabs-xs">
+		<button oinky-chat="add-tab" class="tab mx-1 btn btn-xs engaged:btn-primary text-(--btn-fg)">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 16 16"
+				fill="currentColor"
+				class="size-4"
+			>
+				<path
+					d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"
+				/>
+			</svg>
+		</button>
+	</div>
+</div>
+
+<dialog oinky-chat="add-tab-modal" class="modal">
+	<div class="modal-box">
+		<h3>Add PM tab</h3>
+		<br />
+		<div method="dialog" class="join w-full">
+			<label class="join-item w-full input">
+				<span class="label">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="size-5"
+					>
+						<path
+							fill-rule="evenodd"
+							d="M5.404 14.596A6.5 6.5 0 1 1 16.5 10a1.25 1.25 0 0 1-2.5 0 4 4 0 1 0-.571 2.06A2.75 2.75 0 0 0 18 10a8 8 0 1 0-2.343 5.657.75.75 0 0 0-1.06-1.06 6.5 6.5 0 0 1-9.193 0ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+				</span>
+				<input autofocus type="text" />
+			</label>
+			<button
+				oinky-modal="submit"
+				class="btn btn-ghost btn-success border-base-content/20 join-item"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+					class="size-6"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+				</svg>
+			</button>
+			<button
+				oinky-modal="cancel"
+				class="btn btn-ghost btn-error border-base-content/20 join-item"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+					class="size-6"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+				</svg>
+			</button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button value="cancel">Cancel</button>
+	</form>
+</dialog>
