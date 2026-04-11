@@ -1,6 +1,6 @@
 import type { FMMOCharacter } from '..';
 import type { OinkyChatMessage } from './chat_message';
-import { createPluginStorages } from './storage';
+import { createPluginStorages } from './client_storage';
 import { getProfileKey } from './profiles';
 import { createLifecycle, Lifecycle } from '../utils';
 

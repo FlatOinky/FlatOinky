@@ -1,10 +1,5 @@
 import * as dot from 'dot-prop';
-import {
-	loadStorage,
-	updateCharacterStorage,
-	updateGlobalStorage,
-	updateProfileStorage,
-} from './ipcRenderer';
+import { ipcStorage } from './ipc_renderer';
 
 type JSONData =
 	| boolean
@@ -12,6 +7,8 @@ type JSONData =
 	| string
 	| { [key: string]: JSONData }
 	| Array<boolean | number | string | { [key: string]: JSONData }>;
+
+export type StorageKey = string | readonly (string | number)[];
 
 export type StorageData = {
 	global: { [namespace: string]: Record<string, JSONData> };
@@ -26,7 +23,7 @@ export type OinkyStorage = {
 	reactive: <T extends object>(keys: string | readonly (string | number)[], defaults: T) => T;
 };
 
-export const storageData = loadStorage<StorageData>();
+export const storageData = ipcStorage.loadStorage<StorageData>();
 
 const deepProxy = <T extends object>(
 	target: T,
@@ -98,13 +95,13 @@ export const createPluginStorages = async (
 	const characterData = (await storageData).characters?.[username]?.[namespace] ?? {};
 	return {
 		globalStorage: wrapStorageData(globalData, (keys, value) =>
-			updateGlobalStorage([namespace, ...keys], value),
+			ipcStorage.updateGlobalStorage([namespace, ...keys], value),
 		),
 		profileStorage: wrapStorageData(profileData, (keys, value) =>
-			updateProfileStorage([profile, namespace, ...keys], value),
+			ipcStorage.updateProfileStorage([profile, namespace, ...keys], value),
 		),
 		characterStorage: wrapStorageData(characterData, (keys, value) =>
-			updateCharacterStorage([username, namespace, ...keys], value),
+			ipcStorage.updateCharacterStorage([username, namespace, ...keys], value),
 		),
 	};
 };

@@ -3,7 +3,7 @@ import taskbarTemplate from './taskbar/taskbar.html?raw';
 import trayMenuIconTemplate from './taskbar/tray_menu_icon.html?raw';
 import { version } from '../../../../package.json';
 import { OinkyPlugin } from '../client';
-import { openDevTools, reloadWindow } from '../client/ipcRenderer';
+import { openDevTools, reloadWindow } from '../client/ipc_renderer';
 import type { Lifecycle } from '../utils';
 
 const renderTaskbar = (): string => {

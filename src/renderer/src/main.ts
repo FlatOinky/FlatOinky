@@ -14,17 +14,16 @@ import { FMMOCharacter, FMMOWorld } from '.';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
 import { OinkyClient } from './client';
 import './assets/main.css';
+import { ipcRenderer, reloadWindow, openDevTools } from './client/ipc_renderer';
 
 // TODO: use this api url for greasyfork to get userscripts
 // https://api.greasyfork.org/en/scripts/by-site/flatmmo.com.json
-
-const { ipcRenderer } = window.electron;
 
 let newsLinkText = 'Latest updates';
 
 // #region window_setup
 
-window.reloadWindow = () => ipcRenderer.send('reloadWindow');
+window.reloadWindow = reloadWindow;
 
 if (import.meta.hot) {
 	import.meta.hot.on('reload-window', () => {
@@ -36,7 +35,6 @@ window.setTitle = (prefixLabel?: string) => {
 	const base = 'Flat Oinky';
 	const title = prefixLabel ? `${prefixLabel} — ${base}` : base;
 	document.title = title;
-	ipcRenderer.send('setWindowTitle', title);
 };
 window.setTitle();
 
@@ -176,7 +174,7 @@ const mountDevtoolButton = (rootElement: HTMLDivElement): void => {
 	rootElement
 		.querySelectorAll<HTMLButtonElement>('button[flat-oinky=devtools]')
 		.forEach((element) => {
-			element.onclick = () => ipcRenderer.send('openDevTools');
+			element.onclick = () => openDevTools();
 		});
 };
 

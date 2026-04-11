@@ -1,18 +1,9 @@
 import type { ElectronAPI } from '@electron-toolkit/preload';
+import type { StorageKey } from '../client_storage';
 
-export const { ipcRenderer } = window.electron as ElectronAPI;
-
-export const reloadWindow = (): void => ipcRenderer.send('reloadWindow');
-
-export const openDevTools = (): void => ipcRenderer.send('openDevTools');
-
-export const createNotification = (title: string, message?: string): void => {
-	ipcRenderer.send('createNotification', title, message);
-};
+const { ipcRenderer } = window.electron as ElectronAPI;
 
 export const loadStorage = async <T>(): Promise<T> => await ipcRenderer.invoke('loadStorage');
-
-export type StorageKey = string | readonly (string | number)[];
 
 export const updateGlobalStorage = (key: StorageKey, value: unknown): void =>
 	ipcRenderer.send('updateGlobalStorage', key, value);

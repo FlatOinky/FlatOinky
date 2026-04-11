@@ -4,7 +4,7 @@ import { getActivity, upsertTaskbarTrayMenuIcon } from './taskbar';
 import trayMenuTemplate from './monitor/monitor_tray_menu.html?raw';
 import craftingActivityTemplate from './monitor/crafting_activity.html?raw';
 import mustache from 'mustache';
-import { createNotification } from '../client/ipcRenderer';
+import { createNotification } from '../client/ipc_renderer';
 
 // #region Vars
 
