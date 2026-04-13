@@ -1,20 +1,18 @@
-<div class="bg-base-100/70 flex items-center gap-1 rounded-box">
-	<img
-		class="size-4 mx-1"
-		style="margin-left: calc(4px + var(--radius-field))"
-		src="https://flatmmo.com/images/items/{{item}}.png"
-	/>
-	<span class="capitalize">{{label}}</span>
+<div class="bg-base-100/70 flex items-center py-1 px-1.5 gap-2 rounded-box w-max">
+	<img class="size-8 pixelated" src="https://flatmmo.com/images/items/{{item}}.png" />
+	<div class="flex flex-col">
+		<div class="capitalize text-sm">{{label}}</div>
+		<div oinky-monitor-crafting-activity="details">{{{details}}}</div>
+	</div>
 	<button
-		class="btn btn-ghost btn-error btn-sm rounded-box rounded-l-none pointer-events-auto"
-		style="padding-right: calc(12px + var(--radius-field))"
+		class="btn btn-ghost btn-error btn-square btn-sm pointer-events-auto"
 		onclick="Globals.websocket.send('CANCEL_MAKE_ITEM')"
 	>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
-			viewBox="0 0 16 16"
+			viewBox="0 0 20 20"
 			fill="currentColor"
-			class="size-4"
+			class="size-5"
 		>
 			<path
 				d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"

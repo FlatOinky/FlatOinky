@@ -80,7 +80,7 @@ export interface OinkyPluginInstance {
 		showXpDrop: boolean;
 		showXpBar: boolean;
 	}): void;
-	onMakeUiChange?(item: string | null): void;
+	onMakeUiChange?(item: string | null, completed: number, total: number, sessionXp: number): void;
 
 	hookServerCommand?(command: string, values: string[], rawData: string): OinkyHookResult;
 	hookAddToChat?(

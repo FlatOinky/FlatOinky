@@ -56,9 +56,16 @@ const callServerCommandSoftHooks = async (
 		case 'MAKE_ITEM_UI': {
 			const item = values[0] ?? 'none';
 			if (item === 'none') {
-				return callPluginSoftHooks((pluginInstance) => pluginInstance.onMakeUiChange?.(null));
+				return callPluginSoftHooks((pluginInstance) =>
+					pluginInstance.onMakeUiChange?.(null, NaN, NaN, NaN),
+				);
 			}
-			return callPluginSoftHooks((pluginInstance) => pluginInstance.onMakeUiChange?.(item));
+			const completed = parseInt(values[1]);
+			const total = parseInt(values[2]);
+			const sessionXp = parseInt(values[3]);
+			return callPluginSoftHooks((pluginInstance) =>
+				pluginInstance.onMakeUiChange?.(item, completed, total, sessionXp),
+			);
 		}
 		default:
 			return;

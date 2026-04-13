@@ -5,6 +5,7 @@ import trayMenuTemplate from './monitor/monitor_tray_menu.html?raw';
 import craftingActivityTemplate from './monitor/crafting_activity.html?raw';
 import mustache from 'mustache';
 import { createNotification } from '../client/ipc_renderer';
+import numeral from 'numeral';
 
 // #region Vars
 
@@ -36,8 +37,25 @@ const renderTrayMenu = (): string => {
 	});
 };
 
-const renderCraftingActivity = (item: string): string => {
-	return mustache.render(craftingActivityTemplate, { item, label: item.replaceAll('_', ' ') });
+const renderCraftingActivityDetails = (completed: number, total: number, sessionXp: number) =>
+	`
+			<div class="flex gap-1 justify-between items-baseline">
+				<div class="badge badge-xs badge-primary">${completed}/${total}</div>
+				<div class="badge badge-xs badge-secondary">${numeral(sessionXp).format('0,0')}xp</div>
+			</div>
+`.trim();
+
+const renderCraftingActivity = (
+	item: string,
+	completed: number,
+	total: number,
+	sessionXp: number,
+): string => {
+	return mustache.render(craftingActivityTemplate, {
+		item,
+		label: item.replaceAll('_', ' '),
+		details: renderCraftingActivityDetails(completed, total, sessionXp),
+	});
 };
 
 // let internalSelf: AlertsPlugin;
@@ -88,17 +106,27 @@ const mountTrayMenu = (): void => {
 	}
 };
 
-const updateCraftingActivity = (item: string | null) => {
+const updateCraftingActivity = (
+	item: string | null,
+	completed: number,
+	total: number,
+	sessionXp: number,
+) => {
 	const container = getActivity('crafting');
 	if (!container) return;
-	if (item === null) {
+	if (item === null || [completed, total, sessionXp].includes(NaN)) {
+		if (!container.hasAttribute('item-id')) return;
 		container.removeAttribute('item-id');
 		container.replaceChildren();
 		return;
 	}
-	if (container?.getAttribute('item-id') === item) return;
+	if (container?.getAttribute('item-id') === item) {
+		const details = container.querySelector('[oinky-monitor-crafting-activity=details]');
+		if (details) details.innerHTML = renderCraftingActivityDetails(completed, total, sessionXp);
+		return;
+	}
 	container.setAttribute('item-id', item);
-	container.innerHTML = renderCraftingActivity(item);
+	container.innerHTML = renderCraftingActivity(item, completed, total, sessionXp);
 };
 
 export const MonitorPlugin: OinkyPlugin = {
@@ -118,7 +146,7 @@ export const MonitorPlugin: OinkyPlugin = {
 					notify(triggerSound.title);
 				});
 			},
-			onMakeUiChange: (item) => updateCraftingActivity(item),
+			onMakeUiChange: updateCraftingActivity,
 			hookServerCommand: (command) => command !== 'MAKE_ITEM_UI',
 		};
 	},
