@@ -95,6 +95,18 @@ export const upsertTaskbarTrayMenuIcon = (
 	return iconContainer;
 };
 
+export const getMenuItem = (id: string): HTMLDivElement | null => {
+	const container = document.querySelector<HTMLElement>('[oinky-taskbar=menu-items]');
+	if (!container) return null;
+	const existing = container.querySelector<HTMLDivElement>(`div[oinky-taskbar-menu=${id}]`);
+	if (existing) return existing;
+	const item = document.createElement('div');
+	item.style.display = 'contents';
+	item.setAttribute('oinky-taskbar-menu', id);
+	container.appendChild(item);
+	return item;
+};
+
 const attachTaskbar = (lifecycle: Lifecycle): void => {
 	const canvasContainer = document.querySelector('[fmmo-container=canvas]');
 	if (!canvasContainer) return;

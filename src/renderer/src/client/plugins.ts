@@ -106,6 +106,10 @@ export interface OinkyPlugin {
 	 */
 	name?: string;
 	/**
+	 * a description for the plugin
+	 */
+	description?: string;
+	/**
 	 * a list of namespaces the plugin depends on and will wait for to have enabled and started
 	 * before the plugin itself can be initiated/started.
 	 */
@@ -129,6 +133,7 @@ export const pluginInstances = new Map<OinkyPluginNamespace, OinkyPluginInstance
 export const startedPlugins = new Set<OinkyPluginNamespace>([]);
 export const enabledPlugins = new Set<OinkyPluginNamespace>([
 	'core/taskbar',
+	'core/themes',
 	'core/chat',
 	'core/tweaks',
 	'core/monitor',
