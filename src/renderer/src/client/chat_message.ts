@@ -122,3 +122,23 @@ export const createChatMessage = (
 		tag: undefined,
 	};
 };
+
+export const parseChatMessage = (serverCommand: string): OinkyChatMessage | undefined => {
+	const [command, ...commandRest] = serverCommand.split('=');
+	const args = commandRest.join('=').split('~');
+	switch (command) {
+		case 'CHAT':
+		case 'YELL': {
+			const [username, tag, icon, color, ...argsRest] = args;
+			const message = argsRest.join('~');
+			return createChatMessage(username, tag, icon, color, message);
+		}
+		case 'CHAT_LOCAL_MESSAGE': {
+			const [color, ...argsRest] = args;
+			const message = argsRest.join('~');
+			return createChatMessage('none', 'none', 'none', color, message);
+		}
+		default:
+			return undefined;
+	}
+};

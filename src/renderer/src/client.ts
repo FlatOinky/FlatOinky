@@ -1,5 +1,5 @@
 import { FMMOCharacter } from '.';
-import { createChatMessage, OinkyChatMessage } from './client/chat_message';
+import { OinkyChatMessage, parseChatMessage } from './client/chat_message';
 import {
 	OinkyPlugin,
 	callPluginSoftHooks,
@@ -34,11 +34,21 @@ let isCoreRegistered: boolean = false;
 const callServerCommandSoftHooks = async (
 	key: string,
 	values: string[],
-	_rawData: string,
+	rawServerCommand: string,
 ): Promise<void> => {
 	switch (key) {
 		case 'LOGGED_IN':
 			return callPluginSoftHooks((pluginInstance) => pluginInstance.onLogin?.());
+
+		case 'CHAT':
+		case 'YELL':
+		case 'CHAT_LOCAL_MESSAGE': {
+			const chatMessage = parseChatMessage(rawServerCommand);
+			if (!chatMessage) return;
+			return callPluginSoftHooks((pluginInstance) =>
+				pluginInstance.onChatMessage?.(chatMessage),
+			);
+		}
 
 		case 'XP_DROP': {
 			const args = {
@@ -129,21 +139,6 @@ export class OinkyClient {
 		color: string,
 		message: string,
 	): boolean => {
-		const chatMessage = createChatMessage(username, tag, icon, color, message);
-		callPluginSoftHooks((pluginInstance) => {
-			pluginInstance.onChatMessage?.(chatMessage);
-			switch (chatMessage.type) {
-				case 'level_up': {
-					const { skill, level } = chatMessage.data;
-					if (!isNaN(level) && typeof skill === 'string' && skill.length > 0) {
-						pluginInstance.onLevelUp?.(skill, level);
-					}
-					break;
-				}
-				default:
-					break;
-			}
-		});
 		return callPluginHooks((pluginInstance) =>
 			pluginInstance.hookAddToChat?.(username, tag, icon, color, message),
 		);
