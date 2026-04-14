@@ -1,4 +1,5 @@
 import type { OinkyClient } from './client';
+import type { webFrame } from 'electron';
 
 export type FMMOWorld = {
 	id: number;
@@ -34,7 +35,10 @@ declare global {
 	interface Window {
 		// Electron stuff
 		electron: ElectronAPI;
-		api: unknown;
+		api: {
+			getZoomFactor: () => ReturnType<typeof webFrame.getZoomFactor>;
+			getZoomLevel: () => ReturnType<typeof webFrame.getZoomLevel>;
+		};
 		// Oinky stuff
 		setTitle: (labelPrefix?: string) => void;
 		reloadWindow: () => void;
