@@ -91,9 +91,11 @@ const chunkMessageBySize = (message: string, chunkSize: number): string[] => {
 
 let messageBgTickTock = false;
 const getMessageBg = (): HTMLElement['className'] => {
-	if (!settings.isZebraEnabled) return 'bg-base-200/70';
+	if (!settings.isZebraEnabled) return 'bg-base-200/70 text-shadow-base-200/70';
 	messageBgTickTock = !messageBgTickTock;
-	return messageBgTickTock ? 'bg-base-100/70' : 'bg-base-300/70';
+	return messageBgTickTock
+		? 'bg-base-100/70 text-shadow-base-100/70'
+		: 'bg-base-300/70 text-shadow-base-300/70';
 };
 
 const getRandomUsername = (): string => {
@@ -111,7 +113,7 @@ const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: 
 
 const wrapMessage = (chatMessageRender: string, isBackgroundEnabled: boolean = true) => {
 	const className = isBackgroundEnabled ? getMessageBg() : '';
-	return `<li class="p-1 ${className}">${chatMessageRender}</li>`;
+	return `<li class="p-1 text-shadow-md ${className}">${chatMessageRender}</li>`;
 };
 
 // #region Renderers
@@ -554,12 +556,13 @@ const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 		chatMessageContainer.scrollHeight,
 	);
 	const chatMessageLi = document.createElement('li');
-	chatMessageLi.className = `p-1 ${getMessageBg()}`;
+	const messageBg = getMessageBg();
+	chatMessageLi.className = `p-1 text-shadow-md ${messageBg}`;
 	chatMessageLi.innerHTML = renderChatMessage(chatMessage, settings.timestampFormat);
 	chatMessageContainer.appendChild(chatMessageLi);
 	// Create and append popup
 	const popupLi = document.createElement('li');
-	popupLi.className = chatPopupLiClassName;
+	popupLi.className = `px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${messageBg}`;
 	popupLi.innerHTML = chatMessageLi.innerHTML;
 	chatPopupContainer.appendChild(popupLi);
 	setTimeout(() => popupLi?.remove(), 8000);
