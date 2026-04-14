@@ -417,7 +417,7 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 		const backgroundStyle = document.createElement('style');
 		backgroundStyle.innerHTML = `
 			html { background-image: url(${backgroundBrickSrc}) !important; }
-			body { background-image: url(${backgroundBrickSrc}) !important; }
+			body { background: transparent !important; }
 		`;
 		document.head.appendChild(backgroundStyle);
 	}
