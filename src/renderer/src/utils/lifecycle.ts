@@ -8,9 +8,17 @@ export const createLifecycle = () => {
 		registeredCleanups.splice(0, registeredCleanups.length);
 	};
 	const spawnLifecycle = () => {
-		const lifecycle = createLifecycle();
-		onCleanup(() => lifecycle.cleanup());
-		return lifecycle;
+		const childLifecycle = createLifecycle();
+		const cleanupChild = () => childLifecycle.cleanup();
+		onCleanup(cleanupChild);
+		childLifecycle.onCleanup(() => {
+			const childCleanupIndex = registeredCleanups.findIndex(
+				(callback) => callback === cleanupChild,
+			);
+			if (childCleanupIndex < 0) return;
+			registeredCleanups.splice(childCleanupIndex, 1);
+		});
+		return childLifecycle;
 	};
 	return {
 		onCleanup,
