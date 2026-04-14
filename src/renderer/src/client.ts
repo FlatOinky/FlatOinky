@@ -11,9 +11,10 @@ import {
 	callPluginHooks,
 	startPlugin,
 } from './client/plugins';
-import type { Lifecycle } from './utils';
+import { Lifecycle, toolkit } from './utils';
 
 export type { OinkyPlugin, OinkyChatMessage, Lifecycle };
+export { toolkit };
 
 // #region Variables
 
