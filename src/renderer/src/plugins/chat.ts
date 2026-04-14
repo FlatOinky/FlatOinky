@@ -316,7 +316,6 @@ const handleToggleClick = (toggleButton: HTMLButtonElement): void => {
 			return;
 		}
 	}
-	toggleButton.blur();
 	chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
 	settings.isExpanded = !settings.isExpanded;
 	document.querySelectorAll('[oinky-chat-expanded]').forEach((element) => {
