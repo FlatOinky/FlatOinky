@@ -16,3 +16,11 @@ export const getContainerItem = <T extends HTMLElement>(
 	container.appendChild(item);
 	return item;
 };
+
+export const fadeRemoveElement = (element: HTMLElement, delay = 0, duration = 200) => {
+	setTimeout(() => {
+		element.style.animationDuration = `${duration}ms`;
+		element.classList.add('animate-fade-out');
+		setTimeout(() => element.remove(), duration);
+	}, delay);
+};
