@@ -21,7 +21,11 @@
 		font-feature-settings: var(--default-font-feature-settings, normal);
 		font-variation-settings: var(--default-font-variation-settings, normal);
 		-webkit-tap-highlight-color: transparent;
-		@apply selection:bg-accent selection:text-accent-content;
+	}
+	.flat-oinky::selection,
+	.flat-oinky *::selection {
+		color: var(--color-accent-content);
+		background-color: var(--color-accent);
 	}
 }
 
