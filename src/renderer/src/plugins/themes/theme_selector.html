@@ -2,7 +2,7 @@
 	<legend class="fieldset-legend">
 		Theme
 		<span
-			class="tooltip tooltip-info text-info"
+			class="tooltip tooltip-info text-info text-xs"
 			data-tip="Not every theme has colors that work well with the UI"
 			><svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -18,7 +18,7 @@
 			</svg>
 		</span>
 	</legend>
-	<select class="select">
+	<select class="select cursor-pointer">
 		{{#options}}
 		<option value="{{id}}">{{ name }}</option>
 		{{/options}}
