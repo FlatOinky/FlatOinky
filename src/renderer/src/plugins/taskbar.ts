@@ -1,50 +1,57 @@
 import mustache from 'mustache';
 import taskbarTemplate from './taskbar/taskbar.html?raw';
-import trayMenuIconTemplate from './taskbar/tray_menu_icon.html?raw';
+import windowMenuTemplate from './taskbar/window_menu.html?raw';
+import trayMenuTemplate from './taskbar/tray_menu.html?raw';
 import { version } from '../../../../package.json';
-import { OinkyPlugin } from '../client';
+import { OinkyPlugin, Lifecycle, toolkit } from '../client';
 import { openDevTools, reloadWindow } from '../client/ipc_renderer';
-import type { Lifecycle } from '../utils';
+
+// #region renderers
+
+const renderWindowMenu = (): string => {
+	return mustache.render(windowMenuTemplate, {});
+};
+
+const renderTrayMenu = (id: string, buttonIcon: string, menuContents: string): string => {
+	return mustache.render(trayMenuTemplate, { id, buttonIcon, menuContents });
+};
 
 const renderTaskbar = (): string => {
-	return mustache.render(taskbarTemplate, { version });
+	return mustache.render(taskbarTemplate, {
+		version,
+		children: [renderWindowMenu()],
+	});
 };
 
-const renderTrayMenuIcon = (id: string, buttonIcon: string, menuContents: string): string => {
-	return mustache.render(trayMenuIconTemplate, { id, buttonIcon, menuContents });
-};
-
-const getMenuItemContainer = (id: string): HTMLLIElement => {
-	const existing = document.querySelector<HTMLLIElement>(`li[oinky-taskbar-menu=${id}]`);
-	if (existing) return existing;
-	const container = document.createElement('li');
-	container.setAttribute('oinky-taskbar-menu', id);
-	return container;
-};
-
-export const getActivity = (id: string): null | HTMLDivElement => {
-	const container = document.querySelector<HTMLDivElement>(
-		'div[oinky-taskbar=activities-container]',
-	);
+export const mountWindowToggle = (
+	lifecycle: Lifecycle,
+	id: string,
+	windowFrame: HTMLElement,
+): HTMLElement | null => {
+	const container = toolkit.getContainer('taskbar/windows/menu');
 	if (!container) return null;
-	const existing = container.querySelector<HTMLDivElement>(`div[oinky-taskbar-activity=${id}]`);
-	if (existing) return existing;
-	const activity = document.createElement('div');
-	container.appendChild(activity);
-	activity.setAttribute('oinky-taskbar-activity', id);
-	return activity;
+	const windowToggle =
+		container.querySelector<HTMLButtonElement>(`button[oinky-taskbar-windows-menu=${id}]`) ??
+		document.createElement('button');
+	windowToggle.setAttribute('oinky-taskbar-windows-menu', id);
+
+	const observerCallback: MutationCallback = ([]) => {};
+	const observer = new MutationObserver(observerCallback);
+	observer.observe(windowFrame, { attributes: true, attributeFilter: ['oinky-window-minimized'] });
+	lifecycle.onCleanup(() => observer.disconnect());
+
+	if (!container.contains(windowToggle)) container.appendChild(windowToggle);
+	lifecycle.onCleanup(() => container.removeChild(windowToggle));
+	return windowToggle;
 };
 
-const getWidget = (id: string): null | HTMLDivElement => {
-	const container = document.querySelector<HTMLDivElement>('div[oinky-taskbar=widget-container]');
-	if (!container) return null;
-	const existing = container.querySelector<HTMLDivElement>(`div[oinky-taskbar-widget=${id}]`);
-	if (existing) return existing;
-	const widget = document.createElement('div');
-	container.appendChild(widget);
-	widget.setAttribute('oinky-taskbar-widget', id);
-	return widget;
-};
+// #region getters
+
+export const getActivity = (id: string): null | HTMLDivElement =>
+	toolkit.getContainerItem('taskbar/activities', id);
+
+const getWidget = (id: string): null | HTMLDivElement =>
+	toolkit.getContainerItem('taskbar/widgets', id);
 
 export const upsertTaskbarWidget = (id: string, element: HTMLElement): HTMLDivElement | null => {
 	const widget = getWidget(id);
@@ -59,25 +66,14 @@ export const removeTaskbarWidget = (id: string): void => {
 };
 
 export const upsertTaskbarMenuAction = (id: string, title: string, onClick: () => void): void => {
-	const actionsContainer = document.querySelector('[oinky-taskbar=menu-actions]');
-	if (!actionsContainer) return;
+	const containerItem = toolkit.getContainerItem('taskbar/menu/actions', id);
+	if (!containerItem) return;
 	const buttonElement = document.createElement('button');
 	buttonElement.textContent = title;
 	buttonElement.onclick = onClick;
-	const itemContainer = getMenuItemContainer(id);
-	itemContainer.innerHTML = '';
-	itemContainer.appendChild(buttonElement);
-	if (!actionsContainer.contains(itemContainer)) {
-		actionsContainer.appendChild(itemContainer);
-	}
-};
-
-const getTrayItemContainer = (id: string): HTMLDivElement => {
-	const existing = document.querySelector<HTMLDivElement>(`div[oinky-taskbar-tray-item=${id}]`);
-	if (existing) return existing;
-	const container = document.createElement('div');
-	container.setAttribute('oinky-taskbar-tray-item', id);
-	return container;
+	const buttonContainer = document.createElement('li');
+	buttonContainer.appendChild(buttonElement);
+	containerItem.replaceChildren(buttonContainer);
 };
 
 export const upsertTaskbarTrayMenuIcon = (
@@ -85,36 +81,24 @@ export const upsertTaskbarTrayMenuIcon = (
 	buttonIcon: string,
 	menuContents: string,
 ): HTMLDivElement | null => {
-	const iconsTray = document.querySelector('[oinky-taskbar=tray]');
-	if (!iconsTray) return null;
-	const iconContainer = getTrayItemContainer(id);
-	iconContainer.innerHTML = renderTrayMenuIcon(id, buttonIcon, menuContents);
-	if (!iconsTray.contains(iconContainer)) {
-		iconsTray.appendChild(iconContainer);
-	}
-	return iconContainer;
+	const trayItem = toolkit.getContainerItem<HTMLDivElement>('taskbar/tray', id);
+	if (!trayItem) return null;
+	trayItem.innerHTML = renderTrayMenu(id, buttonIcon, menuContents);
+	return trayItem;
 };
 
-export const getMenuItem = (id: string): HTMLDivElement | null => {
-	const container = document.querySelector<HTMLElement>('[oinky-taskbar=menu-items]');
-	if (!container) return null;
-	const existing = container.querySelector<HTMLDivElement>(`div[oinky-taskbar-menu=${id}]`);
-	if (existing) return existing;
-	const item = document.createElement('div');
-	item.style.display = 'contents';
-	item.setAttribute('oinky-taskbar-menu', id);
-	container.appendChild(item);
-	return item;
-};
+export const getMenuItem = (id: string): HTMLDivElement | null =>
+	toolkit.getContainerItem('taskbar/menu/items', id);
 
 const attachTaskbar = (lifecycle: Lifecycle): void => {
 	const canvasContainer = document.querySelector('[fmmo-container=canvas]');
 	if (!canvasContainer) return;
 	const taskbarContainer = document.createElement('div');
 	taskbarContainer.className = 'flat-oinky';
-	taskbarContainer.style = 'display:contents;';
+	taskbarContainer.style.display = 'contents';
 	taskbarContainer.innerHTML = renderTaskbar();
 	taskbarContainer.setAttribute('flat-oinky', 'taskbar');
+	lifecycle.onCleanup(() => taskbarContainer.replaceChildren());
 	canvasContainer.appendChild(taskbarContainer);
 	lifecycle.onCleanup(() => canvasContainer.removeChild(taskbarContainer));
 	upsertTaskbarMenuAction('restart', 'Reload Window', () => reloadWindow());
@@ -123,6 +107,8 @@ const attachTaskbar = (lifecycle: Lifecycle): void => {
 	}
 	lifecycle.onCleanup(() => taskbarContainer.replaceChildren());
 };
+
+// #region plugin
 
 export const TaskbarPlugin: OinkyPlugin = {
 	namespace: 'core/taskbar',

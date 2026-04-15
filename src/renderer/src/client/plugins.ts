@@ -134,6 +134,7 @@ export const startedPlugins = new Set<OinkyPluginNamespace>([]);
 export const enabledPlugins = new Set<OinkyPluginNamespace>([
 	'core/taskbar',
 	'core/themes',
+	'core/windows',
 	'core/chat',
 	'core/tweaks',
 	'core/monitor',

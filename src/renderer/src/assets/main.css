@@ -53,8 +53,19 @@
 
 @config "../tailwind.config.js";
 
+@theme {
+	--oinky-window-transition: transform, translate, scale, rotate, opacity;
+	--animate-fade-out: fadeOut;
+}
+
 @custom-variant engaged {
 	&:is(:hover, :active, :focus) {
+		@slot;
+	}
+}
+
+@custom-variant oinky-window-locked {
+	&[oinky-window][oinky-window-locked] {
 		@slot;
 	}
 }

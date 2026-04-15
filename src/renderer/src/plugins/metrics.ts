@@ -3,6 +3,7 @@ import { type OinkyPlugin } from '../client';
 import xpWidgetTemplate from './metrics/xp_widget.html?raw';
 import { removeTaskbarWidget, upsertTaskbarWidget } from './taskbar';
 import { Lifecycle, createLineGraph } from '../utils';
+import * as windows from './windows';
 
 type XPDrop = {
 	xp: number;
@@ -68,7 +69,19 @@ const mountWidgetChart = (widget: HTMLDivElement, lifecycle: Lifecycle) => {
 // @ts-ignore
 // const skills: string[] = valid_skills ? [...valid_skills.values()] : [];
 
-const mountWidget = (): void => {};
+const mountXpGage = (lifecycle: Lifecycle): void => {
+	const widget = document.createElement('div');
+	widget.style.display = 'contents';
+	widget.innerHTML = renderXpWidget();
+	const widgetId = 'metrics/xp-gage';
+	upsertTaskbarWidget(widgetId, widget);
+	lifecycle.onCleanup(() => removeTaskbarWidget(widgetId));
+	mountWidgetChart(widget, lifecycle);
+};
+
+const mountPlugin = (lifecycle: Lifecycle) => {
+	mountXpGage(lifecycle);
+};
 
 // #region plugin
 
@@ -78,17 +91,8 @@ export const MetricsPlugin: OinkyPlugin = {
 	dependencies: ['core/taskbar'],
 	initiate: ({ profileStorage, character, lifecycle }) => {
 		settings = profileStorage.reactive('settings', initialSettings);
-		const widgetLifecycle = lifecycle.spawnLifecycle();
 		return {
-			onStartup: () => {
-				const widget = document.createElement('div');
-				widget.style.display = 'contents';
-				widget.innerHTML = renderXpWidget();
-				const widgetId = 'metrics-xp';
-				upsertTaskbarWidget(widgetId, widget);
-				lifecycle.onCleanup(() => removeTaskbarWidget(widgetId));
-				mountWidgetChart(widget, widgetLifecycle);
-			},
+			onStartup: () => mountPlugin(lifecycle),
 			onCleanup: () => lifecycle.cleanup(),
 			onXpDrop: ({ username, skill, xp }) => {
 				if (username !== character.username) return;

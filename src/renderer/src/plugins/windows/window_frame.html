@@ -1,0 +1,83 @@
+<div oinky-window-area="titlebar" class="flex gap-1 items-center">
+	<label
+		class="swap swap-rotate btn btn-xs btn-circle btn-info btn-ghost size-4.5 pointer-events-auto in-oinky-window-locked:opacity-50 in-oinky-window-locked:hover:opacity-100"
+	>
+		<input oinky-window="lock" type="checkbox" />
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 16 16"
+			fill="currentColor"
+			class="size-3 m-0.5 swap-off"
+		>
+			<path
+				d="M11.5 1A3.5 3.5 0 0 0 8 4.5V7H2.5A1.5 1.5 0 0 0 1 8.5v5A1.5 1.5 0 0 0 2.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 9.5 7V4.5a2 2 0 1 1 4 0v1.75a.75.75 0 0 0 1.5 0V4.5A3.5 3.5 0 0 0 11.5 1Z"
+			/>
+		</svg>
+
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 16 16"
+			fill="currentColor"
+			class="size-3 m-0.5 swap-on"
+		>
+			<path
+				fill-rule="evenodd"
+				d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z"
+				clip-rule="evenodd"
+			/>
+		</svg>
+	</label>
+	<div oinky-window-drag class="p-px cursor-grab">
+		<h1 class="text-xs font-bold text-base-content/60">{{title}}</h1>
+	</div>
+	<div oinky-window-drag class="flex-1 size-full cursor-grab"></div>
+	<div class="flex gap-1">
+		<div oinky-window="window-actions" class="content"></div>
+		<button
+			oinky-window="minimize"
+			class="btn btn-xs btn-circle btn-primary btn-soft size-4 transition-all in-oinky-window-locked:opacity-20 in-oinky-window-locked:saturate-0"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 16 16"
+				fill="currentColor"
+				class="size-4"
+			>
+				<path
+					fill-rule="evenodd"
+					d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
+					clip-rule="evenodd"
+				/>
+			</svg>
+		</button>
+		<button
+			oinky-window="close"
+			class="btn btn-xs btn-circle btn-error btn-soft size-4 transition-all in-oinky-window-locked:opacity-20 in-oinky-window-locked:saturate-0"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 16 16"
+				fill="currentColor"
+				class="size-4"
+			>
+				<path
+					d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z"
+				/>
+			</svg>
+		</button>
+	</div>
+</div>
+<div oinky-window-area="main">
+	<span>hi :) o/</span>
+</div>
+<div oinky-window-edge="top-left"></div>
+<div oinky-window-edge="top-center"></div>
+<div oinky-window-edge="top-right"></div>
+<div oinky-window-edge="middle-left"></div>
+<div oinky-window-edge="middle-right"></div>
+<div oinky-window-edge="bottom-left"></div>
+<div oinky-window-edge="bottom-center"></div>
+<div oinky-window-edge="bottom-right"></div>
+<div
+	class="col-span-full row-span-full bg-base-100 -z-99999 transition-(--oinky-window-transition)"
+></div>

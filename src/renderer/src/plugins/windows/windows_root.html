@@ -1,0 +1,81 @@
+<div class="absolute inset-0 pointer-events-none">
+	<section oinky="windows" class="relative h-full w-full @container">
+		{{#windows}} {{{.}}} {{/windows}}
+	</section>
+</div>
+
+<style>
+	article[oinky-window] {
+		display: grid;
+		pointer-events: all;
+		--oinky-window-frame-size: minmax(
+			calc(var(--spacing) * 1.5),
+			calc(calc(var(--radius-box) / 2) + var(--spacing))
+		);
+		grid-template-rows: var(--oinky-window-frame-size) min-content 1fr var(
+				--oinky-window-frame-size
+			);
+		grid-template-columns: var(--oinky-window-frame-size) 1fr var(--oinky-window-frame-size);
+		grid-template-areas:
+			'top-left	 	top-center		top-right'
+			'middle-left	titlebar			middle-right'
+			'middle-left	main				middle-right'
+			'bottom-left	bottom-center	bottom-right';
+		transform-origin: center;
+	}
+	article[oinky-window][oinky-window-locked] {
+		pointer-events: none;
+	}
+	article[oinky-window][oinky-window-minimized] {
+		transform: scale(90%, 90%) !important;
+		pointer-events: none !important;
+		background-color: transparent;
+		opacity: 0 !important;
+	}
+	article[oinky-window][oinky-window-minimized] * {
+		pointer-events: none !important;
+	}
+
+	article[oinky-window] [oinky-window-area='main'] {
+		grid-area: main;
+	}
+	article[oinky-window][oinky-window-minimized] [oinky-window-area='main'] {
+		/* display: none; */
+	}
+
+	article[oinky-window] [oinky-window-area='titlebar'] {
+		grid-area: titlebar;
+	}
+	article[oinky-window] [oinky-window-edge='top-left'] {
+		grid-area: top-left;
+		cursor: nw-resize;
+	}
+	article[oinky-window] [oinky-window-edge='top-center'] {
+		grid-area: top-center;
+		cursor: n-resize;
+	}
+	article[oinky-window] [oinky-window-edge='top-right'] {
+		grid-area: top-right;
+		cursor: ne-resize;
+	}
+	article[oinky-window] [oinky-window-edge='middle-left'] {
+		grid-area: middle-left;
+		cursor: e-resize;
+	}
+	article[oinky-window] [oinky-window-edge='middle-right'] {
+		grid-area: middle-right;
+		cursor: w-resize;
+	}
+	article[oinky-window] [oinky-window-edge='bottom-left'] {
+		grid-area: bottom-left;
+		cursor: sw-resize;
+	}
+	article[oinky-window] [oinky-window-edge='bottom-center'] {
+		grid-area: bottom-center;
+		cursor: s-resize;
+	}
+	article[oinky-window] [oinky-window-edge='bottom-right'] {
+		grid-area: bottom-right;
+		cursor: se-resize;
+	}
+</style>

@@ -8,7 +8,7 @@ import chatMessageTemplate from './chat/chat_message.html?raw';
 import yellIconSrc from '../assets/yell.png';
 import pmToIconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
-import { OinkyChatMessage, OinkyPlugin, Lifecycle } from '../client';
+import { OinkyChatMessage, OinkyPlugin, Lifecycle, toolkit } from '../client';
 import { ipcRenderer } from '../client/ipc_renderer';
 
 const namespace = 'core/chat';
@@ -21,7 +21,51 @@ type ChatTab = {
 
 // #region Vars
 
-const chatPopupLiClassName = 'px-1 py-0.5 mt-1 last:mb-0.5 bg-base-100/70 rounded-box';
+const highResSigils = [
+	'images/ui/basket_egg_sigil.png',
+	'images/ui/basket_sigil.png',
+	'images/ui/bat_sigil.png',
+	'images/ui/bell_sigil.png',
+	'images/ui/blue_party_hat_sigil.png',
+	'images/ui/broken_bell_sigil.png',
+	'images/ui/bronze_event_2_sigil.png',
+	'images/ui/bronze_event_sigil.png',
+	'images/ui/bunny_sigil.png',
+	'images/ui/candy_cane_sigil.png',
+	'images/ui/carrot_sigil.png',
+	'images/ui/cat_sigil.png',
+	'images/ui/chocolate_sigil.png',
+	'images/ui/dh1_max_sigil.png',
+	'images/ui/easter_egg_sigil.png',
+	'images/ui/event_2_sigil.png',
+	'images/ui/event_sigil.png',
+	'images/ui/fake_bell_sigil.png',
+	'images/ui/fancy_bell_sigil.png',
+	'images/ui/ghost_sigil.png',
+	'images/ui/gift_sigil.png',
+	'images/ui/gold_event_2_sigil.png',
+	'images/ui/gold_event_sigil.png',
+	'images/ui/green_party_hat_sigil.png',
+	'images/ui/hatching_chicken_sigil.png',
+	'images/ui/mad_bunny_sigil.png',
+	'images/ui/mummy_head_sigil.png',
+	'images/ui/mummy_sigil.png',
+	'images/ui/pink_party_hat_sigil.png',
+	'images/ui/pumpkin_sigil.png',
+	'images/ui/red_party_hat_sigil.png',
+	'images/ui/reindeer_sigil.png',
+	'images/ui/santa_hat_sigil.png',
+	'images/ui/silver_event_2_sigil.png',
+	'images/ui/silver_event_sigil.png',
+	'images/ui/skull_sigil.png',
+	'images/ui/snowflake_sigil.png',
+	'images/ui/snowman_sigil.png',
+	'images/ui/spider_sigil.png',
+	'images/ui/tree_sigil.png',
+	'images/ui/white_party_hat_sigil.png',
+	'images/ui/yellow_party_hat_sigil.png',
+	'images/ui/zombie_sigil.png',
+];
 
 const colorMap = {
 	pink: 'text-accent',
@@ -56,6 +100,7 @@ const initialSettings = {
 	isZebraEnabled: true,
 	maxChatLength: 250,
 	maxChatLogLength: 1000,
+	popupDelayMultiplier: 2,
 	timestampFormat: 'h:mmaaa',
 };
 let settings = initialSettings;
@@ -105,8 +150,8 @@ const getRandomUsername = (): string => {
 	return [...usernamesCache.values()][picked];
 };
 
-const getMessageContainer = (): HTMLUListElement | null =>
-	document.querySelector<HTMLUListElement>('[oinky-chat=messages]');
+const getMessagesContainer = (): HTMLUListElement | null =>
+	toolkit.getContainer<HTMLUListElement>('chat/messages');
 
 const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: number) =>
 	scrollTop + clientHeight >= scrollHeight - clientHeight / 3;
@@ -206,12 +251,13 @@ const renderChat = (
 ): string => {
 	return mustache.render(chatTemplate, {
 		messages,
-		// @ts-ignore-next-line
 		placeholder: username,
 		isExpanded: `${isExpanded}`,
-		renderedChatTabs: renderChatTabs(chatTabs, selectedChatTabIndex),
-		renderedChatActions: renderChatActions(),
-		renderedChatLog: renderChatLog(),
+		children: [
+			renderChatTabs(chatTabs, selectedChatTabIndex),
+			renderChatActions(),
+			renderChatLog(),
+		],
 	});
 };
 
@@ -232,26 +278,24 @@ const updateChatTabInputLabel = (): void => {
 
 const updateChatTabs = (): void => {
 	updateChatTabInputLabel();
-	const tabsContainer = document.querySelector<HTMLDivElement>('[oinky-chat=tabs-container]');
-	if (!tabsContainer) return;
-	tabsContainer.innerHTML = channels.chatTabs
+	const container = toolkit.getContainer('chat/tabs');
+	if (!container) return;
+	container.innerHTML = channels.chatTabs
 		.map((chatTab, index) => renderChatTab(chatTab, index === channels.chatTabIndex))
 		.join('\n');
-	document
-		.querySelectorAll<HTMLButtonElement>('button[oinky-chat=tab]')
-		.forEach((button, index) => {
-			button.onclick = () => {
-				channels.chatTabIndex = index;
-				updateChatTabs();
-			};
-			button.oncontextmenu = () => {
-				if (index < 2) return;
-				if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
-				const clonedTabs = JSON.parse(JSON.stringify(channels.chatTabs));
-				channels.chatTabs = [...clonedTabs.slice(0, index), ...clonedTabs.slice(index + 1)];
-				updateChatTabs();
-			};
-		});
+	container.querySelectorAll<HTMLButtonElement>('button').forEach((button, index) => {
+		button.onclick = () => {
+			channels.chatTabIndex = index;
+			updateChatTabs();
+		};
+		button.oncontextmenu = () => {
+			if (index < 2) return;
+			if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
+			const clonedTabs = JSON.parse(JSON.stringify(channels.chatTabs));
+			channels.chatTabs = [...clonedTabs.slice(0, index), ...clonedTabs.slice(index + 1)];
+			updateChatTabs();
+		};
+	});
 };
 
 const updateToggleIndicator = (active: boolean = true): void => {
@@ -268,7 +312,7 @@ const handleWheel = (event: WheelEvent): void => {
 	// @ts-ignore 2304
 	if (opened_modals.size > 0) return;
 	if (!settings.isExpanded) return;
-	const chatMessageContainer = getMessageContainer();
+	const chatMessageContainer = getMessagesContainer();
 	if (!chatMessageContainer) return;
 	const containerRect = chatMessageContainer.getClientRects()[0];
 	const hoveringChat =
@@ -298,8 +342,8 @@ const handleKeypress = (event: KeyboardEvent): void => {
 	chatInput.focus();
 };
 
-const handleToggleClick = (toggleButton: HTMLButtonElement): void => {
-	const chatMessageContainer = getMessageContainer();
+const handleToggleClick = (): void => {
+	const chatMessageContainer = getMessagesContainer();
 	if (!chatMessageContainer) return;
 	updateToggleIndicator(false);
 	if (settings.isExpanded) {
@@ -429,7 +473,7 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 	}
 	document.addEventListener('keypress', handleKeypress);
 	lifecycle.onCleanup(() => document.removeEventListener('keypress', handleKeypress));
-	const container = document.querySelector('[oinky-taskbar=chat-container]');
+	const container = toolkit.getContainer('taskbar/chat');
 	if (!container) return;
 	const loginMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')];
 	const currentMessages = [
@@ -461,7 +505,7 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 		settings.isExpanded,
 	);
 	lifecycle.onCleanup(() => container.replaceChildren());
-	const messageContainer = getMessageContainer();
+	const messageContainer = getMessagesContainer();
 	if (messageContainer) messageContainer.scrollTop = messageContainer.scrollHeight;
 
 	const chatInput = container.querySelector<HTMLInputElement>('[oinky-chat=input]');
@@ -472,7 +516,7 @@ const mountChat = (username: string, lifecycle: Lifecycle): void => {
 	document.addEventListener('wheel', handleWheel);
 	lifecycle.onCleanup(() => document.removeEventListener('wheel', handleWheel));
 	chatInput.onkeydown = handleChatInputKeydown(chatInput);
-	toggleButton.onclick = () => handleToggleClick(toggleButton);
+	toggleButton.onclick = handleToggleClick;
 	addTabButton.onclick = handleAddTabClick;
 	mountChatActions();
 };
@@ -546,30 +590,31 @@ const mountChatActions = () => {
 const mountChatMessage = (chatMessage: OinkyChatMessage): void => {
 	storeChatMessage(chatMessage);
 	if (chatMessage.username) usernamesCache.add(chatMessage.username);
-	const chatMessageContainer = getMessageContainer();
-	const chatPopupContainer = document.querySelector<HTMLUListElement>('[oinky-chat=popups]');
-	if (!chatMessageContainer || !chatPopupContainer) return;
+	const messagesContainer = getMessagesContainer();
+	const popupsContainer = toolkit.getContainer('chat/popups');
+	if (!messagesContainer || !popupsContainer) return;
 	const isAtBottom = checkIsAtBottom(
-		chatMessageContainer.scrollTop,
-		chatMessageContainer.clientHeight,
-		chatMessageContainer.scrollHeight,
+		messagesContainer.scrollTop,
+		messagesContainer.clientHeight,
+		messagesContainer.scrollHeight,
 	);
-	const chatMessageLi = document.createElement('li');
+	const messageLi = document.createElement('li');
 	const messageBg = getMessageBg();
-	chatMessageLi.className = `p-1 text-shadow-md ${messageBg}`;
-	chatMessageLi.innerHTML = renderChatMessage(chatMessage, settings.timestampFormat);
-	chatMessageContainer.appendChild(chatMessageLi);
+	messageLi.className = `p-1 text-shadow-md ${messageBg}`;
+	messageLi.innerHTML = renderChatMessage(chatMessage, settings.timestampFormat);
+	messagesContainer.appendChild(messageLi);
 	// Create and append popup
 	const popupLi = document.createElement('li');
 	popupLi.className = `px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${messageBg}`;
-	popupLi.innerHTML = chatMessageLi.innerHTML;
-	chatPopupContainer.appendChild(popupLi);
-	setTimeout(() => popupLi?.remove(), 8000);
-	while (chatMessageContainer.children.length > settings.maxChatLength) {
-		chatMessageContainer.children[0].remove();
+	popupLi.innerHTML = messageLi.innerHTML;
+	popupsContainer.appendChild(popupLi);
+	const popupDuration = Math.max(4000, 4000 * settings.popupDelayMultiplier);
+	toolkit.fadeRemoveElement(popupLi, popupDuration);
+	while (messagesContainer.children.length > settings.maxChatLength) {
+		messagesContainer.children[0].remove();
 	}
 	if (isAtBottom) {
-		chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
+		messagesContainer.scrollTop = messagesContainer.scrollHeight;
 	}
 	if (!isAtBottom && settings.isExpanded) {
 		updateToggleIndicator(true);

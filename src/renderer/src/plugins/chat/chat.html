@@ -45,36 +45,26 @@
 	</button>
 </div>
 
-<div
-	oinky-chat="messages-container"
-	oinky-chat-expanded="{{ isExpanded }}"
-	class="contents pointer-events-none"
->
+<div oinky-chat-expanded="{{ isExpanded }}" class="contents pointer-events-none">
 	<ul
 		oinky-chat-expanded-hidden
-		oinky-chat="popups"
+		oinky-container="chat/popups"
 		class="absolute left-0 bottom-full m-1 transition-opacity w-xl"
 	></ul>
 	<div class="absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity">
 		<ul
 			oinky-chat-expanded-visible
-			oinky-chat="messages"
-			class="max-h-64 overflow-y-scroll scrollbar-thumb-base-content/50 scrollbar-track-base-200/70"
+			oinky-container="chat/messages"
+			class="max-h-64 overflow-y-scroll scrollbar-thumb-base-content/50 scrollbar-track-base-200/70 transition-opacity"
 		>
 			{{#messages}} {{{ . }}} {{/messages}}
 		</ul>
 	</div>
 </div>
 
-{{{ renderedChatTabs }}} {{{ renderedChatActions }}} {{{ renderedChatLog }}}
+{{#children}} {{{.}}} {{/children}}
 
 <style>
-	[oinky-chat='popups'] li {
-		animation-name: fadeOut;
-		animation-duration: 150ms;
-		animation-delay: 7850ms;
-	}
-
 	[oinky-chat-expanded='true'][oinky-chat='toggle'] svg {
 		transform: scaleY(1);
 	}
