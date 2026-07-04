@@ -1,6 +1,5 @@
 import notificationMp3 from '../assets/notification.mp3';
-import { OinkyPlugin } from '../client';
-import { getActivity, upsertTaskbarTrayMenuIcon } from './taskbar';
+import { Plugin, PluginContext } from '../client';
 import trayMenuTemplate from './monitor/monitor_tray_menu.html?raw';
 import craftingActivityTemplate from './monitor/crafting_activity.html?raw';
 import mustache from 'mustache';
@@ -16,9 +15,7 @@ const initialSettings = {
 	audioEnabled: true,
 	audioVolume: 0.35,
 };
-
-let settings = initialSettings;
-let alertElement: HTMLAudioElement;
+type Settings = typeof initialSettings;
 
 const triggerSounds = [
 	{ path: 'sounds/short/gem.ogg', title: 'Gem Drop' },
@@ -29,7 +26,7 @@ const triggerSounds = [
 
 // #region renderers
 
-const renderTrayMenu = (): string => {
+const renderTrayMenu = (settings: Settings): string => {
 	return mustache.render(trayMenuTemplate, {
 		audioVolume: settings.audioVolume,
 		audioChecked: settings.audioEnabled ? 'checked' : '',
@@ -60,24 +57,37 @@ const renderCraftingActivity = (
 
 // let internalSelf: AlertsPlugin;
 
-export const notify = (title: string, message?: string): void => {
+export const notify = (
+	alertAudio: HTMLAudioElement,
+	settings: Settings,
+	title: string,
+	message?: string,
+): void => {
 	if (settings.notificationEnabled) {
 		createNotification(title, message);
 	}
 	if (settings.audioEnabled) {
-		alertElement.volume = settings.audioVolume;
-		alertElement.play();
+		alertAudio.volume = settings.audioVolume;
+		alertAudio.play();
 	}
 };
 
-const mountTrayMenu = (): void => {
-	const container = upsertTaskbarTrayMenuIcon('alert', alertIcon, renderTrayMenu());
+const mountTrayMenu = (
+	alertAudio: HTMLAudioElement,
+	settings: Settings,
+	context: PluginContext,
+) => {
+	const container = context.ui.taskbar.upsertTrayMenuIcon(
+		'alert',
+		alertIcon,
+		renderTrayMenu(settings),
+	);
 	if (!container) return;
 	const testButton = container.querySelector<HTMLButtonElement>('[oinky-alert-tray-menu=test]');
 	if (testButton) {
 		testButton.onclick = () => {
-			alertElement.currentTime = 0;
-			notify('Test', 'This is a test notification');
+			alertAudio.currentTime = 0;
+			notify(alertAudio, settings, 'Test', 'This is a test notification');
 		};
 	}
 	const notificationToggleButton = container.querySelector<HTMLButtonElement>(
@@ -104,15 +114,17 @@ const mountTrayMenu = (): void => {
 			settings.audioVolume = parseFloat(audioVolumeSlider.value ?? '0');
 		};
 	}
+	return container;
 };
 
 const updateCraftingActivity = (
+	context: PluginContext,
 	item: string | null,
 	completed: number,
 	total: number,
 	sessionXp: number,
 ) => {
-	const container = getActivity('crafting');
+	const container = context.ui.taskbar.getActivity('crafting');
 	if (!container) return;
 	if (item === null || [completed, total, sessionXp].includes(NaN)) {
 		if (!container.hasAttribute('item-id')) return;
@@ -129,24 +141,25 @@ const updateCraftingActivity = (
 	container.innerHTML = renderCraftingActivity(item, completed, total, sessionXp);
 };
 
-export const MonitorPlugin: OinkyPlugin = {
+export const MonitorPlugin: Plugin = {
 	namespace: 'core/monitor',
 	name: 'Monitor',
-	dependencies: ['core/taskbar'],
-	initiate: (context) => {
-		settings = context.profileStorage.reactive('alertSettings', initialSettings);
-		alertElement = new Audio(notificationMp3);
+	init: (lifecycle, context) => {
+		const settings = context.storages.profile.reactive('alertSettings', initialSettings);
+		const alertAudio = new Audio(notificationMp3);
+		lifecycle.onCleanup(() => alertAudio.remove());
+
+		const container = mountTrayMenu(alertAudio, settings, context);
+		lifecycle.onCleanup(() => container?.remove());
 		return {
-			onStartup: () => mountTrayMenu(),
-			// TODO: Remove tray menu
-			onCleanup: () => console.warn('TODO: Remove tray menu'),
 			hookPlaySound: (url) => {
 				triggerSounds.forEach((triggerSound) => {
 					if (!url.endsWith(triggerSound.path)) return;
-					notify(triggerSound.title);
+					notify(alertAudio, settings, triggerSound.title);
 				});
 			},
-			onMakeUiChange: updateCraftingActivity,
+			onMakeUiChange: (item, completed, total, sessionXp) =>
+				updateCraftingActivity(context, item, completed, total, sessionXp),
 			hookServerCommand: (command) => command !== 'MAKE_ITEM_UI',
 		};
 	},

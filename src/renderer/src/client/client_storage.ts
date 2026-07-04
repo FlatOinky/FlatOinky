@@ -16,7 +16,7 @@ export type StorageData = {
 	characters: { [character: string]: { [namespace: string]: Record<string, JSONData> } };
 };
 
-export type OinkyStorage = {
+export type ClientStorage = {
 	get: (keys: string | readonly (string | number)[]) => unknown;
 	set: (keys: string | readonly (string | number)[], value: unknown) => void;
 	delete: (keys: string | readonly (string | number)[]) => void;
@@ -54,7 +54,7 @@ const deepProxy = <T extends object>(
 const wrapStorageData = <T extends object>(
 	storageData: T,
 	onUpdate: (key: readonly (string | number)[], value: unknown) => void,
-): OinkyStorage => {
+): ClientStorage => {
 	return {
 		get(property) {
 			const properties = Array.isArray(property) ? property : [property];
@@ -86,21 +86,21 @@ export const createPluginStorages = async (
 	profile: string,
 	username: string,
 ): Promise<{
-	globalStorage: OinkyStorage;
-	profileStorage: OinkyStorage;
-	characterStorage: OinkyStorage;
+	global: ClientStorage;
+	profile: ClientStorage;
+	character: ClientStorage;
 }> => {
 	const globalData = (await storageData).global?.[namespace] ?? {};
 	const profileData = (await storageData).profiles?.[profile]?.[namespace] ?? {};
 	const characterData = (await storageData).characters?.[username]?.[namespace] ?? {};
 	return {
-		globalStorage: wrapStorageData(globalData, (keys, value) =>
+		global: wrapStorageData(globalData, (keys, value) =>
 			ipcStorage.updateGlobalStorage([namespace, ...keys], value),
 		),
-		profileStorage: wrapStorageData(profileData, (keys, value) =>
+		profile: wrapStorageData(profileData, (keys, value) =>
 			ipcStorage.updateProfileStorage([profile, namespace, ...keys], value),
 		),
-		characterStorage: wrapStorageData(characterData, (keys, value) =>
+		character: wrapStorageData(characterData, (keys, value) =>
 			ipcStorage.updateCharacterStorage([username, namespace, ...keys], value),
 		),
 	};

@@ -1,4 +1,4 @@
-import type { OinkyClient } from './client';
+import type { Client } from './client';
 import type { webFrame } from 'electron';
 
 export type FMMOWorld = {
@@ -50,7 +50,7 @@ declare global {
 			characterIndex: number;
 			loading: Record<string, boolean>;
 			errors: Record<string, string>;
-			client: OinkyClient;
+			client: Client;
 		};
 		// FlatMMO stuff
 		Globals: {
