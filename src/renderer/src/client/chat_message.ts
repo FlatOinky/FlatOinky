@@ -1,17 +1,17 @@
-type OinkyChatMessageBase = {
+type ChatMessageBase = {
 	timestamp: Date;
 	color: string;
 	message: string;
 };
 
-type OinkyChatMessageChatter = OinkyChatMessageBase & {
+type ChatMessageChatter = ChatMessageBase & {
 	type: 'local' | 'yell' | 'pm_to' | 'pm_from';
 	username: string;
 	icon?: string;
 	tag?: string;
 };
 
-type OinkyChatMessageLevelUp = OinkyChatMessageBase & {
+type ChatMessageLevelUp = ChatMessageBase & {
 	type: 'level_up';
 	data: { skill: string; level: number };
 	username: undefined;
@@ -19,17 +19,14 @@ type OinkyChatMessageLevelUp = OinkyChatMessageBase & {
 	tag: undefined;
 };
 
-type OinkyChatMessageOther = OinkyChatMessageBase & {
-	type: 'annoucement' | 'restore' | 'error' | 'warning' | 'achievement' | 'info';
+type ChatMessageOther = ChatMessageBase & {
+	type: 'announcement' | 'restore' | 'error' | 'warning' | 'achievement' | 'info';
 	username: undefined;
 	icon: undefined;
 	tag: undefined;
 };
 
-export type OinkyChatMessage =
-	| OinkyChatMessageChatter
-	| OinkyChatMessageLevelUp
-	| OinkyChatMessageOther;
+export type ChatMessage = ChatMessageChatter | ChatMessageLevelUp | ChatMessageOther;
 
 const sanitizeMessage = (message: string): string =>
 	message
@@ -40,7 +37,7 @@ const sanitizeMessage = (message: string): string =>
 		.replaceAll("'", '&#039;');
 
 const determineServerMessageType = (message: string, color: string) => {
-	if (message.startsWith('[server]')) return 'annoucement';
+	if (message.startsWith('[server]')) return 'announcement';
 	if (message.startsWith('You have completed the achievement')) return 'achievement';
 	const restoreMatch = message.match(/you.*are now full/i);
 	if (restoreMatch) return 'restore';
@@ -55,7 +52,7 @@ export const createChatMessage = (
 	rawIcon: string,
 	color: string,
 	rawMessage: string,
-): OinkyChatMessage => {
+): ChatMessage => {
 	const timestamp = new Date();
 	const username =
 		typeof rawUsername !== 'string' || rawUsername === 'none' ? undefined : rawUsername;
@@ -90,7 +87,7 @@ export const createChatMessage = (
 			timestamp,
 			color,
 			message: rawMessage,
-			type: 'annoucement',
+			type: 'announcement',
 			username: undefined,
 			icon: undefined,
 			tag: undefined,
@@ -123,7 +120,7 @@ export const createChatMessage = (
 	};
 };
 
-export const parseChatMessage = (serverCommand: string): OinkyChatMessage | undefined => {
+export const parseChatMessage = (serverCommand: string): ChatMessage | undefined => {
 	const [command, ...commandRest] = serverCommand.split('=');
 	const args = commandRest.join('=').split('~');
 	switch (command) {

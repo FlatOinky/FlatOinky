@@ -1,10 +1,9 @@
 import mustache from 'mustache';
-import { Lifecycle, OinkyPlugin } from '../client';
-import { getMenuItem } from './taskbar';
+import { Lifecycle, Plugin, PluginContext } from '../client';
 import themeSelectorTemplate from './themes/theme_selector.html?raw';
 
 const initialSettings = { theme: 'dark' };
-let settings = initialSettings;
+type Settings = typeof initialSettings;
 
 const themes = [
 	{ id: 'dark', name: 'Dark (default)' },
@@ -48,39 +47,32 @@ const renderThemeSelector = (options: { id: string; name: string }[]): string =>
 	return mustache.render(themeSelectorTemplate, { options });
 };
 
-const getTheme = () => settings.theme ?? 'dark';
-
-const updateTheme = (theme: string = getTheme()) =>
+const updateTheme = (theme: string) =>
 	document.body.parentElement?.setAttribute('data-theme', theme);
 
-const mountThemeSelector = (lifecycle: Lifecycle) => {
-	const container = getMenuItem('theme-selector');
+const mountThemeSelector = (lifecycle: Lifecycle, context: PluginContext, settings: Settings) => {
+	const container = context.ui.taskbar.getMenuItem('theme-selector');
 	if (!container) return;
 	container.innerHTML = renderThemeSelector(themes);
 	const themeSelector = container.querySelector<HTMLSelectElement>('select');
 	if (!themeSelector) return;
-	themeSelector.value = getTheme();
+	themeSelector.value = settings.theme;
 	themeSelector.onchange = () => {
 		settings.theme = themeSelector.value;
-		updateTheme();
+		updateTheme(settings.theme);
 	};
 	lifecycle.onCleanup(() => container.replaceChildren());
 };
 
-export const ThemesPlugin: OinkyPlugin = {
+export const ThemesPlugin: Plugin = {
 	namespace: 'core/themes',
 	name: 'Themes',
-	dependencies: ['core/taskbar'],
 	description: 'Themes for the Flat Oinky UI',
-	initiate: ({ lifecycle, profileStorage }) => {
-		settings = profileStorage.reactive('settings', initialSettings);
-		return {
-			onStartup: () => {
-				updateTheme();
-				lifecycle.onCleanup(() => updateTheme('dark'));
-				mountThemeSelector(lifecycle);
-			},
-			onCleanup: () => lifecycle.cleanup(),
-		};
+	init: (lifecycle, context) => {
+		const settings = context.storages.profile.reactive('settings', initialSettings);
+		updateTheme(settings.theme);
+		lifecycle.onCleanup(() => updateTheme('dark'));
+		mountThemeSelector(lifecycle, context, settings);
+		return {};
 	},
 };

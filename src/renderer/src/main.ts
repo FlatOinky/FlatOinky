@@ -12,7 +12,7 @@ import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
 import { FMMOCharacter, FMMOWorld } from '.';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
-import { OinkyClient } from './client';
+import { hookedFunctions, initClient } from './client';
 import './assets/main.css';
 import { ipcRenderer, reloadWindow, openDevTools } from './client/ipc_renderer';
 
@@ -46,7 +46,6 @@ window.flatOinky = window.flatOinky ?? {
 	characterIndex: -1,
 	loading: { app: true },
 	errors: {},
-	client: new OinkyClient(),
 };
 
 const { flatOinky } = window;
@@ -272,7 +271,6 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	const world = worlds?.[worldIndex];
 	if (!character || !world) return;
 	window.setTitle(character.username);
-	flatOinky.client.setCharacter(character);
 	rootElement.innerHTML = renderLoaderPage();
 	const clientHtmlText = await ipcRenderer.invoke('getClientHtmlText', character.id, world.id);
 	const clientDocument = parseHtmlText(transpileHtml(clientHtmlText));
@@ -337,16 +335,14 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	);
 	const scriptElement = document.createElement('script');
 	scriptElement.setAttribute('fmmo-asset', 'script');
-	scriptElement.innerHTML = transpileScript(
-		scriptContents.join('\n'),
-		OinkyClient.hookedFunctions,
-	);
+	scriptElement.innerHTML = transpileScript(scriptContents.join('\n'), hookedFunctions);
 	document.body.appendChild(htmlElement);
 	document.body.appendChild(styleElement);
 	document.body.appendChild(scriptElement);
 
 	// Now that the FlatMMO client has been loaded render the contents for oinky
 	rootElement.innerHTML = renderClientPage();
+	flatOinky.client = initClient(character);
 };
 
 // #endregion

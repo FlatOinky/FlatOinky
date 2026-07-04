@@ -19,15 +19,6 @@ const removeObstructingScripts = (input: string): string => {
 		);
 };
 
-const serverCommandReplacement = `
-function server_command($1) {
-	const resume = window.flatOinky.client.handleServerCommand($1);
-	if (!resume) return;
-	hookedFn_server_command($1);
-}
-function hookedFn_server_command($1)
-`.trim();
-
 const makeFunctionHooksRegex = (hookedFunctions: string[]): RegExp => {
 	return new RegExp(`\\nfunction (${hookedFunctions.join('|')})\\(([\\S, ]*)\\)[ \n]*\\{`, 'g');
 };
@@ -36,14 +27,13 @@ const createScriptHooks =
 	(hookedFunctions: string[]) =>
 	(input: string): string => {
 		return input
-			.replace(/function server_command\((.*)\)/g, serverCommandReplacement)
 			.replace(
 				/(\w*)(Globals.websocket.send\(['"]CONNECT=['"])/,
 				`$1window?.flatOinky?.client?.handleBeforeConnect();\n$1$2`,
 			)
 			.replaceAll(
 				makeFunctionHooksRegex(hookedFunctions),
-				`\nfunction $1($2) {\n    const resume = window.flatOinky.client.handleFnHook_$1($2);\n    if (!resume) return;\n    hookedFn_$1($2);\n}\nfunction hookedFn_$1($2) {`,
+				`\nfunction $1($2) {\n    const resume = window.flatOinky.client?.hooks?.$1?.($2) ?? true;\n    if (!resume) return;\n    hookedFn_$1($2);\n}\nfunction hookedFn_$1($2) {`,
 			);
 	};
 

@@ -1,6 +1,6 @@
 import mustache from 'mustache';
 import trayMenuTemplate from './audio/audio_tray_menu.html?raw';
-import { upsertTaskbarTrayMenuIcon } from './taskbar';
+import { upsertTaskbarTrayMenuIcon } from '../client/ui';
 import { OinkyPlugin } from '../client';
 
 // #region vars
