@@ -105,19 +105,14 @@ export type PluginInstance = {
 	lifecycle: Lifecycle;
 };
 
-export type PluginRegistry = ReturnType<typeof createPluginRegistry>;
-
-const createPluginRegistry = () => ({}) as Record<string, Plugin>;
-
-export type PluginInstances = ReturnType<typeof createPluginInstances>;
-
-const createPluginInstances = () => ({}) as Record<string, PluginInstance>;
+export type PluginRegistry = Record<string, Plugin>;
+export type PluginInstances = Record<string, PluginInstance>;
 
 export type ClientPlugins = ReturnType<typeof initPlugins>;
 
 const initPlugins = (lifecycle: Lifecycle, context: ClientContext) => {
-	const registry = createPluginRegistry();
-	const instances = createPluginInstances();
+	const registry: PluginRegistry = {};
+	const instances: PluginInstances = {};
 
 	const registerPlugin = (plugin: Plugin) => {
 		if (plugin.namespace in registry) return;
