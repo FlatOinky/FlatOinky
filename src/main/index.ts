@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { ipcMainSetup } from './ipc_main';
+import { setupAssetProxy } from './asset_proxy';
 import { createWindow } from './client_window';
 
 // This method will be called when Electron has finished
@@ -18,6 +19,8 @@ app.whenReady().then(() => {
 	});
 
 	ipcMainSetup();
+
+	setupAssetProxy();
 
 	createWindow();
 

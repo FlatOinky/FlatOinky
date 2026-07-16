@@ -204,13 +204,13 @@ export const AudioPlugin: OinkyPlugin = {
 				if (!isSoundEnabled) window.toggle_sound();
 			},
 
-			hookPlaySound: (url: string, volume: number) => {
-				playSound(url.startsWith('http') ? url : `https://flatmmo.com/${url}`, volume);
+			hookPlaySound: (file: string, volume: number) => {
+				playSound(file.startsWith('http') ? file : `sounds/${file}`, volume);
 				return false;
 			},
 
-			hookPlayTrack: (url: string) => {
-				playMusicTrack(url);
+			hookPlayTrack: (file: string) => {
+				playMusicTrack(file.startsWith('http') ? file : `sounds/tracks/${file}`);
 				return false;
 			},
 

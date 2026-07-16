@@ -37,31 +37,20 @@ const createScriptHooks =
 			);
 	};
 
-const convertScriptRelativeUrls = (input: string): string => {
+// Asset URLs (images, sounds, CSS url(...)) are no longer rewritten here: the
+// game requests them with root-relative paths that resolve against the app
+// origin, and the main-process asset proxy streams them from flatmmo.com. Only
+// navigation URLs (.php links / window.open) still need rewriting since those
+// are opened externally rather than fetched.
+const convertScriptNavigationUrls = (input: string): string => {
 	return input
-		.replace(
-			'play_sound(values[0], values[1]);',
-			'play_sound("https://flatmmo.com/" + values[0], values[1]);',
-		)
-		.replaceAll(/"<img src='"/g, `"<img src='https://flatmmo.com/"`)
-		.replaceAll(/(\.(?:src|href) ?=[ \n]*)(["']?(?!http)\w)/g, '$1"https://flatmmo.com/" + $2')
-		.replaceAll(/( src=["'])((?!http)\w)/g, '$1https://flatmmo.com/$2')
-		.replaceAll(
-			'innerHTML = "<img src=\'"+achievement',
-			'innerHTML = "<img src=\'https://flatmmo.com/"+achievement',
-		)
-		.replaceAll(
-			"url('images/ui/cursor_red.png')",
-			"url('https://flatmmo.com/images/ui/cursor_red.png')",
-		)
-		.replaceAll(/(play_sound\(['"])((?!http)\w)/g, '$1https://flatmmo.com/$2')
+		.replaceAll(/(\.href ?=[ \n]*)(["']?(?!http)\w)/g, '$1"https://flatmmo.com/" + $2')
 		.replaceAll(/window\.open\((['"])(?!http)(\w)/g, 'window.open($1https://flatmmo.com/$2');
 };
 
-const convertStylesRelativeUrls = (input: string): string => {
-	return input.replaceAll(/(url ?\(["'])((?!html)\w)/g, '$1https://flatmmo.com/$2');
-};
-
+// The client HTML's <script src> / <link href> are read back via element.src /
+// element.href to fetch their contents over IPC, so they must resolve to
+// absolute flatmmo URLs rather than the app origin.
 const convertHtmlRelativeUrls = (input: string): string => {
 	return input.replaceAll(/((src|href) ?=[ \n]*")((?!http)\w)/g, '$1https://flatmmo.com/$3');
 };
@@ -73,17 +62,15 @@ const transpileReducer = (input: string, transpilers: ((input: string) => string
 export const transpileScript = (script: string, hookedFunctions: string[]): string =>
 	transpileReducer(script, [
 		removeSmittysDevScripts,
-		convertScriptRelativeUrls,
+		convertScriptNavigationUrls,
 		createScriptHooks(hookedFunctions),
 	]);
 
-export const transpileStyle = (style: string): string =>
-	transpileReducer(style, [convertStylesRelativeUrls]);
+export const transpileStyle = (style: string): string => style;
 
 export const transpileHtml = (html: string): string =>
 	transpileReducer(html, [
 		removeObstructingScripts,
-		convertStylesRelativeUrls,
-		convertScriptRelativeUrls,
+		convertScriptNavigationUrls,
 		convertHtmlRelativeUrls,
 	]);
