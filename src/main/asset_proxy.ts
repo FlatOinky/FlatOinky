@@ -1,5 +1,6 @@
 import { protocol, net } from 'electron';
 import { join } from 'path';
+import { pathToFileURL } from 'url';
 
 const FLAT_URL = 'https://flatmmo.com';
 
@@ -56,11 +57,16 @@ const setupDevProxy = (rendererOrigin: string): void => {
 };
 
 const setupProdProxy = (): void => {
-	const rendererRoot = join(__dirname, '../renderer');
+	const rendererRoot = decodeURIComponent(
+		pathToFileURL(join(__dirname, '../renderer')).pathname,
+	);
 	protocol.handle('file', (request) => {
 		const url = new URL(request.url);
 		const filePath = decodeURIComponent(url.pathname);
-		if (filePath.startsWith(rendererRoot)) {
+		// Compare case-insensitively so a Windows drive letter that differs in
+		// case (e.g. `C:` vs `c:`) between pathToFileURL output and the request
+		// URL still matches; slice the original path to keep forward slashes.
+		if (filePath.toLowerCase().startsWith(rendererRoot.toLowerCase())) {
 			const relativePath = filePath.slice(rendererRoot.length);
 			if (
 				(isAssetPath(relativePath) || isPhpPath(relativePath)) &&
