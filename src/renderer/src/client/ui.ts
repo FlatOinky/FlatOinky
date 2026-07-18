@@ -1,31 +1,11 @@
 import mustache from 'mustache';
-import taskbarTemplate from './ui/taskbar/taskbar.html?raw';
-import taskbarWindowMenuTemplate from './ui/taskbar/window_menu.html?raw';
-import taskbarTrayMenuTemplate from './ui/taskbar/tray_menu.html?raw';
 import windowsRootTemplate from './ui/windows/windows_root.html?raw';
 import windowFrameTemplate from './ui/windows/window_frame.html?raw';
-import { version } from '../../../../package.json';
 import { Lifecycle } from '../client';
-// import { openDevTools, reloadWindow } from './ipc_renderer';
 import { initTaskbar } from './ui/taskbar';
 import * as uiUtils from './ui/ui_utils';
 
 // #region renderers
-
-const renderTaskbarWindowMenu = (): string => {
-	return mustache.render(taskbarWindowMenuTemplate, {});
-};
-
-const renderTaskbarTrayMenu = (id: string, buttonIcon: string, menuContents: string): string => {
-	return mustache.render(taskbarTrayMenuTemplate, { id, buttonIcon, menuContents });
-};
-
-const renderTaskbar = (): string => {
-	return mustache.render(taskbarTemplate, {
-		version,
-		children: [renderTaskbarWindowMenu()],
-	});
-};
 
 const renderWindowRoot = () => {
 	return mustache.render(windowsRootTemplate, {});
@@ -84,102 +64,6 @@ const initLineGraph = (
 
 	return { svg, data, updatePath };
 };
-
-// #region Taskbar
-
-/** @deprecated Use `createTaskbar` instead. */
-// const initOldTaskbar = (lifecycle: Lifecycle, container: HTMLElement) => {
-// 	const taskbarContainer = document.createElement('div');
-// 	taskbarContainer.className = 'flat-oinky';
-// 	taskbarContainer.style.display = 'contents';
-// 	taskbarContainer.innerHTML = renderTaskbar();
-// 	taskbarContainer.setAttribute('flat-oinky', 'taskbar');
-// 	lifecycle.onCleanup(() => taskbarContainer.remove());
-// 	container.appendChild(taskbarContainer);
-
-// 	const mountWindowToggle = (
-// 		lifecycle: Lifecycle,
-// 		id: string,
-// 		windowFrame: HTMLElement,
-// 	): HTMLElement | null => {
-// 		const container = getContainer('taskbar/windows/menu');
-// 		if (!container) return null;
-// 		const windowToggle =
-// 			container.querySelector<HTMLButtonElement>(`button[oinky-taskbar-windows-menu=${id}]`) ??
-// 			document.createElement('button');
-// 		windowToggle.setAttribute('oinky-taskbar-windows-menu', id);
-
-// 		const observerCallback: MutationCallback = ([]) => {};
-// 		const observer = new MutationObserver(observerCallback);
-// 		observer.observe(windowFrame, {
-// 			attributes: true,
-// 			attributeFilter: ['oinky-window-minimized'],
-// 		});
-// 		lifecycle.onCleanup(() => observer.disconnect());
-
-// 		if (!container.contains(windowToggle)) container.appendChild(windowToggle);
-// 		lifecycle.onCleanup(() => container.removeChild(windowToggle));
-// 		return windowToggle;
-// 	};
-
-// 	const getActivity = (id: string): null | HTMLDivElement =>
-// 		getContainerItem('taskbar/activities', id);
-
-// 	const getWidget = (id: string): null | HTMLDivElement => getContainerItem('taskbar/widgets', id);
-
-// 	const upsertWidget = (id: string, element: HTMLElement): HTMLDivElement | null => {
-// 		const widget = getWidget(id);
-// 		widget?.replaceChildren(element);
-// 		return widget;
-// 	};
-
-// 	const removeWidget = (id: string): void => {
-// 		const widget = getWidget(id);
-// 		if (!widget) return;
-// 		widget.replaceChildren();
-// 	};
-
-// 	const upsertDockAction = (id: string, title: string, onClick: () => void): void => {
-// 		const containerItem = getContainerItem('taskbar/menu/actions', id);
-// 		if (!containerItem) return;
-// 		const buttonElement = document.createElement('button');
-// 		buttonElement.textContent = title;
-// 		buttonElement.onclick = onClick;
-// 		const buttonContainer = document.createElement('li');
-// 		buttonContainer.appendChild(buttonElement);
-// 		containerItem.replaceChildren(buttonContainer);
-// 	};
-
-// 	const upsertTrayMenuIcon = (
-// 		id: string,
-// 		buttonIcon: string,
-// 		menuContents: string,
-// 	): HTMLDivElement | null => {
-// 		const trayItem = getContainerItem<HTMLDivElement>('taskbar/tray', id);
-// 		if (!trayItem) return null;
-// 		trayItem.innerHTML = renderTaskbarTrayMenu(id, buttonIcon, menuContents);
-// 		return trayItem;
-// 	};
-
-// 	upsertDockAction('restart', 'Reload Window', () => reloadWindow());
-// 	if (process.env.NODE_ENV === 'development') {
-// 		upsertDockAction('devtools', 'Open DevTools', () => openDevTools());
-// 	}
-
-// 	return {
-// 		container: taskbarContainer,
-// 		mountWindowToggle,
-// 		getActivity,
-// 		getWidget,
-// 		upsertWidget,
-// 		removeWidget,
-// 		upsertTrayMenuIcon,
-// 	};
-// };
-
-// #region Taskbar (new)
-
-export type UITaskbarApi = ReturnType<typeof initTaskbar>;
 
 // #region Windows
 type WindowState = {
@@ -489,6 +373,8 @@ const initWindows = (lifecycle: Lifecycle, container: HTMLElement) => {
 		mountWindowFrame,
 	};
 };
+
+export type UITaskbarApi = ReturnType<typeof initTaskbar>;
 
 export type ClientUI = ReturnType<typeof initUi>;
 
