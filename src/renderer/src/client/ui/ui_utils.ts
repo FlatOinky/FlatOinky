@@ -38,17 +38,40 @@ export const initElement = <T extends keyof HTMLElementTagNameMap>(
 	return element;
 };
 
-export const createSvgIcon = (paths: string[]): SVGSVGElement => {
+type SvgIconOptions = {
+	viewBox?: string;
+	fill?: string;
+	stroke?: string;
+	strokeWidth?: string;
+	className?: string;
+};
+
+export const createSvgIcon = (paths: string[], options: SvgIconOptions = {}): SVGSVGElement => {
+	const {
+		viewBox = '0 0 24 24',
+		fill = 'none',
+		stroke = 'currentColor',
+		strokeWidth = '1.5',
+		className = 'size-6',
+	} = options;
+	const isStroke = stroke !== 'none';
 	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	svg.setAttribute('fill', 'none');
-	svg.setAttribute('viewBox', '0 0 24 24');
-	svg.setAttribute('stroke-width', '1.5');
-	svg.setAttribute('stroke', 'currentColor');
-	svg.setAttribute('class', 'size-6');
+	svg.setAttribute('fill', fill);
+	svg.setAttribute('viewBox', viewBox);
+	svg.setAttribute('class', className);
+	if (isStroke) {
+		svg.setAttribute('stroke-width', strokeWidth);
+		svg.setAttribute('stroke', stroke);
+	}
 	paths.forEach((d) => {
 		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		path.setAttribute('stroke-linecap', 'round');
-		path.setAttribute('stroke-linejoin', 'round');
+		if (isStroke) {
+			path.setAttribute('stroke-linecap', 'round');
+			path.setAttribute('stroke-linejoin', 'round');
+		} else {
+			path.setAttribute('fill-rule', 'evenodd');
+			path.setAttribute('clip-rule', 'evenodd');
+		}
 		path.setAttribute('d', d);
 		svg.appendChild(path);
 	});

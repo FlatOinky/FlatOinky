@@ -1,15 +1,10 @@
-import mustache from 'mustache';
 import { formatDate } from 'date-fns';
-import chatTemplate from './chat/chat.html?raw';
-import chatTabsTemplate from './chat/chat_tabs.html?raw';
-import chatActionsTemplate from './chat/chat_actions.html?raw';
-import chatLogTemplate from './chat/chat_log.html?raw';
-import chatMessageTemplate from './chat/chat_message.html?raw';
 import yellIconSrc from '../assets/yell.png';
 import pmToIconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
 import { ChatMessage, Lifecycle, Plugin, PluginContext } from '../client';
 import { ipcRenderer } from '../client/ipc_renderer';
+import { createSvgIcon } from '../client/ui/ui_utils';
 
 const namespace = 'core/chat';
 
@@ -20,52 +15,6 @@ type ChatTab = {
 };
 
 // #region Vars
-
-const highResSigils = [
-	'images/ui/basket_egg_sigil.png',
-	'images/ui/basket_sigil.png',
-	'images/ui/bat_sigil.png',
-	'images/ui/bell_sigil.png',
-	'images/ui/blue_party_hat_sigil.png',
-	'images/ui/broken_bell_sigil.png',
-	'images/ui/bronze_event_2_sigil.png',
-	'images/ui/bronze_event_sigil.png',
-	'images/ui/bunny_sigil.png',
-	'images/ui/candy_cane_sigil.png',
-	'images/ui/carrot_sigil.png',
-	'images/ui/cat_sigil.png',
-	'images/ui/chocolate_sigil.png',
-	'images/ui/dh1_max_sigil.png',
-	'images/ui/easter_egg_sigil.png',
-	'images/ui/event_2_sigil.png',
-	'images/ui/event_sigil.png',
-	'images/ui/fake_bell_sigil.png',
-	'images/ui/fancy_bell_sigil.png',
-	'images/ui/ghost_sigil.png',
-	'images/ui/gift_sigil.png',
-	'images/ui/gold_event_2_sigil.png',
-	'images/ui/gold_event_sigil.png',
-	'images/ui/green_party_hat_sigil.png',
-	'images/ui/hatching_chicken_sigil.png',
-	'images/ui/mad_bunny_sigil.png',
-	'images/ui/mummy_head_sigil.png',
-	'images/ui/mummy_sigil.png',
-	'images/ui/pink_party_hat_sigil.png',
-	'images/ui/pumpkin_sigil.png',
-	'images/ui/red_party_hat_sigil.png',
-	'images/ui/reindeer_sigil.png',
-	'images/ui/santa_hat_sigil.png',
-	'images/ui/silver_event_2_sigil.png',
-	'images/ui/silver_event_sigil.png',
-	'images/ui/skull_sigil.png',
-	'images/ui/snowflake_sigil.png',
-	'images/ui/snowman_sigil.png',
-	'images/ui/spider_sigil.png',
-	'images/ui/tree_sigil.png',
-	'images/ui/white_party_hat_sigil.png',
-	'images/ui/yellow_party_hat_sigil.png',
-	'images/ui/zombie_sigil.png',
-];
 
 const colorMap = {
 	pink: 'text-accent',
@@ -94,7 +43,6 @@ const initialChannels = {
 	] satisfies ChatTab[] as ChatTab[],
 };
 type Channels = typeof initialChannels;
-// let channels = initialChannels;
 
 const initialSettings = {
 	isExpanded: true,
@@ -105,7 +53,34 @@ const initialSettings = {
 	timestampFormat: 'h:mmaaa',
 };
 type Settings = typeof initialSettings;
-// let settings = initialSettings;
+
+// #region Elements
+
+type ChatElements = {
+	root: HTMLDivElement;
+	toggleButton: HTMLLabelElement;
+	toggleCheckbox: HTMLInputElement;
+	toggleIndicator: HTMLDivElement;
+	inputLabel: HTMLSpanElement;
+	chatInput: HTMLInputElement;
+	messagesContainer: HTMLUListElement;
+	popupsContainer: HTMLUListElement;
+	tabsContainer: HTMLDivElement;
+	addTabButton: HTMLButtonElement;
+	addTabModal: HTMLDialogElement;
+	addTabForm: HTMLFormElement;
+	addTabInput: HTMLInputElement;
+	addTabSubmit: HTMLButtonElement;
+	addTabCancel: HTMLButtonElement;
+	logActivator: HTMLButtonElement;
+	logModal: HTMLDialogElement;
+	logContainer: HTMLUListElement;
+	logGoTop: HTMLButtonElement;
+	logGoUp: HTMLButtonElement;
+	logGoDown: HTMLButtonElement;
+	logGoBottom: HTMLButtonElement;
+	logExport: HTMLButtonElement;
+};
 
 // #region Utils
 
@@ -152,61 +127,11 @@ const getRandomUsername = (): string => {
 	return [...usernamesCache.values()][picked];
 };
 
-const getMessagesContainer = (context: PluginContext): HTMLUListElement | null =>
-	context.ui.getContainer<HTMLUListElement>('chat/messages');
-
 const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: number) =>
 	scrollTop + clientHeight >= scrollHeight - clientHeight / 3;
 
-const wrapMessage = (
-	chatMessageRender: string,
-	isZebraEnabled: boolean,
-	isBackgroundEnabled: boolean = true,
-) => {
-	const className = isBackgroundEnabled ? getMessageBg(isZebraEnabled) : '';
-	return `<li class="p-1 text-shadow-md ${className}">${chatMessageRender}</li>`;
-};
-
-// #region Renderers
-
-const renderUsername = (
-	username: string,
-	type: ChatMessage['type'],
-	colorClassName: string,
-): string | null => {
-	if (!username) return null;
-	return `<span class="${colorClassName}">${username + (type === 'local' ? ': ' : '')}</span>`;
-};
-
-const renderUserTag = (tag: string): string | null => {
-	if (!tag || tag === 'none') return null;
-	const tagName = { 'investor-plus': 'investor' }[tag] ?? tag;
-	const className =
-		{ 'investor-plus': 'chat-tag-investor-plus chat-tag-investor-plus-shiny' }[tag] ??
-		`chat-tag-${tag}`;
-	return `<span class="${className}">${tagName}</span>`;
-};
-
-const renderIcon = (src: string): string => {
-	return `<img class="inline-block" src="${src}" />`;
-};
-
-const renderChatMessage = (chatMessage: ChatMessage, timestampFormat: string): string => {
-	const { type, icon, tag, username } = chatMessage;
-	const prefixIcons = [icon && renderIcon(`https://flatmmo.com/${icon}`)].filter((src) => src);
-	const colorClassName = colorMap[chatMessage.color] ?? colorMap.white;
-	const segments = [
-		tag && renderUserTag(tag),
-		username && renderUsername(username, type, colorClassName),
-	].filter((segment) => typeof segment === 'string' && segment.length > 0);
-	const suffixIcons = [
-		type === 'yell' && renderIcon(yellIconSrc),
-		type === 'pm_to' && renderIcon(pmToIconSrc),
-		type === 'pm_from' && renderIcon(pmFromIconSrc),
-	].filter((icon) => typeof icon === 'string');
-	const timestamp = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
-	let message = chatMessage.message;
-	message = message
+const formatMessageHtml = (message: string): string => {
+	let result = message
 		.split(' ')
 		.map((word) =>
 			word.length > 34 && !word.startsWith('http')
@@ -214,113 +139,174 @@ const renderChatMessage = (chatMessage: ChatMessage, timestampFormat: string): s
 				: word,
 		)
 		.join(' ');
-	message = message.replace(/(https?:\/\/[^\s]+)/g, (url) => {
+	result = result.replace(/(https?:\/\/[^\s]+)/g, (url) => {
 		return `<a class="underline pointer-events-auto break-all" target="_blank" href="${url}">${url}</a>`;
 	});
-	message = message.trim();
-	return mustache.render(chatMessageTemplate, {
-		timestamp,
-		segments,
-		prefixIcons,
-		suffixIcons,
-		message,
-		colorClassName,
+	return result.trim();
+};
+
+// #region Message elements
+
+const createIconImg = (src: string): HTMLImageElement => {
+	const img = document.createElement('img');
+	img.className = 'inline-block';
+	img.src = src;
+	return img;
+};
+
+const createUserTag = (tag?: string): HTMLSpanElement | null => {
+	if (!tag || tag === 'none') return null;
+	const tagName =
+		({ 'investor-plus': 'investor', 'investor-gold': 'gold investor' } as Record<string, string>)[
+			tag
+		] ?? tag;
+	const className =
+		{
+			'investor-plus': 'chat-tag-investor-plus chat-tag-investor-plus-shiny',
+			'investor-gold': 'chat-tag-investor-gold chat-tag-investor-plus-gold',
+		}[tag] ?? `chat-tag-${tag}`;
+	const span = document.createElement('span');
+	span.className = className;
+	span.textContent = tagName;
+	return span;
+};
+
+const createUsername = (
+	username: string | undefined,
+	type: ChatMessage['type'],
+	colorClassName: string,
+): HTMLSpanElement | null => {
+	if (!username) return null;
+	const span = document.createElement('span');
+	span.className = colorClassName;
+	span.textContent = username + (type === 'local' ? ': ' : '');
+	return span;
+};
+
+const appendSpaced = (container: HTMLElement, parts: Node[]): void => {
+	parts.forEach((node, index) => {
+		if (index > 0) container.appendChild(document.createTextNode(' '));
+		container.appendChild(node);
 	});
 };
 
-const renderChatTab = ({ name }: ChatTab, isActive: boolean): string => {
-	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active' : 'bg-base-300'}">${name}</button>`;
+const createChatMessageContent = (
+	chatMessage: ChatMessage,
+	timestampFormat: string,
+): HTMLDivElement => {
+	const { type, icon, tag, username } = chatMessage;
+	const colorClassName = colorMap[chatMessage.color] ?? colorMap.white;
+	const content = document.createElement('div');
+	content.className = `contents ${colorClassName}`;
+
+	const timestamp = document.createElement('span');
+	timestamp.className = 'text-xs';
+	timestamp.textContent = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
+
+	const parts: Node[] = [timestamp];
+	if (icon) parts.push(createIconImg(`https://flatmmo.com/${icon}`));
+	const tagEl = createUserTag(tag);
+	if (tagEl) parts.push(tagEl);
+	const usernameEl = createUsername(username, type, colorClassName);
+	if (usernameEl) parts.push(usernameEl);
+	if (type === 'yell') parts.push(createIconImg(yellIconSrc));
+	if (type === 'pm_to') parts.push(createIconImg(pmToIconSrc));
+	if (type === 'pm_from') parts.push(createIconImg(pmFromIconSrc));
+
+	const messageEl = document.createElement('span');
+	messageEl.innerHTML = formatMessageHtml(chatMessage.message);
+	parts.push(messageEl);
+
+	appendSpaced(content, parts);
+	return content;
 };
 
-const renderChatTabs = (chatTabs: ChatTab[], selectedIndex: number) => {
-	return mustache.render(chatTabsTemplate, {
-		tabs: chatTabs.map((chatTab, index) => {
-			return renderChatTab(chatTab, index === selectedIndex);
-		}),
-	});
+const createLoginMessageContent = (loginSpan: HTMLSpanElement): HTMLDivElement => {
+	const colorClassName = colorMap[loginSpan.style.color] ?? colorMap.white;
+	loginSpan.style.color = '';
+	const content = document.createElement('div');
+	content.className = `contents ${colorClassName}`;
+	const timestamp = document.createElement('span');
+	timestamp.className = 'text-xs';
+	const message = document.createElement('span');
+	appendSpaced(content, [timestamp, loginSpan, message]);
+	return content;
 };
 
-const renderChatActions = () => {
-	return mustache.render(chatActionsTemplate, {});
+const createMessageLi = (content: HTMLElement, bgClass: string): HTMLLIElement => {
+	const li = document.createElement('li');
+	li.className = `p-1 text-shadow-md ${bgClass}`;
+	li.appendChild(content);
+	return li;
 };
 
-const renderChatLog = () => {
-	return mustache.render(chatLogTemplate, {});
+const createPopupLi = (content: HTMLElement, bgClass: string): HTMLLIElement => {
+	const li = document.createElement('li');
+	li.className = `px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${bgClass}`;
+	li.appendChild(content);
+	return li;
 };
 
-const renderChat = (
-	username: string,
-	messages: string[],
-	chatTabs: ChatTab[],
-	selectedChatTabIndex: number,
-	isExpanded: boolean,
-): string => {
-	return mustache.render(chatTemplate, {
-		messages,
-		placeholder: username,
-		isExpanded: `${isExpanded}`,
-		children: [
-			renderChatTabs(chatTabs, selectedChatTabIndex),
-			renderChatActions(),
-			renderChatLog(),
-		],
-	});
+// #region Tab elements
+
+const createTabButton = ({ name }: ChatTab, isActive: boolean): HTMLButtonElement => {
+	const button = document.createElement('button');
+	button.setAttribute('oinky-chat', 'tab');
+	button.className = `tab ${isActive ? 'tab-active' : 'bg-base-300'}`;
+	button.textContent = name;
+	return button;
 };
 
 // #region Updaters
 
-const updateChatTabInputLabel = (channels: Channels): void => {
-	const label = document.querySelector<HTMLSpanElement>('[oinky-chat=input-label]');
-	if (!label) return;
+const updateChatTabInputLabel = (channels: Channels, inputLabel: HTMLSpanElement): void => {
 	const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
 	if (prefix === '') {
-		label.style.display = 'none';
-		label.innerText = '';
+		inputLabel.style.display = 'none';
+		inputLabel.innerText = '';
 	} else {
-		label.style.display = '';
-		label.innerText = prefix;
+		inputLabel.style.display = '';
+		inputLabel.innerText = prefix;
 	}
 };
 
-const updateChatTabs = (context: PluginContext, channels: Channels): void => {
-	updateChatTabInputLabel(channels);
-	const container = context.ui.getContainer('chat/tabs');
-	if (!container) return;
-	container.innerHTML = channels.chatTabs
-		.map((chatTab, index) => renderChatTab(chatTab, index === channels.chatTabIndex))
-		.join('\n');
-	container.querySelectorAll<HTMLButtonElement>('button').forEach((button, index) => {
+const updateChatTabs = (
+	tabsContainer: HTMLDivElement,
+	channels: Channels,
+	inputLabel: HTMLSpanElement,
+): void => {
+	updateChatTabInputLabel(channels, inputLabel);
+	tabsContainer.replaceChildren();
+	channels.chatTabs.forEach((chatTab, index) => {
+		const button = createTabButton(chatTab, index === channels.chatTabIndex);
 		button.onclick = () => {
 			channels.chatTabIndex = index;
-			updateChatTabs(context, channels);
+			updateChatTabs(tabsContainer, channels, inputLabel);
 		};
 		button.oncontextmenu = () => {
 			if (index < 2) return;
 			if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
 			const clonedTabs = JSON.parse(JSON.stringify(channels.chatTabs));
 			channels.chatTabs = [...clonedTabs.slice(0, index), ...clonedTabs.slice(index + 1)];
-			updateChatTabs(context, channels);
+			updateChatTabs(tabsContainer, channels, inputLabel);
 		};
+		tabsContainer.appendChild(button);
 	});
 };
 
-const updateToggleIndicator = (active: boolean = true): void => {
-	const toggleIndicator = document.querySelector<HTMLButtonElement>(
-		'[oinky-chat=toggle-indicator]',
-	);
-	if (!toggleIndicator) return;
+const updateToggleIndicator = (toggleIndicator: HTMLDivElement, active: boolean = true): void => {
 	active ? toggleIndicator.classList.remove('hidden') : toggleIndicator.classList.add('hidden');
 };
 
 // #region Handlers
 
-const handleWheel = (event: WheelEvent, context, settings: Settings): void => {
+const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settings): void => {
 	// @ts-ignore 2304
 	if (opened_modals.size > 0) return;
 	if (!settings.isExpanded) return;
-	const chatMessageContainer = getMessagesContainer(context);
-	if (!chatMessageContainer) return;
+	const chatMessageContainer = elements.messagesContainer;
 	const containerRect = chatMessageContainer.getClientRects()[0];
+	if (!containerRect) return;
 	const hoveringChat =
 		event.clientX >= containerRect.left &&
 		event.clientX <= containerRect.right &&
@@ -333,25 +319,22 @@ const handleWheel = (event: WheelEvent, context, settings: Settings): void => {
 		chatMessageContainer.clientHeight,
 		chatMessageContainer.scrollHeight,
 	);
-	if (isAtBottom) updateToggleIndicator(false);
+	if (isAtBottom) updateToggleIndicator(elements.toggleIndicator, false);
 	chatMessageContainer.scroll({
 		top: targetScrollTop,
 		behavior: 'smooth',
 	});
 };
 
-const handleKeypress = (event: KeyboardEvent): void => {
+const handleKeypress = (event: KeyboardEvent, chatInput: HTMLInputElement): void => {
 	if (window.has_modal_open()) return;
 	if (!event.key.match(/^[a-zA-Z]$/)) return;
-	const chatInput = document.querySelector<HTMLInputElement>('[oinky-chat=input]');
-	if (!chatInput) return;
 	chatInput.focus();
 };
 
-const handleToggleClick = (context, settings: Settings): void => {
-	const chatMessageContainer = getMessagesContainer(context);
-	if (!chatMessageContainer) return;
-	updateToggleIndicator(false);
+const handleToggleChange = (elements: ChatElements, settings: Settings): void => {
+	const chatMessageContainer = elements.messagesContainer;
+	updateToggleIndicator(elements.toggleIndicator, false);
 	if (settings.isExpanded) {
 		const isAtBottom = checkIsAtBottom(
 			chatMessageContainer.scrollTop,
@@ -359,6 +342,7 @@ const handleToggleClick = (context, settings: Settings): void => {
 			chatMessageContainer.scrollHeight,
 		);
 		if (!isAtBottom) {
+			elements.toggleCheckbox.checked = true;
 			chatMessageContainer.scroll({
 				top: chatMessageContainer.scrollHeight,
 				behavior: 'smooth',
@@ -367,10 +351,7 @@ const handleToggleClick = (context, settings: Settings): void => {
 		}
 	}
 	chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
-	settings.isExpanded = !settings.isExpanded;
-	document.querySelectorAll('[oinky-chat-expanded]').forEach((element) => {
-		element.setAttribute('oinky-chat-expanded', `${settings.isExpanded}`);
-	});
+	settings.isExpanded = elements.toggleCheckbox.checked;
 };
 
 const handleChatInputKeydown =
@@ -422,56 +403,389 @@ const handleChatInputKeydown =
 		event.preventDefault();
 	};
 
-const handleAddTabClick = (context, channels: Channels): void => {
+const handleAddTabClick = (elements: ChatElements, channels: Channels): void => {
 	const modalId = `oinky/${namespace}/add-tab`;
-	const modal = document.querySelector<HTMLDialogElement>('[oinky-chat=add-tab-modal]');
-	const form = document.querySelector<HTMLFormElement>('[oinky-chat=add-tab-modal] form');
-	const input = document.querySelector<HTMLInputElement>('[oinky-chat=add-tab-modal] input');
-	const submitButton = document.querySelector<HTMLButtonElement>(
-		'[oinky-chat=add-tab-modal] button[oinky-modal=submit]',
-	);
-	const cancelButton = document.querySelector<HTMLButtonElement>(
-		'[oinky-chat=add-tab-modal] button[oinky-modal=cancel]',
-	);
-	if (!modal || !form || !input || !submitButton || !cancelButton) return;
-	modal.onclose = () => {
+	const { addTabModal, addTabForm, addTabInput, addTabSubmit, addTabCancel } = elements;
+	addTabModal.onclose = () => {
 		// @ts-ignore 2304
 		opened_modals.delete(modalId);
-		modal.open = false;
+		addTabModal.open = false;
 	};
 	const handleSubmit = (): void => {
-		modal.close();
-		const username = input.value.trim().toLowerCase();
+		addTabModal.close();
+		const username = addTabInput.value.trim().toLowerCase();
 		if (username.length < 1) return;
 		channels.chatTabs.push({
 			type: 'pm',
 			prefix: `/pm ${username.replace(' ', '_')}`,
 			name: `@${username}`,
 		});
-		updateChatTabs(context, channels);
+		updateChatTabs(elements.tabsContainer, channels, elements.inputLabel);
 	};
-	form.onsubmit = handleSubmit;
-	submitButton.onclick = handleSubmit;
-	cancelButton.onclick = () => modal.close();
-	input.placeholder = getRandomUsername();
-	input.onkeydown = (event) => {
+	addTabForm.onsubmit = handleSubmit;
+	addTabSubmit.onclick = handleSubmit;
+	addTabCancel.onclick = () => addTabModal.close();
+	addTabInput.placeholder = getRandomUsername();
+	addTabInput.onkeydown = (event) => {
 		if (event.key !== 'Enter') return;
 		handleSubmit();
 	};
-	input.value = '';
+	addTabInput.value = '';
 	// @ts-ignore 2304
 	opened_modals.add(modalId);
-	modal.show();
+	addTabModal.show();
 };
 
-// #region mounts
+// #region Builders
 
-const mountChat = (
+const mountToggleButton = (root: HTMLElement, settings: Settings) => {
+	const toggleButton = document.createElement('label');
+	toggleButton.setAttribute('oinky-chat', 'toggle');
+	toggleButton.className =
+		'absolute right-full btn btn-sm engaged:btn-primary btn-square m-1 indicator';
+
+	const toggleCheckbox = document.createElement('input');
+	toggleCheckbox.type = 'checkbox';
+	toggleCheckbox.className = 'hidden';
+	toggleCheckbox.checked = settings.isExpanded;
+	toggleButton.appendChild(toggleCheckbox);
+
+	const toggleIndicator = document.createElement('div');
+	toggleIndicator.setAttribute('oinky-chat', 'toggle-indicator');
+	toggleIndicator.className = 'indicator-item status status-warning hidden';
+	toggleButton.appendChild(toggleIndicator);
+
+	toggleButton.appendChild(
+		createSvgIcon(
+			[
+				'M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z',
+			],
+			{
+				viewBox: '0 0 20 20',
+				fill: 'currentColor',
+				stroke: 'none',
+				className: 'w-6 h-6 -m-1 transition-transform',
+			},
+		),
+	);
+
+	root.appendChild(toggleButton);
+	return { toggleButton, toggleCheckbox, toggleIndicator };
+};
+
+const mountChatInput = (root: HTMLElement, placeholder: string) => {
+	const group = document.createElement('div');
+	group.className = 'w-xl join';
+
+	const label = document.createElement('label');
+	label.className = 'join-item input w-full';
+
+	const inputLabel = document.createElement('span');
+	inputLabel.setAttribute('oinky-chat', 'input-label');
+	inputLabel.className = 'label text-xs mr-0 px-2';
+	inputLabel.style.display = 'none';
+
+	const chatInput = document.createElement('input');
+	chatInput.setAttribute('oinky-chat', 'input');
+	chatInput.placeholder = placeholder;
+	label.append(inputLabel, chatInput);
+
+	const actionsButton = document.createElement('button');
+	actionsButton.className =
+		'join-item btn not-engaged:bg-base-100 engaged:btn-primary not-engaged:border-base-content/20 px-1';
+	actionsButton.setAttribute('popovertarget', 'oinky-chat-actions');
+	actionsButton.style.setProperty('anchor-name', '--oinky-chat-actions-toggle');
+	actionsButton.appendChild(
+		createSvgIcon([
+			'M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z',
+		]),
+	);
+
+	group.append(label, actionsButton);
+	root.appendChild(group);
+	return { inputLabel, chatInput };
+};
+
+const mountMessagesRegion = (root: HTMLElement) => {
+	const region = document.createElement('div');
+	region.className = 'contents pointer-events-none';
+
+	const popupsContainer = document.createElement('ul');
+	popupsContainer.setAttribute('oinky-chat-expanded-hidden', '');
+	popupsContainer.className = 'absolute left-0 bottom-full m-1 transition-opacity w-xl';
+
+	const messagesWrapper = document.createElement('div');
+	messagesWrapper.className =
+		'absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity';
+
+	const messagesContainer = document.createElement('ul');
+	messagesContainer.setAttribute('oinky-chat-expanded-visible', '');
+	messagesContainer.className =
+		'max-h-64 overflow-y-scroll scrollbar-thumb-base-content/50 scrollbar-track-base-200/70 transition-opacity';
+	messagesWrapper.appendChild(messagesContainer);
+
+	region.append(popupsContainer, messagesWrapper);
+	root.appendChild(region);
+	return { messagesContainer, popupsContainer };
+};
+
+const mountChatTabs = (root: HTMLElement) => {
+	const tabsBar = document.createElement('div');
+	tabsBar.className = 'absolute top-full max-w-xl flex ml-(--radius-box)';
+
+	const tabsContainer = document.createElement('div');
+	tabsContainer.setAttribute('role', 'tablist');
+	tabsContainer.className = 'tabs tabs-lift tabs-bottom tabs-xs';
+
+	const addTabWrapper = document.createElement('div');
+	addTabWrapper.className = 'tabs tabs-lift tabs-bottom tabs-xs';
+	const addTabButton = document.createElement('button');
+	addTabButton.setAttribute('oinky-chat', 'add-tab');
+	addTabButton.className = 'tab mx-1 btn btn-xs engaged:btn-primary text-(--btn-fg)';
+	addTabButton.appendChild(
+		createSvgIcon(
+			[
+				'M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z',
+			],
+			{ viewBox: '0 0 16 16', fill: 'currentColor', stroke: 'none', className: 'size-4' },
+		),
+	);
+	addTabWrapper.appendChild(addTabButton);
+
+	tabsBar.append(tabsContainer, addTabWrapper);
+	root.appendChild(tabsBar);
+	return { tabsContainer, addTabButton };
+};
+
+const mountAddTabModal = (root: HTMLElement) => {
+	const addTabModal = document.createElement('dialog');
+	addTabModal.setAttribute('oinky-chat', 'add-tab-modal');
+	addTabModal.className = 'modal';
+
+	const modalBox = document.createElement('div');
+	modalBox.className = 'modal-box';
+	const title = document.createElement('h3');
+	title.textContent = 'Add PM tab';
+	modalBox.append(title, document.createElement('br'));
+
+	const addTabForm = document.createElement('form');
+	addTabForm.setAttribute('method', 'dialog');
+	addTabForm.className = 'join w-full';
+
+	const label = document.createElement('label');
+	label.className = 'join-item w-full input';
+	const labelIcon = document.createElement('span');
+	labelIcon.className = 'label';
+	labelIcon.appendChild(
+		createSvgIcon(
+			[
+				'M5.404 14.596A6.5 6.5 0 1 1 16.5 10a1.25 1.25 0 0 1-2.5 0 4 4 0 1 0-.571 2.06A2.75 2.75 0 0 0 18 10a8 8 0 1 0-2.343 5.657.75.75 0 0 0-1.06-1.06 6.5 6.5 0 0 1-9.193 0ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z',
+			],
+			{ viewBox: '0 0 20 20', fill: 'currentColor', stroke: 'none', className: 'size-5' },
+		),
+	);
+	const addTabInput = document.createElement('input');
+	addTabInput.setAttribute('autofocus', '');
+	addTabInput.type = 'text';
+	label.append(labelIcon, addTabInput);
+
+	const addTabSubmit = document.createElement('button');
+	addTabSubmit.setAttribute('oinky-modal', 'submit');
+	addTabSubmit.className = 'btn btn-ghost btn-success border-base-content/20 join-item';
+	addTabSubmit.appendChild(createSvgIcon(['m4.5 12.75 6 6 9-13.5']));
+
+	const addTabCancel = document.createElement('button');
+	addTabCancel.setAttribute('oinky-modal', 'cancel');
+	addTabCancel.className = 'btn btn-ghost btn-error border-base-content/20 join-item';
+	addTabCancel.appendChild(createSvgIcon(['M6 18 18 6M6 6l12 12']));
+
+	addTabForm.append(label, addTabSubmit, addTabCancel);
+	modalBox.appendChild(addTabForm);
+
+	const backdrop = document.createElement('form');
+	backdrop.setAttribute('method', 'dialog');
+	backdrop.className = 'modal-backdrop';
+	const backdropButton = document.createElement('button');
+	backdropButton.value = 'cancel';
+	backdropButton.textContent = 'Cancel';
+	backdrop.appendChild(backdropButton);
+
+	addTabModal.append(modalBox, backdrop);
+	root.appendChild(addTabModal);
+	return { addTabModal, addTabForm, addTabInput, addTabSubmit, addTabCancel };
+};
+
+const mountChatActionsDropdown = (root: HTMLElement) => {
+	const dropdown = document.createElement('ul');
+	dropdown.className =
+		'dropdown dropdown-top dropdown-right menu w-48 rounded-box bg-base-100 shadow -translate-y-2 translate-x-1 border border-base-content/20';
+	dropdown.setAttribute('popover', '');
+	dropdown.id = 'oinky-chat-actions';
+	dropdown.style.setProperty('position-anchor', '--oinky-chat-actions-toggle');
+
+	const logActivatorItem = document.createElement('li');
+	const logActivator = document.createElement('button');
+	logActivator.setAttribute('oinky-chat', 'log-activator');
+	logActivator.textContent = 'Open Chat Log';
+	logActivatorItem.appendChild(logActivator);
+
+	const settingsItem = document.createElement('li');
+	const settingsAction = document.createElement('button');
+	settingsAction.setAttribute('oinky-chat', 'settings-action');
+	settingsAction.className = 'line-through';
+	settingsAction.textContent = 'Open Settings';
+	settingsItem.appendChild(settingsAction);
+
+	dropdown.append(logActivatorItem, settingsItem);
+	root.appendChild(dropdown);
+	return { logActivator };
+};
+
+const mountChatLog = (root: HTMLElement) => {
+	const logModal = document.createElement('dialog');
+	logModal.setAttribute('oinky-chat', 'log-modal');
+	logModal.className = 'modal';
+
+	const modalBox = document.createElement('div');
+	modalBox.className = 'modal-box';
+
+	const header = document.createElement('div');
+	header.className = 'flex justify-between';
+	const heading = document.createElement('h3');
+	heading.textContent = 'Chat Log';
+	const closeForm = document.createElement('form');
+	closeForm.setAttribute('method', 'dialog');
+	const closeButton = document.createElement('button');
+	closeButton.className = 'btn btn-sm btn-ghost btn-error';
+	closeButton.appendChild(createSvgIcon(['M6 18 18 6M6 6l12 12']));
+	closeForm.appendChild(closeButton);
+	header.append(heading, closeForm);
+
+	const logContainer = document.createElement('ul');
+	logContainer.setAttribute('oinky-chat', 'log-container');
+	logContainer.className =
+		'flex flex-col gap-2 my-3 -mx-6 p-2 bg-base-200 h-[50vh] overflow-y-scroll';
+
+	const footer = document.createElement('div');
+	footer.className = 'flex gap-2 justify-between';
+
+	const navGroup = document.createElement('div');
+	navGroup.className = 'join';
+	const createNavButton = (paths: string[]): HTMLButtonElement => {
+		const button = document.createElement('button');
+		button.className = 'join-item btn btn-sm btn-square engaged:btn-primary';
+		button.appendChild(
+			createSvgIcon(paths, {
+				viewBox: '0 0 20 20',
+				fill: 'currentColor',
+				stroke: 'none',
+				className: 'size-5',
+			}),
+		);
+		return button;
+	};
+	const logGoTop = createNavButton([
+		'M9.47 4.72a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 6.31l-3.72 3.72a.75.75 0 1 1-1.06-1.06l4.25-4.25Zm-4.25 9.25 4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 11.31l-3.72 3.72a.75.75 0 0 1-1.06-1.06Z',
+	]);
+	logGoTop.setAttribute('oinky-chat', 'go-top-log');
+	const logGoUp = createNavButton([
+		'M9.47 6.47a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25Z',
+	]);
+	logGoUp.setAttribute('oinky-chat', 'go-up-log');
+	const logGoDown = createNavButton([
+		'M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z',
+	]);
+	logGoDown.setAttribute('oinky-chat', 'go-down-log');
+	const logGoBottom = createNavButton([
+		'M9.47 15.28a.75.75 0 0 0 1.06 0l4.25-4.25a.75.75 0 1 0-1.06-1.06L10 13.69 6.28 9.97a.75.75 0 0 0-1.06 1.06l4.25 4.25ZM5.22 6.03l4.25 4.25a.75.75 0 0 0 1.06 0l4.25-4.25a.75.75 0 0 0-1.06-1.06L10 8.69 6.28 4.97a.75.75 0 0 0-1.06 1.06Z',
+	]);
+	logGoBottom.setAttribute('oinky-chat', 'go-bottom-log');
+	navGroup.append(logGoTop, logGoUp, logGoDown, logGoBottom);
+
+	const logExport = document.createElement('button');
+	logExport.setAttribute('oinky-chat', 'export-log');
+	logExport.className = 'btn btn-sm btn-ghost engaged:btn-primary';
+	logExport.appendChild(
+		createSvgIcon(
+			[
+				'M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z',
+				'M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z',
+			],
+			{ viewBox: '0 0 20 20', fill: 'currentColor', stroke: 'none', className: 'size-5' },
+		),
+	);
+	logExport.append(document.createTextNode(' Export'));
+
+	footer.append(navGroup, logExport);
+	modalBox.append(header, logContainer, footer);
+
+	const backdrop = document.createElement('form');
+	backdrop.setAttribute('method', 'dialog');
+	backdrop.className = 'modal-backdrop';
+	const backdropButton = document.createElement('button');
+	backdropButton.textContent = 'close';
+	backdrop.appendChild(backdropButton);
+
+	logModal.append(modalBox, backdrop);
+	root.appendChild(logModal);
+	return { logModal, logContainer, logGoTop, logGoUp, logGoDown, logGoBottom, logExport };
+};
+
+// #region Wiring
+
+const wireChatLog = (elements: ChatElements, settings: Settings): void => {
+	const modalId = `oinky/${namespace}/`;
+	const { logActivator, logModal, logContainer } = elements;
+	logActivator.onclick = () => {
+		// @ts-ignore 2304
+		opened_modals.add(modalId);
+		logContainer.replaceChildren(
+			...chatMessages.map((chatMessage) =>
+				createMessageLi(
+					createChatMessageContent(chatMessage, settings.timestampFormat),
+					getMessageBg(false),
+				),
+			),
+		);
+		logContainer.scrollTop = logContainer.scrollHeight;
+		logModal.showModal();
+		logModal.onclose = () => {
+			logContainer.replaceChildren();
+			// @ts-ignore 2304
+			opened_modals.delete(modalId);
+		};
+	};
+	elements.logGoTop.onclick = () => {
+		elements.logGoTop.blur();
+		logContainer.scrollTo({ top: 0, behavior: 'smooth' });
+	};
+	elements.logGoUp.onclick = () => {
+		const top = logContainer.scrollTop - logContainer.getBoundingClientRect().height;
+		logContainer.scrollTo({ top, behavior: 'smooth' });
+	};
+	elements.logGoDown.onclick = () => {
+		const top = logContainer.scrollTop + logContainer.getBoundingClientRect().height;
+		logContainer.scrollTo({ top, behavior: 'smooth' });
+	};
+	elements.logGoBottom.onclick = () => {
+		elements.logGoBottom.blur();
+		logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: 'smooth' });
+	};
+	elements.logExport.onclick = () => {
+		const filename = `FlatMMO Chat ${new Date().toISOString()}.txt`;
+		const contents = logContainer.innerText;
+		ipcRenderer.send('requestFileSave', filename, contents);
+	};
+};
+
+// #region init
+
+const initChat = (
 	lifecycle: Lifecycle,
 	context: PluginContext,
 	settings: Settings,
 	channels: Channels,
-): void => {
+): ChatElements | null => {
 	const fmmoChat = document.body.querySelector<HTMLDivElement>('#chat-input');
 	if (fmmoChat) {
 		fmmoChat.setAttribute('oinky-hide', 'taskbar');
@@ -482,155 +796,112 @@ const mountChat = (
 		fmmoChatInput.setAttribute('oinky-hide', 'taskbar');
 		lifecycle.onCleanup(() => fmmoChatInput.removeAttribute('oinky-hide'));
 	}
-	document.addEventListener('keypress', handleKeypress);
-	lifecycle.onCleanup(() => document.removeEventListener('keypress', handleKeypress));
-	const container = context.ui.getContainer('taskbar/chat');
-	if (!container) return;
+
+	const root = context.ui.initElement(
+		lifecycle,
+		context.ui.taskbar.elements.chatContainer,
+		'root',
+		'div',
+		(element) => {
+			element.style.display = 'contents';
+		},
+	);
+
+	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(root, settings);
+	const { inputLabel, chatInput } = mountChatInput(root, context.character.username);
+	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
+	const { tabsContainer, addTabButton } = mountChatTabs(root);
+	const addTabRefs = mountAddTabModal(root);
+	const { logActivator } = mountChatActionsDropdown(root);
+	const logRefs = mountChatLog(root);
+
+	const elements: ChatElements = {
+		root,
+		toggleButton,
+		toggleCheckbox,
+		toggleIndicator,
+		inputLabel,
+		chatInput,
+		messagesContainer,
+		popupsContainer,
+		tabsContainer,
+		addTabButton,
+		logActivator,
+		...addTabRefs,
+		...logRefs,
+	};
+
+	// initial messages
 	const loginMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')];
-	const currentMessages = [
-		...chatMessages
-			.slice(
-				Math.max(0, chatMessages.length - settings.maxChatLength - loginMessages.length),
-				chatMessages.length,
-			)
-			.map((chatMessage) => {
-				return wrapMessage(
-					renderChatMessage(chatMessage, settings.timestampFormat),
-					settings.isZebraEnabled,
-				);
-			}),
-		...loginMessages.map((rootElement) => {
-			const element = rootElement.cloneNode(true) as HTMLSpanElement;
-			const colorClassName = colorMap[element.style.color] ?? colorMap.white;
-			element.style.color = '';
-			return wrapMessage(
-				mustache.render(chatMessageTemplate, {
-					segments: [element.outerHTML],
-					colorClassName,
-				}),
-				settings.isZebraEnabled,
-			);
-		}),
-	];
-	container.innerHTML = renderChat(
-		context.character.username,
-		currentMessages,
-		channels.chatTabs,
-		channels.chatTabIndex,
-		settings.isExpanded,
+	const storedMessages = chatMessages.slice(
+		Math.max(0, chatMessages.length - settings.maxChatLength - loginMessages.length),
+		chatMessages.length,
 	);
-	lifecycle.onCleanup(() => container.replaceChildren());
-	const messageContainer = getMessagesContainer(context);
-	if (messageContainer) messageContainer.scrollTop = messageContainer.scrollHeight;
+	storedMessages.forEach((chatMessage) => {
+		messagesContainer.appendChild(
+			createMessageLi(
+				createChatMessageContent(chatMessage, settings.timestampFormat),
+				getMessageBg(settings.isZebraEnabled),
+			),
+		);
+	});
+	loginMessages.forEach((rootElement) => {
+		const loginSpan = rootElement.cloneNode(true) as HTMLSpanElement;
+		messagesContainer.appendChild(
+			createMessageLi(
+				createLoginMessageContent(loginSpan),
+				getMessageBg(settings.isZebraEnabled),
+			),
+		);
+	});
+	messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-	const chatInput = container.querySelector<HTMLInputElement>('[oinky-chat=input]');
-	const toggleButton = container.querySelector<HTMLButtonElement>('[oinky-chat=toggle]');
-	const addTabButton = container.querySelector<HTMLButtonElement>('[oinky-chat=add-tab]');
-	if (!chatInput || !toggleButton || !addTabButton) return;
-	updateChatTabs(context, channels);
-	document.addEventListener('wheel', (event) => handleWheel(event, context, settings));
-	lifecycle.onCleanup(() =>
-		document.removeEventListener('wheel', (event) => handleWheel(event, context, settings)),
-	);
+	// wiring
+	const keypressHandler = (event: KeyboardEvent) => handleKeypress(event, chatInput);
+	document.addEventListener('keypress', keypressHandler);
+	lifecycle.onCleanup(() => document.removeEventListener('keypress', keypressHandler));
+
+	const wheelHandler = (event: WheelEvent) => handleWheel(event, elements, settings);
+	document.addEventListener('wheel', wheelHandler);
+	lifecycle.onCleanup(() => document.removeEventListener('wheel', wheelHandler));
+
 	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels);
-	toggleButton.onclick = () => handleToggleClick(context, settings);
-	addTabButton.onclick = () => handleAddTabClick(context, channels);
-	mountChatActions(settings);
+	toggleCheckbox.onchange = () => handleToggleChange(elements, settings);
+	addTabButton.onclick = () => handleAddTabClick(elements, channels);
+	updateChatTabs(tabsContainer, channels, inputLabel);
+	wireChatLog(elements, settings);
+
+	return elements;
 };
 
-const mountChatActions = (settings: Settings) => {
-	const modalId = `oinky/${namespace}/`;
-	const activatorButton = document.querySelector<HTMLButtonElement>(
-		'button[oinky-chat=log-activator]',
-	);
-	const modalDialog = document.querySelector<HTMLDialogElement>('dialog[oinky-chat=log-modal]');
-	const logContainer = document.querySelector<HTMLUListElement>('ul[oinky-chat=log-container]');
-	const exportButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=export-log]');
-	const goTopButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-top-log]');
-	const goUpButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-up-log]');
-	const goDownButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-down-log]');
-	const goBottomButton = document.querySelector<HTMLButtonElement>(
-		'button[oinky-chat=go-bottom-log]',
-	);
-	if (
-		!activatorButton ||
-		!modalDialog ||
-		!logContainer ||
-		!exportButton ||
-		!goTopButton ||
-		!goUpButton ||
-		!goDownButton ||
-		!goBottomButton
-	)
-		return;
-	activatorButton.onclick = () => {
-		// @ts-ignore 2304
-		opened_modals.add(modalId);
-		logContainer.innerHTML = chatMessages
-			.map((chatMessage) => {
-				return wrapMessage(renderChatMessage(chatMessage, settings.timestampFormat), false);
-			})
-			.join('\n');
-
-		logContainer.scrollTop = logContainer.scrollHeight;
-
-		modalDialog.showModal();
-		modalDialog.onclose = () => {
-			logContainer.replaceChildren();
-			// @ts-ignore 2304
-			opened_modals.delete(modalId);
-		};
-	};
-	goTopButton.onclick = () => {
-		goTopButton.blur();
-		logContainer.scrollTo({ top: 0, behavior: 'smooth' });
-	};
-	goUpButton.onclick = () => {
-		const top = logContainer.scrollTop - logContainer.getBoundingClientRect().height;
-		logContainer.scrollTo({ top, behavior: 'smooth' });
-	};
-	goDownButton.onclick = () => {
-		const top = logContainer.scrollTop + logContainer.getBoundingClientRect().height;
-		logContainer.scrollTo({ top, behavior: 'smooth' });
-	};
-	goBottomButton.onclick = () => {
-		goBottomButton.blur();
-		logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: 'smooth' });
-	};
-	exportButton.onclick = () => {
-		const filename = `FlatMMO Chat ${new Date().toISOString()}.txt`;
-		const contents = logContainer.innerText;
-		ipcRenderer.send('requestFileSave', filename, contents);
-	};
-};
+// #region incoming message
 
 const mountChatMessage = (
 	chatMessage: ChatMessage,
 	context: PluginContext,
 	settings: Settings,
+	elements: ChatElements,
 ): void => {
 	storeChatMessage(chatMessage, settings);
 	if (chatMessage.username) usernamesCache.add(chatMessage.username);
-	const messagesContainer = getMessagesContainer(context);
-	const popupsContainer = context.ui.getContainer('chat/popups');
-	if (!messagesContainer || !popupsContainer) return;
+	const { messagesContainer, popupsContainer } = elements;
 	const isAtBottom = checkIsAtBottom(
 		messagesContainer.scrollTop,
 		messagesContainer.clientHeight,
 		messagesContainer.scrollHeight,
 	);
-	const messageLi = document.createElement('li');
 	const messageBg = getMessageBg(settings.isZebraEnabled);
-	messageLi.className = `p-1 text-shadow-md ${messageBg}`;
-	messageLi.innerHTML = renderChatMessage(chatMessage, settings.timestampFormat);
-	messagesContainer.appendChild(messageLi);
-	// Create and append popup
-	const popupLi = document.createElement('li');
-	popupLi.className = `px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${messageBg}`;
-	popupLi.innerHTML = messageLi.innerHTML;
+	const content = createChatMessageContent(chatMessage, settings.timestampFormat);
+	messagesContainer.appendChild(createMessageLi(content, messageBg));
+
+	const popupLi = createPopupLi(
+		createChatMessageContent(chatMessage, settings.timestampFormat),
+		messageBg,
+	);
 	popupsContainer.appendChild(popupLi);
 	const popupDuration = Math.max(4000, 4000 * settings.popupDelayMultiplier);
 	context.ui.fadeRemoveElement(popupLi, popupDuration);
+
 	while (messagesContainer.children.length > settings.maxChatLength) {
 		messagesContainer.children[0].remove();
 	}
@@ -638,7 +909,7 @@ const mountChatMessage = (
 		messagesContainer.scrollTop = messagesContainer.scrollHeight;
 	}
 	if (!isAtBottom && settings.isExpanded) {
-		updateToggleIndicator(true);
+		updateToggleIndicator(elements.toggleIndicator, true);
 	}
 };
 
@@ -652,10 +923,13 @@ export const ChatPlugin: Plugin = {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const channels = context.storages.character.reactive('channels', initialChannels);
 
-		mountChat(lifecycle, context, settings, channels);
+		const elements = initChat(lifecycle, context, settings, channels);
 
 		return {
-			onChatMessage: (chatMessage) => mountChatMessage(chatMessage, context, settings),
+			onChatMessage: (chatMessage) => {
+				if (!elements) return;
+				mountChatMessage(chatMessage, context, settings, elements);
+			},
 			hookAddToChat: () => false,
 		};
 	},

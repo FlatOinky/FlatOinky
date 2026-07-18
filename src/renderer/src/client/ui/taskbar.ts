@@ -9,24 +9,19 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	taskbarRoot.style.display = 'contents';
 	taskbarRoot.setAttribute('flat-oinky', 'taskbar');
 
-	const taskbarSection = mountElement(
-		taskbarRoot,
-		'taskbarSection',
-		'section',
-		(taskbarSection) => {
-			taskbarSection.setAttribute('oinky', 'taskbar');
-			taskbarSection.className = 'relative bg-base-100 rounded-b-box flex gap-2 p-1';
-		},
-	);
+	const taskbarSection = mountElement(taskbarRoot, 'taskbar', 'section', (taskbarSection) => {
+		taskbarSection.setAttribute('oinky', 'taskbar');
+		taskbarSection.className = 'relative bg-base-100 rounded-b-box flex gap-2 p-1';
+	});
 
-	const chatContainer = mountElement(taskbarSection, 'chatContainer', 'div', (chatContainer) => {
+	const chatContainer = mountElement(taskbarSection, 'chat', 'div', (chatContainer) => {
 		chatContainer.setAttribute('oinky-container', 'taskbar/chat');
 		chatContainer.className = 'contents';
 	});
 
 	const addWindowButton = mountElement(
 		taskbarSection,
-		'addWindowButton',
+		'addWindow',
 		'button',
 		(addWindowButton) => {
 			addWindowButton.className = 'btn btn-square btn-secondary btn-soft';

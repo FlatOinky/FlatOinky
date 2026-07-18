@@ -132,7 +132,7 @@ body {
 }
 
 [oinky-hide] {
-	display: none !important;
+	visibility: hidden !important;
 }
 
 canvas,
@@ -153,4 +153,248 @@ img {
 body {
 	cursor: url('https://flatmmo.com/images/ui/cursor.png'), auto;
 	background-color: none !important;
+}
+
+/* #region Chat (moved from the chat plugin template now that it builds via JS) */
+
+[oinky-chat='toggle']:has(:checked) svg {
+	transform: scaleY(1);
+}
+
+[oinky-chat='toggle']:not(:has(:checked)) svg {
+	transform: scaleY(-1);
+}
+
+[oinky-chat='toggle']:has(:checked) ~ * [oinky-chat-expanded-visible],
+[oinky-chat='toggle']:not(:has(:checked)) ~ * [oinky-chat-expanded-hidden] {
+	opacity: 1;
+}
+
+[oinky-chat='toggle']:not(:has(:checked)) ~ * [oinky-chat-expanded-visible],
+[oinky-chat='toggle']:has(:checked) ~ * [oinky-chat-expanded-hidden] {
+	opacity: 0;
+}
+
+.chat-tag-donor {
+	border: 1px solid rgb(46, 46, 46);
+	background-color: #ffc6b3;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-radius: 1pt;
+	color: rgb(28, 28, 28);
+	border-radius: 2pt;
+	font-size: 12pt;
+	text-transform: uppercase;
+	text-shadow: none;
+}
+
+.chat-tag-contributor {
+	border: 1px solid rgb(46, 46, 46);
+	background-color: #0eab33;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-radius: 1pt;
+	color: rgb(28, 28, 28);
+	border-radius: 2pt;
+	font-size: 12pt;
+	text-transform: uppercase;
+	text-shadow: none;
+}
+
+.chat-tag-investor {
+	border: 1px solid rgb(46, 46, 46);
+	background-color: #529dff;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-radius: 1pt;
+	color: rgb(28, 28, 28);
+	border-radius: 2pt;
+	font-size: 12pt;
+	text-transform: uppercase;
+	text-shadow: none;
+}
+
+.chat-tag-investor-plus {
+	position: relative;
+	display: inline-block;
+	border: 1px solid rgb(46, 46, 46);
+	background-image: linear-gradient(rgb(0, 255, 234), rgb(148, 243, 255));
+	color: rgb(0, 59, 254);
+	padding: 2px 6px;
+	border-radius: 2pt;
+	vertical-align: middle;
+	font-size: 12pt;
+	overflow: hidden;
+	font-weight: bold;
+	line-height: 1;
+	text-transform: uppercase;
+	text-shadow: none;
+}
+
+.chat-tag-investor-plus::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -40%;
+	width: 30%;
+	height: 100%;
+	background: linear-gradient(
+		to right,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 255, 255, 0.5) 50%,
+		rgba(255, 255, 255, 0) 100%
+	);
+	animation: shine 2s infinite;
+	transform: skewX(-20deg);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.chat-tag-investor-plus span {
+	position: relative;
+	z-index: 2;
+}
+
+@keyframes shine {
+	0% {
+		left: -40%;
+	}
+
+	100% {
+		left: 100%;
+	}
+}
+
+.chat-tag-moderator {
+	border: 1px solid rgb(46, 46, 46);
+	background-color: #dcdcdc;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-radius: 1pt;
+	color: rgb(28, 28, 28);
+	border-radius: 2pt;
+	font-size: 12pt;
+	text-transform: uppercase;
+	text-shadow: none;
+}
+
+.chat-tag-owner {
+	border: 1px solid rgb(46, 46, 46);
+	background-color: #cadb34;
+	padding-left: 5px;
+	padding-right: 5px;
+	border-radius: 1pt;
+	color: rgb(37, 46, 0);
+	border-radius: 2pt;
+	font-size: 12pt;
+	text-transform: uppercase;
+	text-shadow: none;
+}
+
+.chat-tag-investor-gold {
+	position: relative;
+	display: inline-block;
+	border: 1px solid #7a5400;
+	background: linear-gradient(
+		120deg,
+		#7a5400,
+		#ffd700,
+		#ffa500,
+		#ffe066,
+		#b8860b,
+		#ffd700,
+		#7a5400
+	);
+	background-size: 300% 300%;
+	color: #2b1400;
+	padding: 2px 6px;
+	margin-right: 5px;
+	border-radius: 2pt;
+	vertical-align: middle;
+	font-size: 12pt;
+	text-transform: uppercase;
+	font-family: 'Times New Roman', Times, serif;
+	overflow: hidden;
+	font-weight: bold;
+	line-height: 1;
+	animation: gold-bg-shift 2.5s ease infinite;
+	box-shadow:
+		0 0 7px 1px rgba(255, 200, 0, 0.7),
+		0 0 2px rgba(255, 255, 100, 0.5) inset;
+}
+
+@keyframes gold-bg-shift {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+
+.chat-tag-investor-plus-gold::before {
+	content: '';
+	position: absolute;
+	top: -10%;
+	left: -70%;
+	width: 45%;
+	height: 120%;
+	background: linear-gradient(
+		to right,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 255, 200, 0.9) 45%,
+		rgba(255, 255, 255, 1) 50%,
+		rgba(255, 255, 200, 0.9) 55%,
+		rgba(255, 255, 255, 0) 100%
+	);
+	animation: gold-shine-a 4.2s ease-in-out infinite;
+	transform: skewX(-22deg);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.chat-tag-investor-plus-gold::after {
+	content: '';
+	position: absolute;
+	top: -10%;
+	left: -70%;
+	width: 20%;
+	height: 120%;
+	background: linear-gradient(
+		to right,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 240, 100, 0.7) 50%,
+		rgba(255, 255, 255, 0) 100%
+	);
+	animation: gold-shine-b 4.2s 1.35s ease-in-out infinite;
+	transform: skewX(-22deg);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.chat-tag-investor-gold span {
+	position: relative;
+	z-index: 2;
+	text-shadow: 0 1px 0 rgba(255, 220, 50, 0.6);
+}
+
+@keyframes gold-shine-a {
+	0% {
+		left: -70%;
+	}
+	100% {
+		left: 140%;
+	}
+}
+
+@keyframes gold-shine-b {
+	0% {
+		left: -70%;
+	}
+	100% {
+		left: 140%;
+	}
 }

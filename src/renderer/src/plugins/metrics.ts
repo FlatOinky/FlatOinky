@@ -1,6 +1,4 @@
-import mustache from 'mustache';
 import { Lifecycle, Plugin, PluginContext } from '../client';
-import xpWidgetTemplate from './metrics/xp_widget.html?raw';
 
 type XPDrop = {
 	xp: number;
@@ -18,26 +16,15 @@ const initialSettings = {
 };
 type Settings = typeof initialSettings;
 
-const xpDrops: XPDrop[] = [];
-
-// #region renderers
-
-const renderXpWidget = (): string => {
-	return mustache.render(xpWidgetTemplate, {});
-};
-
 // #region (dis)mounts
 
 const mountWidgetChart = (
-	widget: HTMLDivElement,
+	chartHost: HTMLElement,
 	lifecycle: Lifecycle,
 	context: PluginContext,
 	settings: Settings,
+	xpDrops: XPDrop[],
 ) => {
-	const buttonChart = widget.querySelector<HTMLButtonElement>(
-		'[oinky-metrics-xp-widget=button-chart]',
-	);
-	if (!buttonChart) return;
 	const timeSpan = 1000 * 60 * settings.widgetChart.timeSpan;
 	const updateInterval = 1000 * settings.widgetChart.updateInterval;
 	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
@@ -46,7 +33,7 @@ const mountWidgetChart = (
 		width: 94,
 		lineWidth: 1.5,
 	});
-	buttonChart.appendChild(lineGraph.svg);
+	chartHost.appendChild(lineGraph.svg);
 
 	let sliceIndex = 0;
 	const intervalSums = new Array(Math.ceil(nodeCount * 0.35)).fill(0);
@@ -68,17 +55,42 @@ const mountWidgetChart = (
 	lifecycle.onCleanup(() => clearInterval(intervalId));
 };
 
-// @ts-ignore
-// const skills: string[] = valid_skills ? [...valid_skills.values()] : [];
+// #region init
 
-const mountXpGage = (lifecycle: Lifecycle, context: PluginContext, settings: Settings): void => {
-	const widget = document.createElement('div');
+const initXpGage = (
+	lifecycle: Lifecycle,
+	context: PluginContext,
+	settings: Settings,
+	xpDrops: XPDrop[],
+): void => {
+	const widget = context.ui.taskbar.initWidget(lifecycle, 'metrics/xp-gage');
 	widget.style.display = 'contents';
-	widget.innerHTML = renderXpWidget();
-	const widgetId = 'metrics/xp-gage';
-	context.ui.taskbar.upsertWidget(widgetId, widget);
-	lifecycle.onCleanup(() => context.ui.taskbar.removeWidget(widgetId));
-	mountWidgetChart(widget, lifecycle, context, settings);
+
+	const button = document.createElement('button');
+	button.setAttribute('oinky-metrics-xp-widget', 'button');
+	button.className =
+		'bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden';
+	button.style.setProperty('anchor-name', '--oinky-metrics-xp-widget');
+	button.setAttribute('popovertarget', 'oinky-metrics-xp-widget-menu');
+
+	const chartHost = document.createElement('div');
+	chartHost.setAttribute('oinky-metrics-xp-widget', 'button-chart');
+	chartHost.className = 'text-accent';
+	button.appendChild(chartHost);
+
+	const menu = document.createElement('div');
+	menu.setAttribute('popover', '');
+	menu.id = 'oinky-metrics-xp-widget-menu';
+	menu.setAttribute('oinky-metrics-xp-widget', 'menu');
+	menu.style.setProperty('position-anchor', '--oinky-metrics-xp-widget');
+	menu.className =
+		'dropdown dropdown-top dropdown-end dropdown-hover w-2xs bg-base-100 rounded-box border border-base-content/20 -translate-y-2 flex flex-col gap-2 p-2 not-open:hidden';
+	const menuLabel = document.createElement('div');
+	menuLabel.textContent = 'metrics';
+	menu.appendChild(menuLabel);
+
+	widget.append(button, menu);
+	mountWidgetChart(chartHost, lifecycle, context, settings, xpDrops);
 };
 
 // #region plugin
@@ -88,7 +100,9 @@ export const MetricsPlugin: Plugin = {
 	name: 'Metrics',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
-		mountXpGage(lifecycle, context, settings);
+		const xpDrops: XPDrop[] = [];
+
+		initXpGage(lifecycle, context, settings, xpDrops);
 		return {
 			onXpDrop: ({ username, skill, xp }) => {
 				if (username !== context.character.username) return;
