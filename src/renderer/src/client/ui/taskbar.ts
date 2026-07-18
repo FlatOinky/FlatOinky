@@ -159,51 +159,51 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		return { container, button };
 	};
 
-	const initTrayMenu = (lifecycle: Lifecycle, id: string, buttonIcon: string) => {
-		const root = initElement(lifecycle, trayContainer, id, 'div');
+	// const initTrayMenu = (lifecycle: Lifecycle, id: string, buttonIcon: string) => {
+	// 	const root = initElement(lifecycle, trayContainer, id, 'div');
 
-		const toggle = mountElement(root, 'toggle', 'button', (toggleButton) => {
-			toggleButton.className = 'btn btn-xs btn-square btn-ghost engaged:btn-primary';
-			toggleButton.style.setProperty('anchor-name', `--oinky-taskbar-${id}-tray-icon`);
-			toggleButton.setAttribute('popovertarget', `oinky-taskbar-${id}-tray-menu`);
-			toggleButton.innerHTML = buttonIcon;
-		});
+	// 	const toggle = mountElement(root, 'toggle', 'button', (toggleButton) => {
+	// 		toggleButton.className = 'btn btn-xs btn-square btn-ghost engaged:btn-primary';
+	// 		toggleButton.style.setProperty('anchor-name', `--oinky-taskbar-${id}-tray-icon`);
+	// 		toggleButton.setAttribute('popovertarget', `oinky-taskbar-${id}-tray-menu`);
+	// 		toggleButton.innerHTML = buttonIcon;
+	// 	});
 
-		const menu = mountElement(root, 'menu', 'div', (menuContainer) => {
-			menuContainer.setAttribute('popover', '');
-			menuContainer.id = `oinky-taskbar-${id}-tray-menu`;
-			menuContainer.setAttribute('oinky-taskbar-tray-icon-menu', id);
-			menuContainer.style.setProperty('position-anchor', `--oinky-taskbar-${id}-tray-icon`);
-			menuContainer.className =
-				'dropdown dropdown-top dropdown-end w-3xs overflow-visible rounded-box bg-base-100 shadow -translate-y-4 border border-base-content/20 flex flex-col gap-2 p-2 not-open:hidden';
-		});
+	// 	const menu = mountElement(root, 'menu', 'div', (menuContainer) => {
+	// 		menuContainer.setAttribute('popover', '');
+	// 		menuContainer.id = `oinky-taskbar-${id}-tray-menu`;
+	// 		menuContainer.setAttribute('oinky-taskbar-tray-icon-menu', id);
+	// 		menuContainer.style.setProperty('position-anchor', `--oinky-taskbar-${id}-tray-icon`);
+	// 		menuContainer.className =
+	// 			'dropdown dropdown-top dropdown-end w-3xs overflow-visible rounded-box bg-base-100 shadow -translate-y-4 border border-base-content/20 flex flex-col gap-2 p-2 not-open:hidden';
+	// 	});
 
-		return { menu, toggle };
-	};
+	// 	return { menu, toggle };
+	// };
 
-	const mountWindowToggle = (
-		lifecycle: Lifecycle,
-		id: string,
-		windowFrame: HTMLElement,
-	): HTMLElement | null => {
-		const windowToggle =
-			windowsMenuList.querySelector<HTMLButtonElement>(
-				`button[oinky-taskbar-windows-menu=${id}]`,
-			) ?? document.createElement('button');
-		windowToggle.setAttribute('oinky-taskbar-windows-menu', id);
+	// const mountWindowToggle = (
+	// 	lifecycle: Lifecycle,
+	// 	id: string,
+	// 	windowFrame: HTMLElement,
+	// ): HTMLElement | null => {
+	// 	const windowToggle =
+	// 		windowsMenuList.querySelector<HTMLButtonElement>(
+	// 			`button[oinky-taskbar-windows-menu=${id}]`,
+	// 		) ?? document.createElement('button');
+	// 	windowToggle.setAttribute('oinky-taskbar-windows-menu', id);
 
-		const observerCallback: MutationCallback = ([]) => {};
-		const observer = new MutationObserver(observerCallback);
-		observer.observe(windowFrame, {
-			attributes: true,
-			attributeFilter: ['oinky-window-minimized'],
-		});
-		lifecycle.onCleanup(() => observer.disconnect());
+	// 	const observerCallback: MutationCallback = ([]) => {};
+	// 	const observer = new MutationObserver(observerCallback);
+	// 	observer.observe(windowFrame, {
+	// 		attributes: true,
+	// 		attributeFilter: ['oinky-window-minimized'],
+	// 	});
+	// 	lifecycle.onCleanup(() => observer.disconnect());
 
-		if (!windowsMenuList.contains(windowToggle)) windowsMenuList.appendChild(windowToggle);
-		lifecycle.onCleanup(() => windowsMenuList.removeChild(windowToggle));
-		return windowToggle;
-	};
+	// 	if (!windowsMenuList.contains(windowToggle)) windowsMenuList.appendChild(windowToggle);
+	// 	lifecycle.onCleanup(() => windowsMenuList.removeChild(windowToggle));
+	// 	return windowToggle;
+	// };
 
 	initDockAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
 	if (process.env.NODE_ENV === 'development') {

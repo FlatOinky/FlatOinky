@@ -1,166 +1,166 @@
-import notificationMp3 from '../assets/notification.mp3';
-import { Plugin, PluginContext } from '../client';
-import trayMenuTemplate from './monitor/monitor_tray_menu.html?raw';
-import craftingActivityTemplate from './monitor/crafting_activity.html?raw';
-import mustache from 'mustache';
-import { createNotification } from '../client/ipc_renderer';
-import numeral from 'numeral';
+// import notificationMp3 from '../assets/notification.mp3';
+// import { Plugin, PluginContext } from '../client';
+// import trayMenuTemplate from './monitor/monitor_tray_menu.html?raw';
+// import craftingActivityTemplate from './monitor/crafting_activity.html?raw';
+// import mustache from 'mustache';
+// import { createNotification } from '../client/ipc_renderer';
+// import numeral from 'numeral';
 
-// #region Vars
+// // #region Vars
 
-const alertIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M12 5a4 4 0 0 0-8 0v2.379a1.5 1.5 0 0 1-.44 1.06L2.294 9.707a1 1 0 0 0-.293.707V11a1 1 0 0 0 1 1h2a3 3 0 1 0 6 0h2a1 1 0 0 0 1-1v-.586a1 1 0 0 0-.293-.707L12.44 8.44A1.5 1.5 0 0 1 12 7.38V5Zm-5.5 7a1.5 1.5 0 0 0 3 0h-3Z" clip-rule="evenodd" /></svg>`;
+// const alertIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M12 5a4 4 0 0 0-8 0v2.379a1.5 1.5 0 0 1-.44 1.06L2.294 9.707a1 1 0 0 0-.293.707V11a1 1 0 0 0 1 1h2a3 3 0 1 0 6 0h2a1 1 0 0 0 1-1v-.586a1 1 0 0 0-.293-.707L12.44 8.44A1.5 1.5 0 0 1 12 7.38V5Zm-5.5 7a1.5 1.5 0 0 0 3 0h-3Z" clip-rule="evenodd" /></svg>`;
 
-const initialSettings = {
-	notificationEnabled: true,
-	audioEnabled: true,
-	audioVolume: 0.35,
-};
-type Settings = typeof initialSettings;
+// const initialSettings = {
+// 	notificationEnabled: true,
+// 	audioEnabled: true,
+// 	audioVolume: 0.35,
+// };
+// type Settings = typeof initialSettings;
 
-const triggerSounds = [
-	{ path: 'sounds/short/gem.ogg', title: 'Gem Drop' },
-	{ path: 'sounds/short/fallingtree.mp3', title: 'Falling Tree' },
-	{ path: 'sounds/short/birdnest.ogg', title: 'Bird Nest' },
-	{ path: 'sounds/alien.mp3', title: 'Alien Encounter' },
-];
+// const triggerSounds = [
+// 	{ path: 'sounds/short/gem.ogg', title: 'Gem Drop' },
+// 	{ path: 'sounds/short/fallingtree.mp3', title: 'Falling Tree' },
+// 	{ path: 'sounds/short/birdnest.ogg', title: 'Bird Nest' },
+// 	{ path: 'sounds/alien.mp3', title: 'Alien Encounter' },
+// ];
 
-// #region renderers
+// // #region renderers
 
-const renderTrayMenu = (settings: Settings): string => {
-	return mustache.render(trayMenuTemplate, {
-		audioVolume: settings.audioVolume,
-		audioChecked: settings.audioEnabled ? 'checked' : '',
-		notificationChecked: settings.notificationEnabled ? 'checked' : '',
-	});
-};
+// const renderTrayMenu = (settings: Settings): string => {
+// 	return mustache.render(trayMenuTemplate, {
+// 		audioVolume: settings.audioVolume,
+// 		audioChecked: settings.audioEnabled ? 'checked' : '',
+// 		notificationChecked: settings.notificationEnabled ? 'checked' : '',
+// 	});
+// };
 
-const renderCraftingActivityDetails = (completed: number, total: number, sessionXp: number) =>
-	`
-			<div class="flex gap-1 justify-between items-baseline">
-				<div class="badge badge-xs badge-primary">${completed}/${total}</div>
-				<div class="badge badge-xs badge-secondary">${numeral(sessionXp).format('0,0')}xp</div>
-			</div>
-`.trim();
+// const renderCraftingActivityDetails = (completed: number, total: number, sessionXp: number) =>
+// 	`
+// 			<div class="flex gap-1 justify-between items-baseline">
+// 				<div class="badge badge-xs badge-primary">${completed}/${total}</div>
+// 				<div class="badge badge-xs badge-secondary">${numeral(sessionXp).format('0,0')}xp</div>
+// 			</div>
+// `.trim();
 
-const renderCraftingActivity = (
-	item: string,
-	completed: number,
-	total: number,
-	sessionXp: number,
-): string => {
-	return mustache.render(craftingActivityTemplate, {
-		item,
-		label: item.replaceAll('_', ' '),
-		details: renderCraftingActivityDetails(completed, total, sessionXp),
-	});
-};
+// const renderCraftingActivity = (
+// 	item: string,
+// 	completed: number,
+// 	total: number,
+// 	sessionXp: number,
+// ): string => {
+// 	return mustache.render(craftingActivityTemplate, {
+// 		item,
+// 		label: item.replaceAll('_', ' '),
+// 		details: renderCraftingActivityDetails(completed, total, sessionXp),
+// 	});
+// };
 
-// let internalSelf: AlertsPlugin;
+// // let internalSelf: AlertsPlugin;
 
-export const notify = (
-	alertAudio: HTMLAudioElement,
-	settings: Settings,
-	title: string,
-	message?: string,
-): void => {
-	if (settings.notificationEnabled) {
-		createNotification(title, message);
-	}
-	if (settings.audioEnabled) {
-		alertAudio.volume = settings.audioVolume;
-		alertAudio.play();
-	}
-};
+// export const notify = (
+// 	alertAudio: HTMLAudioElement,
+// 	settings: Settings,
+// 	title: string,
+// 	message?: string,
+// ): void => {
+// 	if (settings.notificationEnabled) {
+// 		createNotification(title, message);
+// 	}
+// 	if (settings.audioEnabled) {
+// 		alertAudio.volume = settings.audioVolume;
+// 		alertAudio.play();
+// 	}
+// };
 
-const mountTrayMenu = (
-	alertAudio: HTMLAudioElement,
-	settings: Settings,
-	context: PluginContext,
-) => {
-	const container = context.ui.taskbar.upsertTrayMenuIcon(
-		'alert',
-		alertIcon,
-		renderTrayMenu(settings),
-	);
-	if (!container) return;
-	const testButton = container.querySelector<HTMLButtonElement>('[oinky-alert-tray-menu=test]');
-	if (testButton) {
-		testButton.onclick = () => {
-			alertAudio.currentTime = 0;
-			notify(alertAudio, settings, 'Test', 'This is a test notification');
-		};
-	}
-	const notificationToggleButton = container.querySelector<HTMLButtonElement>(
-		'[oinky-alert-tray-menu=notification-toggle]',
-	);
-	if (notificationToggleButton) {
-		notificationToggleButton.onclick = () => {
-			settings.notificationEnabled = !settings.notificationEnabled;
-		};
-	}
-	const audioToggleButton = container.querySelector<HTMLButtonElement>(
-		'[oinky-alert-tray-menu=audio-toggle]',
-	);
-	if (audioToggleButton) {
-		audioToggleButton.onclick = () => {
-			settings.audioEnabled = !settings.audioEnabled;
-		};
-	}
-	const audioVolumeSlider = container.querySelector<HTMLInputElement>(
-		'input[oinky-alert-tray-menu=audio-volume]',
-	);
-	if (audioVolumeSlider) {
-		audioVolumeSlider.onchange = () => {
-			settings.audioVolume = parseFloat(audioVolumeSlider.value ?? '0');
-		};
-	}
-	return container;
-};
+// const mountTrayMenu = (
+// 	alertAudio: HTMLAudioElement,
+// 	settings: Settings,
+// 	context: PluginContext,
+// ) => {
+// 	const container = context.ui.taskbar.upsertTrayMenuIcon(
+// 		'alert',
+// 		alertIcon,
+// 		renderTrayMenu(settings),
+// 	);
+// 	if (!container) return;
+// 	const testButton = container.querySelector<HTMLButtonElement>('[oinky-alert-tray-menu=test]');
+// 	if (testButton) {
+// 		testButton.onclick = () => {
+// 			alertAudio.currentTime = 0;
+// 			notify(alertAudio, settings, 'Test', 'This is a test notification');
+// 		};
+// 	}
+// 	const notificationToggleButton = container.querySelector<HTMLButtonElement>(
+// 		'[oinky-alert-tray-menu=notification-toggle]',
+// 	);
+// 	if (notificationToggleButton) {
+// 		notificationToggleButton.onclick = () => {
+// 			settings.notificationEnabled = !settings.notificationEnabled;
+// 		};
+// 	}
+// 	const audioToggleButton = container.querySelector<HTMLButtonElement>(
+// 		'[oinky-alert-tray-menu=audio-toggle]',
+// 	);
+// 	if (audioToggleButton) {
+// 		audioToggleButton.onclick = () => {
+// 			settings.audioEnabled = !settings.audioEnabled;
+// 		};
+// 	}
+// 	const audioVolumeSlider = container.querySelector<HTMLInputElement>(
+// 		'input[oinky-alert-tray-menu=audio-volume]',
+// 	);
+// 	if (audioVolumeSlider) {
+// 		audioVolumeSlider.onchange = () => {
+// 			settings.audioVolume = parseFloat(audioVolumeSlider.value ?? '0');
+// 		};
+// 	}
+// 	return container;
+// };
 
-const updateCraftingActivity = (
-	context: PluginContext,
-	item: string | null,
-	completed: number,
-	total: number,
-	sessionXp: number,
-) => {
-	const container = context.ui.taskbar.getActivity('crafting');
-	if (!container) return;
-	if (item === null || [completed, total, sessionXp].includes(NaN)) {
-		if (!container.hasAttribute('item-id')) return;
-		container.removeAttribute('item-id');
-		container.replaceChildren();
-		return;
-	}
-	if (container?.getAttribute('item-id') === item) {
-		const details = container.querySelector('[oinky-monitor-crafting-activity=details]');
-		if (details) details.innerHTML = renderCraftingActivityDetails(completed, total, sessionXp);
-		return;
-	}
-	container.setAttribute('item-id', item);
-	container.innerHTML = renderCraftingActivity(item, completed, total, sessionXp);
-};
+// const updateCraftingActivity = (
+// 	context: PluginContext,
+// 	item: string | null,
+// 	completed: number,
+// 	total: number,
+// 	sessionXp: number,
+// ) => {
+// 	const container = context.ui.taskbar.getActivity('crafting');
+// 	if (!container) return;
+// 	if (item === null || [completed, total, sessionXp].includes(NaN)) {
+// 		if (!container.hasAttribute('item-id')) return;
+// 		container.removeAttribute('item-id');
+// 		container.replaceChildren();
+// 		return;
+// 	}
+// 	if (container?.getAttribute('item-id') === item) {
+// 		const details = container.querySelector('[oinky-monitor-crafting-activity=details]');
+// 		if (details) details.innerHTML = renderCraftingActivityDetails(completed, total, sessionXp);
+// 		return;
+// 	}
+// 	container.setAttribute('item-id', item);
+// 	container.innerHTML = renderCraftingActivity(item, completed, total, sessionXp);
+// };
 
-export const MonitorPlugin: Plugin = {
-	namespace: 'core/monitor',
-	name: 'Monitor',
-	init: (lifecycle, context) => {
-		const settings = context.storages.profile.reactive('alertSettings', initialSettings);
-		const alertAudio = new Audio(notificationMp3);
-		lifecycle.onCleanup(() => alertAudio.remove());
+// export const MonitorPlugin: Plugin = {
+// 	namespace: 'core/monitor',
+// 	name: 'Monitor',
+// 	init: (lifecycle, context) => {
+// 		const settings = context.storages.profile.reactive('alertSettings', initialSettings);
+// 		const alertAudio = new Audio(notificationMp3);
+// 		lifecycle.onCleanup(() => alertAudio.remove());
 
-		const container = mountTrayMenu(alertAudio, settings, context);
-		lifecycle.onCleanup(() => container?.remove());
-		return {
-			hookPlaySound: (url) => {
-				triggerSounds.forEach((triggerSound) => {
-					if (!url.endsWith(triggerSound.path)) return;
-					notify(alertAudio, settings, triggerSound.title);
-				});
-			},
-			onMakeUiChange: (item, completed, total, sessionXp) =>
-				updateCraftingActivity(context, item, completed, total, sessionXp),
-			hookServerCommand: (command) => command !== 'MAKE_ITEM_UI',
-		};
-	},
-};
+// 		const container = mountTrayMenu(alertAudio, settings, context);
+// 		lifecycle.onCleanup(() => container?.remove());
+// 		return {
+// 			hookPlaySound: (url) => {
+// 				triggerSounds.forEach((triggerSound) => {
+// 					if (!url.endsWith(triggerSound.path)) return;
+// 					notify(alertAudio, settings, triggerSound.title);
+// 				});
+// 			},
+// 			onMakeUiChange: (item, completed, total, sessionXp) =>
+// 				updateCraftingActivity(context, item, completed, total, sessionXp),
+// 			hookServerCommand: (command) => command !== 'MAKE_ITEM_UI',
+// 		};
+// 	},
+// };
