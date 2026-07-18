@@ -181,8 +181,8 @@ const initWindows = (lifecycle: Lifecycle, container: HTMLElement) => {
 		windowFrame.remove();
 	};
 
-	if (process.env.NODE_ENV === 'development') {
-		// @ts-ignore
+	if (import.meta.env.DEV) {
+		// @ts-ignore: Because I want to.
 		window.toggleWindowFrame = () =>
 			document.querySelectorAll<HTMLElement>('article[oinky-window]').forEach((windowFrame) => {
 				const id = windowFrame.getAttribute('oinky-window-id');
@@ -311,8 +311,7 @@ const initWindows = (lifecycle: Lifecycle, container: HTMLElement) => {
 			}
 		});
 
-		const frameDraggables =
-			windowFrame.querySelectorAll<HTMLDivElement>('div[oinky-window-drag]');
+		const frameDraggables = windowFrame.querySelectorAll<HTMLDivElement>('div[oinky-window-drag]');
 		frameDraggables.forEach((windowDraggable) => {
 			handleElementDrag(
 				windowDraggable,
@@ -332,9 +331,7 @@ const initWindows = (lifecycle: Lifecycle, container: HTMLElement) => {
 			);
 		});
 
-		const windowLocks = windowFrame.querySelectorAll<HTMLInputElement>(
-			'input[oinky-window=lock]',
-		);
+		const windowLocks = windowFrame.querySelectorAll<HTMLInputElement>('input[oinky-window=lock]');
 		windowLocks.forEach((windowLock) => {
 			windowLock.checked = windowState.locked;
 			windowLock.onchange = () => {

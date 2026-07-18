@@ -213,7 +213,7 @@ const createClientHooks = (plugins: ClientPlugins) => {
 			case 'CHAT_LOCAL_MESSAGE': {
 				const chatMessage = parseChatMessage(rawCommand);
 				if (!chatMessage) return;
-				plugins.api.onChatMessage(chatMessage);
+				return plugins.api.onChatMessage(chatMessage);
 			}
 			case 'XP_DROP': {
 				const args = {

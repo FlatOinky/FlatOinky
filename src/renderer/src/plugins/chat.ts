@@ -30,7 +30,6 @@ const colorMap = {
 const usernamesCache = new Set<string>();
 const chatMessages: ChatMessage[] =
 	JSON.parse(localStorage.getItem(`oinky/${namespace}/chatMessages`) ?? '[]') ?? [];
-let usernameSelf = '';
 
 const sentHistory: string[] = [];
 let sentHistoryIndex = -1;
@@ -120,11 +119,11 @@ const getMessageBg = (isZebraEnabled: boolean): HTMLElement['className'] => {
 		: 'bg-base-300/70 text-shadow-base-300/70';
 };
 
-const getRandomUsername = (): string => {
+const getRandomUsername = (context: PluginContext): string => {
 	const { size } = usernamesCache;
-	if (size < 1) return usernameSelf;
+	if (size < 1) return context.character.username;
 	const picked = Math.floor(Math.random() * size);
-	return [...usernamesCache.values()][picked];
+	return [...usernamesCache.values()][picked] ?? context.character.username;
 };
 
 const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: number) =>
@@ -370,10 +369,7 @@ const handleChatInputKeydown =
 				Globals.websocket?.send('CHAT=' + message);
 				return;
 			}
-			const messageChunks = chunkMessageBySize(
-				message,
-				hasPrefix ? 100 - prefix.length - 1 : 100,
-			);
+			const messageChunks = chunkMessageBySize(message, hasPrefix ? 100 - prefix.length - 1 : 100);
 			if (!messageChunks) return;
 			if (messageChunks.length > 2) {
 				// @ts-ignore: TS2552
@@ -403,7 +399,11 @@ const handleChatInputKeydown =
 		event.preventDefault();
 	};
 
-const handleAddTabClick = (elements: ChatElements, channels: Channels): void => {
+const handleAddTabClick = (
+	elements: ChatElements,
+	channels: Channels,
+	context: PluginContext,
+): void => {
 	const modalId = `oinky/${namespace}/add-tab`;
 	const { addTabModal, addTabForm, addTabInput, addTabSubmit, addTabCancel } = elements;
 	addTabModal.onclose = () => {
@@ -425,7 +425,7 @@ const handleAddTabClick = (elements: ChatElements, channels: Channels): void => 
 	addTabForm.onsubmit = handleSubmit;
 	addTabSubmit.onclick = handleSubmit;
 	addTabCancel.onclick = () => addTabModal.close();
-	addTabInput.placeholder = getRandomUsername();
+	addTabInput.placeholder = getRandomUsername(context);
 	addTabInput.onkeydown = (event) => {
 		if (event.key !== 'Enter') return;
 		handleSubmit();
@@ -848,10 +848,7 @@ const initChat = (
 	loginMessages.forEach((rootElement) => {
 		const loginSpan = rootElement.cloneNode(true) as HTMLSpanElement;
 		messagesContainer.appendChild(
-			createMessageLi(
-				createLoginMessageContent(loginSpan),
-				getMessageBg(settings.isZebraEnabled),
-			),
+			createMessageLi(createLoginMessageContent(loginSpan), getMessageBg(settings.isZebraEnabled)),
 		);
 	});
 	messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -867,7 +864,7 @@ const initChat = (
 
 	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels);
 	toggleCheckbox.onchange = () => handleToggleChange(elements, settings);
-	addTabButton.onclick = () => handleAddTabClick(elements, channels);
+	addTabButton.onclick = () => handleAddTabClick(elements, channels, context);
 	updateChatTabs(tabsContainer, channels, inputLabel);
 	wireChatLog(elements, settings);
 

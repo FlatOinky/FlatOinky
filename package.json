@@ -1,13 +1,15 @@
 {
 	"name": "flat-oinky",
-	"version": "0.8.0",
+	"version": "0.8.0-beta.1",
 	"description": "A desktop application for Flat MMO",
 	"main": "./out/main/index.js",
 	"author": "soggypiggy <dev@soggypiggy.com>",
 	"homepage": "https://github.com/FlatOinky/FlatOinky",
 	"scripts": {
-		"format": "prettier --write .",
-		"lint": "eslint --cache .",
+		"format": "oxfmt",
+		"format:check": "oxfmt --check",
+		"lint": "oxlint",
+		"lint:fix": "oxlint --fix",
 		"typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
 		"typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
 		"typecheck": "npm run typecheck:node && npm run typecheck:web",
@@ -31,8 +33,6 @@
 		"tailwindcss": "^4.1.18"
 	},
 	"devDependencies": {
-		"@electron-toolkit/eslint-config-prettier": "3.0.0",
-		"@electron-toolkit/eslint-config-ts": "^3.1.0",
 		"@electron-toolkit/tsconfig": "^2.0.0",
 		"@types/mustache": "^4.2.6",
 		"@types/node": "^22.19.1",
@@ -41,8 +41,8 @@
 		"electron": "^39.2.6",
 		"electron-builder": "^26.0.12",
 		"electron-vite": "^5.0.0",
-		"eslint": "^9.39.1",
-		"prettier": "^3.7.4",
+		"oxfmt": "^0.59.0",
+		"oxlint": "^1.74.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.2.6"
 	}

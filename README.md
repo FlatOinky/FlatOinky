@@ -11,10 +11,10 @@ A desktop application for Flat MMO
 - Desktop Notifications
 - Audio Cue
 - listens for
-   - Birds nest
-   - Tree falling
-   - Gem geode
-   - Alien
+  - Birds nest
+  - Tree falling
+  - Gem geode
+  - Alien
 
 #### UI Tweaks
 
@@ -45,8 +45,8 @@ Here's a list of some of the features that are planned on making into the client
 - XP/hr tracking
 - Color themes
 - More chat features
-   - Block/Highlight users & words
-   - More customizable chat tabs
+  - Block/Highlight users & words
+  - More customizable chat tabs
 
 ## Installing Flat Oinky
 

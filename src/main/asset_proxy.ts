@@ -9,13 +9,7 @@ const FLAT_URL = 'https://flatmmo.com';
 const ASSET_EXTENSION = /\.(png|jpe?g|gif|webp|svg|ico|ogg|mp3|wav|m4a|woff2?|ttf|otf|eot)$/i;
 
 // Paths owned by the app's own bundle / dev server which must never be proxied.
-const APP_OWNED_PREFIXES = [
-	'/assets/',
-	'/@',
-	'/src/',
-	'/node_modules/',
-	'/.vite/',
-];
+const APP_OWNED_PREFIXES = ['/assets/', '/@', '/src/', '/node_modules/', '/.vite/'];
 
 const isAssetPath = (pathname: string): boolean => ASSET_EXTENSION.test(pathname);
 

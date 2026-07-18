@@ -85,8 +85,7 @@
 		)
 		color-mix(
 			in oklab,
-			var(--tw-oinky-scrollbar-track-color)
-				calc(var(--tw-oinky-scrollbar-track-opacity, 100) * 1%),
+			var(--tw-oinky-scrollbar-track-color) calc(var(--tw-oinky-scrollbar-track-opacity, 100) * 1%),
 			transparent
 		);
 }
@@ -96,8 +95,7 @@
 	--tw-oinky-scrollbar-thumb-opacity: --modifier(--opacity-*, integer, [integer]);
 	scrollbar-color: color-mix(
 			in oklab,
-			var(--tw-oinky-scrollbar-thumb-color)
-				calc(var(--tw-oinky-scrollbar-thumb-opacity, 100) * 1%),
+			var(--tw-oinky-scrollbar-thumb-color) calc(var(--tw-oinky-scrollbar-thumb-opacity, 100) * 1%),
 			transparent
 		)
 		color-mix(

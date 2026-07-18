@@ -19,17 +19,12 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		chatContainer.className = 'contents';
 	});
 
-	const addWindowButton = mountElement(
-		taskbarSection,
-		'addWindow',
-		'button',
-		(addWindowButton) => {
-			addWindowButton.className = 'btn btn-square btn-secondary btn-soft';
-			addWindowButton.style.setProperty('anchor-name', '--oinky-taskbar-add-window-menu-btn');
-			addWindowButton.setAttribute('popovertarget', 'oinky-taskbar-windows-menu');
-			addWindowButton.appendChild(createSvgIcon(['M12 4.5v15m7.5-7.5h-15']));
-		},
-	);
+	const addWindowButton = mountElement(taskbarSection, 'addWindow', 'button', (addWindowButton) => {
+		addWindowButton.className = 'btn btn-square btn-secondary btn-soft';
+		addWindowButton.style.setProperty('anchor-name', '--oinky-taskbar-add-window-menu-btn');
+		addWindowButton.setAttribute('popovertarget', 'oinky-taskbar-windows-menu');
+		addWindowButton.appendChild(createSvgIcon(['M12 4.5v15m7.5-7.5h-15']));
+	});
 	const windowsMenuDropdown = mountElement(
 		taskbarSection,
 		'windowsMenuDropdown',
