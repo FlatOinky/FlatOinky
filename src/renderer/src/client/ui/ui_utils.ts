@@ -8,13 +8,18 @@ export const fadeRemoveElement = (element: HTMLElement, delay = 0, duration = 20
 	}, delay);
 };
 
+const getParentOinkyId = (element: HTMLElement | null) => {
+	if (!element || element === document.body) return 'root';
+	return element.getAttribute('oinky') ?? getParentOinkyId(element.parentElement);
+};
+
 export const mountElement = <T extends keyof HTMLElementTagNameMap>(
 	container: HTMLElement,
 	id: string,
 	tag: T,
 	handler: (element: HTMLElementTagNameMap[T]) => void = () => {},
 ): HTMLElementTagNameMap[T] => {
-	const htmlId = `${container.getAttribute('oinky')}/${id}`;
+	const htmlId = `${getParentOinkyId(container)}/${id}`;
 	const existing = container.querySelector<HTMLElementTagNameMap[T]>(
 		CSS.escape(`[oinky=${htmlId}]`),
 	);
