@@ -118,7 +118,7 @@ const mountSkillBlock = (
 	settings: Settings,
 	skill: string,
 ) => {
-	const showTotal = settings.showWindowTotal && skill === 'total';
+	let showTotal = settings.showWindowTotal && skill === 'total';
 	let xpTracker = startXpTracker(
 		xpDrops,
 		settings,
@@ -175,6 +175,7 @@ const mountSkillBlock = (
 	});
 
 	const runInterval = () => {
+		showTotal = settings.showWindowTotal && skill === 'total';
 		const metrics = xpTracker.runInterval();
 		updateStats(metrics);
 		skillChart.runInterval(metrics.smoothedValue);
