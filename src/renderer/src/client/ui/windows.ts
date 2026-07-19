@@ -1,8 +1,11 @@
 import mustache from 'mustache';
 import windowFrameTemplate from './windows/window_frame.html?raw';
-import { initElement } from './ui_utils';
+import { createSvgIcon, initElement } from './ui_utils';
 import { Lifecycle } from '../../client';
 import { ClientStorage } from '../client_storage';
+import type { initTaskbar } from './taskbar';
+
+type TaskbarApi = ReturnType<typeof initTaskbar>;
 
 // #region renderers
 
@@ -101,7 +104,7 @@ type WindowState = {
 	minimized: boolean;
 };
 
-export const initWindows = (lifecycle: Lifecycle, root: HTMLElement) => {
+export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: TaskbarApi) => {
 	const container = document.createElement('section');
 	container.setAttribute('oinky', 'windows');
 	container.className = 'absolute inset-0 @container pointer-events-none';
@@ -119,6 +122,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement) => {
 		title: string,
 		storage: ClientStorage,
 		handler?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void,
+		icon?: SVGElement | HTMLImageElement,
 	) => {
 		const windowState = storage.reactive<WindowState>(`window/${id}`, {
 			width: 640,
@@ -256,6 +260,22 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement) => {
 			};
 		});
 
+		const windowButtonIcon =
+			icon ??
+			createSvgIcon([
+				'M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z',
+			]);
+		const { button: windowButton } = taskbar.initWindowButton(lifecycle, id, {
+			icon: windowButtonIcon,
+			onClick: () => {
+				toggleWindowVisibility(windowFrame, windowState);
+				syncWindowButton();
+			},
+		});
+		const syncWindowButton = () =>
+			windowButton.classList.toggle('btn-outline', windowState.minimized);
+		syncWindowButton();
+
 		const windowClosers = windowFrame.querySelectorAll<HTMLInputElement>(
 			'button[oinky-window=close]',
 		);
@@ -268,6 +288,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement) => {
 			windowMinimizer.onclick = () => {
 				windowState.minimized = !windowState.minimized;
 				updateWindowFrameMinimized(windowFrame, windowState);
+				syncWindowButton();
 			};
 		});
 
@@ -282,9 +303,18 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement) => {
 			updateWindowFrameLock: () => updateWindowFrameLock(windowFrame, windowState),
 			updateWindowFrameMinimized: () => updateWindowFrameMinimized(windowFrame, windowState),
 			updateWindowFrame: () => updateWindowFrame(windowFrame, windowState),
-			hideWindow: () => hideWindow(windowFrame, windowState),
-			showWindow: () => showWindow(windowFrame, windowState),
-			toggleWindowVisibility: () => toggleWindowVisibility(windowFrame, windowState),
+			hideWindow: () => {
+				hideWindow(windowFrame, windowState);
+				syncWindowButton();
+			},
+			showWindow: () => {
+				showWindow(windowFrame, windowState);
+				syncWindowButton();
+			},
+			toggleWindowVisibility: () => {
+				toggleWindowVisibility(windowFrame, windowState);
+				syncWindowButton();
+			},
 			forceWindowUpdate: () => forceWindowUpdate(windowFrame, windowState),
 			closeWindow: () => closeWindow(windowFrame),
 		};
