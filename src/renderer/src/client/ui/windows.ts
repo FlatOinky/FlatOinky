@@ -104,6 +104,14 @@ type WindowState = {
 	minimized: boolean;
 };
 
+type WindowOptions = {
+	id: string;
+	title: string;
+	storage: ClientStorage;
+	onPreMount?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void;
+	icon?: SVGElement | HTMLImageElement;
+};
+
 export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: TaskbarApi) => {
 	const container = document.createElement('section');
 	container.setAttribute('oinky', 'windows');
@@ -116,14 +124,8 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	// #region > utils
 
 	// #region > windowFrame
-	const initWindow = (
-		lifecycle: Lifecycle,
-		id: string,
-		title: string,
-		storage: ClientStorage,
-		handler?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void,
-		icon?: SVGElement | HTMLImageElement,
-	) => {
+	const initWindow = (lifecycle: Lifecycle, options: WindowOptions) => {
+		const { id, title, storage, onPreMount, icon } = options;
 		const windowState = storage.reactive<WindowState>(`window/${id}`, {
 			width: 640,
 			height: 400,
@@ -148,8 +150,6 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		lifecycle.onCleanup(() => {
 			windowFrames[id] = undefined;
 		});
-
-		handler?.({ state: windowState, body: windowBody, frame: windowFrame });
 
 		const handleFrameEdgeDrag = (
 			windowEdge: HTMLElement,
@@ -292,6 +292,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			};
 		});
 
+		onPreMount?.({ state: windowState, body: windowBody, frame: windowFrame });
 		updateWindowFrame(windowFrame, windowState);
 		container.appendChild(windowFrame);
 		lifecycle.onCleanup(() => container.removeChild(windowFrame));
