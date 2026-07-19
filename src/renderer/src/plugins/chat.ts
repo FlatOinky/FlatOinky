@@ -300,7 +300,6 @@ const updateToggleIndicator = (toggleIndicator: HTMLDivElement, active: boolean 
 // #region Handlers
 
 const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settings): void => {
-	// @ts-ignore 2304
 	if (opened_modals.size > 0) return;
 	if (!settings.isExpanded) return;
 	const chatMessageContainer = elements.messagesContainer;
@@ -365,19 +364,16 @@ const handleChatInputKeydown =
 			sentHistoryIndex = -1;
 			chatInput.value = '';
 			if (message.startsWith('/')) {
-				// @ts-ignore: TS2552
 				Globals.websocket?.send('CHAT=' + message);
 				return;
 			}
 			const messageChunks = chunkMessageBySize(message, hasPrefix ? 100 - prefix.length - 1 : 100);
 			if (!messageChunks) return;
 			if (messageChunks.length > 2) {
-				// @ts-ignore: TS2552
 				add_to_chat('none', 'none', 'none', 'red', 'Message length too large');
 				return;
 			}
 			messageChunks.forEach((chunk) => {
-				// @ts-ignore: TS2552
 				Globals.websocket?.send('CHAT=' + (hasPrefix ? prefix + ' ' : '') + chunk);
 			});
 			return;
@@ -407,7 +403,6 @@ const handleAddTabClick = (
 	const modalId = `oinky/${namespace}/add-tab`;
 	const { addTabModal, addTabForm, addTabInput, addTabSubmit, addTabCancel } = elements;
 	addTabModal.onclose = () => {
-		// @ts-ignore 2304
 		opened_modals.delete(modalId);
 		addTabModal.open = false;
 	};
@@ -431,7 +426,6 @@ const handleAddTabClick = (
 		handleSubmit();
 	};
 	addTabInput.value = '';
-	// @ts-ignore 2304
 	opened_modals.add(modalId);
 	addTabModal.show();
 };
@@ -737,7 +731,6 @@ const wireChatLog = (elements: ChatElements, settings: Settings): void => {
 	const modalId = `oinky/${namespace}/`;
 	const { logActivator, logModal, logContainer } = elements;
 	logActivator.onclick = () => {
-		// @ts-ignore 2304
 		opened_modals.add(modalId);
 		logContainer.replaceChildren(
 			...chatMessages.map((chatMessage) =>
@@ -751,7 +744,6 @@ const wireChatLog = (elements: ChatElements, settings: Settings): void => {
 		logModal.showModal();
 		logModal.onclose = () => {
 			logContainer.replaceChildren();
-			// @ts-ignore 2304
 			opened_modals.delete(modalId);
 		};
 	};

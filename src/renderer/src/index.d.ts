@@ -52,24 +52,31 @@ declare global {
 			errors: Record<string, string>;
 			client: Client;
 		};
-		// FlatMMO stuff
-		Globals: {
-			websocket_url: string | undefined;
-			websocket: WebSocket | null;
-			local_username: string | null;
-			local_id: string | null;
-			tabActive: boolean;
-		};
-		add_player_chat_over_head(username: string, message: string);
-		search_bank(input: HTMLInputElement);
-		has_modal_open(): boolean;
-		opened_modals: Set<string>;
-		ground_items: object[];
-		sound_off: boolean;
-		toggle_sound: () => void;
-		music_off: boolean;
-		toggle_music: () => void;
-		players: { [username: string]: FMMOPlayer };
-		valid_skills: Set<string>;
 	}
+	// FlatMMO stuff
+	class Globals {
+		static websocket_url: string | undefined;
+		static websocket: WebSocket | null;
+		static local_username: string | null;
+		static local_id: string | null;
+		static tabActive: boolean;
+	}
+	function add_player_chat_over_head(username: string, message: string);
+	function search_bank(input: HTMLInputElement);
+	function has_modal_open(): boolean;
+	function toggle_sound(): void;
+	function toggle_music(): void;
+	function add_to_chat(
+		username: string,
+		tag: string,
+		icon: string,
+		color: string,
+		message: string,
+	): void;
+	var opened_modals: Set<string>;
+	var ground_items: object[];
+	var sound_off: boolean;
+	var music_off: boolean;
+	var players: { [username: string]: FMMOPlayer };
+	var valid_skills: Set<string>;
 }
