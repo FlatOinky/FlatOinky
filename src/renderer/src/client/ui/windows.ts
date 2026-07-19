@@ -2,6 +2,7 @@ import mustache from 'mustache';
 import windowFrameTemplate from './windows/window_frame.html?raw';
 import { initElement } from './ui_utils';
 import { Lifecycle } from '../../client';
+import { ClientStorage } from '../client_storage';
 
 // #region renderers
 
@@ -107,7 +108,6 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement) => {
 	lifecycle.onCleanup(() => container.remove());
 	root.appendChild(container);
 
-	const windowStates: Partial<{ [windowId: string]: WindowState }> = {};
 	const windowFrames: Partial<{ [windowId: string]: HTMLElement }> = {};
 
 	// #region > utils
@@ -117,8 +117,17 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement) => {
 		lifecycle: Lifecycle,
 		id: string,
 		title: string,
+		storage: ClientStorage,
 		handler?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void,
 	) => {
+		const windowState = storage.reactive<WindowState>(`window/${id}`, {
+			width: 640,
+			height: 400,
+			left: 256,
+			top: 256,
+			locked: false,
+			minimized: false,
+		});
 		const windowFrame = initElement(lifecycle, container, id, 'article');
 		windowFrame.setAttribute('oinky-window', 'root');
 		windowFrame.setAttribute('oinky-window-id', id);
@@ -134,23 +143,6 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement) => {
 		windowFrames[id] = windowFrame;
 		lifecycle.onCleanup(() => {
 			windowFrames[id] = undefined;
-		});
-
-		let windowState: WindowState = windowStates[id] ?? {
-			width: 640,
-			height: 400,
-			left: 256,
-			top: 256,
-			locked: false,
-			minimized: false,
-		};
-		if (!windowStates[id]) {
-			// NOTE: have to juggle here to wrap everything in proxies
-			windowStates[id] = windowState;
-			windowState = windowStates[id];
-		}
-		lifecycle.onCleanup(() => {
-			windowStates[id] = undefined;
 		});
 
 		handler?.({ state: windowState, body: windowBody, frame: windowFrame });

@@ -189,11 +189,17 @@ const initMetricsWindow = (
 	xpDrops: XPDrop[],
 	settings: Settings,
 ) => {
-	const window = context.ui.windows.initWindow(lifecycle, 'metrics', 'Metrics', (window) => {
-		// window.state.minimized = true;
-		window.state.width = 192;
-		window.body.className = 'flex flex-col gap-2';
-	});
+	const window = context.ui.windows.initWindow(
+		lifecycle,
+		'metrics',
+		'Metrics',
+		context.storages.profile,
+		(window) => {
+			// window.state.minimized = true;
+			window.state.width = 192;
+			window.body.className = 'flex flex-col gap-2';
+		},
+	);
 
 	const skillCharts = ['total', ...valid_skills.values()].map((skill) => {
 		return mountSkillBlock(context, window.body, xpDrops, settings.widgetChart, skill);
