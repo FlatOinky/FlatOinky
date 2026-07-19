@@ -1,7 +1,6 @@
 import { Lifecycle } from '../../client';
 import { version } from '../../../../../package.json';
 import { createSvgIcon, initElement, mountElement } from './ui_utils';
-import { reloadWindow, openDevTools } from '../ipc_renderer';
 
 export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	const containerPositioner = document.createElement('div');
@@ -188,11 +187,6 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		});
 		return { container, button };
 	};
-
-	initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
-	if (process.env.NODE_ENV === 'development') {
-		initMenuAction(lifecycle, 'devtools', 'Open DevTools', () => openDevTools());
-	}
 
 	return {
 		initMenuItem,

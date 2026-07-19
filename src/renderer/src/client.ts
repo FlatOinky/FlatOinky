@@ -3,6 +3,7 @@ import { ChatMessage, parseChatMessage } from './client/chat_message';
 import { createPluginStorages } from './client/client_storage';
 import { getProfileKey } from './client/profiles';
 import { initUi } from './client/ui';
+import { reloadWindow } from './client/ipc_renderer';
 
 export type { ChatMessage };
 
@@ -288,6 +289,10 @@ export const initClient = (character: FMMOCharacter) => {
 			corePlugins.forEach((plugin) => plugins.startPlugin(plugin.namespace));
 		})
 		.catch((error) => console.error(error));
+
+
+
+	ui.taskbar.initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
 
 	return {
 		hooks,
