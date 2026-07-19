@@ -42,15 +42,23 @@ const startXpTracker = (
 		intervalSums.push(intervalSum);
 		sessionTotalXp += intervalSum;
 
-		const recent = intervalSums.slice(intervalSums.length - recentWindow);
-		const weightTotal = recent.reduce((total, _, index) => total + (index + 1), 0);
-		const smoothedValue =
-			recent.reduce((total, value, index) => total + value * (index + 1), 0) / weightTotal;
-		const smoothedPerSecond = smoothedValue / updateIntervalSeconds;
+		const smoothedValues = intervalSums.map((_, index) => {
+			const start = Math.max(0, index - recentWindow + 1);
+			const window = intervalSums.slice(start, index + 1);
+			const weightTotal = window.reduce((total, _, i) => total + (i + 1), 0);
+			return window.reduce((total, value, i) => total + value * (i + 1), 0) / weightTotal;
+		});
+		const smoothedValue = smoothedValues[smoothedValues.length - 1];
+
+		const recentSmoothed = smoothedValues.slice(smoothedValues.length - recentWindow);
+		const smoothedAverage =
+			recentSmoothed.reduce((total, value) => total + value, 0) / recentSmoothed.length;
+		const smoothedPerSecond = smoothedAverage / updateIntervalSeconds;
 
 		return {
 			intervalSum,
 			smoothedValue,
+			smoothedValues,
 			sessionTotalXp,
 			xpPerMinSmoothed: smoothedPerSecond * 60,
 			xpPerHrSmoothed: smoothedPerSecond * 3600,
@@ -159,6 +167,7 @@ const mountSkillBlock = (
 	updateStats({
 		intervalSum: 0,
 		smoothedValue: 0,
+		smoothedValues: [],
 		sessionTotalXp: 0,
 		xpPerMinSmoothed: 0,
 		xpPerHrSmoothed: 0,
