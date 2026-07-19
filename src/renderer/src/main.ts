@@ -13,7 +13,7 @@ import bannerWitchSrc from './assets/fmmo_witch.gif';
 import { FMMOCharacter, FMMOWorld } from '.';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
 import { hookedFunctions, initClient } from './client';
-import './assets/main.css';
+import './styles.css';
 import { ipcRenderer, reloadWindow, openDevTools } from './client/ipc_renderer';
 
 // TODO: use this api url for greasyfork to get userscripts

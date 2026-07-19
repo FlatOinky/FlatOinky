@@ -4,29 +4,29 @@ import { createSvgIcon, initElement, mountElement } from './ui_utils';
 import { reloadWindow, openDevTools } from '../ipc_renderer';
 
 export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
-	const taskbarRoot = document.createElement('div');
-	taskbarRoot.className = 'flat-oinky absolute top-full w-full -mt-1.5 pr-0.5';
-	taskbarRoot.style.display = 'contents';
-	taskbarRoot.setAttribute('flat-oinky', 'taskbar');
+	const containerPositioner = document.createElement('div');
+	containerPositioner.className = 'flat-oinky absolute top-full w-full -mt-1.5 pr-0.5';
+	containerPositioner.style.display = 'contents';
+	containerPositioner.setAttribute('oinky', 'taskbar');
 
-	const taskbarSection = mountElement(taskbarRoot, 'taskbar', 'section', (taskbarSection) => {
+	const container = mountElement(containerPositioner, 'taskbar', 'section', (taskbarSection) => {
 		taskbarSection.setAttribute('oinky', 'taskbar');
 		taskbarSection.className = 'relative bg-base-100 rounded-b-box flex gap-2 p-1';
 	});
 
-	const chatContainer = mountElement(taskbarSection, 'chat', 'div', (chatContainer) => {
+	const chatContainer = mountElement(container, 'chat', 'div', (chatContainer) => {
 		chatContainer.setAttribute('oinky-container', 'taskbar/chat');
 		chatContainer.className = 'contents';
 	});
 
-	const addWindowButton = mountElement(taskbarSection, 'addWindow', 'button', (addWindowButton) => {
+	const addWindowButton = mountElement(container, 'addWindow', 'button', (addWindowButton) => {
 		addWindowButton.className = 'btn btn-square btn-secondary btn-soft';
 		addWindowButton.style.setProperty('anchor-name', '--oinky-taskbar-add-window-menu-btn');
 		addWindowButton.setAttribute('popovertarget', 'oinky-taskbar-windows-menu');
 		addWindowButton.appendChild(createSvgIcon(['M12 4.5v15m7.5-7.5h-15']));
 	});
 	const windowsMenuDropdown = mountElement(
-		taskbarSection,
+		container,
 		'windowsMenuDropdown',
 		'div',
 		(windowsMenuDropdown) => {
@@ -52,69 +52,66 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	);
 
 	// #region > core sections
-	const activitiesContainer = document.createElement('div');
-	activitiesContainer.setAttribute('oinky-container', 'taskbar/activities');
-	activitiesContainer.className =
-		'absolute left-1/2 bottom-full -translate-x-1/2 m-1 pointer-events-none';
+	const activitiesContainer = mountElement(
+		container,
+		'activities',
+		'div',
+		(activitiesContainer) => {
+			activitiesContainer.className =
+				'absolute left-1/2 bottom-full -translate-x-1/2 m-1 pointer-events-none';
+		},
+	);
 
-	const spacer = document.createElement('div');
-	spacer.setAttribute('oinky-taskbar', 'spacer');
-	spacer.className = 'flex-1';
+	const spacer = mountElement(container, 'spacer', 'div', (spacer) => {
+		spacer.className = 'flex-1';
+	});
 
-	const widgetsContainer = document.createElement('div');
-	widgetsContainer.setAttribute('oinky-container', 'taskbar/widgets');
-	widgetsContainer.className = 'flex gap-1';
+	const widgetsContainer = mountElement(container, 'widgets', 'div', (widgetsContainer) => {
+		widgetsContainer.className = 'flex gap-1';
+	});
 
-	const trayContainer = document.createElement('div');
-	trayContainer.setAttribute('oinky-container', 'taskbar/tray');
-	trayContainer.className = 'flex-none flex gap-1 items-center';
+	const trayContainer = mountElement(container, 'tray', 'div', (trayContainer) => {
+		trayContainer.className = 'flex-none flex gap-1 items-center';
+	});
 
-	const divider = document.createElement('div');
-	divider.className = 'flex-none border-r border-base-content/20';
+	const divider = mountElement(container, 'divider', 'div', (divider) => {
+		divider.className = 'flex-none border-r border-base-content/20';
+	});
 
 	// #region > taskbar menu
-	const menuContainerWrapper = document.createElement('div');
-	menuContainerWrapper.setAttribute('oink-taskbar', 'menu-container');
-	menuContainerWrapper.className = 'flex-none';
+	const menuContainer = mountElement(container, 'menu', 'div', (menuContainer) => {
+		menuContainer.className = 'flex-none';
+	});
 
-	const menuButton = document.createElement('button');
-	menuButton.className = 'btn btn-ghost engaged:btn-primary btn-square';
-	menuButton.style.setProperty('anchor-name', '--oinky-taskbar-menu-btn');
-	menuButton.setAttribute('popovertarget', 'oinky-taskbar-menu');
-	menuButton.appendChild(createSvgIcon(['M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5']));
+	const menuToggle = mountElement(menuContainer, 'toggle', 'button', (menuButton) => {
+		menuButton.className = 'btn btn-ghost engaged:btn-primary btn-square';
+		menuButton.style.setProperty('anchor-name', '--oinky-taskbar-menu-btn');
+		menuButton.setAttribute('popovertarget', 'oinky-taskbar-menu');
+		menuButton.appendChild(createSvgIcon(['M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5']));
+	});
 
-	const menuDropdown = document.createElement('div');
-	menuDropdown.className =
-		'dropdown dropdown-top dropdown-end flex flex-col gap-1 w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20 overflow-visible not-open:hidden';
-	menuDropdown.setAttribute('popover', '');
-	menuDropdown.id = 'oinky-taskbar-menu';
-	menuDropdown.style.setProperty('position-anchor', '--oinky-taskbar-menu-btn');
+	const menuDropdown = mountElement(menuContainer, 'dropdown', 'div', (menuDropdown) => {
+		menuDropdown.className =
+			'dropdown dropdown-top dropdown-end flex flex-col gap-1 w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20 overflow-visible not-open:hidden';
+		menuDropdown.setAttribute('popover', '');
+		menuDropdown.id = 'oinky-taskbar-menu';
+		menuDropdown.style.setProperty('position-anchor', '--oinky-taskbar-menu-btn');
+	});
 
-	const menuHeader = document.createElement('div');
-	menuHeader.className = 'text-center mt-2 text-base-content/80';
-	const menuHeaderTitle = document.createElement('h2');
-	menuHeaderTitle.className = 'text-sm';
-	menuHeaderTitle.textContent = 'Flat Oinky';
-	const menuHeaderVersion = document.createElement('h3');
-	menuHeaderVersion.className = 'text-xs';
-	menuHeaderVersion.textContent = `v${version}`;
-	menuHeader.append(menuHeaderTitle, menuHeaderVersion);
+	const menuHeader = mountElement(menuDropdown, 'header', 'div', (menuHeader) => {
+		menuHeader.className = 'text-center mt-2 text-base-content/80';
+		menuHeader.innerHTML = `<h2 class="text-sm">Flat Oinky</h2><h3 class="text-xs">v${version}</h3>`;
+	});
 
-	const dockItemsContainer = document.createElement('div');
-	dockItemsContainer.setAttribute('oinky-container', 'taskbar/menu/items');
-	dockItemsContainer.className = 'contents';
+	const menuItems = mountElement(menuDropdown, 'items', 'div', (menuItems) => {
+		menuItems.className = 'menu w-full';
+	});
 
-	const dockActionsList = document.createElement('ul');
-	dockActionsList.className = 'menu w-full';
-	const dockActionsContainer = document.createElement('div');
-	dockActionsContainer.setAttribute('oinky-container', 'taskbar/menu/actions');
-	dockActionsContainer.className = 'contents';
-	dockActionsList.appendChild(dockActionsContainer);
+	const menuActions = mountElement(menuDropdown, 'actions', 'div', (menuActions) => {
+		menuActions.className = 'menu w-full';
+	});
 
-	menuDropdown.append(menuHeader, dockItemsContainer, dockActionsList);
-	menuContainerWrapper.append(menuButton, menuDropdown);
-
-	taskbarSection.append(
+	container.append(
 		chatContainer,
 		addWindowButton,
 		windowsMenuDropdown,
@@ -123,16 +120,16 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		widgetsContainer,
 		trayContainer,
 		divider,
-		menuContainerWrapper,
+		menuContainer,
 	);
-	taskbarRoot.appendChild(taskbarSection);
+	containerPositioner.appendChild(container);
 
-	lifecycle.onCleanup(() => taskbarRoot.remove());
-	root.appendChild(taskbarRoot);
+	lifecycle.onCleanup(() => containerPositioner.remove());
+	root.appendChild(containerPositioner);
 
 	// #region > helpers
-	const initDockItem = (lifecycle: Lifecycle, id: string) =>
-		initElement(lifecycle, dockItemsContainer, id, 'div');
+	const initMenuItem = (lifecycle: Lifecycle, id: string) =>
+		initElement(lifecycle, menuItems, id, 'div');
 
 	const initActivity = (lifecycle: Lifecycle, id: string) =>
 		initElement(lifecycle, activitiesContainer, id, 'div');
@@ -140,13 +137,13 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	const initWidget = (lifecycle: Lifecycle, id: string) =>
 		initElement(lifecycle, widgetsContainer, id, 'div');
 
-	const initDockAction = (
+	const initMenuAction = (
 		lifecycle: Lifecycle,
 		id: string,
 		title: string,
 		handleClick: () => void,
 	) => {
-		const container = initElement(lifecycle, dockActionsContainer, id, 'li');
+		const container = initElement(lifecycle, menuActions, id, 'li');
 		const button = mountElement(container, 'button', 'button', (button) => {
 			button.textContent = title;
 			button.onclick = () => handleClick();
@@ -200,18 +197,18 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	// 	return windowToggle;
 	// };
 
-	initDockAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
+	initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
 	if (process.env.NODE_ENV === 'development') {
-		initDockAction(lifecycle, 'devtools', 'Open DevTools', () => openDevTools());
+		initMenuAction(lifecycle, 'devtools', 'Open DevTools', () => openDevTools());
 	}
 
 	return {
-		initDockItem,
+		initMenuItem,
 		initActivity,
 		initWidget,
 		elements: {
-			root: taskbarRoot,
-			taskbarSection,
+			container: containerPositioner,
+			taskbarSection: container,
 			chatContainer,
 			windowsMenuDropdown,
 			windowsMenuList,
@@ -220,13 +217,12 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			widgetsContainer,
 			trayContainer,
 			divider,
-			menuContainerWrapper,
-			menuButton,
+			menuContainer,
+			menuToggle,
 			menuDropdown,
 			menuHeader,
-			dockItemsContainer,
-			dockActionsList,
-			dockActionsContainer,
+			menuItems,
+			menuActions,
 		},
 	};
 };

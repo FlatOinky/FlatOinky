@@ -90,9 +90,7 @@
 // };
 
 // const ensureAudioEnabled = (): void => {
-// 	// @ts-ignore ts(2304)
 // 	if (window.music_off) toggle_music();
-// 	// @ts-ignore ts(2304)
 // 	if (window.sound_off) toggle_sound();
 // };
 

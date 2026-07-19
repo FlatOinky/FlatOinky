@@ -58,7 +58,7 @@ const createPluginContext = async (context: ClientContext, namespace: string) =>
 export type PluginHookResult = boolean | undefined | null;
 
 export type PluginCallbacks = {
-	// onStartup?: () => void;
+	onStartup?: () => void;
 	onChatMessage?: (chatMessage: ChatMessage) => void;
 	onLogin?: () => void;
 	onLevelUp?: (skill: string, level: number) => void;
@@ -150,6 +150,9 @@ const initPlugins = (lifecycle: Lifecycle, context: ClientContext) => {
 			Object.values(instances).forEach(async (instance) =>
 				instance.callbacks?.onLevelUp?.(skill, level),
 			);
+		},
+		onStartup: () => {
+			Object.values(instances).forEach(async (instance) => instance.callbacks?.onStartup?.());
 		},
 		onXpDrop: (drop) => {
 			Object.values(instances).forEach(async (instance) => instance.callbacks?.onXpDrop?.(drop));
@@ -268,7 +271,7 @@ export const hookedFunctions = [
 ];
 
 export const initClient = (character: FMMOCharacter) => {
-	const canvasContainer = document.querySelector<HTMLElement>('[fmmo-container=canvas]');
+	const canvasContainer = document.querySelector<HTMLElement>(':has(>canvas#canvas)');
 	if (!canvasContainer) return;
 	const lifecycle = initLifecycle();
 	const ui = initUi(lifecycle, canvasContainer);
@@ -289,6 +292,8 @@ export const initClient = (character: FMMOCharacter) => {
 	return {
 		hooks,
 		pluginsApi: plugins.api,
-		handleBeforeConnect: () => {},
+		handleBeforeConnect: () => {
+			plugins.api.onStartup();
+		},
 	};
 };

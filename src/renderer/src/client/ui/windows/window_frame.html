@@ -1,6 +1,6 @@
 <div oinky-window-area="titlebar" class="flex gap-1 items-center">
 	<label
-		class="swap swap-rotate btn btn-xs btn-circle btn-info btn-ghost size-4.5 pointer-events-auto in-oinky-window-locked:opacity-50 in-oinky-window-locked:hover:opacity-100"
+		class="swap swap-rotate btn btn-xs btn-circle btn-info btn-ghost size-4.5 pointer-events-auto in-locked-window:opacity-50 in-locked-window:hover:opacity-100"
 	>
 		<input oinky-window="lock" type="checkbox" />
 		<svg
@@ -35,7 +35,7 @@
 		<div oinky-window="window-actions" class="content"></div>
 		<button
 			oinky-window="minimize"
-			class="btn btn-xs btn-circle btn-primary btn-soft size-4 transition-all in-oinky-window-locked:opacity-20 in-oinky-window-locked:saturate-0"
+			class="btn btn-xs btn-circle btn-primary btn-soft size-4 transition-all in-locked-window:opacity-20 in-locked-window:saturate-0"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -52,7 +52,7 @@
 		</button>
 		<button
 			oinky-window="close"
-			class="btn btn-xs btn-circle btn-error btn-soft size-4 transition-all in-oinky-window-locked:opacity-20 in-oinky-window-locked:saturate-0"
+			class="btn btn-xs btn-circle btn-error btn-soft size-4 transition-all in-locked-window:opacity-20 in-locked-window:saturate-0"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -67,9 +67,7 @@
 		</button>
 	</div>
 </div>
-<div oinky-window-area="main">
-	<span>hi :) o/</span>
-</div>
+<div oinky-window-area="body"></div>
 <div oinky-window-edge="top-left"></div>
 <div oinky-window-edge="top-center"></div>
 <div oinky-window-edge="top-right"></div>

@@ -14,13 +14,13 @@ export const mountElement = <T extends keyof HTMLElementTagNameMap>(
 	tag: T,
 	handler: (element: HTMLElementTagNameMap[T]) => void = () => {},
 ): HTMLElementTagNameMap[T] => {
-	const htmlId = `${container.getAttribute('oinky-id')}/${id}`;
+	const htmlId = `${container.getAttribute('oinky')}/${id}`;
 	const existing = container.querySelector<HTMLElementTagNameMap[T]>(
-		CSS.escape(`[oinky-id=${htmlId}]`),
+		CSS.escape(`[oinky=${htmlId}]`),
 	);
 	if (existing) return existing;
 	const element = document.createElement(tag) as HTMLElementTagNameMap[T];
-	element.setAttribute('oinky-id', htmlId);
+	element.setAttribute('oinky', htmlId);
 	handler(element);
 	container.appendChild(element);
 	return element;

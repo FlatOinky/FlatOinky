@@ -46,7 +46,7 @@ const updateTheme = (theme: string) =>
 	document.body.parentElement?.setAttribute('data-theme', theme);
 
 const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, settings: Settings) => {
-	const container = context.ui.taskbar.initDockItem(lifecycle, 'theme-selector');
+	const container = context.ui.taskbar.initMenuItem(lifecycle, 'theme-selector');
 
 	const fieldset = document.createElement('fieldset');
 	fieldset.className = 'fieldset px-4';

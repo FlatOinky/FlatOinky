@@ -1,0 +1,158 @@
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+
+@import './styles/flatmmo.css' layer(components);
+@import './styles/windows.css' layer(components);
+@import './styles/chat.css' layer(components);
+
+@layer base {
+	/* Coping the base styles from preflight to .flat-oinky since html/body is no longer the root */
+	.flat-oinky {
+		line-height: 1.5;
+		-webkit-text-size-adjust: 100%;
+		tab-size: 4;
+		font-family: var(
+			--default-font-family,
+			ui-sans-serif,
+			system-ui,
+			sans-serif,
+			'Apple Color Emoji',
+			'Segoe UI Emoji',
+			'Segoe UI Symbol',
+			'Noto Color Emoji'
+		);
+		font-feature-settings: var(--default-font-feature-settings, normal);
+		font-variation-settings: var(--default-font-variation-settings, normal);
+		-webkit-tap-highlight-color: transparent;
+	}
+	.flat-oinky::selection,
+	.flat-oinky *::selection {
+		color: var(--color-accent-content);
+		background-color: var(--color-accent);
+	}
+}
+
+@scope (.flat-oinky) {
+	@import 'tailwindcss/preflight.css' layer(base);
+}
+
+@layer base {
+	@scope (html) to (.flat-oinky) {
+		button {
+			background: rgb(239, 239, 239);
+			color: black;
+		}
+		button:hover {
+			background: rgb(219, 219, 219);
+		}
+	}
+}
+
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@plugin "daisyui" {
+	themes: all;
+}
+
+@config "./tailwind.config.js";
+
+@theme {
+	--oinky-window-transition: transform, translate, scale, rotate, opacity;
+	--animate-fade-out: fadeOut;
+}
+
+@custom-variant engaged {
+	&:is(:hover, :active, :focus) {
+		@slot;
+	}
+}
+
+@custom-variant locked-window {
+	&[oinky-window][locked-window] {
+		@slot;
+	}
+}
+
+@utility pixelated {
+	image-rendering: pixelated;
+}
+
+@utility scrollbar-track-* {
+	--tw-oinky-scrollbar-track-color: --value(--color);
+	--tw-oinky-scrollbar-track-opacity: --modifier(--opacity-*, integer, [integer]);
+	scrollbar-color: color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-thumb-color, black)
+				calc(var(--tw-oinky-scrollbar-thumb-opacity, 100) * 1%),
+			transparent
+		)
+		color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-track-color) calc(var(--tw-oinky-scrollbar-track-opacity, 100) * 1%),
+			transparent
+		);
+}
+
+@utility scrollbar-thumb-* {
+	--tw-oinky-scrollbar-thumb-color: --value(--color);
+	--tw-oinky-scrollbar-thumb-opacity: --modifier(--opacity-*, integer, [integer]);
+	scrollbar-color: color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-thumb-color) calc(var(--tw-oinky-scrollbar-thumb-opacity, 100) * 1%),
+			transparent
+		)
+		color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-track-color, white)
+				calc(var(--tw-oinky-scrollbar-track-opacity, 100) * 1%),
+			transparent
+		);
+}
+
+/* replacing tailwind/daisy styles that aren't respecting the .flat-oinky scope */
+
+:root,
+[data-theme] {
+	background: unset;
+	color: unset;
+}
+.flat-oinky,
+.flat-oinky [data-theme] {
+	color: var(--color-base-content);
+}
+
+/* Now onto customizing flat mmo styles for our own sake */
+
+body {
+	position: relative;
+	height: unset;
+}
+
+[fmmo-container] {
+	position: relative;
+}
+
+[oinky-hide] {
+	visibility: hidden !important;
+}
+
+canvas,
+img {
+	image-rendering: pixelated;
+}
+
+@keyframes fadeOut {
+	0% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+/* Note: need to add this since FlatMMO's styles are scoped now */
+body {
+	cursor: url('https://flatmmo.com/images/ui/cursor.png'), auto;
+	background-color: none !important;
+}

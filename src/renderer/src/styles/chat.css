@@ -1,0 +1,17 @@
+[oinky-chat='toggle']:has(:checked) svg {
+	transform: scaleY(1);
+}
+
+[oinky-chat='toggle']:not(:has(:checked)) svg {
+	transform: scaleY(-1);
+}
+
+[oinky-chat='toggle']:has(:checked) ~ * [oinky-chat-expanded-visible],
+[oinky-chat='toggle']:not(:has(:checked)) ~ * [oinky-chat-expanded-hidden] {
+	opacity: 1;
+}
+
+[oinky-chat='toggle']:not(:has(:checked)) ~ * [oinky-chat-expanded-visible],
+[oinky-chat='toggle']:has(:checked) ~ * [oinky-chat-expanded-hidden] {
+	opacity: 0;
+}
