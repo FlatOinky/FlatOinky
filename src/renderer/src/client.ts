@@ -42,8 +42,13 @@ export type ClientUi = ReturnType<typeof initUi>;
 
 export type ClientContext = Awaited<ReturnType<typeof createContext>>;
 
-const createContext = (character: FMMOCharacter, container: HTMLElement, ui: ClientUi) => {
-	return { character, container, ui };
+const createContext = (
+	character: FMMOCharacter,
+	ui: ClientUi,
+	canvas: HTMLCanvasElement,
+	container: HTMLElement,
+) => {
+	return { character, ui, canvas, container };
 };
 
 export type PluginContext = Awaited<ReturnType<typeof createPluginContext>>;
@@ -78,6 +83,7 @@ export type PluginCallbacks = {
 		total: number,
 		sessionXp: number,
 	) => void;
+	onSetMap?: (map: string) => void;
 	hookServerCommand?: (command: string, values: string[], rawCommand: string) => PluginHookResult;
 	hookAddToChat?: (
 		username: string,
@@ -163,6 +169,9 @@ const initPlugins = (lifecycle: Lifecycle, context: ClientContext) => {
 				instance.callbacks?.onMakeUiChange?.(item, completed, total, sessionXp),
 			);
 		},
+		onSetMap: (map) => {
+			Object.values(instances).forEach(async (instance) => instance.callbacks?.onSetMap?.(map));
+		},
 		hookServerCommand: (command, values, rawData) => {
 			return Object.values(instances).every((instance) => {
 				return instance.callbacks.hookServerCommand?.(command, values, rawData) ?? true;
@@ -242,6 +251,11 @@ const createClientHooks = (plugins: ClientPlugins) => {
 				const sessionXp = parseInt(values[3]);
 				return plugins.api.onMakeUiChange(item, completed, total, sessionXp);
 			}
+			case 'SET_MAP': {
+				const map = values[0];
+				if (!map) return;
+				return plugins.api.onSetMap(map);
+			}
 			default:
 				return;
 		}
@@ -272,11 +286,12 @@ export const hookedFunctions = [
 ];
 
 export const initClient = (character: FMMOCharacter) => {
-	const canvasContainer = document.querySelector<HTMLElement>(':has(>canvas#canvas)');
-	if (!canvasContainer) return;
+	const canvas = document.querySelector<HTMLCanvasElement>('canvas#canvas');
+	const canvasContainer = canvas?.parentElement;
+	if (!canvas || !canvasContainer) return;
 	const lifecycle = initLifecycle();
 	const ui = initUi(lifecycle, canvasContainer);
-	const context = createContext(character, canvasContainer, ui);
+	const context = createContext(character, ui, canvas, canvasContainer);
 
 	const plugins = initPlugins(lifecycle, context);
 
