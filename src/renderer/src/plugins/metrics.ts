@@ -232,17 +232,20 @@ export const MetricsPlugin: Plugin = {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const xpDrops: XPDrop[] = [];
 
-		let windowLifecycle: Lifecycle | undefined = lifecycle.spawnLifecycle();
-		let windowMetrics: ReturnType<typeof initMetricsWindow> | undefined = initMetricsWindow(
-			windowLifecycle,
-			context,
-			xpDrops,
-			settings,
-		);
-		windowLifecycle.onCleanup(() => {
-			windowMetrics = undefined;
-			windowLifecycle = undefined;
-		});
+		let windowMetricsLifecycle: Lifecycle | undefined;
+		let windowMetrics: ReturnType<typeof initMetricsWindow> | undefined;
+
+		const initWindowLifecycle = () => {
+			const newLifecycle = lifecycle.spawnLifecycle();
+			newLifecycle.onCleanup(() => {
+				windowMetrics = undefined;
+				windowMetricsLifecycle = undefined;
+			});
+			return newLifecycle;
+		};
+
+		windowMetricsLifecycle ??= initWindowLifecycle();
+		windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
 
 		const widget = context.ui.taskbar.initWidget(lifecycle, 'metrics');
 		widget.classList.add('contents', 'text-accent');
@@ -251,10 +254,9 @@ export const MetricsPlugin: Plugin = {
 		toggleButton.className =
 			'bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden';
 		toggleButton.onclick = () => {
-			windowLifecycle = windowLifecycle ?? lifecycle.spawnLifecycle();
-			windowMetrics =
-				windowMetrics ?? initMetricsWindow(windowLifecycle, context, xpDrops, settings);
-			windowMetrics.window.showWindow();
+			windowMetricsLifecycle ??= initWindowLifecycle();
+			windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
+			windowMetrics?.window.showWindow();
 		};
 
 		const xpTracker = startXpTracker(xpDrops, settings);
