@@ -148,7 +148,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		const menuId = `oinky-taskbar-window-menu-${id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
 		const button = initElement(lifecycle, openWindowsContainer, id, 'button', (button) => {
-			button.className = 'btn btn-square btn-neutral';
+			button.className = 'btn btn-square btn-primary';
 			button.style.setProperty('anchor-name', anchorName);
 			button.appendChild(options.icon);
 			button.onclick = () => options.onClick();
@@ -193,6 +193,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		initActivity,
 		initWidget,
 		initWindowButton,
+		initMenuAction,
 		elements: {
 			container: containerPositioner,
 			taskbarSection: container,

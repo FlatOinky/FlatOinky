@@ -272,8 +272,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 				syncWindowButton();
 			},
 		});
-		const syncWindowButton = () =>
-			windowButton.classList.toggle('btn-outline', windowState.minimized);
+		const syncWindowButton = () => windowButton.classList.toggle('btn-soft', windowState.minimized);
 		syncWindowButton();
 
 		const windowClosers = windowFrame.querySelectorAll<HTMLInputElement>(
