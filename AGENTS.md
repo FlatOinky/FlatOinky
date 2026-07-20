@@ -46,11 +46,13 @@ client.
 ## 4. Safety and permission boundaries
 
 ### Allowed without prompting
+
 - Read files, list directories
 - Single file linting, type checking, formatting
 - Unit tests on specific files
 
 ### Require approval first
+
 - Package installations (`npm`, `npm install`, `npm run`)
 - Git operations (`git push`, `git commit`)
 - File deletion

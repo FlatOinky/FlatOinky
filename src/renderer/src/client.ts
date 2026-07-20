@@ -290,8 +290,6 @@ export const initClient = (character: FMMOCharacter) => {
 		})
 		.catch((error) => console.error(error));
 
-
-
 	ui.taskbar.initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
 
 	return {

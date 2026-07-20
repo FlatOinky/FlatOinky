@@ -57,9 +57,7 @@ const setupDevProxy = (rendererOrigin: string): void => {
 };
 
 const setupProdProxy = (): void => {
-	const rendererRoot = decodeURIComponent(
-		pathToFileURL(join(__dirname, '../renderer')).pathname,
-	);
+	const rendererRoot = decodeURIComponent(pathToFileURL(join(__dirname, '../renderer')).pathname);
 	protocol.handle('file', (request) => {
 		const url = new URL(request.url);
 		const filePath = decodeURIComponent(url.pathname);
