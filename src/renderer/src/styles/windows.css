@@ -56,11 +56,11 @@ article[oinky-window] [oinky-window-edge='top-right'] {
 }
 article[oinky-window] [oinky-window-edge='middle-left'] {
 	grid-area: middle-left;
-	cursor: e-resize;
+	cursor: w-resize;
 }
 article[oinky-window] [oinky-window-edge='middle-right'] {
 	grid-area: middle-right;
-	cursor: w-resize;
+	cursor: e-resize;
 }
 article[oinky-window] [oinky-window-edge='bottom-left'] {
 	grid-area: bottom-left;
