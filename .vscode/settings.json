@@ -3,15 +3,14 @@
 		"editor.defaultFormatter": "oxc.oxc-vscode"
 	},
 	"[javascript]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
+		"editor.defaultFormatter": "oxc.oxc-vscode"
 	},
 	"[json]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
+		"editor.defaultFormatter": "oxc.oxc-vscode"
 	},
 	"cSpell.words": ["fmmo", "Greasyfork", "oinky", "PHPSESSID", "Smittys"],
-	"editor.defaultFormatter": "esbenp.prettier-vscode",
 	"[html]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
+		"editor.defaultFormatter": "oxc.oxc-vscode"
 	},
-	"tailwindCSS.experimental.configFile": "./src/renderer/src/assets/main.css"
+	"tailwindCSS.experimental.configFile": "./src/renderer/src/styles.css"
 }
