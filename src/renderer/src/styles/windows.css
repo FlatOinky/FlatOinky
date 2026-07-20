@@ -16,7 +16,7 @@ article[oinky-window] {
 }
 article[oinky-window][locked-window] {
 	pointer-events: none;
-	--oinky-window-frame-size: var(--spacing);
+	--oinky-window-frame-size: minmax(var(--spacing), calc(var(--radius-box) / 2));
 }
 article[oinky-window][oinky-window-minimized] {
 	transform: scale(90%, 90%) !important;
