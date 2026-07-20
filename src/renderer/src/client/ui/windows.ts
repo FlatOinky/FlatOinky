@@ -138,7 +138,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		windowFrame.setAttribute('oinky-window', 'root');
 		windowFrame.setAttribute('oinky-window-id', id);
 		windowFrame.className =
-			'absolute rounded-box overflow-hidden min-h-min min-w-min not-locked-window:bg-base-100/90 locked-window:bg-base-100/50 transition-(--oinky-window-transition)';
+			'absolute rounded-box overflow-hidden min-h-min min-w-min not-locked-window:bg-base-100/90 locked-window:bg-base-100/40 transition-(--oinky-window-transition)';
 		windowFrame.innerHTML = renderWindowFrame(id, title);
 
 		const windowBody = windowFrame.querySelector<HTMLDivElement>('[oinky-window-area="body"]');
