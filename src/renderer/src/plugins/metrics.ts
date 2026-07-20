@@ -236,12 +236,13 @@ const initMetricsWindow = (
 			viewBox: '0 0 512 512',
 			fill: 'currentColor',
 		}),
+		initialState: {
+			width: 172,
+			height: 252,
+			top: 76,
+			left: 8,
+		},
 		onPreMount: (window) => {
-			// window.state.minimized = true;
-			window.state.width ??= 172;
-			window.state.height ??= 252;
-			window.state.top ??= 76;
-			window.state.left ??= 8;
 			window.body.className = 'flex flex-col gap-1';
 		},
 	});

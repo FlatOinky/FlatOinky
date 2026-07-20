@@ -108,6 +108,7 @@ type WindowOptions = {
 	id: string;
 	title: string;
 	storage: ClientStorage;
+	initialState?: Partial<WindowState>;
 	onPreMount?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void;
 	icon?: SVGElement | HTMLImageElement;
 };
@@ -133,6 +134,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			top: 256,
 			locked: false,
 			minimized: false,
+			...(options.initialState ?? {}),
 		});
 		const windowFrame = initElement(lifecycle, container, id, 'article');
 		windowFrame.setAttribute('oinky-window', 'root');
