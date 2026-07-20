@@ -14,8 +14,9 @@ const initialSettings = {
 	/** minutes */
 	timeSpan: 5,
 	/** seconds */
-	updateInterval: 5,
-	showWindowTotal: false,
+	updateInterval: 1,
+	showMetricsWindow: false,
+	showMetricsWindowTotalBlock: true,
 };
 type Settings = typeof initialSettings;
 
@@ -32,18 +33,19 @@ const startXpTracker = (
 	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
 	const recentWindow = Math.max(1, Math.ceil(nodeCount * 0.35));
 	let sliceIndex = xpDrops.length;
-	let sessionTotalXp = 0;
+	let sessionTotalXp = xpDrops.filter(xpDropFilter).reduce((total, xpDrop) => total + xpDrop.xp, 0);
 	const intervalSums = new Array(nodeCount).fill(0);
-	const runInterval = () => {
-		const intervalXpDrops = xpDrops.slice(sliceIndex);
-		sliceIndex = xpDrops.length;
-		const intervalSum = intervalXpDrops
-			.filter(xpDropFilter)
-			.reduce((total, xpDrop) => total + xpDrop.xp, 0);
-		intervalSums.shift();
-		intervalSums.push(intervalSum);
-		sessionTotalXp += intervalSum;
+	const now = performance.now();
+	for (const xpDrop of xpDrops) {
+		if (!xpDropFilter(xpDrop)) continue;
+		const age = now - xpDrop.timestamp;
+		if (age < 0) continue;
+		const bucketFromEnd = Math.floor(age / updateInterval);
+		if (bucketFromEnd >= nodeCount) continue;
+		intervalSums[nodeCount - 1 - bucketFromEnd] += xpDrop.xp;
+	}
 
+	const computeMetrics = (intervalSum: number) => {
 		const smoothedValues = intervalSums.map((_, index) => {
 			const start = Math.max(0, index - recentWindow + 1);
 			const window = intervalSums.slice(start, index + 1);
@@ -57,7 +59,10 @@ const startXpTracker = (
 			recentSmoothed.reduce((total, value) => total + value, 0) / recentSmoothed.length;
 		const smoothedPerSecond = smoothedAverage / updateIntervalSeconds;
 
+		const isActive = smoothedAverage > 0;
+
 		return {
+			isActive,
 			intervalSum,
 			smoothedValue,
 			smoothedValues,
@@ -66,8 +71,24 @@ const startXpTracker = (
 			xpPerHrSmoothed: smoothedPerSecond * 3600,
 		};
 	};
+
+	const runInterval = () => {
+		const intervalXpDrops = xpDrops.slice(sliceIndex);
+		sliceIndex = xpDrops.length;
+		const intervalSum = intervalXpDrops
+			.filter(xpDropFilter)
+			.reduce((total, xpDrop) => total + xpDrop.xp, 0);
+		intervalSums.shift();
+		intervalSums.push(intervalSum);
+		sessionTotalXp += intervalSum;
+		return computeMetrics(intervalSum);
+	};
+
+	const initialMetrics = computeMetrics(intervalSums[intervalSums.length - 1]);
+
 	return {
 		runInterval,
+		initialMetrics,
 		xpDrops,
 		nodeCount,
 		updateInterval,
@@ -88,7 +109,7 @@ const mountSkillChart = (
 	xpTracker: XpTracker,
 	{ responsive = false }: { responsive?: boolean } = {},
 ) => {
-	const graphData = new Array(xpTracker.nodeCount).fill(0);
+	const graphData = [...xpTracker.initialMetrics.smoothedValues];
 	const lineGraph = context.ui.graphs.mountLineGraph(graphData, {
 		height: 32,
 		width: 94,
@@ -120,8 +141,9 @@ const mountSkillBlock = (
 	xpDrops: XPDrop[],
 	settings: Settings,
 	skill: string,
+	activeSkillCharts: { [key: string]: boolean },
 ) => {
-	let showTotal = settings.showWindowTotal && skill === 'total';
+	let showTotal = settings.showMetricsWindowTotalBlock && skill === 'total';
 	let xpTracker = startXpTracker(
 		xpDrops,
 		settings,
@@ -129,14 +151,21 @@ const mountSkillBlock = (
 	);
 	const container = context.ui.mountElement(root, skill, 'div', (container) => {
 		container.className =
-			'rounded-field bg-base-200 in-locked-window:bg-base-100/50 p-1 flex flex-col gap-0.5 relative';
-		container.style.display = showTotal ? 'block' : 'none';
+			'rounded-box bg-base-200 in-locked-window:bg-base-100/50 p-[calc(var(--radius-box)/2)] flex flex-col gap-0.5 relative order-(--skill-order) transition-[background-color]';
+		container.style.display = showTotal ? 'flex' : 'none';
 	});
-	const title = context.ui.mountElement(container, 'title', 'div', (div) => {
-		div.className = 'flex space-between gap-1';
+	const skillHeader = context.ui.mountElement(container, 'header', 'div', (div) => {
+		div.className = 'flex gap-1 items-start';
 	});
-	const stats = context.ui.mountElement(container, 'stats', 'div', (div) => {
-		div.className = 'flex items-center gap-1';
+	context.ui.mountElement(skillHeader, 'icon', 'img', (img) => {
+		img.className = 'inline size-4 p-px';
+		img.src = `https://flatmmo.com/images/icons/${skill}.png`;
+	});
+	const statXpRate = context.ui.mountElement(skillHeader, 'xp-rate', 'span', (span) => {
+		span.className = 'text-xs font-bold text-info';
+	});
+	const statSessionXp = context.ui.mountElement(container, 'session-xp', 'div', (div) => {
+		div.className = 'text-xs text-base-content in-locked-window:text-base-content/80';
 	});
 
 	if (skill !== 'total') {
@@ -145,6 +174,7 @@ const mountSkillBlock = (
 				'absolute top-1 right-1 btn btn-xs size-2 btn-circle btn-error in-locked-window:hidden';
 			button.innerHTML = '×';
 			button.onclick = () => {
+				activeSkillCharts[skill] = false;
 				container.style.display = 'none';
 				xpTracker = startXpTracker(
 					xpDrops,
@@ -158,35 +188,30 @@ const mountSkillBlock = (
 	const skillChart = mountSkillChart(context, container, xpTracker, { responsive: true });
 
 	const updateStats = (metrics: XpTrackerMetrics) => {
-		title.innerHTML = `
-			<h3 class="inline-block text-base-content/50 capitalize text-xs font-bold">${skill}</h3>
-			<span class="text-xs font-bold text-secondary/80">${formatXp(metrics.sessionTotalXp)}xp</span>
-		`;
-		stats.innerHTML =
-			{
-				hr: `<span class="text-xs text-primary">${formatXp(metrics.xpPerHrSmoothed)}xp / hr</span>`,
-				min: `<span class="text-xs text-primary">${formatXp(metrics.xpPerMinSmoothed)}xp / min</span>`,
-			}[settings.xpRateType] ?? '';
+		const xpRateValue = {
+			hr: metrics.xpPerHrSmoothed,
+			min: metrics.xpPerMinSmoothed,
+		}[settings.xpRateType];
+		container.style.setProperty('--skill-order', `-${Math.ceil(xpRateValue)}`);
+		statSessionXp.innerHTML = `${formatXp(metrics.sessionTotalXp)}xp`;
+		statXpRate.innerHTML = `${formatXp(xpRateValue)}xp / ${settings.xpRateType}`;
 	};
-	updateStats({
-		intervalSum: 0,
-		smoothedValue: 0,
-		smoothedValues: [],
-		sessionTotalXp: 0,
-		xpPerMinSmoothed: 0,
-		xpPerHrSmoothed: 0,
-	});
-
-	const runInterval = () => {
-		showTotal = settings.showWindowTotal && skill === 'total';
-		const metrics = xpTracker.runInterval();
-		updateStats(metrics);
-		skillChart.runInterval(metrics.smoothedValue);
-		if (showTotal || (skill !== 'total' && metrics.smoothedValue > 0)) {
+	const updateVisibility = (metrics: XpTrackerMetrics) => {
+		showTotal = settings.showMetricsWindowTotalBlock && skill === 'total';
+		if (showTotal || (skill !== 'total' && metrics.isActive && activeSkillCharts[skill])) {
 			container.style.display = 'block';
 		} else {
 			container.style.display = 'none';
 		}
+	};
+	updateStats(xpTracker.initialMetrics);
+	updateVisibility(xpTracker.initialMetrics);
+
+	const runInterval = () => {
+		const metrics = xpTracker.runInterval();
+		updateStats(metrics);
+		skillChart.runInterval(metrics.smoothedValue);
+		updateVisibility(metrics);
 		return metrics;
 	};
 	return {
@@ -213,15 +238,22 @@ const initMetricsWindow = (
 		}),
 		onPreMount: (window) => {
 			// window.state.minimized = true;
-			window.state.width = 192;
-			window.body.className = 'flex flex-col gap-2';
+			window.state.width ??= 172;
+			window.state.height ??= 252;
+			window.state.top ??= 76;
+			window.state.left ??= 8;
+			window.body.className = 'flex flex-col gap-1';
 		},
 	});
 
+	const activeSkillCharts: { [key: string]: boolean } = Object.fromEntries(
+		valid_skills.values().map((skill) => [skill, false]),
+	);
+
 	const skillCharts = ['total', ...valid_skills.values()].map((skill) => {
-		return mountSkillBlock(context, window.body, xpDrops, settings, skill);
+		return mountSkillBlock(context, window.body, xpDrops, settings, skill, activeSkillCharts);
 	});
-	return { window, skillCharts };
+	return { window, activeSkillCharts, skillCharts };
 };
 // #region plugin
 
@@ -238,14 +270,17 @@ export const MetricsPlugin: Plugin = {
 		const initWindowLifecycle = () => {
 			const newLifecycle = lifecycle.spawnLifecycle();
 			newLifecycle.onCleanup(() => {
+				settings.showMetricsWindow = false;
 				windowMetrics = undefined;
 				windowMetricsLifecycle = undefined;
 			});
 			return newLifecycle;
 		};
 
-		windowMetricsLifecycle ??= initWindowLifecycle();
-		windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
+		if (settings.showMetricsWindow) {
+			windowMetricsLifecycle ??= initWindowLifecycle();
+			windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
+		}
 
 		const widget = context.ui.taskbar.initWidget(lifecycle, 'metrics');
 		widget.classList.add('contents', 'text-accent');
@@ -254,9 +289,16 @@ export const MetricsPlugin: Plugin = {
 		toggleButton.className =
 			'bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden';
 		toggleButton.onclick = () => {
-			windowMetricsLifecycle ??= initWindowLifecycle();
-			windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
-			windowMetrics?.window.showWindow();
+			if (settings.showMetricsWindow) {
+				settings.showMetricsWindow = false;
+				windowMetrics?.window.hideWindow();
+				return;
+			} else {
+				settings.showMetricsWindow = true;
+				windowMetricsLifecycle ??= initWindowLifecycle();
+				windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
+				windowMetrics?.window.showWindow();
+			}
 		};
 
 		const xpTracker = startXpTracker(xpDrops, settings);
@@ -277,6 +319,9 @@ export const MetricsPlugin: Plugin = {
 			onXpDrop: ({ username, skill, xp }) => {
 				if (username !== context.character.username) return;
 				if (typeof xp !== 'number' || xp <= 0 || isNaN(xp)) return;
+				if (windowMetrics) {
+					windowMetrics.activeSkillCharts[skill] = true;
+				}
 				xpDrops.push({ skill, xp, timestamp: performance.now() });
 			},
 		};
