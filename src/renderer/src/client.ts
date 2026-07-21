@@ -1,9 +1,9 @@
-import { FMMOCharacter } from '.';
+import { FMMOCharacter, FMMOReference } from '.';
 import { ChatMessage, parseChatMessage } from './client/chat_message';
 import { createPluginStorages } from './client/client_storage';
 import { getProfileKey } from './client/profiles';
 import { initUi } from './client/ui';
-import { reloadWindow } from './client/ipc_renderer';
+import { openDevTools, reloadWindow, saveReferences } from './client/ipc_renderer';
 
 export type { ChatMessage };
 
@@ -36,6 +36,17 @@ export const initLifecycle = () => {
 	};
 };
 
+// #region Ipc
+
+export type ClientIpc = ReturnType<typeof initIpc>;
+
+const initIpc = (references: FMMOReference[]) => {
+	return {
+		openDevTools: () => openDevTools(),
+		saveReferences: () => saveReferences(references),
+	};
+};
+
 // #region Plugins
 
 export type ClientUi = ReturnType<typeof initUi>;
@@ -47,8 +58,9 @@ const createContext = (
 	ui: ClientUi,
 	canvas: HTMLCanvasElement,
 	container: HTMLElement,
+	ipc: ClientIpc,
 ) => {
-	return { character, ui, canvas, container };
+	return { character, ui, canvas, container, ipc };
 };
 
 export type PluginContext = Awaited<ReturnType<typeof createPluginContext>>;
@@ -285,13 +297,14 @@ export const hookedFunctions = [
 	'pause_track',
 ];
 
-export const initClient = (character: FMMOCharacter) => {
+export const initClient = (character: FMMOCharacter, references: FMMOReference[]) => {
 	const canvas = document.querySelector<HTMLCanvasElement>('canvas#canvas');
 	const canvasContainer = canvas?.parentElement;
 	if (!canvas || !canvasContainer) return;
 	const lifecycle = initLifecycle();
 	const ui = initUi(lifecycle, canvasContainer);
-	const context = createContext(character, ui, canvas, canvasContainer);
+	const ipc = initIpc(references);
+	const context = createContext(character, ui, canvas, canvasContainer, ipc);
 
 	const plugins = initPlugins(lifecycle, context);
 

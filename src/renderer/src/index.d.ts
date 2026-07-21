@@ -16,6 +16,8 @@ export type FMMOCharacter = {
 	level: string;
 };
 
+export type FMMOReference = { name: string; content: string };
+
 export type FMMOPlayer = {
 	client_pathing: unknown[];
 	client_x: number;

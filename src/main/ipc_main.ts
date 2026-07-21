@@ -1,7 +1,7 @@
 import { ipcMain, Notification, dialog } from 'electron';
 import * as storage from './storage';
 import * as flatMmo from './flat_mmo';
-import { saveFile } from './files';
+import { saveFile, saveReferencesArchive } from './files';
 import type { StorageKey } from './storage';
 
 export const ipcMainSetup = (): void => {
@@ -20,6 +20,14 @@ export const ipcMainSetup = (): void => {
 		dialog.showSaveDialog({ defaultPath: filename }).then((result) => {
 			if (result.canceled) return;
 			saveFile(result.filePath, contents);
+		});
+	});
+
+	ipcMain.on('saveReferences', (_event, references: { name: string; content: string }[]) => {
+		if (!Array.isArray(references) || references.length < 1) return;
+		dialog.showSaveDialog({ defaultPath: 'flat-mmo-references.tar.gz' }).then((result) => {
+			if (result.canceled || !result.filePath) return;
+			saveReferencesArchive(result.filePath, references).catch((error) => console.warn(error));
 		});
 	});
 

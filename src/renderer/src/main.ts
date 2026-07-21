@@ -10,7 +10,7 @@ import bannerLumberjackSrc from './assets/fmmo_lumberjack.gif';
 import bannerMinerSrc from './assets/fmmo_miner.gif';
 import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
-import { FMMOCharacter, FMMOWorld } from '.';
+import { FMMOCharacter, FMMOReference, FMMOWorld } from '.';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
 import { hookedFunctions, initClient } from './client';
 import './styles.css';
@@ -340,9 +340,23 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	document.body.appendChild(styleElement);
 	document.body.appendChild(scriptElement);
 
+	// Collect the raw (untranspiled) FlatMMO script sources as references
+	const references: FMMOReference[] = Array.from(clientScripts).map((element, index) => {
+		const src = element.src;
+		if (src === '') return { name: `inline-${index}.js`, content: scriptContents[index] ?? '' };
+		let name = src;
+		try {
+			name = new URL(src).pathname.replace(/^\/+/, '');
+		} catch {
+			// keep the raw src as the name if it fails to parse
+		}
+		if (name === '') name = `script-${index}.js`;
+		return { name, content: scriptContents[index] ?? '' };
+	});
+
 	// Now that the FlatMMO client has been loaded render the contents for oinky
 	rootElement.innerHTML = renderClientPage();
-	flatOinky.client = initClient(character);
+	flatOinky.client = initClient(character, references);
 };
 
 // #endregion
