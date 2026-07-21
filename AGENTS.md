@@ -9,9 +9,9 @@ client.
 
 ## 1. Development environment setup
 
-- Toolchain is managed with **mise** (Node.js + npm). Ensure `node` and `npm` resolve
+- Toolchain is managed with **mise** (Node.js + pnpm). Ensure `node` and `pnpm` resolve
   before working; versions specified in `./mise.toml`.
-- Install dependencies with `npm install` (see section 5: requires approval).
+- Install dependencies with `pnpm install` (see section 5: requires approval).
 - Stack: **Electron** + **Vite** (via `electron-vite`), **TypeScript**, **Tailwind CSS
   v4** + **DaisyUI** for styling, **oxlint** for linting, **oxfmt** for formatting.
 - `./refs` holds the upstream Flat MMO source for reference. It is git-ignored (never
@@ -20,10 +20,10 @@ client.
 ## 2. Code style and conventions
 
 - Format with **oxfmt** (`.oxfmtrc.json`): single quotes, 100-column print width, tab
-  indentation, semicolons. Run `npm run format` (or `npm run format:check`).
-- Lint with **oxlint** (`.oxlintrc.json`): run `npm run lint` (or `npm run lint:fix`).
+  indentation, semicolons. Run `pnpm run format` (or `pnpm run format:check`).
+- Lint with **oxlint** (`.oxlintrc.json`): run `pnpm run lint` (or `pnpm run lint:fix`).
 - TypeScript: no `any` (`typescript/no-explicit-any`), no `var`, `prefer-const`, no
-  unused vars. Type-check with `npm run typecheck`.
+  unused vars. Type-check with `pnpm run typecheck`.
 - Prefer small factory functions returning objects (e.g. `initClient`, `initLifecycle`)
   and organize files with `// #region <name>` comment markers.
 
@@ -53,7 +53,7 @@ client.
 
 ### Require approval first
 
-- Package installations (`npm`, `npm install`, `npm run`)
+- Package installations (`pnpm`, `pnpm install`, `pnpm run`)
 - Git operations (`git push`, `git commit`)
 - File deletion
 - Running full build or E2E test suites
