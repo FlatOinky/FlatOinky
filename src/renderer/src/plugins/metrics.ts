@@ -15,7 +15,7 @@ const initialSettings = {
 	timeSpan: 5,
 	/** seconds */
 	updateInterval: 1,
-	showMetricsWindow: false,
+	isMetricsWindowOpen: false,
 	showMetricsWindowTotalBlock: true,
 };
 type Settings = typeof initialSettings;
@@ -271,14 +271,14 @@ export const MetricsPlugin: Plugin = {
 		const initWindowLifecycle = () => {
 			const newLifecycle = lifecycle.spawnLifecycle();
 			newLifecycle.onCleanup(() => {
-				settings.showMetricsWindow = false;
+				settings.isMetricsWindowOpen = false;
 				windowMetrics = undefined;
 				windowMetricsLifecycle = undefined;
 			});
 			return newLifecycle;
 		};
 
-		if (settings.showMetricsWindow) {
+		if (settings.isMetricsWindowOpen) {
 			windowMetricsLifecycle ??= initWindowLifecycle();
 			windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
 		}
@@ -290,12 +290,10 @@ export const MetricsPlugin: Plugin = {
 		toggleButton.className =
 			'bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden';
 		toggleButton.onclick = () => {
-			if (settings.showMetricsWindow) {
-				settings.showMetricsWindow = false;
+			if (windowMetrics?.window.state.minimized === false) {
 				windowMetrics?.window.hideWindow();
-				return;
 			} else {
-				settings.showMetricsWindow = true;
+				settings.isMetricsWindowOpen = true;
 				windowMetricsLifecycle ??= initWindowLifecycle();
 				windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
 				windowMetrics?.window.showWindow();

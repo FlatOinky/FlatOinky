@@ -301,6 +301,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			lifecycle,
 			frame: windowFrame,
 			body: windowBody,
+			state: windowState,
 			updateWindowFramePosition: () => updateWindowFramePosition(windowFrame, windowState),
 			updateWindowFrameLock: () => updateWindowFrameLock(windowFrame, windowState),
 			updateWindowFrameMinimized: () => updateWindowFrameMinimized(windowFrame, windowState),
