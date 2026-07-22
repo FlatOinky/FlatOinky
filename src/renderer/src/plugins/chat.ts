@@ -156,13 +156,20 @@ const createIconImg = (src: string): HTMLImageElement => {
 const createUserTag = (tag?: string): HTMLSpanElement | null => {
 	if (!tag || tag === 'none') return null;
 	const tagName =
-		({ 'investor-plus': 'investor', 'investor-gold': 'gold investor' } as Record<string, string>)[
-			tag
-		] ?? tag;
+		(
+			{
+				'investor-plus': 'investor',
+				investor_plus: 'investor',
+				'investor-gold': 'gold investor',
+				investor_gold: 'gold investor',
+			} as Record<string, string>
+		)[tag] ?? tag;
 	const className =
 		{
 			'investor-plus': 'chat-tag-investor-plus chat-tag-investor-plus-shiny',
+			investor_plus: 'chat-tag-investor-plus chat-tag-investor-plus-shiny',
 			'investor-gold': 'chat-tag-investor-gold chat-tag-investor-plus-gold',
+			investor_gold: 'chat-tag-investor-gold chat-tag-investor-plus-gold',
 		}[tag] ?? `chat-tag-${tag}`;
 	const span = document.createElement('span');
 	span.className = className;
