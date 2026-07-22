@@ -1,118 +1,95 @@
 import { Lifecycle } from '../../client';
 import { version } from '../../../../../package.json';
-import { createSvgIcon, initElement, mountElement } from './ui_utils';
+import { createSvgIcon, initElement, mountElement, type SvgIconOptions } from './ui_utils';
+import * as el from './elements';
 
 export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	const containerPositioner = document.createElement('div');
-	containerPositioner.className = 'flat-oinky absolute top-full w-full -mt-1.5 pr-0.5';
+	containerPositioner.className = 'flat-oinky absolute top-full w-full pr-0.5';
 	containerPositioner.style.display = 'contents';
 	containerPositioner.setAttribute('oinky', 'taskbar');
 
-	const container = mountElement(containerPositioner, 'taskbar', 'section', (taskbarSection) => {
-		taskbarSection.className = 'relative bg-base-100 rounded-b-box flex gap-2 p-1';
-	});
+	const container =
+		el.section`relative bg-base-100 rounded-b-box flex gap-2 p-1 -translate-y-1.25`.mount(
+			containerPositioner,
+			'taskbar',
+		);
 
-	const chatContainer = mountElement(container, 'chat', 'div', (chatContainer) => {
-		chatContainer.className = 'contents';
-	});
+	const chatContainer = el.div`contents`.mount(container, 'chat');
+	const openWindowsContainer = el.div`flex gap-1`.mount(container, 'openWindows');
 
-	const openWindowsContainer = mountElement(
-		container,
-		'openWindows',
-		'div',
-		(openWindowsContainer) => {
-			openWindowsContainer.className = 'flex gap-1';
-		},
-	);
+	// el.button`btn btn-square btn-secondary btn-soft`.mount(
+	// 	container,
+	// 	'addWindow',
+	// 	(addWindowButton) => {
+	// 		addWindowButton.style.setProperty('anchor-name', '--oinky-taskbar-add-window-menu-btn');
+	// 		addWindowButton.setAttribute('popovertarget', 'oinky-taskbar-windows-menu');
+	// 		addWindowButton.appendChild(createSvgIcon(['M12 4.5v15m7.5-7.5h-15']));
+	// 	},
+	// );
+	// const addWindowDropdown =
+	// 	el.div`dropdown dropdown-top dropdown-start w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20`.mount(
+	// 		container,
+	// 		'addWindowDropdown',
+	// 		(addWindowDropdown) => {
+	// 			addWindowDropdown.setAttribute('popover', '');
+	// 			addWindowDropdown.id = 'oinky-taskbar-windows-menu';
+	// 			addWindowDropdown.style.setProperty(
+	// 				'position-anchor',
+	// 				'--oinky-taskbar-add-window-menu-btn',
+	// 			);
+	// 		},
+	// 	);
 
-	const addWindowButton = mountElement(container, 'addWindow', 'button', (addWindowButton) => {
-		addWindowButton.className = 'btn btn-square btn-secondary btn-soft';
-		addWindowButton.style.setProperty('anchor-name', '--oinky-taskbar-add-window-menu-btn');
-		addWindowButton.setAttribute('popovertarget', 'oinky-taskbar-windows-menu');
-		addWindowButton.appendChild(createSvgIcon(['M12 4.5v15m7.5-7.5h-15']));
-	});
-	const addWindowDropdown = mountElement(
-		container,
-		'addWindowDropdown',
-		'div',
-		(addWindowDropdown) => {
-			addWindowDropdown.className =
-				'dropdown dropdown-top dropdown-start w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20';
-			addWindowDropdown.setAttribute('popover', '');
-			addWindowDropdown.id = 'oinky-taskbar-windows-menu';
-			addWindowDropdown.style.setProperty('position-anchor', '--oinky-taskbar-add-window-menu-btn');
-		},
-	);
-
-	const addWindowList = mountElement(addWindowDropdown, 'addWindowList', 'ul', (addWindowList) => {
-		addWindowList.className = 'menu w-full';
-	});
+	// const addWindowList = el.ul`menu w-full`.mount(addWindowDropdown, 'addWindowList');
 
 	// #region > core sections
-	const activitiesContainer = mountElement(
-		container,
-		'activities',
-		'div',
-		(activitiesContainer) => {
-			activitiesContainer.className =
-				'absolute left-1/2 bottom-full -translate-x-1/2 m-1 pointer-events-none';
+	const activitiesContainer =
+		el.div`absolute left-1/2 bottom-full -translate-x-1/2 m-1 pointer-events-none`.mount(
+			container,
+			'tray',
+		);
+
+	const spacer = el.div`flex-1`.mount(container, 'spacer');
+	const widgetsContainer = el.div`flex gap-1`.mount(container, 'widgets');
+	const trayContainer = el.div`flex-none flex gap-1 items-center`.mount(container, 'tray');
+	const divider = el.div`flex-none border-r border-base-content/20`.mount(container, 'divider');
+
+	// #region > taskbar menu
+	const menuContainer = el.div`flex-none`.mount(container, 'menu');
+
+	el.button`btn btn-ghost engaged:btn-primary btn-square`.mount(
+		menuContainer,
+		'toggle',
+		(toggle) => {
+			toggle.style.setProperty('anchor-name', '--oinky-taskbar-menu-btn');
+			toggle.setAttribute('popovertarget', 'oinky-taskbar-menu');
+			toggle.appendChild(createSvgIcon(['M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5']));
 		},
 	);
 
-	const spacer = mountElement(container, 'spacer', 'div', (spacer) => {
-		spacer.className = 'flex-1';
+	const menuDropdown =
+		el.div`dropdown dropdown-top dropdown-end flex flex-col gap-1 w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20 overflow-visible not-open:hidden`.mount(
+			menuContainer,
+			'dropdown',
+			(menuDropdown) => {
+				menuDropdown.setAttribute('popover', '');
+				menuDropdown.id = 'oinky-taskbar-menu';
+				menuDropdown.style.setProperty('position-anchor', '--oinky-taskbar-menu-btn');
+			},
+		);
+
+	el.div`text-center mt-2 text-base-content/80`.mount(menuDropdown, 'header', (header) => {
+		el.h2`text-sm`.mount(header, 'title', (h2) => (h2.innerText = 'Flat Oinky'));
+		el.h3`text-xs`.mount(header, 'version', (h3) => (h3.innerText = `v${version}`));
 	});
 
-	const widgetsContainer = mountElement(container, 'widgets', 'div', (widgetsContainer) => {
-		widgetsContainer.className = 'flex gap-1';
-	});
-
-	const trayContainer = mountElement(container, 'tray', 'div', (trayContainer) => {
-		trayContainer.className = 'flex-none flex gap-1 items-center';
-	});
-
-	const divider = mountElement(container, 'divider', 'div', (divider) => {
-		divider.className = 'flex-none border-r border-base-content/20';
-	});
-
-	// #region > taskbar menu
-	const menuContainer = mountElement(container, 'menu', 'div', (menuContainer) => {
-		menuContainer.className = 'flex-none';
-	});
-
-	const menuToggle = mountElement(menuContainer, 'toggle', 'button', (menuButton) => {
-		menuButton.className = 'btn btn-ghost engaged:btn-primary btn-square';
-		menuButton.style.setProperty('anchor-name', '--oinky-taskbar-menu-btn');
-		menuButton.setAttribute('popovertarget', 'oinky-taskbar-menu');
-		menuButton.appendChild(createSvgIcon(['M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5']));
-	});
-
-	const menuDropdown = mountElement(menuContainer, 'dropdown', 'div', (menuDropdown) => {
-		menuDropdown.className =
-			'dropdown dropdown-top dropdown-end flex flex-col gap-1 w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20 overflow-visible not-open:hidden';
-		menuDropdown.setAttribute('popover', '');
-		menuDropdown.id = 'oinky-taskbar-menu';
-		menuDropdown.style.setProperty('position-anchor', '--oinky-taskbar-menu-btn');
-	});
-
-	const menuHeader = mountElement(menuDropdown, 'header', 'div', (menuHeader) => {
-		menuHeader.className = 'text-center mt-2 text-base-content/80';
-		menuHeader.innerHTML = `<h2 class="text-sm">Flat Oinky</h2><h3 class="text-xs">v${version}</h3>`;
-	});
-
-	const menuItems = mountElement(menuDropdown, 'items', 'div', (menuItems) => {
-		menuItems.className = 'menu w-full';
-	});
-
-	const menuActions = mountElement(menuDropdown, 'actions', 'div', (menuActions) => {
-		menuActions.className = 'menu w-full';
-	});
+	const menuItems = el.div`menu w-full`.mount(menuDropdown, 'items');
+	const menuActions = el.div`menu w-full`.mount(menuDropdown, 'actions');
 
 	container.append(
 		chatContainer,
 		openWindowsContainer,
-		addWindowButton,
-		addWindowDropdown,
 		activitiesContainer,
 		spacer,
 		widgetsContainer,
@@ -134,6 +111,65 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 
 	const initWidget = (lifecycle: Lifecycle, id: string) =>
 		initElement(lifecycle, widgetsContainer, id, 'div');
+
+	type TrayButtonOptions = {
+		title?: string;
+		icon?: SVGAElement | HTMLElement | { paths: string[]; options?: SvgIconOptions };
+	};
+
+	const initTrayButton = (
+		lifecycle: Lifecycle,
+		id: string,
+		options: TrayButtonOptions = {},
+		handler?: (button: HTMLButtonElement) => void,
+	) =>
+		initElement(lifecycle, trayContainer, `${id}/button`, 'button', (button) => {
+			button.className = 'btn btn-circle btn-ghost btn-xs engaged:btn-primary';
+			// button.addEventListener('click', () => button.blur());
+			if (options.title) {
+				button.classList.add('tooltip', 'tooltip-top', 'tooltip-end');
+				button.setAttribute('data-tip', options.title);
+			}
+			if (options.icon instanceof SVGAElement || options.icon instanceof HTMLElement) {
+				button.replaceChildren(options.icon);
+			} else if (typeof options.icon === 'object') {
+				const buttonIcon = createSvgIcon(options.icon.paths, options.icon.options);
+				button.replaceChildren(buttonIcon);
+			}
+			handler?.(button);
+		});
+
+	type TrayButtonMenuOptions = {
+		button?: TrayButtonOptions;
+	};
+
+	const initTrayButtonMenu = (
+		lifecycle: Lifecycle,
+		id: string,
+		options: TrayButtonMenuOptions = {},
+	) => {
+		const trayButton = initTrayButton(lifecycle, id, options.button);
+		const trayMenu = initElement(lifecycle, trayContainer, `${id}/menu`, 'div', (menu) => {
+			menu.className =
+				'dropdown dropdown-top dropdown-end w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20';
+		});
+
+		const anchorId = CSS.escape(
+			`oink-taskbar-tray-${trayButton.getAttribute('oinky') ?? id}`.replaceAll('/', '-'),
+		);
+		const popoverId = CSS.escape(
+			`oink-taskbar-tray-${trayMenu.getAttribute('oinky') ?? id}`.replaceAll('/', '-'),
+		);
+
+		trayButton.style.anchorName = `--${anchorId}`;
+		trayButton.setAttribute('popovertarget', popoverId);
+
+		trayMenu.setAttribute('popover', '');
+		trayMenu.setAttribute('id', popoverId);
+		trayMenu.style.setProperty('position-anchor', `--${anchorId}`);
+
+		return { trayButton, trayMenu, anchorId, popoverId };
+	};
 
 	const initWindowButton = (
 		lifecycle: Lifecycle,
@@ -200,24 +236,11 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		initWidget,
 		initWindowButton,
 		initMenuAction,
+		initTrayButton,
+		initTrayButtonMenu,
 		elements: {
 			container: containerPositioner,
-			taskbarSection: container,
 			chatContainer,
-			openWindowsContainer,
-			addWindowDropdown,
-			addWindowList,
-			activitiesContainer,
-			spacer,
-			widgetsContainer,
-			trayContainer,
-			divider,
-			menuContainer,
-			menuToggle,
-			menuDropdown,
-			menuHeader,
-			menuItems,
-			menuActions,
 		},
 	};
 };
