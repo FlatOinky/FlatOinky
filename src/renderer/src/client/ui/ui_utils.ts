@@ -43,7 +43,16 @@ export const initElement = <T extends keyof HTMLElementTagNameMap>(
 	return element;
 };
 
-type SvgIconOptions = {
+export type SvgIconPath =
+	| string
+	| SVGPathElement
+	| {
+			['stroke-linecap']?: string;
+			['stroke-linejoin']?: string;
+			d: string;
+	  };
+
+export type SvgIconOptions = {
 	viewBox?: string;
 	fill?: string;
 	stroke?: string;
@@ -51,7 +60,10 @@ type SvgIconOptions = {
 	className?: string;
 };
 
-export const createSvgIcon = (paths: string[], options: SvgIconOptions = {}): SVGSVGElement => {
+export const createSvgIcon = (
+	paths: SvgIconPath[],
+	options: SvgIconOptions = {},
+): SVGSVGElement => {
 	const {
 		viewBox = '0 0 24 24',
 		fill = 'none',
@@ -68,17 +80,31 @@ export const createSvgIcon = (paths: string[], options: SvgIconOptions = {}): SV
 		svg.setAttribute('stroke-width', strokeWidth);
 		svg.setAttribute('stroke', stroke);
 	}
-	paths.forEach((d) => {
-		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		if (isStroke) {
-			path.setAttribute('stroke-linecap', 'round');
-			path.setAttribute('stroke-linejoin', 'round');
-		} else {
-			path.setAttribute('fill-rule', 'evenodd');
-			path.setAttribute('clip-rule', 'evenodd');
+	paths.forEach((path) => {
+		if (typeof path === 'string') {
+			const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			if (isStroke) {
+				pathElement.setAttribute('stroke-linecap', 'round');
+				pathElement.setAttribute('stroke-linejoin', 'round');
+			} else {
+				pathElement.setAttribute('fill-rule', 'evenodd');
+				pathElement.setAttribute('clip-rule', 'evenodd');
+			}
+			pathElement.setAttribute('d', path);
+			svg.appendChild(pathElement);
+		} else if (path instanceof SVGPathElement) {
+			svg.appendChild(path);
+		} else if (typeof path === 'object' && 'd' in path) {
+			const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			if (path['stroke-linecap']) {
+				pathElement.setAttribute('stroke-linecap', path['stroke-linecap']);
+			}
+			if (path['stroke-linejoin']) {
+				pathElement.setAttribute('stroke-linejoin', path['stroke-linejoin']);
+			}
+			pathElement.setAttribute('d', path.d);
+			svg.appendChild(pathElement);
 		}
-		path.setAttribute('d', d);
-		svg.appendChild(path);
 	});
 	return svg;
 };
