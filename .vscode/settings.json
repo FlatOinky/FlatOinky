@@ -12,5 +12,6 @@
 	"[html]": {
 		"editor.defaultFormatter": "oxc.oxc-vscode"
 	},
+	"tailwindCSS.classFunctions": ["((context.)?ui.)?el\\.\\w*"],
 	"tailwindCSS.experimental.configFile": "./src/renderer/src/styles.css"
 }

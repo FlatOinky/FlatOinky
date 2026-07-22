@@ -2,6 +2,7 @@ import { Lifecycle } from '../client';
 import { initTaskbar } from './ui/taskbar';
 import * as uiUtils from './ui/ui_utils';
 import { initWindows } from './ui/windows';
+import * as el from './ui/elements';
 
 // #region Utils
 
@@ -79,6 +80,7 @@ export const initUi = (lifecycle: Lifecycle, canvasContainer: HTMLElement) => {
 	canvasContainer.appendChild(root);
 
 	return {
+		el,
 		root,
 		taskbar,
 		windows,
