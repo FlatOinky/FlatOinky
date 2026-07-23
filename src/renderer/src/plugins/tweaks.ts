@@ -2,7 +2,7 @@ import { Lifecycle, Plugin } from '../client';
 
 const initialSettings = {
 	enableDarkenSky: true,
-	enableDynamicCanvas: true,
+	enableDynamicCanvas_beta: false,
 };
 
 // The FlatMMO canvas renders at a fixed internal resolution; everything else is
@@ -94,7 +94,7 @@ export const TweaksPlugin: Plugin = {
 		const settings = context.storages.global.reactive('tweaks', initialSettings);
 		let darkenSkyLifecycle: Lifecycle | null = null;
 
-		if (settings.enableDynamicCanvas) {
+		if (settings.enableDynamicCanvas_beta) {
 			initDynamicCanvas(lifecycle, context.canvas);
 		}
 
