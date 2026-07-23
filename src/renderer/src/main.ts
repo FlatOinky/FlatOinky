@@ -74,6 +74,30 @@ const parseHtmlText = (htmlText: string): Document => {
 	return new DOMParser().parseFromString(htmlText, 'text/html');
 };
 
+const isFirstPartyUrl = (url: string): boolean => {
+	if (!url) return true; // inline content has no url
+	try {
+		const { hostname } = new URL(url);
+		return hostname === 'flatmmo.com' || hostname.endsWith('.flatmmo.com');
+	} catch {
+		return true; // unparseable => treat as relative/first-party
+	}
+};
+
+const toReferenceName = (url: string, index: number, ext: string): string => {
+	if (url === '') return `inline-${index}.${ext}`;
+	try {
+		const name = new URL(url).pathname.replace(/^\/+/, '');
+		if (name !== '') return name;
+	} catch {
+		// fall through
+	}
+	return `asset-${index}.${ext}`;
+};
+
+const scrubConnectString = (content: string): string =>
+	content.replace(/(Globals\.connect_str\s*=\s*)(['"]).*?\2/g, '$1"<scrubbed>"');
+
 const parseCharactersHtmlText = (htmlText: string): FMMOCharacter[] => {
 	if (typeof htmlText !== 'string' || htmlText.length < 1) return [];
 	const charactersDocument = parseHtmlText(htmlText);
@@ -321,7 +345,7 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	);
 	const styleElement = document.createElement('style');
 	styleElement.setAttribute('fmmo-asset', 'style');
-	styleElement.innerHTML = `@scope (html) to (.flat-oinky) {\n${transpileStyle(styleContents.join('\n'))}\n}`;
+	styleElement.innerHTML = `@layer fmmo { @scope (html) to (.flat-oinky) {\n${transpileStyle(styleContents.join('\n'))}\n}}`;
 
 	// Fetch and append scripts to the document
 	const clientScripts = clientDocument.querySelectorAll<HTMLScriptElement>('script');
@@ -340,19 +364,29 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	document.body.appendChild(styleElement);
 	document.body.appendChild(scriptElement);
 
-	// Collect the raw (untranspiled) FlatMMO script sources as references
-	const references: FMMOReference[] = Array.from(clientScripts).map((element, index) => {
-		const src = element.src;
-		if (src === '') return { name: `inline-${index}.js`, content: scriptContents[index] ?? '' };
-		let name = src;
-		try {
-			name = new URL(src).pathname.replace(/^\/+/, '');
-		} catch {
-			// keep the raw src as the name if it fails to parse
-		}
-		if (name === '') name = `script-${index}.js`;
-		return { name, content: scriptContents[index] ?? '' };
-	});
+	// Collect the raw (untranspiled) FlatMMO sources as references, excluding
+	// third-party assets (e.g. Google Fonts) from the download.
+	const htmlReference: FMMOReference = { name: 'play.html', content: clientHtmlText };
+
+	const styleReferences: FMMOReference[] = Array.from(clientStyles)
+		.map((element, index) => ({ element, content: styleContents[index] ?? '' }))
+		.filter(({ element }) => !(element instanceof HTMLLinkElement) || isFirstPartyUrl(element.href))
+		.map(({ element, content }, index) => ({
+			name: toReferenceName(element instanceof HTMLLinkElement ? element.href : '', index, 'css'),
+			content,
+		}));
+
+	const scriptReferences: FMMOReference[] = Array.from(clientScripts)
+		.map((element, index) => ({ element, content: scriptContents[index] ?? '' }))
+		.filter(({ element }) => isFirstPartyUrl(element.src))
+		.map(({ element, content }, index) => ({
+			name: toReferenceName(element.src, index, 'js'),
+			content,
+		}));
+
+	const references: FMMOReference[] = [htmlReference, ...styleReferences, ...scriptReferences].map(
+		(reference) => ({ ...reference, content: scrubConnectString(reference.content) }),
+	);
 
 	// Now that the FlatMMO client has been loaded render the contents for oinky
 	rootElement.innerHTML = renderClientPage();
