@@ -44,6 +44,10 @@ declare global {
 		// Oinky stuff
 		setTitle: (labelPrefix?: string) => void;
 		reloadWindow: () => void;
+		// Bridge into the FlatMMO classic-script scope to update `canvas_scale`
+		__oinkySetCanvasScale?: (scale: number) => void;
+		// FlatMMO global that repositions the chat overlay relative to the canvas
+		position_chat?: () => void;
 		flatOinky: {
 			page: string;
 			worlds: FMMOWorld[] | null;

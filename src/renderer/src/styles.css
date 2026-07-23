@@ -1,4 +1,4 @@
-@layer theme, base, components, utilities;
+@layer theme, fmmo, base, components, utilities;
 
 @import 'tailwindcss/theme.css' layer(theme);
 
@@ -45,6 +45,18 @@
 		}
 		button:hover {
 			background: rgb(219, 219, 219);
+		}
+
+		td {
+			padding: 0;
+		}
+		
+		canvas {
+			border: none;
+		}
+
+		table {
+			border-spacing: 0;
 		}
 	}
 }
