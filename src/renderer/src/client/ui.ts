@@ -67,10 +67,12 @@ export type UITaskbarApi = ReturnType<typeof initTaskbar>;
 export type ClientUI = ReturnType<typeof initUi>;
 
 export const initUi = (lifecycle: Lifecycle, canvasContainer: HTMLElement) => {
-	const root = document.createElement('div');
-	root.className = 'flat-oinky contents';
+	const root = el.div`flat-oinky contents`.mount(canvasContainer);
+	root.setAttribute('oinky', '');
+
 	const taskbar = initTaskbar(lifecycle, root);
 	const windows = initWindows(lifecycle, root, taskbar);
+
 	lifecycle.onCleanup(() => {
 		windows.container.remove();
 		taskbar.elements.container.remove();

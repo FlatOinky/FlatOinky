@@ -1,17 +1,19 @@
 import { Lifecycle } from '../../client';
 import { version } from '../../../../../package.json';
-import { createSvgIcon, initElement, mountElement, type SvgIconOptions } from './ui_utils';
+import {
+	createSvgIcon,
+	initElement,
+	mountElement,
+	type SvgIconOptions,
+	type SvgIconPath,
+} from './ui_utils';
 import * as el from './elements';
 
 export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
-	const containerPositioner = document.createElement('div');
-	containerPositioner.className = 'flat-oinky absolute top-full w-full pr-0.5';
-	containerPositioner.style.display = 'contents';
-	containerPositioner.setAttribute('oinky', 'taskbar');
-
 	const container =
-		el.section`relative bg-base-100 rounded-b-box flex gap-2 p-1 -translate-y-1.25`.mount(
-			containerPositioner,
+		el.section`absolute bg-base-100 rounded-b-box flex gap-2 p-1 mr-0.5 w-full  -translate-y-1.25`.init(
+			lifecycle,
+			root,
 			'taskbar',
 		);
 
@@ -50,10 +52,13 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			'tray',
 		);
 
-	const spacer = el.div`flex-1`.mount(container, 'spacer');
+	el.div`flex-1`.mount(container, 'spacer');
 	const widgetsContainer = el.div`flex gap-1`.mount(container, 'widgets');
-	const trayContainer = el.div`flex-none flex gap-1 items-center`.mount(container, 'tray');
-	const divider = el.div`flex-none border-r border-base-content/20`.mount(container, 'divider');
+	const trayContainer = el.div`flex-none flex flex-row-reverse gap-1 items-center`.mount(
+		container,
+		'tray',
+	);
+	el.div`flex-none border-r border-base-content/20`.mount(container, 'divider');
 
 	// #region > taskbar menu
 	const menuContainer = el.div`flex-none`.mount(container, 'menu');
@@ -87,21 +92,6 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	const menuItems = el.div`menu w-full`.mount(menuDropdown, 'items');
 	const menuActions = el.div`menu w-full`.mount(menuDropdown, 'actions');
 
-	container.append(
-		chatContainer,
-		openWindowsContainer,
-		activitiesContainer,
-		spacer,
-		widgetsContainer,
-		trayContainer,
-		divider,
-		menuContainer,
-	);
-	containerPositioner.appendChild(container);
-
-	lifecycle.onCleanup(() => containerPositioner.remove());
-	root.appendChild(containerPositioner);
-
 	// #region > helpers
 	const initMenuItem = (lifecycle: Lifecycle, id: string) =>
 		initElement(lifecycle, menuItems, id, 'div');
@@ -114,7 +104,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 
 	type TrayButtonOptions = {
 		title?: string;
-		icon?: SVGAElement | HTMLElement | { paths: string[]; options?: SvgIconOptions };
+		icon?: SVGSVGElement | HTMLElement | { paths: SvgIconPath[]; options?: SvgIconOptions };
 	};
 
 	const initTrayButton = (
@@ -125,12 +115,12 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	) =>
 		initElement(lifecycle, trayContainer, `${id}/button`, 'button', (button) => {
 			button.className = 'btn btn-circle btn-ghost btn-xs engaged:btn-primary';
-			// button.addEventListener('click', () => button.blur());
+			button.addEventListener('click', () => button.blur());
 			if (options.title) {
 				button.classList.add('tooltip', 'tooltip-top', 'tooltip-end');
 				button.setAttribute('data-tip', options.title);
 			}
-			if (options.icon instanceof SVGAElement || options.icon instanceof HTMLElement) {
+			if (options.icon instanceof SVGSVGElement || options.icon instanceof HTMLElement) {
 				button.replaceChildren(options.icon);
 			} else if (typeof options.icon === 'object') {
 				const buttonIcon = createSvgIcon(options.icon.paths, options.icon.options);
@@ -239,7 +229,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		initTrayButton,
 		initTrayButtonMenu,
 		elements: {
-			container: containerPositioner,
+			container,
 			chatContainer,
 		},
 	};

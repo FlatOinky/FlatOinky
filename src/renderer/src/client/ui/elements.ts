@@ -1,23 +1,29 @@
 import { Lifecycle } from '../../client';
+import { getParentOinkyId } from './ui_utils';
 
-const getParentOinkyId = (element: Element | null) => {
-	if (!element || element === document.body) return 'root';
-	return element.getAttribute('oinky') ?? getParentOinkyId(element.parentElement as Element | null);
-};
+const setupThenElement =
+	<T extends Element>(element: T) =>
+	(handler: (element: T) => void = () => {}): T => {
+		handler(element);
+		return element;
+	};
 
 const setupMountElement =
 	<T extends Element>(element: T) =>
-	(container: Element, id: string, handler: (element: T) => void = () => {}): T => {
-		const htmlId = `${getParentOinkyId(container)}/${id}`;
-		element.setAttribute('oinky', htmlId);
+	(container: Element, id?: string, handler: (element: T) => void = () => {}): T => {
+		if (id) {
+			const parentId = getParentOinkyId(container);
+			const htmlId = parentId === '' ? id : `${parentId}/${id}`;
+			element.setAttribute('oinky', htmlId);
+		}
 		handler(element);
 		container.appendChild(element);
 		return element;
 	};
 
-export const setupInitElement =
+const setupInitElement =
 	<T extends Element>(element: T) =>
-	(lifecycle: Lifecycle, container: Element, id: string, handler?: (element: T) => void): T => {
+	(lifecycle: Lifecycle, container: Element, id?: string, handler?: (element: T) => void): T => {
 		setupMountElement(element)(container, id, handler);
 		lifecycle.onCleanup(() => element.remove());
 		return element;
@@ -32,6 +38,7 @@ const setupHTMLElement =
 		);
 		return {
 			element,
+			then: setupThenElement(element),
 			mount: setupMountElement(element),
 			init: setupInitElement(element),
 		};
@@ -46,6 +53,7 @@ const setupSVGElement =
 		);
 		return {
 			element,
+			then: setupThenElement(element),
 			mount: setupMountElement(element),
 			init: setupInitElement(element),
 		};
