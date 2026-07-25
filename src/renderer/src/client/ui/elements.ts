@@ -209,16 +209,13 @@ export const input = {
 	datetime: setupInputElement('datetime-local'),
 	email: setupInputElement('email'),
 	file: setupInputElement('file'),
-	hidden: setupInputElement('hidden'),
 	image: setupInputElement('image'),
 	month: setupInputElement('month'),
 	number: setupInputElement('number'),
 	password: setupInputElement('password'),
 	radio: setupInputElement('radio'),
 	range: setupInputElement('range'),
-	reset: setupInputElement('reset'),
 	search: setupInputElement('search'),
-	submit: setupInputElement('submit'),
 	tel: setupInputElement('tel'),
 	text: setupInputElement('text'),
 	time: setupInputElement('time'),
@@ -255,6 +252,7 @@ export const icon = {
 	deviceDesktopExclamation: setupIconElement('icon-[tabler--device-desktop-exclamation]'),
 	testPipe2Filled: setupIconElement('icon-[tabler--test-pipe-2-filled]'),
 	restore: setupIconElement('icon-[tabler--restore]'),
+	paint: setupIconElement('icon-[tabler--paint]'),
 };
 
 // #region tooltip elements
