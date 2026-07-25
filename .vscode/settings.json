@@ -12,6 +12,9 @@
 	"[html]": {
 		"editor.defaultFormatter": "oxc.oxc-vscode"
 	},
-	"tailwindCSS.classFunctions": ["((context.)?ui.)?el\\.\\w*"],
+	"tailwindCSS.classFunctions": [
+		"((context.)?ui.)?el(.icon|.input|.tooltip)?.\\w*",
+		"setupIconElement"
+	],
 	"tailwindCSS.experimental.configFile": "./src/renderer/src/styles.css"
 }

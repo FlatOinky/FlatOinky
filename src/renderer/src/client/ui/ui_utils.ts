@@ -8,7 +8,7 @@ export const fadeRemoveElement = (element: HTMLElement, delay = 0, duration = 20
 	}, delay);
 };
 
-export const getParentOinkyId = (element: Element | null): string => {
+export const getParentOinkyId = (element: Element | null | undefined): string => {
 	if (!element || element === document.body) return '';
 	return element.getAttribute('oinky') ?? getParentOinkyId(element.parentElement);
 };

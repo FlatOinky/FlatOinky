@@ -46,18 +46,6 @@
 		button:hover {
 			background: rgb(219, 219, 219);
 		}
-
-		td {
-			padding: 0;
-		}
-		
-		canvas {
-			border: none;
-		}
-
-		table {
-			border-spacing: 0;
-		}
 	}
 }
 
@@ -66,6 +54,8 @@
 @plugin "daisyui" {
 	themes: all;
 }
+
+@plugin "@iconify/tailwind4";
 
 @config "./tailwind.config.js";
 
