@@ -185,8 +185,14 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			button.onclick = () => options.onClick();
 			button.oncontextmenu = (event) => {
 				event.preventDefault();
-				menu.showPopover();
 				options.onContextMenu?.(event);
+				// Auto popovers light-dismiss on the right-button mouseup that
+				// follows contextmenu, so toggle open only after pointerup.
+				if (menu.matches(':popover-open')) {
+					menu.hidePopover();
+					return;
+				}
+				document.addEventListener('pointerup', () => menu.showPopover(), { once: true });
 			};
 			if (options.title) {
 				button.classList.add('tooltip', 'tooltip-primary', 'tooltip-top');
