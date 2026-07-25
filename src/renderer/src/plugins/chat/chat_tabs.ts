@@ -34,11 +34,11 @@ export const updateChatTabs = (
 					channels.chatTabIndex = index;
 					updateChatTabs(tabsContainer, channels, inputLabel);
 				};
-				button.oncontextmenu = () => {
+				button.oncontextmenu = (event) => {
+					event.preventDefault();
 					if (index < 2) return;
 					if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
-					const clonedTabs = JSON.parse(JSON.stringify(channels.chatTabs));
-					channels.chatTabs = [...clonedTabs.slice(0, index), ...clonedTabs.slice(index + 1)];
+					channels.chatTabs = channels.chatTabs.filter((_, i) => i !== index);
 					updateChatTabs(tabsContainer, channels, inputLabel);
 				};
 			},
@@ -87,6 +87,9 @@ export const mountAddTabModal = (root: HTMLElement) => {
 	const addTabCancel = el.button`btn btn-ghost btn-error border-base-content/20 join-item`.mount(
 		addTabForm,
 		'cancel',
+		(button) => {
+			button.type = 'button';
+		},
 	);
 	el.icon.x`size-5`.mount(addTabCancel, 'icon');
 
@@ -105,12 +108,11 @@ export const handleAddTabClick = (
 	context: PluginContext,
 ): void => {
 	const modalId = `oinky/${namespace}/add-tab`;
-	const { addTabModal, addTabForm, addTabInput, addTabSubmit, addTabCancel } = elements;
+	const { addTabModal, addTabForm, addTabInput, addTabCancel } = elements;
 	addTabModal.onclose = () => {
 		opened_modals.delete(modalId);
 	};
-	const handleSubmit = (): void => {
-		addTabModal.close();
+	addTabForm.onsubmit = () => {
 		const username = addTabInput.value.trim().toLowerCase();
 		if (username.length < 1) return;
 		channels.chatTabs.push({
@@ -120,14 +122,8 @@ export const handleAddTabClick = (
 		});
 		updateChatTabs(elements.tabsContainer, channels, elements.inputLabel);
 	};
-	addTabForm.onsubmit = handleSubmit;
-	addTabSubmit.onclick = handleSubmit;
 	addTabCancel.onclick = () => addTabModal.close();
 	addTabInput.placeholder = getRandomUsername(context);
-	addTabInput.onkeydown = (event) => {
-		if (event.key !== 'Enter') return;
-		handleSubmit();
-	};
 	addTabInput.value = '';
 	opened_modals.add(modalId);
 	addTabModal.showModal();

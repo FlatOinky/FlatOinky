@@ -8,49 +8,40 @@ export type MutedPlayers = typeof initialMutedPlayers;
 
 const mutedChatTypes = new Set(['local', 'yell', 'pm_from', 'pm_to']);
 
+const mutedUsernames = (mutedPlayers: MutedPlayers): string[] =>
+	Array.isArray(mutedPlayers.usernames) ? mutedPlayers.usernames : [];
+
 export const isChatMessageMuted = (
 	chatMessage: ChatMessage,
 	mutedPlayers: MutedPlayers,
 ): boolean => {
 	if (!chatMessage.username || !mutedChatTypes.has(chatMessage.type)) return false;
-	return mutedPlayers.usernames.includes(chatMessage.username);
+	return mutedUsernames(mutedPlayers).includes(chatMessage.username);
 };
 
 const isValidMuteUsername = (username: string): boolean =>
 	username.length >= 3 && username.length <= 12;
 
-const getMutedUsernames = (mutedPlayers: MutedPlayers): string[] =>
-	Array.isArray(mutedPlayers.usernames) ? Array.from(mutedPlayers.usernames) : [];
-
-const setMutedUsernames = (mutedPlayers: MutedPlayers, usernames: string[]): void => {
-	mutedPlayers.usernames = usernames;
-};
-
 const importMutedPlayersFromGame = (mutedPlayers: MutedPlayers): void => {
-	setMutedUsernames(mutedPlayers, [
-		...new Set([...getMutedUsernames(mutedPlayers), ...get_local_mutes()]),
-	]);
+	mutedPlayers.usernames = [...new Set([...mutedUsernames(mutedPlayers), ...get_local_mutes()])];
 };
 
 const exportMutedPlayersToGame = (mutedPlayers: MutedPlayers): void => {
-	save_local_mutes(new Set([...get_local_mutes(), ...getMutedUsernames(mutedPlayers)]));
+	save_local_mutes(new Set([...get_local_mutes(), ...mutedUsernames(mutedPlayers)]));
 	refresh_local_mutes_html();
 };
 
 const addMutedPlayer = (mutedPlayers: MutedPlayers, username: string): boolean => {
 	const trimmed = username.trim();
 	if (!isValidMuteUsername(trimmed)) return false;
-	const usernames = getMutedUsernames(mutedPlayers);
+	const usernames = mutedUsernames(mutedPlayers);
 	if (usernames.includes(trimmed)) return false;
-	setMutedUsernames(mutedPlayers, [...usernames, trimmed]);
+	mutedPlayers.usernames = [...usernames, trimmed];
 	return true;
 };
 
 const removeMutedPlayer = (mutedPlayers: MutedPlayers, username: string): void => {
-	setMutedUsernames(
-		mutedPlayers,
-		getMutedUsernames(mutedPlayers).filter((entry) => entry !== username),
-	);
+	mutedPlayers.usernames = mutedUsernames(mutedPlayers).filter((entry) => entry !== username);
 };
 
 export const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Element =>
@@ -105,7 +96,7 @@ export const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Elem
 		);
 
 		const refreshList = () => {
-			const usernames = getMutedUsernames(mutedPlayers);
+			const usernames = mutedUsernames(mutedPlayers);
 			listTitle.textContent = `Muted players (${usernames.length})`;
 			list.replaceChildren();
 			for (const username of usernames) {

@@ -49,7 +49,7 @@ export const handleChatInputKeydown =
 	(event: KeyboardEvent): void => {
 		if (event.key === 'Enter') {
 			const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
-			const hasPrefix = typeof prefix === 'string' && prefix.length > 0;
+			const hasPrefix = prefix.length > 0;
 			const message = chatInput.value;
 			if (message === '') return;
 			sentHistory.unshift(message);
@@ -60,7 +60,6 @@ export const handleChatInputKeydown =
 				return;
 			}
 			const messageChunks = chunkMessageBySize(message, hasPrefix ? 100 - prefix.length - 1 : 100);
-			if (!messageChunks) return;
 			if (messageChunks.length > 2) {
 				add_to_chat('none', 'none', 'none', 'red', 'Message length too large');
 				return;

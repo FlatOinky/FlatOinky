@@ -4,16 +4,22 @@ import { handleChatInputKeydown, mountChatInput } from './chat_input';
 import { mountChatLog, wireChatLog } from './chat_log';
 import {
 	checkIsAtBottom,
-	createChatMessageContent,
-	createMessageLi,
 	createWelcomeChatMessage,
 	getMessageBg,
 	getVisibleChatMessages,
+	renderMessageLi,
 	updateToggleIndicator,
 } from './chat_messages';
 import { chatMessages } from './chat_state';
 import { handleAddTabClick, mountAddTabModal, mountChatTabs, updateChatTabs } from './chat_tabs';
 import { Channels, ChatElements, Settings } from './chat_types';
+
+const hideUpstreamChatNode = (lifecycle: Lifecycle, selector: string): void => {
+	const node = document.body.querySelector<HTMLElement>(selector);
+	if (!node) return;
+	node.setAttribute('oinky-hide', 'taskbar');
+	lifecycle.onCleanup(() => node.removeAttribute('oinky-hide'));
+};
 
 const mountToggleButton = (root: HTMLElement, settings: Settings) => {
 	const toggleButton =
@@ -66,28 +72,18 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 	dropdown.id = 'oinky-chat-actions';
 	dropdown.style.setProperty('position-anchor', '--oinky-chat-actions-toggle');
 
-	const logActivatorItem = el.li``.mount(dropdown, 'log-activator-item');
-	const logActivator = el.button``.mount(logActivatorItem, 'log-activator', (logActivator) => {
-		logActivator.textContent = 'Open Chat Log';
+	const [logActivator, settingsActivator, mutedPlayersActivator] = (
+		[
+			['log-activator', 'Open Chat Log'],
+			['settings-activator', 'Open Settings'],
+			['muted-players-activator', 'Muted Players'],
+		] as const
+	).map(([id, label]) => {
+		const item = el.li``.mount(dropdown, `${id}-item`);
+		return el.button``.mount(item, id, (button) => {
+			button.textContent = label;
+		});
 	});
-
-	const settingsActivatorItem = el.li``.mount(dropdown, 'settings-activator-item');
-	const settingsActivator = el.button``.mount(
-		settingsActivatorItem,
-		'settings-activator',
-		(settingsActivator) => {
-			settingsActivator.textContent = 'Open Settings';
-		},
-	);
-
-	const mutedPlayersActivatorItem = el.li``.mount(dropdown, 'muted-players-activator-item');
-	const mutedPlayersActivator = el.button``.mount(
-		mutedPlayersActivatorItem,
-		'muted-players-activator',
-		(mutedPlayersActivator) => {
-			mutedPlayersActivator.textContent = 'Muted Players';
-		},
-	);
 
 	return { logActivator, settingsActivator, mutedPlayersActivator };
 };
@@ -105,12 +101,9 @@ const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settin
 		event.y >= containerRect.top;
 	if (!hoveringChat) return;
 	const targetScrollTop = chatMessageContainer.scrollTop + event.deltaY;
-	const isAtBottom = checkIsAtBottom(
-		targetScrollTop,
-		chatMessageContainer.clientHeight,
-		chatMessageContainer.scrollHeight,
-	);
-	if (isAtBottom) updateToggleIndicator(elements.toggleIndicator, false);
+	if (checkIsAtBottom(chatMessageContainer, targetScrollTop)) {
+		updateToggleIndicator(elements.toggleIndicator, false);
+	}
 	chatMessageContainer.scroll({
 		top: targetScrollTop,
 		behavior: 'smooth',
@@ -121,12 +114,7 @@ const handleToggleChange = (elements: ChatElements, settings: Settings): void =>
 	const chatMessageContainer = elements.messagesContainer;
 	updateToggleIndicator(elements.toggleIndicator, false);
 	if (settings.isExpanded) {
-		const isAtBottom = checkIsAtBottom(
-			chatMessageContainer.scrollTop,
-			chatMessageContainer.clientHeight,
-			chatMessageContainer.scrollHeight,
-		);
-		if (!isAtBottom) {
+		if (!checkIsAtBottom(chatMessageContainer)) {
 			elements.toggleCheckbox.checked = true;
 			chatMessageContainer.scroll({
 				top: chatMessageContainer.scrollHeight,
@@ -144,17 +132,9 @@ export const initChat = (
 	context: PluginContext,
 	settings: Settings,
 	channels: Channels,
-): ChatElements | null => {
-	const fmmoChat = document.body.querySelector<HTMLDivElement>('#chat-input');
-	if (fmmoChat) {
-		fmmoChat.setAttribute('oinky-hide', 'taskbar');
-		lifecycle.onCleanup(() => fmmoChat.removeAttribute('oinky-hide'));
-	}
-	const fmmoChatInput = document.body.querySelector<HTMLDivElement>('#chat');
-	if (fmmoChatInput) {
-		fmmoChatInput.setAttribute('oinky-hide', 'taskbar');
-		lifecycle.onCleanup(() => fmmoChatInput.removeAttribute('oinky-hide'));
-	}
+): ChatElements => {
+	hideUpstreamChatNode(lifecycle, '#chat-input');
+	hideUpstreamChatNode(lifecycle, '#chat');
 
 	const root = context.ui.taskbar.elements.chatContainer;
 
@@ -193,10 +173,7 @@ export const initChat = (
 
 	getVisibleChatMessages(settings).forEach((chatMessage) => {
 		messagesContainer.appendChild(
-			createMessageLi(
-				createChatMessageContent(chatMessage, settings),
-				getMessageBg(settings.enableZebra),
-			),
+			renderMessageLi(chatMessage, settings, getMessageBg(settings.enableZebra)),
 		);
 	});
 	messagesContainer.scrollTop = messagesContainer.scrollHeight;

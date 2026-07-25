@@ -21,35 +21,58 @@ export const ChatPlugin: Plugin = {
 		const elements = initChat(lifecycle, context, settings, channels);
 
 		const onSettingsChange = () => {
-			if (!elements) return;
 			applyChatSettings(elements, settings);
 		};
 
+		const toggleSetting = (
+			label: string,
+			description: string,
+			key: 'enableZebra' | 'enableTimestamp',
+		) => ({
+			label,
+			description,
+			specialType: 'toggle' as const,
+			input: el.input.checkbox``.then((input) => {
+				input.checked = settings[key];
+				input.onchange = () => {
+					settings[key] = input.checked;
+					onSettingsChange();
+				};
+			}),
+		});
+
+		const numberSetting = (
+			label: string,
+			description: string,
+			key: 'maxChatLength' | 'maxChatLogLength',
+			min: string,
+			max: string,
+		) => ({
+			label,
+			description,
+			input: el.input.number``.then((input) => {
+				input.min = min;
+				input.max = max;
+				input.value = settings[key].toString();
+				input.onchange = () => {
+					settings[key] = parseInt(input.value, 10);
+					onSettingsChange();
+				};
+			}),
+			reset: (input) => {
+				input.value = initialSettings[key].toString();
+				input.dispatchEvent(new Event('change'));
+				settings[key] = initialSettings[key];
+			},
+		});
+
 		const [chatNamespaceIndex] = context.settings.registerSection('Display', [
-			{
-				label: 'Zebra striping',
-				description: 'Alternate message background colors.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enableZebra;
-					input.onchange = () => {
-						settings.enableZebra = input.checked;
-						onSettingsChange();
-					};
-				}),
-			},
-			{
-				label: 'Show timestamps',
-				description: 'Show a timestamp before each chat message.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enableTimestamp;
-					input.onchange = () => {
-						settings.enableTimestamp = input.checked;
-						onSettingsChange();
-					};
-				}),
-			},
+			toggleSetting('Zebra striping', 'Alternate message background colors.', 'enableZebra'),
+			toggleSetting(
+				'Show timestamps',
+				'Show a timestamp before each chat message.',
+				'enableTimestamp',
+			),
 			{
 				label: 'Timestamp format',
 				description: el.span``.then((span) => {
@@ -101,62 +124,37 @@ export const ChatPlugin: Plugin = {
 		]);
 
 		context.settings.registerSection('Limits', [
-			{
-				label: 'Visible messages',
-				description: 'Maximum messages shown in the chat window.',
-				input: el.input.number``.then((input) => {
-					input.min = '10';
-					input.max = '2000';
-					input.value = settings.maxChatLength.toString();
-					input.onchange = () => {
-						settings.maxChatLength = parseInt(input.value, 10);
-						onSettingsChange();
-					};
-				}),
-				reset: (input) => {
-					input.value = initialSettings.maxChatLength.toString();
-					input.dispatchEvent(new Event('change'));
-					settings.maxChatLength = initialSettings.maxChatLength;
-				},
-			},
-			{
-				label: 'Chat log length',
-				description: 'Maximum messages kept in the persistent chat log.',
-				input: el.input.number``.then((input) => {
-					input.min = '50';
-					input.max = '10000';
-					input.value = settings.maxChatLogLength.toString();
-					input.onchange = () => {
-						settings.maxChatLogLength = parseInt(input.value, 10);
-						onSettingsChange();
-					};
-				}),
-				reset: (input) => {
-					input.value = initialSettings.maxChatLogLength.toString();
-					input.dispatchEvent(new Event('change'));
-					settings.maxChatLogLength = initialSettings.maxChatLogLength;
-				},
-			},
+			numberSetting(
+				'Visible messages',
+				'Maximum messages shown in the chat window.',
+				'maxChatLength',
+				'10',
+				'2000',
+			),
+			numberSetting(
+				'Chat log length',
+				'Maximum messages kept in the persistent chat log.',
+				'maxChatLogLength',
+				'50',
+				'10000',
+			),
 		]);
 
 		const mutedPlayersSection = context.settings.registerSection('Muted Players', [
 			createMutedPlayersSettingsNode(mutedPlayers),
 		]);
 
-		if (elements) {
-			elements.settingsActivator.onclick = () => {
-				elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-				context.settings.openSection([chatNamespaceIndex]);
-			};
-			elements.mutedPlayersActivator.onclick = () => {
-				elements.mutedPlayersActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-				context.settings.openSection(mutedPlayersSection);
-			};
-		}
+		elements.settingsActivator.onclick = () => {
+			elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+			context.settings.openSection([chatNamespaceIndex]);
+		};
+		elements.mutedPlayersActivator.onclick = () => {
+			elements.mutedPlayersActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+			context.settings.openSection(mutedPlayersSection);
+		};
 
 		return {
 			onChatMessage: (chatMessage) => {
-				if (!elements) return;
 				if (isChatMessageMuted(chatMessage, mutedPlayers)) return;
 				mountChatMessage(chatMessage, context, settings, elements);
 			},

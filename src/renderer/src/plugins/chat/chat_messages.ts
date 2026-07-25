@@ -30,7 +30,7 @@ export const trimChatMessages = (settings: Settings): void => {
 	}
 };
 
-const storeChatMessage = async (chatMessage: ChatMessage, settings: Settings) => {
+const storeChatMessage = (chatMessage: ChatMessage, settings: Settings): void => {
 	chatMessages.push(chatMessage);
 	trimChatMessages(settings);
 	persistChatMessages();
@@ -58,8 +58,8 @@ export const getMessageBg = (enableZebra: boolean): HTMLElement['className'] => 
 		: 'bg-base-300/70 text-shadow-base-300/70';
 };
 
-export const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: number) =>
-	scrollTop + clientHeight >= scrollHeight - clientHeight / 3;
+export const checkIsAtBottom = (element: HTMLElement, scrollTop = element.scrollTop): boolean =>
+	scrollTop + element.clientHeight >= element.scrollHeight - element.clientHeight / 3;
 
 const formatMessageHtml = (message: string): string => {
 	let result = message
@@ -85,22 +85,19 @@ const createIconImg = (src: string): HTMLImageElement =>
 
 const createUserTag = (tag?: string): HTMLSpanElement | null => {
 	if (!tag || tag === 'none') return null;
+	const normalized = tag.replaceAll('_', '-');
 	const tagName =
 		(
 			{
 				'investor-plus': 'investor',
-				investor_plus: 'investor',
 				'investor-gold': 'gold investor',
-				investor_gold: 'gold investor',
 			} as Record<string, string>
-		)[tag] ?? tag;
+		)[normalized] ?? tag;
 	const className =
 		{
 			'investor-plus': 'chat-tag-investor-plus chat-tag-investor-plus-shiny',
-			investor_plus: 'chat-tag-investor-plus chat-tag-investor-plus-shiny',
 			'investor-gold': 'chat-tag-investor-gold chat-tag-investor-plus-gold',
-			investor_gold: 'chat-tag-investor-gold chat-tag-investor-plus-gold',
-		}[tag] ?? `chat-tag-${tag}`;
+		}[normalized] ?? `chat-tag-${tag}`;
 	return el.span`${className}`.then((span) => {
 		span.textContent = tagName;
 	});
@@ -169,11 +166,17 @@ export const createPopupLi = (content: HTMLElement, bgClass: string): HTMLLIElem
 		li.appendChild(content);
 	});
 
+export const renderMessageLi = (
+	chatMessage: ChatMessage,
+	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat'>,
+	bgClass: string,
+): HTMLLIElement => createMessageLi(createChatMessageContent(chatMessage, settings), bgClass);
+
 export const updateToggleIndicator = (
 	toggleIndicator: HTMLDivElement,
 	active: boolean = true,
 ): void => {
-	active ? toggleIndicator.classList.remove('hidden') : toggleIndicator.classList.add('hidden');
+	toggleIndicator.classList.toggle('hidden', !active);
 };
 
 export const applyChatSettings = (elements: ChatElements, settings: Settings): void => {
@@ -181,19 +184,12 @@ export const applyChatSettings = (elements: ChatElements, settings: Settings): v
 	persistChatMessages();
 
 	const { messagesContainer } = elements;
-	const wasAtBottom = checkIsAtBottom(
-		messagesContainer.scrollTop,
-		messagesContainer.clientHeight,
-		messagesContainer.scrollHeight,
-	);
+	const wasAtBottom = checkIsAtBottom(messagesContainer);
 
 	messageBgTickTock = false;
 	messagesContainer.replaceChildren(
 		...getVisibleChatMessages(settings).map((chatMessage) =>
-			createMessageLi(
-				createChatMessageContent(chatMessage, settings),
-				getMessageBg(settings.enableZebra),
-			),
+			renderMessageLi(chatMessage, settings, getMessageBg(settings.enableZebra)),
 		),
 	);
 
@@ -211,16 +207,12 @@ export const mountChatMessage = (
 	storeChatMessage(chatMessage, settings);
 	if (chatMessage.username) usernamesCache.add(chatMessage.username);
 	const { messagesContainer, popupsContainer } = elements;
-	const isAtBottom = checkIsAtBottom(
-		messagesContainer.scrollTop,
-		messagesContainer.clientHeight,
-		messagesContainer.scrollHeight,
-	);
+	const isAtBottom = checkIsAtBottom(messagesContainer);
 	const messageBg = getMessageBg(settings.enableZebra);
 	const content = createChatMessageContent(chatMessage, settings);
 	messagesContainer.appendChild(createMessageLi(content, messageBg));
 
-	const popupLi = createPopupLi(createChatMessageContent(chatMessage, settings), messageBg);
+	const popupLi = createPopupLi(content.cloneNode(true) as HTMLElement, messageBg);
 	popupsContainer.appendChild(popupLi);
 	context.ui.fadeRemoveElement(popupLi, settings.popupDuration * 1000);
 

@@ -1,6 +1,6 @@
 import { ipcRenderer } from '../../client/ipc_renderer';
 import * as el from '../../client/ui/elements';
-import { createChatMessageContent, createMessageLi, getMessageBg } from './chat_messages';
+import { getMessageBg, renderMessageLi } from './chat_messages';
 import { chatMessages } from './chat_state';
 import { ChatElements, namespace, Settings } from './chat_types';
 
@@ -63,7 +63,7 @@ export const wireChatLog = (elements: ChatElements, settings: Settings): void =>
 		opened_modals.add(modalId);
 		logContainer.replaceChildren(
 			...chatMessages.map((chatMessage) =>
-				createMessageLi(createChatMessageContent(chatMessage, settings), getMessageBg(false)),
+				renderMessageLi(chatMessage, settings, getMessageBg(false)),
 			),
 		);
 		logContainer.scrollTop = logContainer.scrollHeight;
