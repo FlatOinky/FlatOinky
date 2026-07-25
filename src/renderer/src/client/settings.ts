@@ -199,6 +199,11 @@ const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 	}
 };
 
+const ensureInputId = (input: SettingsInput) => {
+	input.id ??= `settings-input-${crypto.randomUUID()}`;
+	return input.id;
+};
+
 const mountNodeHeader = (
 	container: HTMLElement,
 	node: Exclude<SettingsNode, Element>,
@@ -212,7 +217,11 @@ const mountNodeHeader = (
 		const tooltip = el.tooltip.info`tooltip-top tooltip-start text-base-content/50`.mount(header);
 		tooltip.setAttribute('data-tip', node.tooltip);
 	}
-	el.span`font-medium text-sm`.mount(header, undefined, (span) => (span.textContent = node.label ?? ''));
+	const inputId = ensureInputId(node.input);
+	el.label`font-medium text-sm cursor-pointer`.mount(header, undefined, (label) => {
+		label.htmlFor = inputId;
+		label.textContent = node.label ?? '';
+	});
 	el.span`flex-1 w-full`.mount(header);
 	if (node.reset) {
 		el.button`btn btn-xs btn-square btn-soft btn-secondary opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
@@ -230,7 +239,10 @@ const mountNodeHeader = (
 
 const mountNodeDescription = (container: HTMLElement, node: Exclude<SettingsNode, Element>) => {
 	if (!node.description) return;
-	const description = el.div`text-xs text-base-content/60 font-normal`.mount(container, 'description');
+	const description = el.div`text-xs text-base-content/60 font-normal`.mount(
+		container,
+		'description',
+	);
 	if (typeof node.description === 'string') {
 		description.textContent = node.description;
 	} else {
