@@ -761,8 +761,7 @@ const initChat = (
 	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
 	const { tabsContainer, addTabButton } = mountChatTabs(root);
 	const addTabRefs = mountAddTabModal(root);
-	const { logActivator, settingsActivator, mutedPlayersActivator } =
-		mountChatActionsDropdown(root);
+	const { logActivator, settingsActivator, mutedPlayersActivator } = mountChatActionsDropdown(root);
 	const logRefs = mountChatLog(root);
 
 	const elements: ChatElements = {
@@ -906,19 +905,35 @@ const removeMutedPlayer = (mutedPlayers: MutedPlayers, username: string): void =
 const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Element =>
 	el.div`flex flex-col gap-3 w-full`.then((root) => {
 		el.div`flex gap-2 flex-wrap`.mount(root, undefined, (actions) => {
-			el.button`btn btn-sm btn-ghost border-base-content/20`.mount(actions, undefined, (button) => {
-				button.type = 'button';
-				button.textContent = 'Import from Flat MMO';
-				button.onclick = () => {
-					importMutedPlayersFromGame(mutedPlayers);
-					refreshList();
-				};
-			});
-			el.button`btn btn-sm btn-ghost border-base-content/20`.mount(actions, undefined, (button) => {
-				button.type = 'button';
-				button.textContent = 'Export to Flat MMO';
-				button.onclick = () => exportMutedPlayersToGame(mutedPlayers);
-			});
+			el.button`btn btn-sm btn-ghost border-base-content/20 tooltip tooltip-start`.mount(
+				actions,
+				undefined,
+				(button) => {
+					button.type = 'button';
+					button.setAttribute(
+						'data-tip',
+						"Updates Flat Oinky's muted players list from Flat MMO with missing names",
+					);
+					button.textContent = 'Import from Flat MMO';
+					button.onclick = () => {
+						importMutedPlayersFromGame(mutedPlayers);
+						refreshList();
+					};
+				},
+			);
+			el.button`btn btn-sm btn-ghost border-base-content/20 tooltip tooltip-start`.mount(
+				actions,
+				undefined,
+				(button) => {
+					button.type = 'button';
+					button.setAttribute(
+						'data-tip',
+						"Updates Flat MMO's muted players list from Flat Oinky with missing names",
+					);
+					button.textContent = 'Export to Flat MMO';
+					button.onclick = () => exportMutedPlayersToGame(mutedPlayers);
+				},
+			);
 		});
 
 		const list =
@@ -930,19 +945,15 @@ const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Element =>
 			list.replaceChildren();
 			for (const username of getMutedUsernames(mutedPlayers)) {
 				el.li`flex items-center gap-2`.mount(list, undefined, (row) => {
-					el.button`btn btn-ghost btn-error btn-square btn-xs`.mount(
-						row,
-						undefined,
-						(button) => {
-							button.type = 'button';
-							button.title = `Unmute ${username}`;
-							el.icon.x`size-4`.mount(button);
-							button.onclick = () => {
-								removeMutedPlayer(mutedPlayers, username);
-								refreshList();
-							};
-						},
-					);
+					el.button`btn btn-ghost btn-error btn-square btn-xs`.mount(row, undefined, (button) => {
+						button.type = 'button';
+						button.title = `Unmute ${username}`;
+						el.icon.x`size-4`.mount(button);
+						button.onclick = () => {
+							removeMutedPlayer(mutedPlayers, username);
+							refreshList();
+						};
+					});
 					el.span`flex-1 min-w-0 truncate`.mount(row, undefined, (span) => {
 						span.textContent = username;
 					});
