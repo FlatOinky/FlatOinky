@@ -13,7 +13,7 @@ type SettingsNode =
 			specialType?: 'toggle' | 'textarea' | 'select';
 			input: SettingsInput;
 			label?: string;
-			description?: string;
+			description?: string | Element;
 			tooltip?: string;
 			valueSuffix?: string;
 			valuePrefix?: string;
@@ -160,7 +160,11 @@ const mountNodeHeader = (
 const mountNodeDescription = (container: HTMLElement, node: Exclude<SettingsNode, Element>) => {
 	if (!node.description) return;
 	const description = el.div`text-sm font-medium`.mount(container, 'description');
-	description.textContent = node.description;
+	if (typeof node.description === 'string') {
+		description.textContent = node.description;
+	} else {
+		description.appendChild(node.description);
+	}
 };
 
 const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
