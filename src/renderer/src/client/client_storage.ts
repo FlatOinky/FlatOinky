@@ -141,6 +141,10 @@ const wrapStorageData = (
 	};
 };
 
+export const createGlobalStorage = async (namespace: string) => {
+	return wrapStorageData(await getState(), ['global', namespace]);
+};
+
 // #region factory
 
 export const createPluginStorages = async (

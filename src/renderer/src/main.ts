@@ -390,7 +390,7 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 
 	// Now that the FlatMMO client has been loaded render the contents for oinky
 	rootElement.innerHTML = renderClientPage();
-	flatOinky.client = initClient(character, references);
+	flatOinky.client = await initClient(character, references);
 };
 
 // #endregion
