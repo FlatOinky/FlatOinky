@@ -225,6 +225,7 @@ const initMetricsWindow = (
 	xpDrops: XPDrop[],
 	settings: Settings,
 	activeSkillCharts: { [key: string]: boolean },
+	onClose: () => void,
 ) => {
 	const lifecycle = parentLifecycle.spawnLifecycle();
 	const window = context.ui.windows.initWindow(lifecycle, {
@@ -238,6 +239,7 @@ const initMetricsWindow = (
 			top: 76,
 			left: 8,
 		},
+		onClose: onClose,
 		onPreMount: (window) => {
 			window.body.className = 'flex flex-col gap-1';
 		},
@@ -263,8 +265,19 @@ export const MetricsPlugin: Plugin = {
 		let windowMetrics: ReturnType<typeof initMetricsWindow> | undefined;
 		const createWindowMetrics = () => {
 			if (!settings.isMetricsWindowOpen) return;
-			const newWindow = initMetricsWindow(lifecycle, context, xpDrops, settings, activeSkillCharts);
-			newWindow.lifecycle.onCleanup(() => (windowMetrics = undefined));
+			const newWindow = initMetricsWindow(
+				lifecycle,
+				context,
+				xpDrops,
+				settings,
+				activeSkillCharts,
+				() => {
+					settings.isMetricsWindowOpen = false;
+				},
+			);
+			newWindow.lifecycle.onCleanup(() => {
+				windowMetrics = undefined;
+			});
 			return newWindow;
 		};
 		const refreshWindowMetrics = () => {

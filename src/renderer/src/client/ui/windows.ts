@@ -111,6 +111,7 @@ type WindowOptions = {
 	storage: ClientStorage;
 	initialState?: Partial<WindowState>;
 	onPreMount?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void;
+	onClose?: () => void;
 	icon?: Element;
 };
 
@@ -278,7 +279,13 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		const windowClosers = windowFrame.querySelectorAll<HTMLInputElement>(
 			'button[oinky-window=close]',
 		);
-		windowClosers.forEach((windowCloser) => (windowCloser.onclick = () => lifecycle.cleanup()));
+		windowClosers.forEach(
+			(windowCloser) =>
+				(windowCloser.onclick = () => {
+					lifecycle.cleanup();
+					options.onClose?.();
+				}),
+		);
 
 		const windowMinimizers = windowFrame.querySelectorAll<HTMLButtonElement>(
 			'button[oinky-window=minimize]',
