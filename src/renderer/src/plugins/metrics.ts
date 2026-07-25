@@ -351,7 +351,8 @@ export const MetricsPlugin: Plugin = {
 		context.settings.registerSection('Intervals', [
 			{
 				label: 'Time Span',
-				tooltip: 'In minutes, the duration of the metrics to be displayed.',
+				tooltip: 'In minutes',
+				description: 'The duration of the time window to be displayed.',
 				valueSuffix: 'm',
 				input: context.ui.el.input.range``.then((input) => {
 					input.min = '1';
@@ -371,7 +372,8 @@ export const MetricsPlugin: Plugin = {
 			},
 			{
 				label: 'Refresh Rate',
-				tooltip: 'In seconds, the interval at which the metrics will be captured and updated.',
+				tooltip: 'In seconds',
+				description: 'The interval at which the metrics will be captured and updated.',
 				valueSuffix: 's',
 				input: context.ui.el.input.range``.then((input) => {
 					input.min = '0.1';

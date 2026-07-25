@@ -1,6 +1,7 @@
 import { ipcMain, Notification, dialog } from 'electron';
 import * as storage from './storage';
 import * as flatMmo from './flat_mmo';
+import { clearAssetCache } from './asset_cache';
 import { saveFile, saveReferencesArchive } from './files';
 import type { StorageKey } from './storage';
 
@@ -10,6 +11,8 @@ export const ipcMainSetup = (): void => {
 	ipcMain.on('reloadWindow', ({ sender }) => {
 		sender.reload();
 	});
+
+	ipcMain.handle('clearAssetCache', () => clearAssetCache());
 
 	let lastRequestFileSaveTimestamp = 0;
 	ipcMain.on('requestFileSave', (_event, filename: string, contents: string) => {

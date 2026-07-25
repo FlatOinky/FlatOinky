@@ -9,6 +9,8 @@ export const reloadWindow = (): void => ipcRenderer.send('reloadWindow');
 
 export const openDevTools = (): void => ipcRenderer.send('openDevTools');
 
+export const clearAssetCache = (): Promise<void> => ipcRenderer.invoke('clearAssetCache');
+
 export const createNotification = (title: string, message?: string): void => {
 	ipcRenderer.send('createNotification', title, message);
 };

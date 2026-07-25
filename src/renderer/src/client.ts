@@ -3,7 +3,7 @@ import { ChatMessage, parseChatMessage } from './client/chat_message';
 import { createGlobalStorage, createPluginStorages } from './client/client_storage';
 import { getProfileKey } from './client/profiles';
 import { initUi } from './client/ui';
-import { openDevTools, reloadWindow, saveReferences } from './client/ipc_renderer';
+import { openDevTools, saveReferences } from './client/ipc_renderer';
 import { initSettings, ClientSettings } from './client/settings';
 
 export type { ChatMessage };
@@ -318,8 +318,6 @@ export const initClient = async (character: FMMOCharacter, references: FMMORefer
 	const plugins = initPlugins(lifecycle, context, settings);
 
 	const hooks = createClientHooks(plugins);
-
-	ui.taskbar.initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
 
 	// TODO: need to fix this
 

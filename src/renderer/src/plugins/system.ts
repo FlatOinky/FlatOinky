@@ -1,6 +1,8 @@
 import { Lifecycle, Plugin } from '../client';
+import { clearAssetCache, reloadWindow } from '../client/ipc_renderer';
 
 const initialSettings = {
+	enabledDevtools: false,
 	enableDarkenSky: true,
 	enableDynamicCanvas_beta: false,
 };
@@ -22,7 +24,7 @@ const MIN_SCALE = 0.1;
 // spawned child lifecycle so it can be torn down independently, and the caller
 // only invokes this when the feature is enabled — when disabled, nothing here
 // runs, so the DOM and canvas are left completely untouched.
-const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement) => {
+const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lifecycle => {
 	const dynamicCanvasLifecycle = lifecycle.spawnLifecycle();
 
 	// `canvas_scale` is a classic-script `let` in the game source, so it is not
@@ -82,21 +84,95 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement) => {
 
 	// Size once after the game's table layout has settled.
 	requestAnimationFrame(() => applyCanvasSize());
+	return dynamicCanvasLifecycle;
 };
 
 // #endregion
 
-export const TweaksPlugin: Plugin = {
-	namespace: 'core/tweaks',
-	name: 'Tweaks',
-	description: 'Various modifications to the game.',
+export const SystemPlugin: Plugin = {
+	namespace: 'core/system',
+	name: 'System',
+	description: 'System interactions for Flat Oinky',
 	init: (lifecycle, context) => {
-		const settings = context.storages.global.reactive('tweaks', initialSettings);
+		const settings = context.storages.global.reactive('settings', initialSettings);
+		let devtoolsLifecycle: Lifecycle | null = null;
+		let dynamicCanvasLifecycle: Lifecycle | null = null;
 		let darkenSkyLifecycle: Lifecycle | null = null;
 
-		if (settings.enableDynamicCanvas_beta) {
-			initDynamicCanvas(lifecycle, context.canvas);
-		}
+		const syncDevtoolsMenu = () => {
+			devtoolsLifecycle?.cleanup();
+			devtoolsLifecycle = null;
+			if (!settings.enabledDevtools) return;
+			devtoolsLifecycle = lifecycle.spawnLifecycle();
+			context.ui.taskbar.initMenuAction(devtoolsLifecycle, 'devtools', 'Open DevTools', () =>
+				context.ipc.openDevTools(),
+			);
+			context.ui.taskbar.initMenuAction(
+				devtoolsLifecycle,
+				'saveReferences',
+				'Save References',
+				() => context.ipc.saveReferences(),
+			);
+		};
+
+		const syncDynamicCanvas = () => {
+			dynamicCanvasLifecycle?.cleanup();
+			dynamicCanvasLifecycle = null;
+			if (!settings.enableDynamicCanvas_beta) return;
+			dynamicCanvasLifecycle = initDynamicCanvas(lifecycle, context.canvas);
+		};
+
+		context.ui.taskbar.initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
+		context.ui.taskbar.initMenuAction(
+			lifecycle,
+			'clearAssetCache',
+			'Clear Asset Cache',
+			() => void clearAssetCache(),
+		);
+
+		syncDevtoolsMenu();
+		syncDynamicCanvas();
+
+		context.settings.registerSection('Tweaks', [
+			{
+				label: 'Darken Sky',
+				description: 'Dim the sky map for easier viewing.',
+				specialType: 'toggle',
+				input: context.ui.el.input.checkbox``.then((input) => {
+					input.checked = settings.enableDarkenSky;
+					input.onchange = () => {
+						settings.enableDarkenSky = input.checked;
+					};
+				}),
+			},
+			{
+				label: 'Dynamic Canvas (Beta)',
+				description: 'Scale the game canvas to fit the window. Experimental.',
+				specialType: 'toggle',
+				input: context.ui.el.input.checkbox``.then((input) => {
+					input.checked = settings.enableDynamicCanvas_beta;
+					input.onchange = () => {
+						settings.enableDynamicCanvas_beta = input.checked;
+						syncDynamicCanvas();
+					};
+				}),
+			},
+		]);
+
+		context.settings.registerSection('Devtools', [
+			{
+				label: 'Enable Devtools',
+				description: 'Show Open DevTools and Save References in the system menu.',
+				specialType: 'toggle',
+				input: context.ui.el.input.checkbox``.then((input) => {
+					input.checked = settings.enabledDevtools;
+					input.onchange = () => {
+						settings.enabledDevtools = input.checked;
+						syncDevtoolsMenu();
+					};
+				}),
+			},
+		]);
 
 		return {
 			onSetMap: (map) => {

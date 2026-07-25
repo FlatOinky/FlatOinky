@@ -71,15 +71,18 @@ const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 			node.input.classList = 'select cursor-pointer w-full';
 			return node.input;
 		case 'checkbox':
-			node.input.classList = 'checkbox w-full';
+			node.input.classList = 'checkbox';
 			return node.input;
 		case 'toggle':
-			node.input.classList = 'toggle w-full';
+			node.input.classList = 'toggle';
+			return node.input;
+		case 'radio':
+			node.input.classList = 'radio';
 			return node.input;
 		case 'range': {
 			node.input.classList = 'range w-full';
 			const container = el.div`flex flex-col gap-1`.element;
-			const line1 = el.div`text-sm flex gap-1`.mount(container);
+			const line1 = el.div`text-sm flex gap-1 items-center`.mount(container);
 			const min = node.input.getAttribute('min');
 			if (min) {
 				el.span``.mount(line1, undefined, (span) => (span.textContent = min));
@@ -96,13 +99,68 @@ const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 			});
 			return container;
 		}
+		case 'file':
+			node.input.classList = 'file-input w-full';
+			return node.input;
+		case 'color':
+			node.input.classList = 'input p-1 w-14 h-10 cursor-pointer';
+			return node.input;
+		case 'image':
+			node.input.classList = 'btn';
+			return node.input;
 		case 'text':
+		case 'email':
+		case 'password':
+		case 'search':
+		case 'tel':
+		case 'url':
+		case 'number':
+		case 'date':
+		case 'datetime-local':
+		case 'month':
+		case 'time':
+		case 'week':
 			node.input.classList = 'input w-full';
 			return node.input;
 		default:
 			node.input.classList = 'input w-full';
 			return node.input;
 	}
+};
+
+const mountNodeHeader = (
+	container: HTMLElement,
+	node: Exclude<SettingsNode, Element>,
+	leading?: Element,
+) => {
+	const header = el.div`flex gap-1 items-center`.mount(container);
+	if (leading) {
+		header.appendChild(leading);
+	}
+	if (node.tooltip) {
+		const tooltip = el.tooltip.info` tooltip-top tooltip-start`.mount(header);
+		tooltip.setAttribute('data-tip', node.tooltip);
+	}
+	el.span``.mount(header, undefined, (span) => (span.textContent = node.label ?? ''));
+	el.span`flex-1 w-full`.mount(header);
+	if (node.reset) {
+		el.button`btn btn-xs btn-soft btn-secondary tooltip tooltip-top tooltip-end`.mount(
+			header,
+			'reset',
+			(resetButton) => {
+				resetButton.setAttribute('data-tip', 'Reset to default');
+				el.icon.restore`size-4`.mount(resetButton);
+				resetButton.onclick = () => node.reset?.(node.input);
+			},
+		);
+	}
+	return header;
+};
+
+const mountNodeDescription = (container: HTMLElement, node: Exclude<SettingsNode, Element>) => {
+	if (!node.description) return;
+	const description = el.div`text-sm font-medium`.mount(container, 'description');
+	description.textContent = node.description;
 };
 
 const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
@@ -118,45 +176,50 @@ const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
 	}
 
 	const nodeChild = makeNodeChild(node);
+	const inputType = node.specialType ?? node.input.type;
 
 	// NOTE: This switch is used to mount the node into different reusable layouts;
-	switch (node.specialType ?? node.input.type) {
+	switch (inputType) {
 		case 'textarea':
 		case 'range':
+		case 'select':
+		case 'file':
+		case 'color':
 		case 'text':
-		case 'select': {
-			const header = el.div`flex gap-1 items-center`.mount(container);
-			if (node.tooltip) {
-				const tooltip = el.tooltip.info` tooltip-top tooltip-start`.mount(header);
-				tooltip.setAttribute('data-tip', node.tooltip);
-			}
-			el.span``.mount(header, undefined, (span) => (span.textContent = node.label ?? ''));
-			el.span`flex-1 w-full`.mount(header);
-			if (node.reset) {
-				el.button`btn btn-xs btn-soft btn-secondary tooltip tooltip-top tooltip-end`.mount(
-					header,
-					'reset',
-					(resetButton) => {
-						resetButton.setAttribute('data-tip', 'Reset to default');
-						el.icon.restore`size-4`.mount(resetButton);
-						resetButton.onclick = () => node.reset?.(node.input);
-					},
-				);
-			}
-			if (node.description) {
-				const description = el.div`text-sm font-medium`.mount(container, 'description');
-				description.textContent = node.description;
-			}
-
+		case 'email':
+		case 'password':
+		case 'search':
+		case 'tel':
+		case 'url':
+		case 'number':
+		case 'date':
+		case 'datetime-local':
+		case 'month':
+		case 'time':
+		case 'week': {
+			// NOTE: Label on top, input below.
+			mountNodeHeader(container, node);
+			mountNodeDescription(container, node);
 			container.appendChild(nodeChild);
 			break;
 		}
-		case 'toggle': {
-			// TODO: Implement the single line layout and add more cases to match on
-			container.appendChild(document.createTextNode('TODO: Implement the single line layout'));
+		case 'toggle':
+		case 'checkbox':
+		case 'radio': {
+			// NOTE: Single-line layout — control left, label right.
+			mountNodeHeader(container, node, nodeChild);
+			mountNodeDescription(container, node);
+			break;
+		}
+		case 'image': {
+			mountNodeHeader(container, node, nodeChild);
+			mountNodeDescription(container, node);
 			break;
 		}
 		default:
+			mountNodeHeader(container, node);
+			mountNodeDescription(container, node);
+			container.appendChild(nodeChild);
 			break;
 	}
 };
@@ -174,16 +237,17 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 			container,
 			'nav',
 		);
-	const sectionsContainer = el.div`flex-1 overflow-y-auto overflow-x-hidden`.mount(
-		container,
-		'sections',
-	);
+	const sectionsContainer =
+		el.div`flex-1 flex flex-col gap-10 overflow-y-auto overflow-x-hidden`.mount(
+			container,
+			'sections',
+		);
 
 	const update = () => {
 		sectionsContainer.replaceChildren();
 		navContainer.replaceChildren();
 		registry.forEach(([pluginNamespace, pluginTitle, sections]) => {
-			const sectionBlock = el.div`flex flex-col gap-2`.mount(sectionsContainer, pluginNamespace);
+			const sectionBlock = el.div`flex flex-col gap-4`.mount(sectionsContainer, pluginNamespace);
 			el.h2`text-3xl text-base-content/80 text-center font-bold`.mount(
 				sectionBlock,
 				undefined,
