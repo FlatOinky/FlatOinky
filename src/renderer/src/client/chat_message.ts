@@ -20,7 +20,7 @@ type ChatMessageLevelUp = ChatMessageBase & {
 };
 
 type ChatMessageOther = ChatMessageBase & {
-	type: 'announcement' | 'restore' | 'error' | 'warning' | 'achievement' | 'info';
+	type: 'announcement' | 'restore' | 'error' | 'warning' | 'achievement' | 'info' | 'welcome';
 	username: undefined;
 	icon: undefined;
 	tag: undefined;

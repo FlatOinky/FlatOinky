@@ -28,8 +28,9 @@ const colorMap = {
 };
 
 const usernamesCache = new Set<string>();
-const chatMessages: ChatMessage[] =
-	JSON.parse(localStorage.getItem(`oinky/${namespace}/chatMessages`) ?? '[]') ?? [];
+const chatMessages: ChatMessage[] = (
+	JSON.parse(localStorage.getItem(`oinky/${namespace}/chatMessages`) ?? '[]') ?? []
+).filter((message: ChatMessage) => message.type !== 'welcome');
 
 const sentHistory: string[] = [];
 let sentHistoryIndex = -1;
@@ -45,13 +46,32 @@ type Channels = typeof initialChannels;
 
 const initialSettings = {
 	isExpanded: true,
-	isZebraEnabled: true,
+	enableZebra: true,
 	maxChatLength: 250,
 	maxChatLogLength: 1000,
-	popupDelayMultiplier: 2,
+	popupDuration: 8,
+	enableTimestamp: true,
 	timestampFormat: 'h:mmaaa',
 };
 type Settings = typeof initialSettings;
+
+const timestampFormatSample = new Date(
+	2020 + Math.floor(Math.random() * 10),
+	Math.floor(Math.random() * 12),
+	1 + Math.floor(Math.random() * 28),
+	Math.floor(Math.random() * 24),
+	Math.floor(Math.random() * 60),
+	Math.floor(Math.random() * 60),
+);
+const timestampFormatOptions = [
+	'h:mmaaa',
+	'h:mm a',
+	'HH:mm',
+	'HH:mm:ss',
+	'MMM d, h:mmaaa',
+	'M/d/yy h:mmaaa',
+	'yyyy-MM-dd HH:mm',
+].map((value) => ({ label: formatDate(timestampFormatSample, value), value }));
 
 // #region Elements
 
@@ -72,6 +92,7 @@ type ChatElements = {
 	addTabSubmit: HTMLButtonElement;
 	addTabCancel: HTMLButtonElement;
 	logActivator: HTMLButtonElement;
+	settingsActivator: HTMLButtonElement;
 	logModal: HTMLDialogElement;
 	logContainer: HTMLUListElement;
 	logGoTop: HTMLButtonElement;
@@ -83,14 +104,45 @@ type ChatElements = {
 
 // #region Utils
 
+const persistChatMessages = (): void => {
+	localStorage.setItem(
+		`oinky/${namespace}/chatMessages`,
+		JSON.stringify(chatMessages.filter((message) => message.type !== 'welcome')),
+	);
+};
+
+const trimChatMessages = (settings: Settings): void => {
+	const persistableCount = chatMessages.filter((message) => message.type !== 'welcome').length;
+	if (persistableCount <= settings.maxChatLogLength) return;
+	let deleteCount = Math.ceil(persistableCount - settings.maxChatLogLength);
+	for (let index = 0; index < chatMessages.length && deleteCount > 0;) {
+		if (chatMessages[index].type === 'welcome') {
+			index += 1;
+			continue;
+		}
+		chatMessages.splice(index, 1);
+		deleteCount -= 1;
+	}
+};
+
 const storeChatMessage = async (chatMessage: ChatMessage, settings: Settings) => {
 	chatMessages.push(chatMessage);
-	if (chatMessages.length > settings.maxChatLogLength) {
-		const deleteCount = Math.ceil(chatMessages.length - settings.maxChatLogLength);
-		chatMessages.splice(0, deleteCount);
-	}
-	localStorage.setItem(`oinky/${namespace}/chatMessages`, JSON.stringify(chatMessages));
+	trimChatMessages(settings);
+	persistChatMessages();
 };
+
+const createWelcomeChatMessage = (loginSpan: HTMLSpanElement): ChatMessage => ({
+	timestamp: new Date(),
+	color: loginSpan.style.color || 'white',
+	type: 'welcome',
+	message: loginSpan.textContent ?? '',
+	username: undefined,
+	icon: undefined,
+	tag: undefined,
+});
+
+const getVisibleChatMessages = (settings: Settings): ChatMessage[] =>
+	chatMessages.slice(Math.max(0, chatMessages.length - settings.maxChatLength));
 
 const chunkMessageBySize = (message: string, chunkSize: number): string[] => {
 	const [chunks] = message.split(' ').reduce(
@@ -111,8 +163,8 @@ const chunkMessageBySize = (message: string, chunkSize: number): string[] => {
 };
 
 let messageBgTickTock = false;
-const getMessageBg = (isZebraEnabled: boolean): HTMLElement['className'] => {
-	if (!isZebraEnabled) return 'bg-base-200/70 text-shadow-base-200/70';
+const getMessageBg = (enableZebra: boolean): HTMLElement['className'] => {
+	if (!enableZebra) return 'bg-base-200/70 text-shadow-base-200/70';
 	messageBgTickTock = !messageBgTickTock;
 	return messageBgTickTock
 		? 'bg-base-100/70 text-shadow-base-100/70'
@@ -194,17 +246,20 @@ const appendSpaced = (container: HTMLElement, parts: Node[]): void => {
 
 const createChatMessageContent = (
 	chatMessage: ChatMessage,
-	timestampFormat: string,
+	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat'>,
 ): HTMLDivElement => {
 	const { type, icon, tag, username } = chatMessage;
 	const colorClassName = colorMap[chatMessage.color] ?? colorMap.white;
 	const content = el.div`contents ${colorClassName}`.element;
 
-	const timestamp = el.span`text-xs`.then((span) => {
-		span.textContent = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
-	});
-
-	const parts: Node[] = [timestamp];
+	const parts: Node[] = [];
+	if (settings.enableTimestamp) {
+		parts.push(
+			el.span`text-xs`.then((span) => {
+				span.textContent = formatDate(chatMessage.timestamp, settings.timestampFormat ?? 'h:mmaaa');
+			}),
+		);
+	}
 	if (icon) parts.push(createIconImg(icon));
 	const tagEl = createUserTag(tag);
 	if (tagEl) parts.push(tagEl);
@@ -221,16 +276,6 @@ const createChatMessageContent = (
 	);
 
 	appendSpaced(content, parts);
-	return content;
-};
-
-const createLoginMessageContent = (loginSpan: HTMLSpanElement): HTMLDivElement => {
-	const colorClassName = colorMap[loginSpan.style.color] ?? colorMap.white;
-	loginSpan.style.color = '';
-	const content = el.div`contents ${colorClassName}`.element;
-	const timestamp = el.span`text-xs`.element;
-	const message = el.span``.element;
-	appendSpaced(content, [timestamp, loginSpan, message]);
 	return content;
 };
 
@@ -287,11 +332,8 @@ const updateToggleIndicator = (toggleIndicator: HTMLDivElement, active: boolean 
 };
 
 const applyChatSettings = (elements: ChatElements, settings: Settings): void => {
-	if (chatMessages.length > settings.maxChatLogLength) {
-		const deleteCount = Math.ceil(chatMessages.length - settings.maxChatLogLength);
-		chatMessages.splice(0, deleteCount);
-		localStorage.setItem(`oinky/${namespace}/chatMessages`, JSON.stringify(chatMessages));
-	}
+	trimChatMessages(settings);
+	persistChatMessages();
 
 	const { messagesContainer } = elements;
 	const wasAtBottom = checkIsAtBottom(
@@ -301,12 +343,11 @@ const applyChatSettings = (elements: ChatElements, settings: Settings): void => 
 	);
 
 	messageBgTickTock = false;
-	const visible = chatMessages.slice(Math.max(0, chatMessages.length - settings.maxChatLength));
 	messagesContainer.replaceChildren(
-		...visible.map((chatMessage) =>
+		...getVisibleChatMessages(settings).map((chatMessage) =>
 			createMessageLi(
-				createChatMessageContent(chatMessage, settings.timestampFormat),
-				getMessageBg(settings.isZebraEnabled),
+				createChatMessageContent(chatMessage, settings),
+				getMessageBg(settings.enableZebra),
 			),
 		),
 	);
@@ -345,7 +386,9 @@ const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settin
 
 const handleKeypress = (event: KeyboardEvent, chatInput: HTMLInputElement): void => {
 	if (window.has_modal_open()) return;
-	if (!event.key.match(/^[a-zA-Z]$/)) return;
+	if (event.key !== 'Enter') return;
+	if (document.activeElement === chatInput) return;
+	event.preventDefault();
 	chatInput.focus();
 };
 
@@ -423,7 +466,6 @@ const handleAddTabClick = (
 	const { addTabModal, addTabForm, addTabInput, addTabSubmit, addTabCancel } = elements;
 	addTabModal.onclose = () => {
 		opened_modals.delete(modalId);
-		addTabModal.open = false;
 	};
 	const handleSubmit = (): void => {
 		addTabModal.close();
@@ -446,7 +488,7 @@ const handleAddTabClick = (
 	};
 	addTabInput.value = '';
 	opened_modals.add(modalId);
-	addTabModal.show();
+	addTabModal.showModal();
 };
 
 // #region Builders
@@ -488,6 +530,7 @@ const mountChatInput = (root: HTMLElement, username: string) => {
 			actionsButton.setAttribute('popovertarget', 'oinky-chat-actions');
 			actionsButton.style.setProperty('anchor-name', '--oinky-chat-actions-toggle');
 			el.icon.dotsVertical`size-5`.mount(actionsButton, 'icon');
+			actionsButton.onclick = () => actionsButton.blur();
 		},
 	);
 
@@ -581,7 +624,16 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 		logActivator.textContent = 'Open Chat Log';
 	});
 
-	return { logActivator };
+	const settingsActivatorItem = el.li``.mount(dropdown, 'settings-activator-item');
+	const settingsActivator = el.button``.mount(
+		settingsActivatorItem,
+		'settings-activator',
+		(settingsActivator) => {
+			settingsActivator.textContent = 'Open Settings';
+		},
+	);
+
+	return { logActivator, settingsActivator };
 };
 
 const mountChatLog = (root: HTMLElement) => {
@@ -645,10 +697,7 @@ const wireChatLog = (elements: ChatElements, settings: Settings): void => {
 		opened_modals.add(modalId);
 		logContainer.replaceChildren(
 			...chatMessages.map((chatMessage) =>
-				createMessageLi(
-					createChatMessageContent(chatMessage, settings.timestampFormat),
-					getMessageBg(false),
-				),
+				createMessageLi(createChatMessageContent(chatMessage, settings), getMessageBg(false)),
 			),
 		);
 		logContainer.scrollTop = logContainer.scrollHeight;
@@ -663,10 +712,12 @@ const wireChatLog = (elements: ChatElements, settings: Settings): void => {
 		logContainer.scrollTo({ top: 0, behavior: 'smooth' });
 	};
 	elements.logGoUp.onclick = () => {
+		elements.logGoUp.blur();
 		const top = logContainer.scrollTop - logContainer.getBoundingClientRect().height;
 		logContainer.scrollTo({ top, behavior: 'smooth' });
 	};
 	elements.logGoDown.onclick = () => {
+		elements.logGoDown.blur();
 		const top = logContainer.scrollTop + logContainer.getBoundingClientRect().height;
 		logContainer.scrollTo({ top, behavior: 'smooth' });
 	};
@@ -675,6 +726,7 @@ const wireChatLog = (elements: ChatElements, settings: Settings): void => {
 		logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: 'smooth' });
 	};
 	elements.logExport.onclick = () => {
+		elements.logExport.blur();
 		const filename = `FlatMMO Chat ${new Date().toISOString()}.txt`;
 		const contents = logContainer.innerText;
 		ipcRenderer.send('requestFileSave', filename, contents);
@@ -707,7 +759,7 @@ const initChat = (
 	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
 	const { tabsContainer, addTabButton } = mountChatTabs(root);
 	const addTabRefs = mountAddTabModal(root);
-	const { logActivator } = mountChatActionsDropdown(root);
+	const { logActivator, settingsActivator } = mountChatActionsDropdown(root);
 	const logRefs = mountChatLog(root);
 
 	const elements: ChatElements = {
@@ -722,36 +774,32 @@ const initChat = (
 		tabsContainer,
 		addTabButton,
 		logActivator,
+		settingsActivator,
 		...addTabRefs,
 		...logRefs,
 	};
 
-	// initial messages
-	const loginMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')];
-	const storedMessages = chatMessages.slice(
-		Math.max(0, chatMessages.length - settings.maxChatLength - loginMessages.length),
-		chatMessages.length,
+	// welcome messages: in-memory only, appended once on login at end of log (not persisted)
+	chatMessages.push(
+		...[...document.querySelectorAll<HTMLSpanElement>('#chat > span')].map(
+			createWelcomeChatMessage,
+		),
 	);
-	storedMessages.forEach((chatMessage) => {
+
+	getVisibleChatMessages(settings).forEach((chatMessage) => {
 		messagesContainer.appendChild(
 			createMessageLi(
-				createChatMessageContent(chatMessage, settings.timestampFormat),
-				getMessageBg(settings.isZebraEnabled),
+				createChatMessageContent(chatMessage, settings),
+				getMessageBg(settings.enableZebra),
 			),
-		);
-	});
-	loginMessages.forEach((rootElement) => {
-		const loginSpan = rootElement.cloneNode(true) as HTMLSpanElement;
-		messagesContainer.appendChild(
-			createMessageLi(createLoginMessageContent(loginSpan), getMessageBg(settings.isZebraEnabled)),
 		);
 	});
 	messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
 	// wiring
-	const keypressHandler = (event: KeyboardEvent) => handleKeypress(event, chatInput);
-	document.addEventListener('keypress', keypressHandler);
-	lifecycle.onCleanup(() => document.removeEventListener('keypress', keypressHandler));
+	const keydownHandler = (event: KeyboardEvent) => handleKeypress(event, chatInput);
+	document.addEventListener('keydown', keydownHandler);
+	lifecycle.onCleanup(() => document.removeEventListener('keydown', keydownHandler));
 
 	const wheelHandler = (event: WheelEvent) => handleWheel(event, elements, settings);
 	document.addEventListener('wheel', wheelHandler);
@@ -759,7 +807,10 @@ const initChat = (
 
 	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels);
 	toggleCheckbox.onchange = () => handleToggleChange(elements, settings);
-	addTabButton.onclick = () => handleAddTabClick(elements, channels, context);
+	addTabButton.onclick = () => {
+		addTabButton.blur();
+		handleAddTabClick(elements, channels, context);
+	};
 	updateChatTabs(tabsContainer, channels, inputLabel);
 	wireChatLog(elements, settings);
 
@@ -782,17 +833,13 @@ const mountChatMessage = (
 		messagesContainer.clientHeight,
 		messagesContainer.scrollHeight,
 	);
-	const messageBg = getMessageBg(settings.isZebraEnabled);
-	const content = createChatMessageContent(chatMessage, settings.timestampFormat);
+	const messageBg = getMessageBg(settings.enableZebra);
+	const content = createChatMessageContent(chatMessage, settings);
 	messagesContainer.appendChild(createMessageLi(content, messageBg));
 
-	const popupLi = createPopupLi(
-		createChatMessageContent(chatMessage, settings.timestampFormat),
-		messageBg,
-	);
+	const popupLi = createPopupLi(createChatMessageContent(chatMessage, settings), messageBg);
 	popupsContainer.appendChild(popupLi);
-	const popupDuration = Math.max(4000, 4000 * settings.popupDelayMultiplier);
-	context.ui.fadeRemoveElement(popupLi, popupDuration);
+	context.ui.fadeRemoveElement(popupLi, settings.popupDuration * 1000);
 
 	while (messagesContainer.children.length > settings.maxChatLength) {
 		messagesContainer.children[0].remove();
@@ -822,22 +869,45 @@ export const ChatPlugin: Plugin = {
 			applyChatSettings(elements, settings);
 		};
 
-		context.settings.registerSection('Display', [
+		const [chatNamespaceIndex] = context.settings.registerSection('Display', [
 			{
 				label: 'Zebra striping',
 				description: 'Alternate message background colors.',
 				specialType: 'toggle',
 				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.isZebraEnabled;
+					input.checked = settings.enableZebra;
 					input.onchange = () => {
-						settings.isZebraEnabled = input.checked;
+						settings.enableZebra = input.checked;
+						onSettingsChange();
+					};
+				}),
+			},
+			{
+				label: 'Show timestamps',
+				description: 'Show a timestamp before each chat message.',
+				specialType: 'toggle',
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.enableTimestamp;
+					input.onchange = () => {
+						settings.enableTimestamp = input.checked;
 						onSettingsChange();
 					};
 				}),
 			},
 			{
 				label: 'Timestamp format',
-				description: 'date-fns format string for message timestamps.',
+				description: el.span``.then((span) => {
+					span.append('date-fns format string for message timestamps. See ');
+					el.a`link link-info`.mount(span, undefined, (anchor) => {
+						anchor.href = 'https://date-fns.org/v4.4.0/docs/format';
+						anchor.target = '_blank';
+						anchor.rel = 'noopener noreferrer';
+						anchor.textContent = 'format docs';
+					});
+					span.append('.');
+				}),
+				specialType: 'selectTextCombo',
+				options: timestampFormatOptions,
 				input: el.input.text``.then((input) => {
 					input.value = settings.timestampFormat;
 					input.onchange = () => {
@@ -852,23 +922,24 @@ export const ChatPlugin: Plugin = {
 				},
 			},
 			{
-				label: 'Popup delay multiplier',
+				label: 'Popup duration',
+				tooltip: 'In seconds',
 				description: 'How long popup messages stay visible.',
-				valueSuffix: 'x',
+				valueSuffix: 's',
 				input: el.input.range``.then((input) => {
-					input.min = '0.5';
-					input.max = '5';
-					input.step = '0.1';
-					input.value = settings.popupDelayMultiplier.toString();
+					input.min = '2';
+					input.max = '20';
+					input.step = '2';
+					input.value = settings.popupDuration.toString();
 					input.onchange = () => {
-						settings.popupDelayMultiplier = parseFloat(input.value);
+						settings.popupDuration = parseInt(input.value, 10);
 						onSettingsChange();
 					};
 				}),
 				reset: (input) => {
-					input.value = initialSettings.popupDelayMultiplier.toString();
+					input.value = initialSettings.popupDuration.toString();
 					input.dispatchEvent(new Event('change'));
-					settings.popupDelayMultiplier = initialSettings.popupDelayMultiplier;
+					settings.popupDuration = initialSettings.popupDuration;
 				},
 			},
 		]);
@@ -911,6 +982,13 @@ export const ChatPlugin: Plugin = {
 				},
 			},
 		]);
+
+		if (elements) {
+			elements.settingsActivator.onclick = () => {
+				elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+				context.settings.openSection([chatNamespaceIndex]);
+			};
+		}
 
 		return {
 			onChatMessage: (chatMessage) => {

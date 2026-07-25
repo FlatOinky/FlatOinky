@@ -6,38 +6,52 @@ import * as el from './ui/elements';
 
 type SettingsRegistry = [namespace: string, title: string, sections: SettingsSection[]][];
 type SettingsSection = { title: string; nodes: SettingsNode[] };
+type SettingsSectionIndex = [namespaceIndex: number, sectionIndex?: number];
 type SettingsInput = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+type SettingsNodeOption = { label: string; value: string };
+type SettingsNodeBase = {
+	input: SettingsInput;
+	label?: string;
+	description?: string | Element;
+	tooltip?: string;
+	valueSuffix?: string;
+	valuePrefix?: string;
+	reset?: (input: SettingsInput) => void;
+};
 type SettingsNode =
 	| Element
-	| {
+	| (SettingsNodeBase & {
 			specialType?: 'toggle' | 'textarea' | 'select';
-			input: SettingsInput;
-			label?: string;
-			description?: string | Element;
-			tooltip?: string;
-			valueSuffix?: string;
-			valuePrefix?: string;
-			reset?: (input: SettingsInput) => void;
-	  };
+	  })
+	| (SettingsNodeBase & {
+			specialType: 'selectTextCombo';
+			options: SettingsNodeOption[];
+	  });
 
 // #region setupPluginApi
 
 const setupPluginApi = (
 	registry: SettingsRegistry,
 	updateVisuals: () => void,
+	openSection: (indices: SettingsSectionIndex) => void,
 	pluginNamespace: string,
 	pluginTitle: string,
 ) => ({
-	registerSection: (title: string, nodes: SettingsNode[]) => {
-		let index = registry.findIndex(([ns]) => ns === pluginNamespace);
-		if (index < 0) {
-			index = registry.length;
-			registry[index] = [pluginNamespace, pluginTitle, []];
+	registerSection: (title: string, nodes: SettingsNode[]): SettingsSectionIndex => {
+		let namespaceIndex = registry.findIndex(([ns]) => ns === pluginNamespace);
+		if (namespaceIndex < 0) {
+			namespaceIndex = registry.length;
+			registry[namespaceIndex] = [pluginNamespace, pluginTitle, []];
 		}
-		registry[index][2].push({ title, nodes });
+		const sectionIndex = registry[namespaceIndex][2].length;
+		registry[namespaceIndex][2].push({ title, nodes });
 		updateVisuals();
+		return [namespaceIndex, sectionIndex];
 	},
-	modifySection: (title: string, modifier: (section: SettingsSection) => void) => {
+	modifySection: (
+		title: string,
+		modifier: (section: SettingsSection) => void,
+	): SettingsSectionIndex => {
 		let namespaceIndex = registry.findIndex(([ns]) => ns === pluginNamespace);
 		if (namespaceIndex < 0) {
 			namespaceIndex = registry.length;
@@ -50,49 +64,106 @@ const setupPluginApi = (
 		}
 		modifier(registry[namespaceIndex][2][sectionIndex]);
 		updateVisuals();
+		return [namespaceIndex, sectionIndex];
 	},
+	openSection,
 });
 
 // #region mountSettingsMenuNode
 
+const makeSelectTextComboChild = (
+	node: SettingsNodeBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] },
+): Element => {
+	const CUSTOM_VALUE = '__custom__';
+	const { options } = node;
+	const container = el.div`flex gap-2 items-center w-full`.element;
+	const select = el.select`select select-sm cursor-pointer shrink-0 w-32`.mount(container);
+	for (const opt of options) {
+		el.option`not-italic`.mount(select, undefined, (option) => {
+			option.value = opt.value;
+			option.textContent = opt.label;
+		});
+	}
+	el.option`italic`.mount(select, undefined, (option) => {
+		option.value = CUSTOM_VALUE;
+		option.textContent = 'custom';
+	});
+
+	const syncSelectItalic = () => {
+		select.classList.toggle('italic', !select.matches(':focus') && select.value === CUSTOM_VALUE);
+	};
+	const syncSelectFromInput = () => {
+		const match = options.find((opt) => opt.value === node.input.value);
+		select.value = match ? match.value : CUSTOM_VALUE;
+		syncSelectItalic();
+	};
+	select.addEventListener('focus', syncSelectItalic);
+	select.addEventListener('blur', syncSelectItalic);
+	select.addEventListener('change', () => {
+		syncSelectItalic();
+		if (select.value === CUSTOM_VALUE) return;
+		node.input.value = select.value;
+		node.input.dispatchEvent(new Event('input'));
+		node.input.dispatchEvent(new Event('change'));
+	});
+	node.input.addEventListener('input', syncSelectFromInput);
+	node.input.addEventListener('change', syncSelectFromInput);
+
+	node.input.classList = 'input input-sm flex-1 min-w-0 w-full';
+	syncSelectFromInput();
+	container.appendChild(node.input);
+	return container;
+};
+
 const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 	const getValueDisplay = () =>
 		(node.valuePrefix ?? '') + node.input.value + (node.valueSuffix ?? '');
+	if (node.specialType === 'selectTextCombo') {
+		return makeSelectTextComboChild(node);
+	}
 	if (node.input instanceof HTMLTextAreaElement) {
-		node.input.classList = 'textarea w-full';
+		node.input.classList = 'textarea textarea-sm w-full';
 		return node.input;
 	}
 
 	switch (node.specialType ?? node.input.type) {
 		case 'textarea':
-			node.input.classList = 'textarea w-full';
+			node.input.classList = 'textarea textarea-sm w-full';
 			return node.input;
 		case 'select':
-			node.input.classList = 'select cursor-pointer w-full';
+			node.input.classList = 'select select-sm cursor-pointer w-full';
 			return node.input;
 		case 'checkbox':
-			node.input.classList = 'checkbox';
+			node.input.classList = 'checkbox checkbox-sm';
 			return node.input;
 		case 'toggle':
-			node.input.classList = 'toggle';
+			node.input.classList = 'toggle toggle-sm';
 			return node.input;
 		case 'radio':
-			node.input.classList = 'radio';
+			node.input.classList = 'radio radio-sm';
 			return node.input;
 		case 'range': {
-			node.input.classList = 'range w-full';
-			const container = el.div`flex flex-col gap-1`.element;
-			const line1 = el.div`text-sm flex gap-1 items-center`.mount(container);
+			node.input.classList = 'range range-sm w-full';
+			const container = el.div`flex flex-col gap-0.5`.element;
+			const line1 = el.div`flex gap-2 items-center`.mount(container);
 			const min = node.input.getAttribute('min');
 			if (min) {
-				el.span``.mount(line1, undefined, (span) => (span.textContent = min));
+				el.span`text-xs text-base-content/50 tabular-nums`.mount(
+					line1,
+					undefined,
+					(span) => (span.textContent = min),
+				);
 			}
 			line1.appendChild(node.input);
 			const max = node.input.getAttribute('max');
 			if (max) {
-				el.span``.mount(line1, undefined, (span) => (span.textContent = max));
+				el.span`text-xs text-base-content/50 tabular-nums`.mount(
+					line1,
+					undefined,
+					(span) => (span.textContent = max),
+				);
 			}
-			el.div`text-center`.mount(container, undefined, (div) => {
+			el.div`text-xs text-center text-base-content/70`.mount(container, undefined, (div) => {
 				node.input.addEventListener('change', () => (div.textContent = getValueDisplay()));
 				node.input.addEventListener('input', () => (div.textContent = getValueDisplay()));
 				div.textContent = getValueDisplay();
@@ -100,13 +171,13 @@ const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 			return container;
 		}
 		case 'file':
-			node.input.classList = 'file-input w-full';
+			node.input.classList = 'file-input file-input-sm w-full';
 			return node.input;
 		case 'color':
-			node.input.classList = 'input p-1 w-14 h-10 cursor-pointer';
+			node.input.classList = 'input input-sm p-1 w-14 h-9 cursor-pointer';
 			return node.input;
 		case 'image':
-			node.input.classList = 'btn';
+			node.input.classList = 'btn btn-sm';
 			return node.input;
 		case 'text':
 		case 'email':
@@ -120,10 +191,10 @@ const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 		case 'month':
 		case 'time':
 		case 'week':
-			node.input.classList = 'input w-full';
+			node.input.classList = 'input input-sm w-full';
 			return node.input;
 		default:
-			node.input.classList = 'input w-full';
+			node.input.classList = 'input input-sm w-full';
 			return node.input;
 	}
 };
@@ -133,18 +204,18 @@ const mountNodeHeader = (
 	node: Exclude<SettingsNode, Element>,
 	leading?: Element,
 ) => {
-	const header = el.div`flex gap-1 items-center`.mount(container);
+	const header = el.div`flex gap-2 items-center`.mount(container);
 	if (leading) {
 		header.appendChild(leading);
 	}
 	if (node.tooltip) {
-		const tooltip = el.tooltip.info` tooltip-top tooltip-start`.mount(header);
+		const tooltip = el.tooltip.info`tooltip-top tooltip-start text-base-content/50`.mount(header);
 		tooltip.setAttribute('data-tip', node.tooltip);
 	}
-	el.span``.mount(header, undefined, (span) => (span.textContent = node.label ?? ''));
+	el.span`font-medium text-sm`.mount(header, undefined, (span) => (span.textContent = node.label ?? ''));
 	el.span`flex-1 w-full`.mount(header);
 	if (node.reset) {
-		el.button`btn btn-xs btn-soft btn-secondary tooltip tooltip-top tooltip-end`.mount(
+		el.button`btn btn-xs btn-square btn-soft btn-secondary opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
 			header,
 			'reset',
 			(resetButton) => {
@@ -159,7 +230,7 @@ const mountNodeHeader = (
 
 const mountNodeDescription = (container: HTMLElement, node: Exclude<SettingsNode, Element>) => {
 	if (!node.description) return;
-	const description = el.div`text-sm font-medium`.mount(container, 'description');
+	const description = el.div`text-xs text-base-content/60 font-normal`.mount(container, 'description');
 	if (typeof node.description === 'string') {
 		description.textContent = node.description;
 	} else {
@@ -187,6 +258,7 @@ const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
 		case 'textarea':
 		case 'range':
 		case 'select':
+		case 'selectTextCombo':
 		case 'file':
 		case 'color':
 		case 'text':
@@ -237,12 +309,12 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 		'settings',
 	);
 	const navContainer =
-		el.div`flex flex-col p-1 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
+		el.div`flex flex-col gap-0.5 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
 			container,
 			'nav',
 		);
 	const sectionsContainer =
-		el.div`flex-1 flex flex-col gap-10 overflow-y-auto overflow-x-hidden`.mount(
+		el.div`flex-1 flex flex-col gap-12 overflow-y-auto overflow-x-hidden`.mount(
 			container,
 			'sections',
 		);
@@ -250,27 +322,32 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 	const update = () => {
 		sectionsContainer.replaceChildren();
 		navContainer.replaceChildren();
-		registry.forEach(([pluginNamespace, pluginTitle, sections]) => {
-			const sectionBlock = el.div`flex flex-col gap-4`.mount(sectionsContainer, pluginNamespace);
-			el.h2`text-3xl text-base-content/80 text-center font-bold`.mount(
+		registry.forEach(([pluginNamespace, pluginTitle, sections], namespaceIndex) => {
+			const sectionBlock = el.div`flex flex-col gap-6`.mount(sectionsContainer, pluginNamespace);
+			el.h2`text-2xl font-bold tracking-tight text-base-content/90`.mount(
 				sectionBlock,
 				undefined,
 				(header) => (header.textContent = pluginTitle),
 			);
-			const navBaseStyle = 'link link-hover text-left text-ellipsis overflow-hidden py-0.5';
-			el.button`${navBaseStyle} text-sm`.mount(navContainer, pluginNamespace, (navButton) => {
+			const navNamespaceStyle =
+				'link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm' +
+				(namespaceIndex > 0 ? ' mt-2' : '');
+			el.button`${navNamespaceStyle}`.mount(navContainer, pluginNamespace, (navButton) => {
 				navButton.textContent = pluginTitle;
 				navButton.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
 			});
 
-			sections.forEach((section) => {
-				const sectionContainer = el.div`flex flex-col gap-4`.mount(sectionBlock);
-				el.div`divider text-lg font-medium mb-0`.mount(
+			sections.forEach((section, sectionIndex) => {
+				const sectionContainer = el.div`flex flex-col gap-2`.mount(
+					sectionBlock,
+					String(sectionIndex),
+				);
+				el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
 					sectionContainer,
 					undefined,
 					(divider) => (divider.textContent = section.title),
 				);
-				el.button`${navBaseStyle} text-xs border-l border-base-content/30 pl-2`.mount(
+				el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
 					navContainer,
 					undefined,
 					(header) => {
@@ -279,7 +356,7 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 					},
 				);
 				section.nodes.forEach((node) => {
-					const nodeContainer = el.div`flex flex-col gap-1 p-1`.mount(sectionContainer);
+					const nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1`.mount(sectionContainer);
 					mountSettingsMenuNode(nodeContainer, node);
 				});
 			});
@@ -343,6 +420,21 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		settingsWindow?.window.body.replaceChildren(settingsMenu.container);
 	};
 
+	const openSection = (indices: SettingsSectionIndex) => {
+		settingsWindow ??= createSettingsWindow();
+		settingsWindow.window.showWindow();
+		const [namespaceIndex, sectionIndex] = indices;
+		const namespace = registry[namespaceIndex]?.[0];
+		if (namespace === undefined) return;
+		const oinkyId =
+			sectionIndex === undefined
+				? `settings/sections/${namespace}`
+				: `settings/sections/${namespace}/${sectionIndex}`;
+		settingsMenu.sectionsContainer
+			.querySelector(`[oinky="${oinkyId}"]`)
+			?.scrollIntoView({ behavior: 'smooth' });
+	};
+
 	return {
 		registry,
 		settingsMenu,
@@ -350,6 +442,6 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 			return settingsWindow;
 		},
 		setupPluginApi: (namespace: string, title: string) =>
-			setupPluginApi(registry, updateVisuals, namespace, title),
+			setupPluginApi(registry, updateVisuals, openSection, namespace, title),
 	};
 };
