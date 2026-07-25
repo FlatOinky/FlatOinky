@@ -936,14 +936,27 @@ const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Element =>
 			);
 		});
 
+		const listTitle = el.div`collapse-title min-h-0 py-2 px-3 text-sm font-medium`.element;
 		const list =
-			el.ul`flex flex-col gap-1 w-full max-h-64 overflow-y-auto scrollbar-thumb-base-content/50 scrollbar-track-base-200/70`.mount(
-				root,
-			);
+			el.ul`flex flex-col gap-1 w-full max-h-64 overflow-y-auto scrollbar-thumb-base-content/50 scrollbar-track-base-200/70`.element;
+
+		el.div`collapse collapse-arrow border border-base-content/20 rounded-box`.mount(
+			root,
+			undefined,
+			(collapse) => {
+				el.input.checkbox``.mount(collapse);
+				collapse.append(listTitle);
+				el.div`collapse-content px-3`.mount(collapse, undefined, (content) => {
+					content.append(list);
+				});
+			},
+		);
 
 		const refreshList = () => {
+			const usernames = getMutedUsernames(mutedPlayers);
+			listTitle.textContent = `Muted players (${usernames.length})`;
 			list.replaceChildren();
-			for (const username of getMutedUsernames(mutedPlayers)) {
+			for (const username of usernames) {
 				el.li`flex items-center gap-2`.mount(list, undefined, (row) => {
 					el.button`btn btn-ghost btn-error btn-square btn-xs`.mount(row, undefined, (button) => {
 						button.type = 'button';
