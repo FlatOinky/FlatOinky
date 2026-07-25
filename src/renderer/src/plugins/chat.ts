@@ -384,14 +384,6 @@ const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settin
 	});
 };
 
-const handleKeypress = (event: KeyboardEvent, chatInput: HTMLInputElement): void => {
-	if (window.has_modal_open()) return;
-	if (event.key !== 'Enter') return;
-	if (document.activeElement === chatInput) return;
-	event.preventDefault();
-	chatInput.focus();
-};
-
 const handleToggleChange = (elements: ChatElements, settings: Settings): void => {
 	const chatMessageContainer = elements.messagesContainer;
 	updateToggleIndicator(elements.toggleIndicator, false);
@@ -797,10 +789,6 @@ const initChat = (
 	messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
 	// wiring
-	const keydownHandler = (event: KeyboardEvent) => handleKeypress(event, chatInput);
-	document.addEventListener('keydown', keydownHandler);
-	lifecycle.onCleanup(() => document.removeEventListener('keydown', keydownHandler));
-
 	const wheelHandler = (event: WheelEvent) => handleWheel(event, elements, settings);
 	document.addEventListener('wheel', wheelHandler);
 	lifecycle.onCleanup(() => document.removeEventListener('wheel', wheelHandler));
