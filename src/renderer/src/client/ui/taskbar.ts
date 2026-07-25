@@ -69,7 +69,8 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		(toggle) => {
 			toggle.style.setProperty('anchor-name', '--oinky-taskbar-menu-btn');
 			toggle.setAttribute('popovertarget', 'oinky-taskbar-menu');
-			toggle.appendChild(createSvgIcon(['M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5']));
+			toggle.appendChild(el.icon.menu`size-7`.element);
+			toggle.onclick = () => toggle.blur();
 		},
 	);
 
@@ -94,13 +95,13 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 
 	// #region > helpers
 	const initMenuItem = (lifecycle: Lifecycle, id: string) =>
-		initElement(lifecycle, menuItems, id, 'div');
+		el.div``.init(lifecycle, menuItems, id);
 
 	const initActivity = (lifecycle: Lifecycle, id: string) =>
-		initElement(lifecycle, activitiesContainer, id, 'div');
+		el.div``.init(lifecycle, activitiesContainer, id);
 
 	const initWidget = (lifecycle: Lifecycle, id: string) =>
-		initElement(lifecycle, widgetsContainer, id, 'div');
+		el.div``.init(lifecycle, widgetsContainer, id);
 
 	type TrayButtonOptions = {
 		title?: string;
@@ -120,7 +121,8 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 				button.classList.add('tooltip', 'tooltip-top', 'tooltip-end');
 				button.setAttribute('data-tip', options.title);
 			}
-			if (options.icon instanceof SVGSVGElement || options.icon instanceof HTMLElement) {
+			if (options.icon instanceof Element) {
+				options.icon.classList.add('size-4');
 				button.replaceChildren(options.icon);
 			} else if (typeof options.icon === 'object') {
 				const buttonIcon = createSvgIcon(options.icon.paths, options.icon.options);
@@ -141,7 +143,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		const trayButton = initTrayButton(lifecycle, id, options.button);
 		const trayMenu = initElement(lifecycle, trayContainer, `${id}/menu`, 'div', (menu) => {
 			menu.className =
-				'dropdown dropdown-top dropdown-end w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20';
+				'dropdown dropdown-top dropdown-end w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20 overflow-visible';
 		});
 
 		const anchorId = CSS.escape(
@@ -165,7 +167,8 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		lifecycle: Lifecycle,
 		id: string,
 		options: {
-			icon: SVGElement | HTMLImageElement;
+			title?: string;
+			icon: Element;
 			onClick: () => void;
 			onContextMenu?: (event: MouseEvent) => void;
 		},
@@ -177,6 +180,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			button.className = 'btn btn-square btn-primary transition-[width]';
 			button.style.width = '0px';
 			button.style.setProperty('anchor-name', anchorName);
+			options.icon.classList.add('size-7');
 			button.appendChild(options.icon);
 			button.onclick = () => options.onClick();
 			button.oncontextmenu = (event) => {
@@ -184,6 +188,10 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 				menu.showPopover();
 				options.onContextMenu?.(event);
 			};
+			if (options.title) {
+				button.classList.add('tooltip', 'tooltip-primary', 'tooltip-top');
+				button.setAttribute('data-tip', options.title);
+			}
 			requestAnimationFrame(() =>
 				requestAnimationFrame(() => {
 					button.style.width = '40px';

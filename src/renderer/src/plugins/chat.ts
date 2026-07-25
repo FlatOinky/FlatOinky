@@ -4,7 +4,6 @@ import pmToIconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
 import { ChatMessage, Lifecycle, Plugin, PluginContext } from '../client';
 import { ipcRenderer } from '../client/ipc_renderer';
-import { createSvgIcon } from '../client/ui/ui_utils';
 
 const namespace = 'core/chat';
 
@@ -267,13 +266,8 @@ const createTabButton = ({ name }: ChatTab, isActive: boolean): HTMLButtonElemen
 
 const updateChatTabInputLabel = (channels: Channels, inputLabel: HTMLSpanElement): void => {
 	const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
-	if (prefix === '') {
-		inputLabel.style.display = 'none';
-		inputLabel.innerText = '';
-	} else {
-		inputLabel.style.display = '';
-		inputLabel.innerText = prefix;
-	}
+	inputLabel.classList.toggle('hidden', prefix === '');
+	inputLabel.innerText = prefix;
 };
 
 const updateChatTabs = (
@@ -439,296 +433,204 @@ const handleAddTabClick = (
 
 // #region Builders
 
-const mountToggleButton = (root: HTMLElement, settings: Settings) => {
-	const toggleButton = document.createElement('label');
-	toggleButton.setAttribute('oinky-chat', 'toggle');
-	toggleButton.className =
-		'absolute right-full btn btn-sm engaged:btn-primary btn-square m-1 indicator';
+const mountToggleButton = (root: HTMLElement, context: PluginContext, settings: Settings) => {
+	const toggleButton = context.ui.el
+		.label`absolute right-full btn btn-sm engaged:btn-secondary btn-square m-1 indicator`.mount(
+		root,
+		'toggle',
+	);
+	context.ui.el.icon.chevronDown`size-6 -m-1 transition-transform`.mount(toggleButton, 'icon');
 
-	const toggleCheckbox = document.createElement('input');
-	toggleCheckbox.type = 'checkbox';
-	toggleCheckbox.className = 'hidden';
-	toggleCheckbox.checked = settings.isExpanded;
-	toggleButton.appendChild(toggleCheckbox);
-
-	const toggleIndicator = document.createElement('div');
-	toggleIndicator.setAttribute('oinky-chat', 'toggle-indicator');
-	toggleIndicator.className = 'indicator-item status status-warning hidden';
-	toggleButton.appendChild(toggleIndicator);
-
-	toggleButton.appendChild(
-		createSvgIcon(
-			[
-				'M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z',
-			],
-			{
-				viewBox: '0 0 20 20',
-				fill: 'currentColor',
-				stroke: 'none',
-				className: 'w-6 h-6 -m-1 transition-transform',
-			},
-		),
+	const toggleCheckbox = context.ui.el.input.checkbox`hidden`.mount(
+		toggleButton,
+		'checkbox',
+		(toggleCheckbox) => (toggleCheckbox.checked = settings.isExpanded),
 	);
 
-	root.appendChild(toggleButton);
+	const toggleIndicator = context.ui.el.div`indicator-item status status-warning hidden`.mount(
+		toggleButton,
+		'indicator',
+	);
+
 	return { toggleButton, toggleCheckbox, toggleIndicator };
 };
 
-const mountChatInput = (root: HTMLElement, placeholder: string) => {
-	const group = document.createElement('div');
-	group.className = 'w-xl join';
+const mountChatInput = (root: HTMLElement, context: PluginContext) => {
+	const group = context.ui.el.div`w-xl join`.mount(root);
+	const label = context.ui.el.label`join-item input w-full`.mount(group, 'label');
+	const inputLabel = context.ui.el.span`label text-xs mr-0 px-2 hidden`.mount(label, 'input');
+	const chatInput = context.ui.el.input.text``.mount(label, 'input', (chatInput) => {
+		chatInput.placeholder = context.character.username;
+	});
 
-	const label = document.createElement('label');
-	label.className = 'join-item input w-full';
-
-	const inputLabel = document.createElement('span');
-	inputLabel.setAttribute('oinky-chat', 'input-label');
-	inputLabel.className = 'label text-xs mr-0 px-2';
-	inputLabel.style.display = 'none';
-
-	const chatInput = document.createElement('input');
-	chatInput.setAttribute('oinky-chat', 'input');
-	chatInput.placeholder = placeholder;
-	label.append(inputLabel, chatInput);
-
-	const actionsButton = document.createElement('button');
-	actionsButton.className =
-		'join-item btn not-engaged:bg-base-100 engaged:btn-primary not-engaged:border-base-content/20 px-1';
-	actionsButton.setAttribute('popovertarget', 'oinky-chat-actions');
-	actionsButton.style.setProperty('anchor-name', '--oinky-chat-actions-toggle');
-	actionsButton.appendChild(
-		createSvgIcon([
-			'M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z',
-		]),
+	context.ui.el
+		.button`join-item btn not-engaged:bg-base-100 engaged:btn-secondary not-engaged:border-base-content/20 px-1`.mount(
+		group,
+		'actions',
+		(actionsButton) => {
+			actionsButton.setAttribute('popovertarget', 'oinky-chat-actions');
+			actionsButton.style.setProperty('anchor-name', '--oinky-chat-actions-toggle');
+			context.ui.el.icon.dotsVertical`size-5`.mount(actionsButton, 'icon');
+		},
 	);
 
-	group.append(label, actionsButton);
-	root.appendChild(group);
 	return { inputLabel, chatInput };
 };
 
-const mountMessagesRegion = (root: HTMLElement) => {
-	const region = document.createElement('div');
-	region.className = 'contents pointer-events-none';
+const mountMessagesRegion = (root: HTMLElement, context: PluginContext) => {
+	const region = context.ui.el.div`contents pointer-events-none`.mount(root, 'messages');
+	const popupsContainer = context.ui.el
+		.ul`absolute left-0 bottom-full m-1 transition-opacity w-xl`.mount(region, 'popups');
+	const messagesWrapper = context.ui.el
+		.div`absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity`.mount(
+		region,
+	);
+	const messagesContainer = context.ui.el
+		.ul`max-h-64 overflow-y-scroll scrollbar-thumb-base-content/50 scrollbar-track-base-200/70 transition-opacity`.mount(
+		messagesWrapper,
+		'list',
+	);
 
-	const popupsContainer = document.createElement('ul');
-	popupsContainer.setAttribute('oinky-chat-expanded-hidden', '');
-	popupsContainer.className = 'absolute left-0 bottom-full m-1 transition-opacity w-xl';
-
-	const messagesWrapper = document.createElement('div');
-	messagesWrapper.className =
-		'absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity';
-
-	const messagesContainer = document.createElement('ul');
-	messagesContainer.setAttribute('oinky-chat-expanded-visible', '');
-	messagesContainer.className =
-		'max-h-64 overflow-y-scroll scrollbar-thumb-base-content/50 scrollbar-track-base-200/70 transition-opacity';
-	messagesWrapper.appendChild(messagesContainer);
-
-	region.append(popupsContainer, messagesWrapper);
-	root.appendChild(region);
 	return { messagesContainer, popupsContainer };
 };
 
-const mountChatTabs = (root: HTMLElement) => {
-	const tabsBar = document.createElement('div');
-	tabsBar.className = 'absolute top-full max-w-xl flex ml-(--radius-box)';
-
-	const tabsContainer = document.createElement('div');
-	tabsContainer.setAttribute('role', 'tablist');
-	tabsContainer.className = 'tabs tabs-lift tabs-bottom tabs-xs';
-
-	const addTabWrapper = document.createElement('div');
-	addTabWrapper.className = 'tabs tabs-lift tabs-bottom tabs-xs';
-	const addTabButton = document.createElement('button');
-	addTabButton.setAttribute('oinky-chat', 'add-tab');
-	addTabButton.className = 'tab mx-1 btn btn-xs engaged:btn-primary text-(--btn-fg)';
-	addTabButton.appendChild(
-		createSvgIcon(
-			[
-				'M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z',
-			],
-			{ viewBox: '0 0 16 16', fill: 'currentColor', stroke: 'none', className: 'size-4' },
-		),
+const mountChatTabs = (root: HTMLElement, context: PluginContext) => {
+	const tabsBar = context.ui.el.div`absolute top-full max-w-xl flex ml-(--radius-box)`.mount(
+		root,
+		'tabs',
 	);
-	addTabWrapper.appendChild(addTabButton);
 
-	tabsBar.append(tabsContainer, addTabWrapper);
-	root.appendChild(tabsBar);
+	const tabsContainer = context.ui.el.div`tabs tabs-lift tabs-bottom tabs-xs`.mount(
+		tabsBar,
+		'container',
+	);
+	tabsContainer.setAttribute('role', 'tablist');
+
+	const addTabWrapper = context.ui.el.div`tabs tabs-lift tabs-bottom tabs-xs`.mount(
+		tabsBar,
+		'add-tab',
+	);
+	const addTabButton = context.ui.el
+		.button`tab mx-1 btn btn-xs engaged:btn-secondary text-(--btn-fg)`.mount(
+		addTabWrapper,
+		'button',
+	);
+	context.ui.el.icon.plus``.mount(addTabButton, 'icon');
+
 	return { tabsContainer, addTabButton };
 };
 
-const mountAddTabModal = (root: HTMLElement) => {
-	const addTabModal = document.createElement('dialog');
-	addTabModal.setAttribute('oinky-chat', 'add-tab-modal');
-	addTabModal.className = 'modal';
+const mountAddTabModal = (root: HTMLElement, context: PluginContext) => {
+	const addTabModal = context.ui.el.dialog`modal`.mount(root, 'add-tab-modal');
+	const modalBox = context.ui.el.div`modal-box`.mount(addTabModal, 'box');
+	const title = context.ui.el.h3`text-lg font-bold`.mount(modalBox, 'title');
+	title.innerText = 'Add PM tab';
 
-	const modalBox = document.createElement('div');
-	modalBox.className = 'modal-box';
-	const title = document.createElement('h3');
-	title.textContent = 'Add PM tab';
-	modalBox.append(title, document.createElement('br'));
-
-	const addTabForm = document.createElement('form');
+	const addTabForm = context.ui.el.form`join w-full`.mount(modalBox, 'form');
 	addTabForm.setAttribute('method', 'dialog');
-	addTabForm.className = 'join w-full';
 
-	const label = document.createElement('label');
-	label.className = 'join-item w-full input';
-	const labelIcon = document.createElement('span');
-	labelIcon.className = 'label';
-	labelIcon.appendChild(
-		createSvgIcon(
-			[
-				'M5.404 14.596A6.5 6.5 0 1 1 16.5 10a1.25 1.25 0 0 1-2.5 0 4 4 0 1 0-.571 2.06A2.75 2.75 0 0 0 18 10a8 8 0 1 0-2.343 5.657.75.75 0 0 0-1.06-1.06 6.5 6.5 0 0 1-9.193 0ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z',
-			],
-			{ viewBox: '0 0 20 20', fill: 'currentColor', stroke: 'none', className: 'size-5' },
-		),
-	);
-	const addTabInput = document.createElement('input');
+	const label = context.ui.el.label`w-full input`.mount(addTabForm, 'label');
+	context.ui.el.icon.at`size-5`.mount(label, 'icon');
+
+	const addTabInput = context.ui.el.input.text``.mount(label, 'input');
 	addTabInput.setAttribute('autofocus', '');
 	addTabInput.type = 'text';
-	label.append(labelIcon, addTabInput);
 
-	const addTabSubmit = document.createElement('button');
-	addTabSubmit.setAttribute('oinky-modal', 'submit');
-	addTabSubmit.className = 'btn btn-ghost btn-success border-base-content/20 join-item';
-	addTabSubmit.appendChild(createSvgIcon(['m4.5 12.75 6 6 9-13.5']));
+	const addTabSubmit = context.ui.el
+		.button`btn btn-ghost btn-success border-base-content/20 join-item`.mount(addTabForm, 'submit');
+	context.ui.el.icon.check`size-5`.mount(addTabSubmit, 'icon');
 
-	const addTabCancel = document.createElement('button');
-	addTabCancel.setAttribute('oinky-modal', 'cancel');
-	addTabCancel.className = 'btn btn-ghost btn-error border-base-content/20 join-item';
-	addTabCancel.appendChild(createSvgIcon(['M6 18 18 6M6 6l12 12']));
+	const addTabCancel = context.ui.el
+		.button`btn btn-ghost btn-error border-base-content/20 join-item`.mount(addTabForm, 'cancel');
+	context.ui.el.icon.x`size-5`.mount(addTabCancel, 'icon');
 
-	addTabForm.append(label, addTabSubmit, addTabCancel);
-	modalBox.appendChild(addTabForm);
+	context.ui.el.form`modal-backdrop`.mount(addTabModal, 'backdrop', (backdrop) => {
+		backdrop.setAttribute('method', 'dialog');
+		backdrop.className = 'modal-backdrop';
+		context.ui.el.button``.mount(backdrop, 'button');
+	});
 
-	const backdrop = document.createElement('form');
-	backdrop.setAttribute('method', 'dialog');
-	backdrop.className = 'modal-backdrop';
-	const backdropButton = document.createElement('button');
-	backdropButton.value = 'cancel';
-	backdropButton.textContent = 'Cancel';
-	backdrop.appendChild(backdropButton);
-
-	addTabModal.append(modalBox, backdrop);
-	root.appendChild(addTabModal);
 	return { addTabModal, addTabForm, addTabInput, addTabSubmit, addTabCancel };
 };
 
-const mountChatActionsDropdown = (root: HTMLElement) => {
-	const dropdown = document.createElement('ul');
-	dropdown.className =
-		'dropdown dropdown-top dropdown-right menu w-48 rounded-box bg-base-100 shadow -translate-y-2 translate-x-1 border border-base-content/20';
+const mountChatActionsDropdown = (root: HTMLElement, context: PluginContext) => {
+	const dropdown = context.ui.el
+		.ul`dropdown dropdown-top dropdown-right menu w-48 rounded-box bg-base-100 shadow -translate-y-2 translate-x-1 border border-base-content/20`.mount(
+		root,
+		'dropdown',
+	);
 	dropdown.setAttribute('popover', '');
 	dropdown.id = 'oinky-chat-actions';
 	dropdown.style.setProperty('position-anchor', '--oinky-chat-actions-toggle');
 
-	const logActivatorItem = document.createElement('li');
-	const logActivator = document.createElement('button');
-	logActivator.setAttribute('oinky-chat', 'log-activator');
-	logActivator.textContent = 'Open Chat Log';
-	logActivatorItem.appendChild(logActivator);
+	const logActivatorItem = context.ui.el.li``.mount(dropdown, 'log-activator-item');
+	const logActivator = context.ui.el.button``.mount(
+		logActivatorItem,
+		'log-activator',
+		(logActivator) => {
+			logActivator.textContent = 'Open Chat Log';
+		},
+	);
 
-	const settingsItem = document.createElement('li');
-	const settingsAction = document.createElement('button');
-	settingsAction.setAttribute('oinky-chat', 'settings-action');
-	settingsAction.className = 'line-through';
-	settingsAction.textContent = 'Open Settings';
-	settingsItem.appendChild(settingsAction);
+	const settingsItem = context.ui.el.li``.mount(dropdown, 'settings-item');
+	context.ui.el.button`line-through`.mount(settingsItem, 'settings-action', (settingsAction) => {
+		settingsAction.textContent = 'Open Settings';
+	});
 
-	dropdown.append(logActivatorItem, settingsItem);
-	root.appendChild(dropdown);
 	return { logActivator };
 };
 
-const mountChatLog = (root: HTMLElement) => {
-	const logModal = document.createElement('dialog');
-	logModal.setAttribute('oinky-chat', 'log-modal');
-	logModal.className = 'modal';
+const mountChatLog = (root: HTMLElement, context: PluginContext) => {
+	const logModal = context.ui.el.dialog`modal`.mount(root, 'log-modal');
 
-	const modalBox = document.createElement('div');
-	modalBox.className = 'modal-box';
+	const modalBox = context.ui.el.div`modal-box`.mount(logModal, 'box');
 
-	const header = document.createElement('div');
-	header.className = 'flex justify-between';
-	const heading = document.createElement('h3');
+	const header = context.ui.el.div`flex justify-between`.mount(modalBox);
+	const heading = context.ui.el.h3``.mount(header, 'heading');
 	heading.textContent = 'Chat Log';
-	const closeForm = document.createElement('form');
-	closeForm.setAttribute('method', 'dialog');
-	const closeButton = document.createElement('button');
-	closeButton.className = 'btn btn-sm btn-ghost btn-error';
-	closeButton.appendChild(createSvgIcon(['M6 18 18 6M6 6l12 12']));
-	closeForm.appendChild(closeButton);
-	header.append(heading, closeForm);
-
-	const logContainer = document.createElement('ul');
-	logContainer.setAttribute('oinky-chat', 'log-container');
-	logContainer.className =
-		'flex flex-col gap-2 my-3 -mx-6 p-2 bg-base-200 h-[50vh] overflow-y-scroll';
-
-	const footer = document.createElement('div');
-	footer.className = 'flex gap-2 justify-between';
-
-	const navGroup = document.createElement('div');
-	navGroup.className = 'join';
-	const createNavButton = (paths: string[]): HTMLButtonElement => {
-		const button = document.createElement('button');
-		button.className = 'join-item btn btn-sm btn-square engaged:btn-primary';
-		button.appendChild(
-			createSvgIcon(paths, {
-				viewBox: '0 0 20 20',
-				fill: 'currentColor',
-				stroke: 'none',
-				className: 'size-5',
-			}),
+	context.ui.el.form``.mount(header, 'close', (closeForm) => {
+		closeForm.setAttribute('method', 'dialog');
+		context.ui.el.button`btn btn-sm btn-ghost btn-error`.mount(closeForm, 'button', (closeButton) =>
+			context.ui.el.icon.x`size-5`.mount(closeButton, 'icon'),
 		);
-		return button;
-	};
-	const logGoTop = createNavButton([
-		'M9.47 4.72a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 6.31l-3.72 3.72a.75.75 0 1 1-1.06-1.06l4.25-4.25Zm-4.25 9.25 4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 11.31l-3.72 3.72a.75.75 0 0 1-1.06-1.06Z',
-	]);
-	logGoTop.setAttribute('oinky-chat', 'go-top-log');
-	const logGoUp = createNavButton([
-		'M9.47 6.47a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25Z',
-	]);
-	logGoUp.setAttribute('oinky-chat', 'go-up-log');
-	const logGoDown = createNavButton([
-		'M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z',
-	]);
-	logGoDown.setAttribute('oinky-chat', 'go-down-log');
-	const logGoBottom = createNavButton([
-		'M9.47 15.28a.75.75 0 0 0 1.06 0l4.25-4.25a.75.75 0 1 0-1.06-1.06L10 13.69 6.28 9.97a.75.75 0 0 0-1.06 1.06l4.25 4.25ZM5.22 6.03l4.25 4.25a.75.75 0 0 0 1.06 0l4.25-4.25a.75.75 0 0 0-1.06-1.06L10 8.69 6.28 4.97a.75.75 0 0 0-1.06 1.06Z',
-	]);
-	logGoBottom.setAttribute('oinky-chat', 'go-bottom-log');
-	navGroup.append(logGoTop, logGoUp, logGoDown, logGoBottom);
+	});
 
-	const logExport = document.createElement('button');
-	logExport.setAttribute('oinky-chat', 'export-log');
-	logExport.className = 'btn btn-sm btn-ghost engaged:btn-primary';
-	logExport.appendChild(
-		createSvgIcon(
-			[
-				'M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z',
-				'M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z',
-			],
-			{ viewBox: '0 0 20 20', fill: 'currentColor', stroke: 'none', className: 'size-5' },
-		),
+	const logContainer = context.ui.el
+		.ul`flex flex-col gap-2 my-3 -mx-6 p-2 bg-base-200 h-[50vh] overflow-y-scroll`.mount(
+		modalBox,
+		'log-container',
 	);
-	logExport.append(document.createTextNode(' Export'));
 
-	footer.append(navGroup, logExport);
-	modalBox.append(header, logContainer, footer);
+	const footer = context.ui.el.div`flex gap-2 justify-between`.mount(modalBox);
 
-	const backdrop = document.createElement('form');
-	backdrop.setAttribute('method', 'dialog');
-	backdrop.className = 'modal-backdrop';
-	const backdropButton = document.createElement('button');
-	backdropButton.textContent = 'close';
-	backdrop.appendChild(backdropButton);
+	const navGroup = context.ui.el.div`join`.mount(footer, 'nav');
+	const createNavButton = (id: string, icon: string): HTMLButtonElement =>
+		context.ui.el.button`join-item btn btn-sm btn-square engaged:btn-primary`.mount(
+			navGroup,
+			id,
+			(button) => context.ui.el.icon[icon]`size-5`.mount(button, 'icon'),
+		);
+	const logGoTop = createNavButton('top', 'chevronsUp');
+	const logGoUp = createNavButton('up', 'chevronUp');
+	const logGoDown = createNavButton('down', 'chevronDown');
+	const logGoBottom = createNavButton('bottom', 'chevronsDown');
 
-	logModal.append(modalBox, backdrop);
-	root.appendChild(logModal);
+	const logExport = context.ui.el.button`btn btn-sm btn-ghost engaged:btn-primary`.mount(
+		footer,
+		'export-log',
+		(logExport) => {
+			context.ui.el.icon.download`size-5`.mount(logExport, 'icon');
+			logExport.append(document.createTextNode(' Export'));
+		},
+	);
+
+	context.ui.el.form`modal-backdrop`.mount(logModal, 'backdrop', (backdrop) => {
+		backdrop.setAttribute('method', 'dialog');
+		context.ui.el.button``.mount(backdrop, 'button', (backdropButton) => {
+			backdropButton.textContent = 'close';
+		});
+	});
+
 	return { logModal, logContainer, logGoTop, logGoUp, logGoDown, logGoBottom, logExport };
 };
 
@@ -796,23 +698,19 @@ const initChat = (
 		lifecycle.onCleanup(() => fmmoChatInput.removeAttribute('oinky-hide'));
 	}
 
-	const root = context.ui.initElement(
-		lifecycle,
-		context.ui.taskbar.elements.chatContainer,
-		'root',
-		'div',
-		(element) => {
-			element.style.display = 'contents';
-		},
-	);
+	const root = context.ui.taskbar.elements.chatContainer;
 
-	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(root, settings);
-	const { inputLabel, chatInput } = mountChatInput(root, context.character.username);
-	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
-	const { tabsContainer, addTabButton } = mountChatTabs(root);
-	const addTabRefs = mountAddTabModal(root);
-	const { logActivator } = mountChatActionsDropdown(root);
-	const logRefs = mountChatLog(root);
+	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(
+		root,
+		context,
+		settings,
+	);
+	const { inputLabel, chatInput } = mountChatInput(root, context);
+	const { messagesContainer, popupsContainer } = mountMessagesRegion(root, context);
+	const { tabsContainer, addTabButton } = mountChatTabs(root, context);
+	const addTabRefs = mountAddTabModal(root, context);
+	const { logActivator } = mountChatActionsDropdown(root, context);
+	const logRefs = mountChatLog(root, context);
 
 	const elements: ChatElements = {
 		root,

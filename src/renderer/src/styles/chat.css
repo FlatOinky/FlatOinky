@@ -1,17 +1,17 @@
-[oinky-chat='toggle']:has(:checked) svg {
+[oinky="taskbar/chat/toggle"]:has(:checked) [oinky="taskbar/chat/toggle/icon"] {
 	transform: scaleY(1);
 }
 
-[oinky-chat='toggle']:not(:has(:checked)) svg {
+[oinky="taskbar/chat/toggle"]:not(:has(:checked)) [oinky="taskbar/chat/toggle/icon"] {
 	transform: scaleY(-1);
 }
 
-[oinky-chat='toggle']:has(:checked) ~ * [oinky-chat-expanded-visible],
-[oinky-chat='toggle']:not(:has(:checked)) ~ * [oinky-chat-expanded-hidden] {
+[oinky="taskbar/chat/toggle"]:has(:checked) ~ * [oinky="taskbar/chat/messages/list"],
+[oinky="taskbar/chat/toggle"]:not(:has(:checked)) ~ * [oinky="taskbar/chat/messages/popups"] {
 	opacity: 1;
 }
 
-[oinky-chat='toggle']:not(:has(:checked)) ~ * [oinky-chat-expanded-visible],
-[oinky-chat='toggle']:has(:checked) ~ * [oinky-chat-expanded-hidden] {
+[oinky="taskbar/chat/toggle"]:not(:has(:checked)) ~ * [oinky="taskbar/chat/messages/list"],
+[oinky="taskbar/chat/toggle"]:has(:checked) ~ * [oinky="taskbar/chat/messages/popups"] {
 	opacity: 0;
 }

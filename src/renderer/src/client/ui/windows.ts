@@ -1,9 +1,10 @@
 import mustache from 'mustache';
 import windowFrameTemplate from './windows/window_frame.html?raw';
-import { createSvgIcon, initElement } from './ui_utils';
+import { initElement } from './ui_utils';
 import { Lifecycle } from '../../client';
 import { ClientStorage } from '../client_storage';
 import type { initTaskbar } from './taskbar';
+import * as el from './elements';
 
 type TaskbarApi = ReturnType<typeof initTaskbar>;
 
@@ -110,7 +111,7 @@ type WindowOptions = {
 	storage: ClientStorage;
 	initialState?: Partial<WindowState>;
 	onPreMount?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void;
-	icon?: SVGElement | HTMLImageElement;
+	icon?: Element;
 };
 
 export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: TaskbarApi) => {
@@ -262,12 +263,9 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			};
 		});
 
-		const windowButtonIcon =
-			icon ??
-			createSvgIcon([
-				'M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z',
-			]);
+		const windowButtonIcon = icon ?? el.icon.appWindow``.element;
 		const { button: windowButton } = taskbar.initWindowButton(lifecycle, id, {
+			title,
 			icon: windowButtonIcon,
 			onClick: () => {
 				toggleWindowVisibility(windowFrame, windowState);

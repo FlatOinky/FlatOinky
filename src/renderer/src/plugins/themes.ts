@@ -1,5 +1,4 @@
 import { Lifecycle, Plugin, PluginContext } from '../client';
-import { createSvgIcon } from '../client/ui/ui_utils';
 
 const initialSettings = { theme: 'dark' };
 type Settings = typeof initialSettings;
@@ -46,37 +45,28 @@ const updateTheme = (theme: string) =>
 	document.body.parentElement?.setAttribute('data-theme', theme);
 
 const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, settings: Settings) => {
-	const container = context.ui.taskbar.initMenuItem(lifecycle, 'theme-selector');
+	const root = context.ui.taskbar.initMenuItem(lifecycle, 'theme-selector');
+	const container = context.ui.el.div`px-2`.mount(root, 'container');
 
-	const fieldset = document.createElement('fieldset');
-	fieldset.className = 'fieldset px-4';
-
-	const legend = document.createElement('legend');
-	legend.className = 'fieldset-legend';
-	const tooltip = document.createElement('span');
-	tooltip.className = 'tooltip tooltip-info text-info text-xs';
-	tooltip.setAttribute('data-tip', 'Not every theme has colors that work well with the UI');
-	tooltip.appendChild(
-		createSvgIcon(
-			[
-				'M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0ZM9 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM6.75 8a.75.75 0 0 0 0 1.5h.75v1.75a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8.25 8h-1.5Z',
-			],
-			{ viewBox: '0 0 16 16', fill: 'currentColor', stroke: 'none', className: 'size-4' },
-		),
-	);
-	legend.append('Theme ', tooltip);
-
-	const select = document.createElement('select');
-	select.className = 'select cursor-pointer';
-	themes.forEach(({ id, name }) => {
-		const option = document.createElement('option');
-		option.value = id;
-		option.textContent = name;
-		select.appendChild(option);
+	context.ui.el.fieldset``.mount(container, 'fieldset', (fieldset) => {
+		const legend = context.ui.el.legend`fieldset-legend`.mount(fieldset, 'legend');
+		legend.append('Theme ');
+		const tooltip = context.ui.el
+			.span`tooltip tooltip-info bg-info rounded-selector size-[1lh] text-info-content text-xs`.mount(
+			legend,
+			'tooltip',
+		);
+		tooltip.setAttribute('data-tip', 'Not every theme has colors that work well with the UI');
+		context.ui.el.icon.infoSmall`size-[1.5lh] m-[-0.25lh]`.mount(tooltip, 'icon');
 	});
 
-	fieldset.append(legend, select);
-	container.appendChild(fieldset);
+	const select = context.ui.el.select`select cursor-pointer`.mount(container, 'select');
+	themes.forEach(({ id, name }) => {
+		context.ui.el.option`option`.mount(select, 'option', (option) => {
+			option.value = id;
+			option.textContent = name;
+		});
+	});
 
 	select.value = settings.theme;
 	select.onchange = () => {

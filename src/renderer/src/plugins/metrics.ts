@@ -1,8 +1,5 @@
 import { Lifecycle, Plugin, PluginContext } from '../client';
 
-const windowIconSvgPath =
-	'M23 23v466h466v-18H41v-82.184l85.854-57.234 70.023 70.022 65.133-260.536L387.28 203.7l67.79-107.97 19.317 11.858 6.102-71.1-60.644 37.616 19.884 12.207-59.01 93.99-130.732-65.366-62.865 251.462-57.98-57.978L41 367.184V23H23z';
-
 type XPDrop = {
 	xp: number;
 	skill: string;
@@ -143,46 +140,47 @@ const mountSkillBlock = (
 	skill: string,
 	activeSkillCharts: { [key: string]: boolean },
 ) => {
+	const { el } = context.ui;
 	let showTotal = settings.showMetricsWindowTotalBlock && skill === 'total';
 	let xpTracker = startXpTracker(
 		xpDrops,
 		settings,
 		skill === 'total' ? () => true : (xpDrop) => xpDrop.skill === skill,
 	);
-	const container = context.ui.mountElement(root, skill, 'div', (container) => {
-		container.className =
-			'rounded-box bg-base-200 in-locked-window:bg-base-100/50 p-[calc(var(--radius-box)/2)] flex flex-col gap-0.5 relative order-(--skill-order) transition-[background-color]';
-		container.style.display = showTotal ? 'flex' : 'none';
+	const container =
+		el.div`rounded-box bg-base-200 in-locked-window:bg-base-100/50 p-[calc(var(--radius-box)/2)] flex-col gap-0.5 relative order-(--skill-order) transition-[background-color]`.mount(
+			root,
+			skill,
+		);
+	container.classList.toggle('hidden', !showTotal);
+	container.classList.toggle('flex', showTotal);
+	const skillHeader = el.div`flex gap-1 items-start`.mount(container, 'header');
+	el.img`inline size-4 p-px`.mount(skillHeader, 'icon', (image) => {
+		image.src = `https://flatmmo.com/images/icons/${skill}.png`;
 	});
-	const skillHeader = context.ui.mountElement(container, 'header', 'div', (div) => {
-		div.className = 'flex gap-1 items-start';
-	});
-	context.ui.mountElement(skillHeader, 'icon', 'img', (img) => {
-		img.className = 'inline size-4 p-px';
-		img.src = `https://flatmmo.com/images/icons/${skill}.png`;
-	});
-	const statXpRate = context.ui.mountElement(skillHeader, 'xp-rate', 'span', (span) => {
-		span.className = 'text-xs font-bold text-info';
-	});
-	const statSessionXp = context.ui.mountElement(container, 'session-xp', 'div', (div) => {
-		div.className = 'text-xs text-base-content in-locked-window:text-base-content/80';
-	});
+	const statXpRate = el.span`text-xs font-bold text-info`.mount(skillHeader, 'xp-rate');
+	const statSessionXp =
+		el.div`text-xs text-base-content in-locked-window:text-base-content/80`.mount(
+			container,
+			'session-xp',
+		);
 
 	if (skill !== 'total') {
-		context.ui.mountElement(container, 'close', 'button', (button) => {
-			button.className =
-				'absolute top-1 right-1 btn btn-xs size-2 btn-circle btn-error in-locked-window:hidden';
-			button.innerHTML = '×';
-			button.onclick = () => {
-				activeSkillCharts[skill] = false;
-				container.style.display = 'none';
-				xpTracker = startXpTracker(
-					xpDrops,
-					settings,
-					showTotal ? () => true : (xpDrop) => xpDrop.skill === skill,
-				);
-			};
-		});
+		el.button`absolute top-1 right-1 btn btn-xs size-2 btn-circle btn-error in-locked-window:hidden`.mount(
+			container,
+			'close',
+			(button) => {
+				button.innerHTML = '×';
+				button.onclick = () => {
+					activeSkillCharts[skill] = false;
+					xpTracker = startXpTracker(
+						xpDrops,
+						settings,
+						showTotal ? () => true : (xpDrop) => xpDrop.skill === skill,
+					);
+				};
+			},
+		);
 	}
 
 	const skillChart = mountSkillChart(context, container, xpTracker, { responsive: true });
@@ -198,11 +196,10 @@ const mountSkillBlock = (
 	};
 	const updateVisibility = (metrics: XpTrackerMetrics) => {
 		showTotal = settings.showMetricsWindowTotalBlock && skill === 'total';
-		if (showTotal || (skill !== 'total' && metrics.isActive && activeSkillCharts[skill])) {
-			container.style.display = 'block';
-		} else {
-			container.style.display = 'none';
-		}
+		const isVisible =
+			showTotal || (skill !== 'total' && metrics.isActive && activeSkillCharts[skill]);
+		container.classList.toggle('hidden', !isVisible);
+		container.classList.toggle('flex', isVisible);
 	};
 	updateStats(xpTracker.initialMetrics);
 	updateVisibility(xpTracker.initialMetrics);
@@ -223,19 +220,18 @@ const mountSkillBlock = (
 };
 
 const initMetricsWindow = (
-	lifecycle: Lifecycle,
+	parentLifecycle: Lifecycle,
 	context: PluginContext,
 	xpDrops: XPDrop[],
 	settings: Settings,
+	activeSkillCharts: { [key: string]: boolean },
 ) => {
+	const lifecycle = parentLifecycle.spawnLifecycle();
 	const window = context.ui.windows.initWindow(lifecycle, {
 		id: 'metrics',
 		title: 'Metrics',
 		storage: context.storages.profile,
-		icon: context.ui.createSvgIcon([windowIconSvgPath], {
-			viewBox: '0 0 512 512',
-			fill: 'currentColor',
-		}),
+		icon: context.ui.el.icon.chartLine``.element,
 		initialState: {
 			width: 172,
 			height: 252,
@@ -247,14 +243,10 @@ const initMetricsWindow = (
 		},
 	});
 
-	const activeSkillCharts: { [key: string]: boolean } = Object.fromEntries(
-		valid_skills.values().map((skill) => [skill, false]),
-	);
-
 	const skillCharts = ['total', ...valid_skills.values()].map((skill) => {
 		return mountSkillBlock(context, window.body, xpDrops, settings, skill, activeSkillCharts);
 	});
-	return { window, activeSkillCharts, skillCharts };
+	return { window, activeSkillCharts, skillCharts, lifecycle };
 };
 // #region plugin
 
@@ -264,56 +256,135 @@ export const MetricsPlugin: Plugin = {
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const xpDrops: XPDrop[] = [];
+		const activeSkillCharts: { [key: string]: boolean } = Object.fromEntries(
+			valid_skills.values().map((skill) => [skill, false]),
+		);
 
-		let windowMetricsLifecycle: Lifecycle | undefined;
 		let windowMetrics: ReturnType<typeof initMetricsWindow> | undefined;
-
-		const initWindowLifecycle = () => {
-			const newLifecycle = lifecycle.spawnLifecycle();
-			newLifecycle.onCleanup(() => {
-				settings.isMetricsWindowOpen = false;
-				windowMetrics = undefined;
-				windowMetricsLifecycle = undefined;
-			});
-			return newLifecycle;
+		const createWindowMetrics = () => {
+			if (!settings.isMetricsWindowOpen) return;
+			const newWindow = initMetricsWindow(lifecycle, context, xpDrops, settings, activeSkillCharts);
+			newWindow.lifecycle.onCleanup(() => (windowMetrics = undefined));
+			return newWindow;
+		};
+		const refreshWindowMetrics = () => {
+			windowMetrics?.lifecycle.cleanup();
+			windowMetrics ??= createWindowMetrics();
 		};
 
-		if (settings.isMetricsWindowOpen) {
-			windowMetricsLifecycle ??= initWindowLifecycle();
-			windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
-		}
+		windowMetrics ??= createWindowMetrics();
 
 		const widget = context.ui.taskbar.initWidget(lifecycle, 'metrics');
-		widget.classList.add('contents', 'text-accent');
 
-		const toggleButton = document.createElement('button');
-		toggleButton.className =
-			'bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden';
+		const toggleButton = context.ui.el
+			.button`bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden`.mount(
+			widget,
+			'toggle-button',
+		);
 		toggleButton.onclick = () => {
 			if (windowMetrics?.window.state.minimized === false) {
 				windowMetrics?.window.hideWindow();
 			} else {
 				settings.isMetricsWindowOpen = true;
-				windowMetricsLifecycle ??= initWindowLifecycle();
-				windowMetrics ??= initMetricsWindow(windowMetricsLifecycle, context, xpDrops, settings);
+				windowMetrics ??= createWindowMetrics();
 				windowMetrics?.window.showWindow();
 			}
 		};
 
-		const xpTracker = startXpTracker(xpDrops, settings);
-		const toggleChart = mountSkillChart(context, toggleButton, xpTracker);
+		let xpTracker = startXpTracker(xpDrops, settings);
+		let toggleChart = mountSkillChart(context, toggleButton, xpTracker);
 
-		widget.appendChild(toggleButton);
+		let intervalId: ReturnType<typeof setInterval> | undefined;
+		const restartUpdateLoop = () => {
+			if (intervalId !== undefined) clearInterval(intervalId);
+			intervalId = setInterval(() => {
+				const metrics = xpTracker.runInterval();
+				toggleChart.runInterval(metrics.smoothedValue);
+				windowMetrics?.skillCharts.forEach((chart) => chart.runInterval());
+			}, settings.updateInterval * 1000);
+		};
+
+		const refreshMetrics = () => {
+			toggleChart.lineGraph.svg.remove();
+			xpTracker = startXpTracker(xpDrops, settings);
+			toggleChart = mountSkillChart(context, toggleButton, xpTracker);
+			refreshWindowMetrics();
+			restartUpdateLoop();
+		};
+
+		context.settings.registerSection('Stats', [
+			{
+				label: 'XP Rate',
+				description: 'The type of XP rate to display.',
+				input: context.ui.el.select``.then((input) => {
+					input.value = settings.xpRateType;
+					context.ui.el.option``.mount(input, 'hr', (option) => {
+						option.textContent = 'per hour';
+						option.value = 'hr';
+						option.selected = settings.xpRateType === 'hr';
+					});
+					context.ui.el.option``.mount(input, 'min', (option) => {
+						option.textContent = 'per minute';
+						option.value = 'min';
+						option.selected = settings.xpRateType === 'min';
+					});
+					input.onchange = () => {
+						settings.xpRateType = input.value as 'hr' | 'min';
+					};
+				}),
+			},
+		]);
+
+		context.settings.registerSection('Intervals', [
+			{
+				label: 'Time Span',
+				tooltip: 'In minutes, the duration of the metrics to be displayed.',
+				valueSuffix: 'm',
+				input: context.ui.el.input.range``.then((input) => {
+					input.min = '1';
+					input.max = '20';
+					input.step = '0.2';
+					input.value = settings.timeSpan.toString();
+					input.onchange = () => {
+						settings.timeSpan = parseInt(input.value);
+						refreshMetrics();
+					};
+				}),
+				reset: (input) => {
+					input.value = initialSettings.timeSpan.toString();
+					input.dispatchEvent(new Event('change'));
+					settings.timeSpan = initialSettings.timeSpan;
+				},
+			},
+			{
+				label: 'Refresh Rate',
+				tooltip: 'In seconds, the interval at which the metrics will be captured and updated.',
+				valueSuffix: 's',
+				input: context.ui.el.input.range``.then((input) => {
+					input.min = '0.1';
+					input.max = '10';
+					input.step = '0.1';
+					input.value = settings.updateInterval.toString();
+					input.onchange = () => {
+						settings.updateInterval = parseFloat(input.value);
+						refreshMetrics();
+					};
+				}),
+				reset: (input) => {
+					input.value = initialSettings.updateInterval.toString();
+					input.dispatchEvent(new Event('change'));
+					settings.updateInterval = initialSettings.updateInterval;
+				},
+			},
+		]);
 
 		return {
 			onStartup: async () => {
 				await new Promise((resolve) => setTimeout(resolve, 1000));
-				const intervalId = setInterval(() => {
-					const metrics = xpTracker.runInterval();
-					toggleChart.runInterval(metrics.smoothedValue);
-					windowMetrics?.skillCharts.forEach((chart) => chart.runInterval());
-				}, settings.updateInterval * 1000);
-				lifecycle.onCleanup(() => clearInterval(intervalId));
+				restartUpdateLoop();
+				lifecycle.onCleanup(() => {
+					if (intervalId !== undefined) clearInterval(intervalId);
+				});
 			},
 			onXpDrop: ({ username, skill, xp }) => {
 				if (username !== context.character.username) return;

@@ -4,20 +4,6 @@ import { createNotification } from '../client/ipc_renderer';
 
 // #region Vars
 
-const alertIconPath =
-	'M2 4.25A2.25 2.25 0 0 1 4.25 2h7.5A2.25 2.25 0 0 1 14 4.25v5.5A2.25 2.25 0 0 1 11.75 12h-1.312c.1.128.21.248.328.36a.75.75 0 0 1 .234.545v.345a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75v-.345a.75.75 0 0 1 .234-.545c.118-.111.228-.232.328-.36H4.25A2.25 2.25 0 0 1 2 9.75v-5.5Zm2.25-.75a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h7.5a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 0-.75-.75h-7.5Z';
-
-const audioIconPaths = [
-	'M7.557 2.066A.75.75 0 0 1 8 2.75v10.5a.75.75 0 0 1-1.248.56L3.59 11H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.59l3.162-2.81a.75.75 0 0 1 .805-.124ZM12.95 3.05a.75.75 0 1 0-1.06 1.06 5.5 5.5 0 0 1 0 7.78.75.75 0 1 0 1.06 1.06 7 7 0 0 0 0-9.9Z',
-	'M10.828 5.172a.75.75 0 1 0-1.06 1.06 2.5 2.5 0 0 1 0 3.536.75.75 0 1 0 1.06 1.06 4 4 0 0 0 0-5.656Z',
-];
-
-const testIconPath =
-	'M3 3.732a1.5 1.5 0 0 1 2.305-1.265l6.706 4.267a1.5 1.5 0 0 1 0 2.531l-6.706 4.268A1.5 1.5 0 0 1 3 12.267V3.732Z';
-
-const cancelIconPath =
-	'M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z';
-
 const initialAlertSettings = {
 	enableNotification: true,
 	enableAudio: true,
@@ -61,7 +47,7 @@ const notify = (
 // #region tray menu
 
 const updateToggleButton = (button: HTMLButtonElement, enabled: boolean): void => {
-	button.classList.toggle('btn-primary', enabled);
+	button.classList.toggle('btn-secondary', enabled);
 	button.classList.toggle('btn-ghost', !enabled);
 	button.classList.toggle('border', !enabled);
 	button.classList.toggle('border-error', !enabled);
@@ -75,33 +61,20 @@ const initTrayMenu = (
 ) => {
 	const { trayButton, trayMenu } = context.ui.taskbar.initTrayButtonMenu(lifecycle, 'monitor', {
 		button: {
-			title: 'Monitor - quick menu',
-			icon: {
-				paths: [alertIconPath],
-				options: {
-					viewBox: '0 0 16 16',
-					fill: 'currentColor',
-					stroke: 'none',
-					className: 'size-4',
-				},
-			},
+			title: 'Monitor',
+			icon: context.ui.el.icon.eye``.element,
 		},
 	});
 
-	context.ui.el.button`btn btn-square btn-xs tooltip tooltip-primary`.mount(
-		trayMenu,
+	const container = context.ui.el.div`flex gap-2 p-2 items-center`.mount(trayMenu);
+
+	context.ui.el.button`btn btn-square btn-xs tooltip tooltip-secondary`.mount(
+		container,
 		'notification-toggle',
 		(notificationToggle) => {
 			updateToggleButton(notificationToggle, settings.global.enableNotification);
 			notificationToggle.setAttribute('data-tip', 'Desktop Notifications');
-			notificationToggle.appendChild(
-				context.ui.createSvgIcon([alertIconPath], {
-					viewBox: '0 0 16 16',
-					fill: 'currentColor',
-					stroke: 'none',
-					className: 'size-4',
-				}),
-			);
+			context.ui.el.icon.deviceDesktopExclamation`size-4`.mount(notificationToggle, 'icon');
 			notificationToggle.onclick = () => {
 				settings.global.enableNotification = !settings.global.enableNotification;
 				updateToggleButton(notificationToggle, settings.global.enableNotification);
@@ -109,20 +82,13 @@ const initTrayMenu = (
 		},
 	);
 
-	context.ui.el.button`btn btn-square btn-xs tooltip tooltip-primary`.mount(
-		trayMenu,
+	context.ui.el.button`btn btn-square btn-xs tooltip tooltip-secondary`.mount(
+		container,
 		'audio-toggle',
 		(audioToggle) => {
 			updateToggleButton(audioToggle, settings.global.enableAudio);
 			audioToggle.setAttribute('data-tip', 'Alert Sound');
-			audioToggle.appendChild(
-				context.ui.createSvgIcon(audioIconPaths, {
-					viewBox: '0 0 16 16',
-					fill: 'currentColor',
-					stroke: 'none',
-					className: 'size-4',
-				}),
-			);
+			context.ui.el.icon.volume`size-4`.mount(audioToggle, 'icon');
 			audioToggle.onclick = () => {
 				settings.global.enableAudio = !settings.global.enableAudio;
 				updateToggleButton(audioToggle, settings.global.enableAudio);
@@ -130,11 +96,10 @@ const initTrayMenu = (
 		},
 	);
 
-	context.ui.el.input`input range range-xs flex-1`.mount(
-		trayMenu,
+	context.ui.el.input.range`range range-xs flex-1`.mount(
+		container,
 		'volume-slider',
 		(volumeSlider) => {
-			volumeSlider.type = 'range';
 			volumeSlider.min = '0';
 			volumeSlider.max = '1';
 			volumeSlider.step = '0.05';
@@ -144,19 +109,12 @@ const initTrayMenu = (
 		},
 	);
 
-	context.ui.el.button`btn btn-xs btn-square btn-ghost btn-accent tooltip tooltip-accent`.mount(
-		trayMenu,
+	context.ui.el.button`btn btn-xs btn-square btn-soft btn-accent tooltip tooltip-accent`.mount(
+		container,
 		'test-button',
 		(testButton) => {
 			testButton.setAttribute('data-tip', 'Test alert');
-			testButton.appendChild(
-				context.ui.createSvgIcon([testIconPath], {
-					viewBox: '0 0 16 16',
-					fill: 'currentColor',
-					stroke: 'none',
-					className: 'size-4',
-				}),
-			);
+			context.ui.el.icon.testPipe2Filled`size-4`.mount(testButton, 'icon');
 			testButton.onclick = () => {
 				alertAudio.currentTime = 0;
 				notify(alertAudio, settings, 'Test', 'This is a test notification');
@@ -180,35 +138,29 @@ const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => 
 	const buildContents = (item: string) => {
 		container.replaceChildren();
 
-		const icon = document.createElement('img');
-		icon.className = 'size-8 pixelated';
+		const icon = context.ui.el.img`size-8 pixelated`.mount(container, 'icon');
 		icon.src = `https://flatmmo.com/images/items/${item}.png`;
 
-		const textColumn = document.createElement('div');
-		textColumn.className = 'flex flex-col';
-		const label = document.createElement('div');
-		label.className = 'capitalize text-sm';
+		const textColumn = context.ui.el.div`flex flex-col`.mount(container, 'text-column');
+		const label = context.ui.el.div`capitalize text-sm`.mount(textColumn, 'label');
 		label.textContent = item.replaceAll('_', ' ');
 
-		const details = document.createElement('div');
-		details.className = 'flex gap-1 justify-between items-baseline';
-		completedBadge = document.createElement('div');
-		completedBadge.className = 'badge badge-xs badge-primary';
-		xpBadge = document.createElement('div');
-		xpBadge.className = 'badge badge-xs badge-secondary';
-		details.append(completedBadge, xpBadge);
-		textColumn.append(label, details);
-
-		const cancelButton = document.createElement('button');
-		cancelButton.className = 'btn btn-ghost btn-error btn-square btn-sm pointer-events-auto';
-		cancelButton.appendChild(
-			context.ui.createSvgIcon([cancelIconPath], {
-				viewBox: '0 0 20 20',
-				fill: 'currentColor',
-				stroke: 'none',
-				className: 'size-5',
-			}),
+		const details = context.ui.el.div`flex gap-1 justify-between items-baseline`.mount(
+			textColumn,
+			'details',
 		);
+		completedBadge = context.ui.el.div`badge badge-xs badge-primary`.mount(
+			details,
+			'completed-badge',
+		);
+		xpBadge = context.ui.el.div`badge badge-xs badge-secondary`.mount(details, 'xp-badge');
+
+		const cancelButton = context.ui.el
+			.button`btn btn-ghost btn-error btn-square btn-sm pointer-events-auto`.mount(
+			container,
+			'cancel-button',
+		);
+		context.ui.el.icon.x`size-5`.mount(cancelButton, 'icon');
 		cancelButton.onclick = () => Globals.websocket?.send('CANCEL_MAKE_ITEM');
 
 		container.append(icon, textColumn, cancelButton);
