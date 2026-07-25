@@ -50,6 +50,7 @@ export const ChatPlugin: Plugin = {
 		) => ({
 			label,
 			description,
+			initialValue: initialSettings[key],
 			input: el.input.number``.then((input) => {
 				input.min = min;
 				input.max = max;
@@ -59,11 +60,6 @@ export const ChatPlugin: Plugin = {
 					onSettingsChange();
 				};
 			}),
-			reset: (input) => {
-				input.value = initialSettings[key].toString();
-				input.dispatchEvent(new Event('change'));
-				settings[key] = initialSettings[key];
-			},
 		});
 
 		const [chatNamespaceIndex] = context.settings.registerSection('Display', [
@@ -87,6 +83,7 @@ export const ChatPlugin: Plugin = {
 				}),
 				specialType: 'selectTextCombo',
 				options: timestampFormatOptions,
+				initialValue: initialSettings.timestampFormat,
 				input: el.input.text``.then((input) => {
 					input.value = settings.timestampFormat;
 					input.onchange = () => {
@@ -94,17 +91,13 @@ export const ChatPlugin: Plugin = {
 						onSettingsChange();
 					};
 				}),
-				reset: (input) => {
-					input.value = initialSettings.timestampFormat;
-					input.dispatchEvent(new Event('change'));
-					settings.timestampFormat = initialSettings.timestampFormat;
-				},
 			},
 			{
 				label: 'Popup duration',
 				tooltip: 'In seconds',
 				description: 'How long popup messages stay visible.',
 				valueSuffix: 's',
+				initialValue: initialSettings.popupDuration,
 				input: el.input.range``.then((input) => {
 					input.min = '2';
 					input.max = '20';
@@ -115,11 +108,6 @@ export const ChatPlugin: Plugin = {
 						onSettingsChange();
 					};
 				}),
-				reset: (input) => {
-					input.value = initialSettings.popupDuration.toString();
-					input.dispatchEvent(new Event('change'));
-					settings.popupDuration = initialSettings.popupDuration;
-				},
 			},
 		]);
 

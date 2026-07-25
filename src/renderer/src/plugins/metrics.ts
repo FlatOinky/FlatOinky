@@ -289,11 +289,11 @@ export const MetricsPlugin: Plugin = {
 
 		const widget = context.ui.taskbar.initWidget(lifecycle, 'metrics');
 
-		const toggleButton = el
-			.button`bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden`.mount(
-			widget,
-			'toggle-button',
-		);
+		const toggleButton =
+			el.button`bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden`.mount(
+				widget,
+				'toggle-button',
+			);
 		toggleButton.onclick = () => {
 			if (windowMetrics?.window.state.minimized === false) {
 				windowMetrics?.window.hideWindow();
@@ -354,6 +354,7 @@ export const MetricsPlugin: Plugin = {
 				tooltip: 'In minutes',
 				description: 'The duration of the time window to be displayed.',
 				valueSuffix: 'm',
+				initialValue: initialSettings.timeSpan,
 				input: el.input.range``.then((input) => {
 					input.min = '1';
 					input.max = '20';
@@ -364,17 +365,13 @@ export const MetricsPlugin: Plugin = {
 						refreshMetrics();
 					};
 				}),
-				reset: (input) => {
-					input.value = initialSettings.timeSpan.toString();
-					input.dispatchEvent(new Event('change'));
-					settings.timeSpan = initialSettings.timeSpan;
-				},
 			},
 			{
 				label: 'Refresh Rate',
 				tooltip: 'In seconds',
 				description: 'The interval at which the metrics will be captured and updated.',
 				valueSuffix: 's',
+				initialValue: initialSettings.updateInterval,
 				input: el.input.range``.then((input) => {
 					input.min = '0.1';
 					input.max = '10';
@@ -385,11 +382,6 @@ export const MetricsPlugin: Plugin = {
 						refreshMetrics();
 					};
 				}),
-				reset: (input) => {
-					input.value = initialSettings.updateInterval.toString();
-					input.dispatchEvent(new Event('change'));
-					settings.updateInterval = initialSettings.updateInterval;
-				},
 			},
 		]);
 

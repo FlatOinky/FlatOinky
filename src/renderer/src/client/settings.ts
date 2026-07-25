@@ -16,7 +16,8 @@ type SettingsNodeBase = {
 	tooltip?: string;
 	valueSuffix?: string;
 	valuePrefix?: string;
-	reset?: (input: SettingsInput) => void;
+	/** When set, shows a reset button that restores this value and fires input/change. */
+	initialValue?: string | number | boolean;
 };
 type SettingsNode =
 	| Element
@@ -223,14 +224,22 @@ const mountNodeHeader = (
 		label.textContent = node.label ?? '';
 	});
 	el.span`flex-1 w-full`.mount(header);
-	if (node.reset) {
+	if (node.initialValue !== undefined) {
 		el.button`btn btn-xs btn-square btn-soft btn-secondary opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
 			header,
 			'reset',
 			(resetButton) => {
 				resetButton.setAttribute('data-tip', 'Reset to default');
 				el.icon.restore`size-4`.mount(resetButton);
-				resetButton.onclick = () => node.reset?.(node.input);
+				resetButton.onclick = () => {
+					if (typeof node.initialValue === 'boolean') {
+						(node.input as HTMLInputElement).checked = node.initialValue;
+					} else {
+						node.input.value = String(node.initialValue);
+					}
+					node.input.dispatchEvent(new Event('input'));
+					node.input.dispatchEvent(new Event('change'));
+				};
 			},
 		);
 	}
