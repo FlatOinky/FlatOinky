@@ -1,5 +1,6 @@
 import { Lifecycle, Plugin } from '../client';
 import { clearAssetCache, reloadWindow } from '../client/ipc_renderer';
+import * as el from '../client/ui/elements';
 
 const initialSettings = {
 	enabledDevtools: false,
@@ -138,7 +139,7 @@ export const SystemPlugin: Plugin = {
 				label: 'Darken Sky',
 				description: 'Dim the sky map for easier viewing.',
 				specialType: 'toggle',
-				input: context.ui.el.input.checkbox``.then((input) => {
+				input: el.input.checkbox``.then((input) => {
 					input.checked = settings.enableDarkenSky;
 					input.onchange = () => {
 						settings.enableDarkenSky = input.checked;
@@ -149,7 +150,7 @@ export const SystemPlugin: Plugin = {
 				label: 'Dynamic Canvas (Beta)',
 				description: 'Scale the game canvas to fit the window. Experimental.',
 				specialType: 'toggle',
-				input: context.ui.el.input.checkbox``.then((input) => {
+				input: el.input.checkbox``.then((input) => {
 					input.checked = settings.enableDynamicCanvas_beta;
 					input.onchange = () => {
 						settings.enableDynamicCanvas_beta = input.checked;
@@ -164,7 +165,7 @@ export const SystemPlugin: Plugin = {
 				label: 'Enable Devtools',
 				description: 'Show Open DevTools and Save References in the system menu.',
 				specialType: 'toggle',
-				input: context.ui.el.input.checkbox``.then((input) => {
+				input: el.input.checkbox``.then((input) => {
 					input.checked = settings.enabledDevtools;
 					input.onchange = () => {
 						settings.enabledDevtools = input.checked;

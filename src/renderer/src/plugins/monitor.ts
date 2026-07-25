@@ -1,6 +1,7 @@
 import notificationMp3 from '../assets/notification.mp3';
 import { Lifecycle, Plugin, PluginContext } from '../client';
 import { createNotification } from '../client/ipc_renderer';
+import * as el from '../client/ui/elements';
 
 // #region Vars
 
@@ -62,19 +63,19 @@ const initTrayMenu = (
 	const { trayButton, trayMenu } = context.ui.taskbar.initTrayButtonMenu(lifecycle, 'monitor', {
 		button: {
 			title: 'Monitor',
-			icon: context.ui.el.icon.eye``.element,
+			icon: el.icon.eye``.element,
 		},
 	});
 
-	const container = context.ui.el.div`flex gap-2 p-2 items-center`.mount(trayMenu);
+	const container = el.div`flex gap-2 p-2 items-center`.mount(trayMenu);
 
-	context.ui.el.button`btn btn-square btn-xs tooltip tooltip-secondary`.mount(
+	el.button`btn btn-square btn-xs tooltip tooltip-secondary`.mount(
 		container,
 		'notification-toggle',
 		(notificationToggle) => {
 			updateToggleButton(notificationToggle, settings.global.enableNotification);
 			notificationToggle.setAttribute('data-tip', 'Desktop Notifications');
-			context.ui.el.icon.deviceDesktopExclamation`size-4`.mount(notificationToggle, 'icon');
+			el.icon.deviceDesktopExclamation`size-4`.mount(notificationToggle, 'icon');
 			notificationToggle.onclick = () => {
 				settings.global.enableNotification = !settings.global.enableNotification;
 				updateToggleButton(notificationToggle, settings.global.enableNotification);
@@ -82,13 +83,13 @@ const initTrayMenu = (
 		},
 	);
 
-	context.ui.el.button`btn btn-square btn-xs tooltip tooltip-secondary`.mount(
+	el.button`btn btn-square btn-xs tooltip tooltip-secondary`.mount(
 		container,
 		'audio-toggle',
 		(audioToggle) => {
 			updateToggleButton(audioToggle, settings.global.enableAudio);
 			audioToggle.setAttribute('data-tip', 'Alert Sound');
-			context.ui.el.icon.volume`size-4`.mount(audioToggle, 'icon');
+			el.icon.volume`size-4`.mount(audioToggle, 'icon');
 			audioToggle.onclick = () => {
 				settings.global.enableAudio = !settings.global.enableAudio;
 				updateToggleButton(audioToggle, settings.global.enableAudio);
@@ -96,7 +97,7 @@ const initTrayMenu = (
 		},
 	);
 
-	context.ui.el.input.range`range range-xs flex-1`.mount(
+	el.input.range`range range-xs flex-1`.mount(
 		container,
 		'volume-slider',
 		(volumeSlider) => {
@@ -109,12 +110,12 @@ const initTrayMenu = (
 		},
 	);
 
-	context.ui.el.button`btn btn-xs btn-square btn-soft btn-accent tooltip tooltip-accent`.mount(
+	el.button`btn btn-xs btn-square btn-soft btn-accent tooltip tooltip-accent`.mount(
 		container,
 		'test-button',
 		(testButton) => {
 			testButton.setAttribute('data-tip', 'Test alert');
-			context.ui.el.icon.testPipe2Filled`size-4`.mount(testButton, 'icon');
+			el.icon.testPipe2Filled`size-4`.mount(testButton, 'icon');
 			testButton.onclick = () => {
 				alertAudio.currentTime = 0;
 				notify(alertAudio, settings, 'Test', 'This is a test notification');
@@ -138,29 +139,29 @@ const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => 
 	const buildContents = (item: string) => {
 		container.replaceChildren();
 
-		const icon = context.ui.el.img`size-8 pixelated`.mount(container, 'icon');
+		const icon = el.img`size-8 pixelated`.mount(container, 'icon');
 		icon.src = `https://flatmmo.com/images/items/${item}.png`;
 
-		const textColumn = context.ui.el.div`flex flex-col`.mount(container, 'text-column');
-		const label = context.ui.el.div`capitalize text-sm`.mount(textColumn, 'label');
+		const textColumn = el.div`flex flex-col`.mount(container, 'text-column');
+		const label = el.div`capitalize text-sm`.mount(textColumn, 'label');
 		label.textContent = item.replaceAll('_', ' ');
 
-		const details = context.ui.el.div`flex gap-1 justify-between items-baseline`.mount(
+		const details = el.div`flex gap-1 justify-between items-baseline`.mount(
 			textColumn,
 			'details',
 		);
-		completedBadge = context.ui.el.div`badge badge-xs badge-primary`.mount(
+		completedBadge = el.div`badge badge-xs badge-primary`.mount(
 			details,
 			'completed-badge',
 		);
-		xpBadge = context.ui.el.div`badge badge-xs badge-secondary`.mount(details, 'xp-badge');
+		xpBadge = el.div`badge badge-xs badge-secondary`.mount(details, 'xp-badge');
 
-		const cancelButton = context.ui.el
+		const cancelButton = el
 			.button`btn btn-ghost btn-error btn-square btn-sm pointer-events-auto`.mount(
 			container,
 			'cancel-button',
 		);
-		context.ui.el.icon.x`size-5`.mount(cancelButton, 'icon');
+		el.icon.x`size-5`.mount(cancelButton, 'icon');
 		cancelButton.onclick = () => Globals.websocket?.send('CANCEL_MAKE_ITEM');
 
 		container.append(icon, textColumn, cancelButton);

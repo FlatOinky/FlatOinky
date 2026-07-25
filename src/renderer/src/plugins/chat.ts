@@ -4,6 +4,7 @@ import pmToIconSrc from '../assets/pm_to.png';
 import pmFromIconSrc from '../assets/pm_from.png';
 import { ChatMessage, Lifecycle, Plugin, PluginContext } from '../client';
 import { ipcRenderer } from '../client/ipc_renderer';
+import * as el from '../client/ui/elements';
 
 const namespace = 'core/chat';
 
@@ -145,12 +146,10 @@ const formatMessageHtml = (message: string): string => {
 
 // #region Message elements
 
-const createIconImg = (src: string): HTMLImageElement => {
-	const img = document.createElement('img');
-	img.className = 'inline-block';
-	img.src = src;
-	return img;
-};
+const createIconImg = (src: string): HTMLImageElement =>
+	el.img`inline-block`.then((img) => {
+		img.src = src;
+	});
 
 const createUserTag = (tag?: string): HTMLSpanElement | null => {
 	if (!tag || tag === 'none') return null;
@@ -170,10 +169,9 @@ const createUserTag = (tag?: string): HTMLSpanElement | null => {
 			'investor-gold': 'chat-tag-investor-gold chat-tag-investor-plus-gold',
 			investor_gold: 'chat-tag-investor-gold chat-tag-investor-plus-gold',
 		}[tag] ?? `chat-tag-${tag}`;
-	const span = document.createElement('span');
-	span.className = className;
-	span.textContent = tagName;
-	return span;
+	return el.span`${className}`.then((span) => {
+		span.textContent = tagName;
+	});
 };
 
 const createUsername = (
@@ -182,10 +180,9 @@ const createUsername = (
 	colorClassName: string,
 ): HTMLSpanElement | null => {
 	if (!username) return null;
-	const span = document.createElement('span');
-	span.className = colorClassName;
-	span.textContent = username + (type === 'local' ? ': ' : '');
-	return span;
+	return el.span`${colorClassName}`.then((span) => {
+		span.textContent = username + (type === 'local' ? ': ' : '');
+	});
 };
 
 const appendSpaced = (container: HTMLElement, parts: Node[]): void => {
@@ -201,12 +198,11 @@ const createChatMessageContent = (
 ): HTMLDivElement => {
 	const { type, icon, tag, username } = chatMessage;
 	const colorClassName = colorMap[chatMessage.color] ?? colorMap.white;
-	const content = document.createElement('div');
-	content.className = `contents ${colorClassName}`;
+	const content = el.div`contents ${colorClassName}`.element;
 
-	const timestamp = document.createElement('span');
-	timestamp.className = 'text-xs';
-	timestamp.textContent = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
+	const timestamp = el.span`text-xs`.then((span) => {
+		span.textContent = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
+	});
 
 	const parts: Node[] = [timestamp];
 	if (icon) parts.push(createIconImg(icon));
@@ -218,9 +214,11 @@ const createChatMessageContent = (
 	if (type === 'pm_to') parts.push(createIconImg(pmToIconSrc));
 	if (type === 'pm_from') parts.push(createIconImg(pmFromIconSrc));
 
-	const messageEl = document.createElement('span');
-	messageEl.innerHTML = formatMessageHtml(chatMessage.message);
-	parts.push(messageEl);
+	parts.push(
+		el.span``.then((messageEl) => {
+			messageEl.innerHTML = formatMessageHtml(chatMessage.message);
+		}),
+	);
 
 	appendSpaced(content, parts);
 	return content;
@@ -229,38 +227,22 @@ const createChatMessageContent = (
 const createLoginMessageContent = (loginSpan: HTMLSpanElement): HTMLDivElement => {
 	const colorClassName = colorMap[loginSpan.style.color] ?? colorMap.white;
 	loginSpan.style.color = '';
-	const content = document.createElement('div');
-	content.className = `contents ${colorClassName}`;
-	const timestamp = document.createElement('span');
-	timestamp.className = 'text-xs';
-	const message = document.createElement('span');
+	const content = el.div`contents ${colorClassName}`.element;
+	const timestamp = el.span`text-xs`.element;
+	const message = el.span``.element;
 	appendSpaced(content, [timestamp, loginSpan, message]);
 	return content;
 };
 
-const createMessageLi = (content: HTMLElement, bgClass: string): HTMLLIElement => {
-	const li = document.createElement('li');
-	li.className = `p-1 text-shadow-md ${bgClass}`;
-	li.appendChild(content);
-	return li;
-};
+const createMessageLi = (content: HTMLElement, bgClass: string): HTMLLIElement =>
+	el.li`p-1 text-shadow-md ${bgClass}`.then((li) => {
+		li.appendChild(content);
+	});
 
-const createPopupLi = (content: HTMLElement, bgClass: string): HTMLLIElement => {
-	const li = document.createElement('li');
-	li.className = `px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${bgClass}`;
-	li.appendChild(content);
-	return li;
-};
-
-// #region Tab elements
-
-const createTabButton = ({ name }: ChatTab, isActive: boolean): HTMLButtonElement => {
-	const button = document.createElement('button');
-	button.setAttribute('oinky-chat', 'tab');
-	button.className = `tab ${isActive ? 'tab-active' : 'bg-base-300'}`;
-	button.textContent = name;
-	return button;
-};
+const createPopupLi = (content: HTMLElement, bgClass: string): HTMLLIElement =>
+	el.li`px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${bgClass}`.then((li) => {
+		li.appendChild(content);
+	});
 
 // #region Updaters
 
@@ -278,19 +260,25 @@ const updateChatTabs = (
 	updateChatTabInputLabel(channels, inputLabel);
 	tabsContainer.replaceChildren();
 	channels.chatTabs.forEach((chatTab, index) => {
-		const button = createTabButton(chatTab, index === channels.chatTabIndex);
-		button.onclick = () => {
-			channels.chatTabIndex = index;
-			updateChatTabs(tabsContainer, channels, inputLabel);
-		};
-		button.oncontextmenu = () => {
-			if (index < 2) return;
-			if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
-			const clonedTabs = JSON.parse(JSON.stringify(channels.chatTabs));
-			channels.chatTabs = [...clonedTabs.slice(0, index), ...clonedTabs.slice(index + 1)];
-			updateChatTabs(tabsContainer, channels, inputLabel);
-		};
-		tabsContainer.appendChild(button);
+		const isActive = index === channels.chatTabIndex;
+		el.button`tab ${isActive ? 'tab-active' : 'bg-base-300'}`.mount(
+			tabsContainer,
+			undefined,
+			(button) => {
+				button.textContent = chatTab.name;
+				button.onclick = () => {
+					channels.chatTabIndex = index;
+					updateChatTabs(tabsContainer, channels, inputLabel);
+				};
+				button.oncontextmenu = () => {
+					if (index < 2) return;
+					if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
+					const clonedTabs = JSON.parse(JSON.stringify(channels.chatTabs));
+					channels.chatTabs = [...clonedTabs.slice(0, index), ...clonedTabs.slice(index + 1)];
+					updateChatTabs(tabsContainer, channels, inputLabel);
+				};
+			},
+		);
 	});
 };
 
@@ -433,21 +421,21 @@ const handleAddTabClick = (
 
 // #region Builders
 
-const mountToggleButton = (root: HTMLElement, context: PluginContext, settings: Settings) => {
-	const toggleButton = context.ui.el
-		.label`absolute right-full btn btn-sm engaged:btn-secondary btn-square m-1 indicator`.mount(
-		root,
-		'toggle',
-	);
-	context.ui.el.icon.chevronDown`size-6 -m-1 transition-transform`.mount(toggleButton, 'icon');
+const mountToggleButton = (root: HTMLElement, settings: Settings) => {
+	const toggleButton =
+		el.label`absolute right-full btn btn-sm engaged:btn-secondary btn-square m-1 indicator`.mount(
+			root,
+			'toggle',
+		);
+	el.icon.chevronDown`size-6 -m-1 transition-transform`.mount(toggleButton, 'icon');
 
-	const toggleCheckbox = context.ui.el.input.checkbox`hidden`.mount(
+	const toggleCheckbox = el.input.checkbox`hidden`.mount(
 		toggleButton,
 		'checkbox',
 		(toggleCheckbox) => (toggleCheckbox.checked = settings.isExpanded),
 	);
 
-	const toggleIndicator = context.ui.el.div`indicator-item status status-warning hidden`.mount(
+	const toggleIndicator = el.div`indicator-item status status-warning hidden`.mount(
 		toggleButton,
 		'indicator',
 	);
@@ -455,178 +443,165 @@ const mountToggleButton = (root: HTMLElement, context: PluginContext, settings: 
 	return { toggleButton, toggleCheckbox, toggleIndicator };
 };
 
-const mountChatInput = (root: HTMLElement, context: PluginContext) => {
-	const group = context.ui.el.div`w-xl join`.mount(root);
-	const label = context.ui.el.label`join-item input w-full`.mount(group, 'label');
-	const inputLabel = context.ui.el.span`label text-xs mr-0 px-2 hidden`.mount(label, 'input');
-	const chatInput = context.ui.el.input.text``.mount(label, 'input', (chatInput) => {
-		chatInput.placeholder = context.character.username;
+const mountChatInput = (root: HTMLElement, username: string) => {
+	const group = el.div`w-xl join`.mount(root);
+	const label = el.label`join-item input w-full`.mount(group, 'label');
+	const inputLabel = el.span`label text-xs mr-0 px-2 hidden`.mount(label, 'input');
+	const chatInput = el.input.text``.mount(label, 'input', (chatInput) => {
+		chatInput.placeholder = username;
 	});
 
-	context.ui.el
-		.button`join-item btn not-engaged:bg-base-100 engaged:btn-secondary not-engaged:border-base-content/20 px-1`.mount(
+	el.button`join-item btn not-engaged:bg-base-100 engaged:btn-secondary not-engaged:border-base-content/20 px-1`.mount(
 		group,
 		'actions',
 		(actionsButton) => {
 			actionsButton.setAttribute('popovertarget', 'oinky-chat-actions');
 			actionsButton.style.setProperty('anchor-name', '--oinky-chat-actions-toggle');
-			context.ui.el.icon.dotsVertical`size-5`.mount(actionsButton, 'icon');
+			el.icon.dotsVertical`size-5`.mount(actionsButton, 'icon');
 		},
 	);
 
 	return { inputLabel, chatInput };
 };
 
-const mountMessagesRegion = (root: HTMLElement, context: PluginContext) => {
-	const region = context.ui.el.div`contents pointer-events-none`.mount(root, 'messages');
-	const popupsContainer = context.ui.el
-		.ul`absolute left-0 bottom-full m-1 transition-opacity w-xl`.mount(region, 'popups');
-	const messagesWrapper = context.ui.el
-		.div`absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity`.mount(
-		region,
-	);
-	const messagesContainer = context.ui.el
-		.ul`max-h-64 overflow-y-scroll scrollbar-thumb-base-content/50 scrollbar-track-base-200/70 transition-opacity`.mount(
-		messagesWrapper,
-		'list',
-	);
+const mountMessagesRegion = (root: HTMLElement) => {
+	const region = el.div`contents pointer-events-none`.mount(root, 'messages');
+	const popupsContainer =
+		el.ul`absolute left-0 bottom-full m-1 transition-opacity w-xl`.mount(region, 'popups');
+	const messagesWrapper =
+		el.div`absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity`.mount(
+			region,
+		);
+	const messagesContainer =
+		el.ul`max-h-64 overflow-y-scroll scrollbar-thumb-base-content/50 scrollbar-track-base-200/70 transition-opacity`.mount(
+			messagesWrapper,
+			'list',
+		);
 
 	return { messagesContainer, popupsContainer };
 };
 
-const mountChatTabs = (root: HTMLElement, context: PluginContext) => {
-	const tabsBar = context.ui.el.div`absolute top-full max-w-xl flex ml-(--radius-box)`.mount(
-		root,
-		'tabs',
-	);
+const mountChatTabs = (root: HTMLElement) => {
+	const tabsBar = el.div`absolute top-full max-w-xl flex ml-(--radius-box)`.mount(root, 'tabs');
 
-	const tabsContainer = context.ui.el.div`tabs tabs-lift tabs-bottom tabs-xs`.mount(
-		tabsBar,
-		'container',
-	);
+	const tabsContainer = el.div`tabs tabs-lift tabs-bottom tabs-xs`.mount(tabsBar, 'container');
 	tabsContainer.setAttribute('role', 'tablist');
 
-	const addTabWrapper = context.ui.el.div`tabs tabs-lift tabs-bottom tabs-xs`.mount(
-		tabsBar,
-		'add-tab',
-	);
-	const addTabButton = context.ui.el
-		.button`tab mx-1 btn btn-xs engaged:btn-secondary text-(--btn-fg)`.mount(
-		addTabWrapper,
-		'button',
-	);
-	context.ui.el.icon.plus``.mount(addTabButton, 'icon');
+	const addTabWrapper = el.div`tabs tabs-lift tabs-bottom tabs-xs`.mount(tabsBar, 'add-tab');
+	const addTabButton =
+		el.button`tab mx-1 btn btn-xs engaged:btn-secondary text-(--btn-fg)`.mount(
+			addTabWrapper,
+			'button',
+		);
+	el.icon.plus``.mount(addTabButton, 'icon');
 
 	return { tabsContainer, addTabButton };
 };
 
-const mountAddTabModal = (root: HTMLElement, context: PluginContext) => {
-	const addTabModal = context.ui.el.dialog`modal`.mount(root, 'add-tab-modal');
-	const modalBox = context.ui.el.div`modal-box`.mount(addTabModal, 'box');
-	const title = context.ui.el.h3`text-lg font-bold`.mount(modalBox, 'title');
+const mountAddTabModal = (root: HTMLElement) => {
+	const addTabModal = el.dialog`modal`.mount(root, 'add-tab-modal');
+	const modalBox = el.div`modal-box`.mount(addTabModal, 'box');
+	const title = el.h3`text-lg font-bold`.mount(modalBox, 'title');
 	title.innerText = 'Add PM tab';
 
-	const addTabForm = context.ui.el.form`join w-full`.mount(modalBox, 'form');
+	const addTabForm = el.form`join w-full`.mount(modalBox, 'form');
 	addTabForm.setAttribute('method', 'dialog');
 
-	const label = context.ui.el.label`w-full input`.mount(addTabForm, 'label');
-	context.ui.el.icon.at`size-5`.mount(label, 'icon');
+	const label = el.label`w-full input`.mount(addTabForm, 'label');
+	el.icon.at`size-5`.mount(label, 'icon');
 
-	const addTabInput = context.ui.el.input.text``.mount(label, 'input');
+	const addTabInput = el.input.text``.mount(label, 'input');
 	addTabInput.setAttribute('autofocus', '');
 	addTabInput.type = 'text';
 
-	const addTabSubmit = context.ui.el
-		.button`btn btn-ghost btn-success border-base-content/20 join-item`.mount(addTabForm, 'submit');
-	context.ui.el.icon.check`size-5`.mount(addTabSubmit, 'icon');
+	const addTabSubmit =
+		el.button`btn btn-ghost btn-success border-base-content/20 join-item`.mount(
+			addTabForm,
+			'submit',
+		);
+	el.icon.check`size-5`.mount(addTabSubmit, 'icon');
 
-	const addTabCancel = context.ui.el
-		.button`btn btn-ghost btn-error border-base-content/20 join-item`.mount(addTabForm, 'cancel');
-	context.ui.el.icon.x`size-5`.mount(addTabCancel, 'icon');
+	const addTabCancel =
+		el.button`btn btn-ghost btn-error border-base-content/20 join-item`.mount(
+			addTabForm,
+			'cancel',
+		);
+	el.icon.x`size-5`.mount(addTabCancel, 'icon');
 
-	context.ui.el.form`modal-backdrop`.mount(addTabModal, 'backdrop', (backdrop) => {
+	el.form`modal-backdrop`.mount(addTabModal, 'backdrop', (backdrop) => {
 		backdrop.setAttribute('method', 'dialog');
 		backdrop.className = 'modal-backdrop';
-		context.ui.el.button``.mount(backdrop, 'button');
+		el.button``.mount(backdrop, 'button');
 	});
 
 	return { addTabModal, addTabForm, addTabInput, addTabSubmit, addTabCancel };
 };
 
-const mountChatActionsDropdown = (root: HTMLElement, context: PluginContext) => {
-	const dropdown = context.ui.el
-		.ul`dropdown dropdown-top dropdown-right menu w-48 rounded-box bg-base-100 shadow -translate-y-2 translate-x-1 border border-base-content/20`.mount(
-		root,
-		'dropdown',
-	);
+const mountChatActionsDropdown = (root: HTMLElement) => {
+	const dropdown =
+		el.ul`dropdown dropdown-top dropdown-right menu w-48 rounded-box bg-base-100 shadow -translate-y-2 translate-x-1 border border-base-content/20`.mount(
+			root,
+			'dropdown',
+		);
 	dropdown.setAttribute('popover', '');
 	dropdown.id = 'oinky-chat-actions';
 	dropdown.style.setProperty('position-anchor', '--oinky-chat-actions-toggle');
 
-	const logActivatorItem = context.ui.el.li``.mount(dropdown, 'log-activator-item');
-	const logActivator = context.ui.el.button``.mount(
-		logActivatorItem,
-		'log-activator',
-		(logActivator) => {
-			logActivator.textContent = 'Open Chat Log';
-		},
-	);
-
-	const settingsItem = context.ui.el.li``.mount(dropdown, 'settings-item');
-	context.ui.el.button`line-through`.mount(settingsItem, 'settings-action', (settingsAction) => {
-		settingsAction.textContent = 'Open Settings';
+	const logActivatorItem = el.li``.mount(dropdown, 'log-activator-item');
+	const logActivator = el.button``.mount(logActivatorItem, 'log-activator', (logActivator) => {
+		logActivator.textContent = 'Open Chat Log';
 	});
 
 	return { logActivator };
 };
 
-const mountChatLog = (root: HTMLElement, context: PluginContext) => {
-	const logModal = context.ui.el.dialog`modal`.mount(root, 'log-modal');
+const mountChatLog = (root: HTMLElement) => {
+	const logModal = el.dialog`modal`.mount(root, 'log-modal');
 
-	const modalBox = context.ui.el.div`modal-box`.mount(logModal, 'box');
+	const modalBox = el.div`modal-box`.mount(logModal, 'box');
 
-	const header = context.ui.el.div`flex justify-between`.mount(modalBox);
-	const heading = context.ui.el.h3``.mount(header, 'heading');
+	const header = el.div`flex justify-between`.mount(modalBox);
+	const heading = el.h3``.mount(header, 'heading');
 	heading.textContent = 'Chat Log';
-	context.ui.el.form``.mount(header, 'close', (closeForm) => {
+	el.form``.mount(header, 'close', (closeForm) => {
 		closeForm.setAttribute('method', 'dialog');
-		context.ui.el.button`btn btn-sm btn-ghost btn-error`.mount(closeForm, 'button', (closeButton) =>
-			context.ui.el.icon.x`size-5`.mount(closeButton, 'icon'),
+		el.button`btn btn-sm btn-ghost btn-error`.mount(closeForm, 'button', (closeButton) =>
+			el.icon.x`size-5`.mount(closeButton, 'icon'),
 		);
 	});
 
-	const logContainer = context.ui.el
-		.ul`flex flex-col gap-2 my-3 -mx-6 p-2 bg-base-200 h-[50vh] overflow-y-scroll`.mount(
-		modalBox,
-		'log-container',
-	);
+	const logContainer =
+		el.ul`flex flex-col gap-2 my-3 -mx-6 p-2 bg-base-200 h-[50vh] overflow-y-scroll`.mount(
+			modalBox,
+			'log-container',
+		);
 
-	const footer = context.ui.el.div`flex gap-2 justify-between`.mount(modalBox);
+	const footer = el.div`flex gap-2 justify-between`.mount(modalBox);
 
-	const navGroup = context.ui.el.div`join`.mount(footer, 'nav');
+	const navGroup = el.div`join`.mount(footer, 'nav');
 	const createNavButton = (id: string, icon: string): HTMLButtonElement =>
-		context.ui.el.button`join-item btn btn-sm btn-square engaged:btn-primary`.mount(
+		el.button`join-item btn btn-sm btn-square engaged:btn-primary`.mount(
 			navGroup,
 			id,
-			(button) => context.ui.el.icon[icon]`size-5`.mount(button, 'icon'),
+			(button) => el.icon[icon]`size-5`.mount(button, 'icon'),
 		);
 	const logGoTop = createNavButton('top', 'chevronsUp');
 	const logGoUp = createNavButton('up', 'chevronUp');
 	const logGoDown = createNavButton('down', 'chevronDown');
 	const logGoBottom = createNavButton('bottom', 'chevronsDown');
 
-	const logExport = context.ui.el.button`btn btn-sm btn-ghost engaged:btn-primary`.mount(
+	const logExport = el.button`btn btn-sm btn-ghost engaged:btn-primary`.mount(
 		footer,
 		'export-log',
 		(logExport) => {
-			context.ui.el.icon.download`size-5`.mount(logExport, 'icon');
+			el.icon.download`size-5`.mount(logExport, 'icon');
 			logExport.append(document.createTextNode(' Export'));
 		},
 	);
 
-	context.ui.el.form`modal-backdrop`.mount(logModal, 'backdrop', (backdrop) => {
+	el.form`modal-backdrop`.mount(logModal, 'backdrop', (backdrop) => {
 		backdrop.setAttribute('method', 'dialog');
-		context.ui.el.button``.mount(backdrop, 'button', (backdropButton) => {
+		el.button``.mount(backdrop, 'button', (backdropButton) => {
 			backdropButton.textContent = 'close';
 		});
 	});
@@ -700,17 +675,13 @@ const initChat = (
 
 	const root = context.ui.taskbar.elements.chatContainer;
 
-	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(
-		root,
-		context,
-		settings,
-	);
-	const { inputLabel, chatInput } = mountChatInput(root, context);
-	const { messagesContainer, popupsContainer } = mountMessagesRegion(root, context);
-	const { tabsContainer, addTabButton } = mountChatTabs(root, context);
-	const addTabRefs = mountAddTabModal(root, context);
-	const { logActivator } = mountChatActionsDropdown(root, context);
-	const logRefs = mountChatLog(root, context);
+	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(root, settings);
+	const { inputLabel, chatInput } = mountChatInput(root, context.character.username);
+	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
+	const { tabsContainer, addTabButton } = mountChatTabs(root);
+	const addTabRefs = mountAddTabModal(root);
+	const { logActivator } = mountChatActionsDropdown(root);
+	const logRefs = mountChatLog(root);
 
 	const elements: ChatElements = {
 		root,
@@ -818,6 +789,91 @@ export const ChatPlugin: Plugin = {
 		const channels = context.storages.character.reactive('channels', initialChannels);
 
 		const elements = initChat(lifecycle, context, settings, channels);
+
+		context.settings.registerSection('Display', [
+			{
+				label: 'Zebra striping',
+				description: 'Alternate message background colors.',
+				specialType: 'toggle',
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.isZebraEnabled;
+					input.onchange = () => {
+						settings.isZebraEnabled = input.checked;
+					};
+				}),
+			},
+			{
+				label: 'Timestamp format',
+				description: 'date-fns format string for message timestamps.',
+				input: el.input.text``.then((input) => {
+					input.value = settings.timestampFormat;
+					input.onchange = () => {
+						settings.timestampFormat = input.value;
+					};
+				}),
+				reset: (input) => {
+					input.value = initialSettings.timestampFormat;
+					input.dispatchEvent(new Event('change'));
+					settings.timestampFormat = initialSettings.timestampFormat;
+				},
+			},
+			{
+				label: 'Popup delay multiplier',
+				description: 'How long popup messages stay visible.',
+				valueSuffix: 'x',
+				input: el.input.range``.then((input) => {
+					input.min = '0.5';
+					input.max = '5';
+					input.step = '0.1';
+					input.value = settings.popupDelayMultiplier.toString();
+					input.onchange = () => {
+						settings.popupDelayMultiplier = parseFloat(input.value);
+					};
+				}),
+				reset: (input) => {
+					input.value = initialSettings.popupDelayMultiplier.toString();
+					input.dispatchEvent(new Event('change'));
+					settings.popupDelayMultiplier = initialSettings.popupDelayMultiplier;
+				},
+			},
+		]);
+
+		context.settings.registerSection('Limits', [
+			{
+				label: 'Visible messages',
+				description: 'Maximum messages shown in the chat window.',
+				input: el.input.number``.then((input) => {
+					input.min = '10';
+					input.max = '2000';
+					input.value = settings.maxChatLength.toString();
+					input.onchange = () => {
+						settings.maxChatLength = parseInt(input.value, 10);
+					};
+				}),
+				reset: (input) => {
+					input.value = initialSettings.maxChatLength.toString();
+					input.dispatchEvent(new Event('change'));
+					settings.maxChatLength = initialSettings.maxChatLength;
+				},
+			},
+			{
+				label: 'Chat log length',
+				description: 'Maximum messages kept in the persistent chat log.',
+				input: el.input.number``.then((input) => {
+					input.min = '50';
+					input.max = '10000';
+					input.value = settings.maxChatLogLength.toString();
+					input.onchange = () => {
+						settings.maxChatLogLength = parseInt(input.value, 10);
+					};
+				}),
+				reset: (input) => {
+					input.value = initialSettings.maxChatLogLength.toString();
+					input.dispatchEvent(new Event('change'));
+					settings.maxChatLogLength = initialSettings.maxChatLogLength;
+				},
+			},
+		]);
 
 		return {
 			onChatMessage: (chatMessage) => {

@@ -1,4 +1,5 @@
 import { Lifecycle, Plugin, PluginContext } from '../client';
+import * as el from '../client/ui/elements';
 
 const initialSettings = { theme: 'dark' };
 type Settings = typeof initialSettings;
@@ -46,23 +47,23 @@ const updateTheme = (theme: string) =>
 
 const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, settings: Settings) => {
 	const root = context.ui.taskbar.initMenuItem(lifecycle, 'theme-selector');
-	const container = context.ui.el.div`px-2`.mount(root, 'container');
+	const container = el.div`px-2`.mount(root, 'container');
 
-	context.ui.el.fieldset``.mount(container, 'fieldset', (fieldset) => {
-		const legend = context.ui.el.legend`fieldset-legend`.mount(fieldset, 'legend');
+	el.fieldset``.mount(container, 'fieldset', (fieldset) => {
+		const legend = el.legend`fieldset-legend`.mount(fieldset, 'legend');
 		legend.append('Theme ');
-		const tooltip = context.ui.el
+		const tooltip = el
 			.span`tooltip tooltip-info bg-info rounded-selector size-[1lh] text-info-content text-xs`.mount(
 			legend,
 			'tooltip',
 		);
 		tooltip.setAttribute('data-tip', 'Not every theme has colors that work well with the UI');
-		context.ui.el.icon.infoSmall`size-[1.5lh] m-[-0.25lh]`.mount(tooltip, 'icon');
+		el.icon.infoSmall`size-[1.5lh] m-[-0.25lh]`.mount(tooltip, 'icon');
 	});
 
-	const select = context.ui.el.select`select cursor-pointer`.mount(container, 'select');
+	const select = el.select`select cursor-pointer`.mount(container, 'select');
 	themes.forEach(({ id, name }) => {
-		context.ui.el.option`option`.mount(select, 'option', (option) => {
+		el.option`option`.mount(select, 'option', (option) => {
 			option.value = id;
 			option.textContent = name;
 		});

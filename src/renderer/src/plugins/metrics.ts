@@ -1,4 +1,5 @@
 import { Lifecycle, Plugin, PluginContext } from '../client';
+import * as el from '../client/ui/elements';
 
 type XPDrop = {
 	xp: number;
@@ -140,7 +141,6 @@ const mountSkillBlock = (
 	skill: string,
 	activeSkillCharts: { [key: string]: boolean },
 ) => {
-	const { el } = context.ui;
 	let showTotal = settings.showMetricsWindowTotalBlock && skill === 'total';
 	let xpTracker = startXpTracker(
 		xpDrops,
@@ -232,7 +232,7 @@ const initMetricsWindow = (
 		id: 'metrics',
 		title: 'Metrics',
 		storage: context.storages.profile,
-		icon: context.ui.el.icon.chartLine``.element,
+		icon: el.icon.chartLine``.element,
 		initialState: {
 			width: 172,
 			height: 252,
@@ -289,7 +289,7 @@ export const MetricsPlugin: Plugin = {
 
 		const widget = context.ui.taskbar.initWidget(lifecycle, 'metrics');
 
-		const toggleButton = context.ui.el
+		const toggleButton = el
 			.button`bg-base-100 hover:bg-base-content/5 hover:cursor-pointer w-24 mx-1 h-full rounded-field border border-base-content/20 relative overflow-hidden`.mount(
 			widget,
 			'toggle-button',
@@ -329,14 +329,14 @@ export const MetricsPlugin: Plugin = {
 			{
 				label: 'XP Rate',
 				description: 'The type of XP rate to display.',
-				input: context.ui.el.select``.then((input) => {
+				input: el.select``.then((input) => {
 					input.value = settings.xpRateType;
-					context.ui.el.option``.mount(input, 'hr', (option) => {
+					el.option``.mount(input, 'hr', (option) => {
 						option.textContent = 'per hour';
 						option.value = 'hr';
 						option.selected = settings.xpRateType === 'hr';
 					});
-					context.ui.el.option``.mount(input, 'min', (option) => {
+					el.option``.mount(input, 'min', (option) => {
 						option.textContent = 'per minute';
 						option.value = 'min';
 						option.selected = settings.xpRateType === 'min';
@@ -354,7 +354,7 @@ export const MetricsPlugin: Plugin = {
 				tooltip: 'In minutes',
 				description: 'The duration of the time window to be displayed.',
 				valueSuffix: 'm',
-				input: context.ui.el.input.range``.then((input) => {
+				input: el.input.range``.then((input) => {
 					input.min = '1';
 					input.max = '20';
 					input.step = '0.2';
@@ -375,7 +375,7 @@ export const MetricsPlugin: Plugin = {
 				tooltip: 'In seconds',
 				description: 'The interval at which the metrics will be captured and updated.',
 				valueSuffix: 's',
-				input: context.ui.el.input.range``.then((input) => {
+				input: el.input.range``.then((input) => {
 					input.min = '0.1';
 					input.max = '10';
 					input.step = '0.1';
