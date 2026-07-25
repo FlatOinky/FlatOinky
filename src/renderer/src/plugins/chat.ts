@@ -209,7 +209,7 @@ const createChatMessageContent = (
 	timestamp.textContent = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
 
 	const parts: Node[] = [timestamp];
-	if (icon) parts.push(createIconImg(`https://flatmmo.com/${icon}`));
+	if (icon) parts.push(createIconImg(icon));
 	const tagEl = createUserTag(tag);
 	if (tagEl) parts.push(tagEl);
 	const usernameEl = createUsername(username, type, colorClassName);
