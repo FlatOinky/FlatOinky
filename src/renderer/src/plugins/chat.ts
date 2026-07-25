@@ -286,6 +286,36 @@ const updateToggleIndicator = (toggleIndicator: HTMLDivElement, active: boolean 
 	active ? toggleIndicator.classList.remove('hidden') : toggleIndicator.classList.add('hidden');
 };
 
+const applyChatSettings = (elements: ChatElements, settings: Settings): void => {
+	if (chatMessages.length > settings.maxChatLogLength) {
+		const deleteCount = Math.ceil(chatMessages.length - settings.maxChatLogLength);
+		chatMessages.splice(0, deleteCount);
+		localStorage.setItem(`oinky/${namespace}/chatMessages`, JSON.stringify(chatMessages));
+	}
+
+	const { messagesContainer } = elements;
+	const wasAtBottom = checkIsAtBottom(
+		messagesContainer.scrollTop,
+		messagesContainer.clientHeight,
+		messagesContainer.scrollHeight,
+	);
+
+	messageBgTickTock = false;
+	const visible = chatMessages.slice(Math.max(0, chatMessages.length - settings.maxChatLength));
+	messagesContainer.replaceChildren(
+		...visible.map((chatMessage) =>
+			createMessageLi(
+				createChatMessageContent(chatMessage, settings.timestampFormat),
+				getMessageBg(settings.isZebraEnabled),
+			),
+		),
+	);
+
+	if (wasAtBottom) {
+		messagesContainer.scrollTop = messagesContainer.scrollHeight;
+	}
+};
+
 // #region Handlers
 
 const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settings): void => {
@@ -466,8 +496,10 @@ const mountChatInput = (root: HTMLElement, username: string) => {
 
 const mountMessagesRegion = (root: HTMLElement) => {
 	const region = el.div`contents pointer-events-none`.mount(root, 'messages');
-	const popupsContainer =
-		el.ul`absolute left-0 bottom-full m-1 transition-opacity w-xl`.mount(region, 'popups');
+	const popupsContainer = el.ul`absolute left-0 bottom-full m-1 transition-opacity w-xl`.mount(
+		region,
+		'popups',
+	);
 	const messagesWrapper =
 		el.div`absolute left-0 bottom-full m-1 w-xl rounded-box overflow-hidden transition-opacity`.mount(
 			region,
@@ -488,11 +520,10 @@ const mountChatTabs = (root: HTMLElement) => {
 	tabsContainer.setAttribute('role', 'tablist');
 
 	const addTabWrapper = el.div`tabs tabs-lift tabs-bottom tabs-xs`.mount(tabsBar, 'add-tab');
-	const addTabButton =
-		el.button`tab mx-1 btn btn-xs engaged:btn-secondary text-(--btn-fg)`.mount(
-			addTabWrapper,
-			'button',
-		);
+	const addTabButton = el.button`tab mx-1 btn btn-xs engaged:btn-secondary text-(--btn-fg)`.mount(
+		addTabWrapper,
+		'button',
+	);
 	el.icon.plus``.mount(addTabButton, 'icon');
 
 	return { tabsContainer, addTabButton };
@@ -514,18 +545,16 @@ const mountAddTabModal = (root: HTMLElement) => {
 	addTabInput.setAttribute('autofocus', '');
 	addTabInput.type = 'text';
 
-	const addTabSubmit =
-		el.button`btn btn-ghost btn-success border-base-content/20 join-item`.mount(
-			addTabForm,
-			'submit',
-		);
+	const addTabSubmit = el.button`btn btn-ghost btn-success border-base-content/20 join-item`.mount(
+		addTabForm,
+		'submit',
+	);
 	el.icon.check`size-5`.mount(addTabSubmit, 'icon');
 
-	const addTabCancel =
-		el.button`btn btn-ghost btn-error border-base-content/20 join-item`.mount(
-			addTabForm,
-			'cancel',
-		);
+	const addTabCancel = el.button`btn btn-ghost btn-error border-base-content/20 join-item`.mount(
+		addTabForm,
+		'cancel',
+	);
 	el.icon.x`size-5`.mount(addTabCancel, 'icon');
 
 	el.form`modal-backdrop`.mount(addTabModal, 'backdrop', (backdrop) => {
@@ -580,10 +609,8 @@ const mountChatLog = (root: HTMLElement) => {
 
 	const navGroup = el.div`join`.mount(footer, 'nav');
 	const createNavButton = (id: string, icon: string): HTMLButtonElement =>
-		el.button`join-item btn btn-sm btn-square engaged:btn-primary`.mount(
-			navGroup,
-			id,
-			(button) => el.icon[icon]`size-5`.mount(button, 'icon'),
+		el.button`join-item btn btn-sm btn-square engaged:btn-primary`.mount(navGroup, id, (button) =>
+			el.icon[icon]`size-5`.mount(button, 'icon'),
 		);
 	const logGoTop = createNavButton('top', 'chevronsUp');
 	const logGoUp = createNavButton('up', 'chevronUp');
@@ -790,6 +817,11 @@ export const ChatPlugin: Plugin = {
 
 		const elements = initChat(lifecycle, context, settings, channels);
 
+		const onSettingsChange = () => {
+			if (!elements) return;
+			applyChatSettings(elements, settings);
+		};
+
 		context.settings.registerSection('Display', [
 			{
 				label: 'Zebra striping',
@@ -799,6 +831,7 @@ export const ChatPlugin: Plugin = {
 					input.checked = settings.isZebraEnabled;
 					input.onchange = () => {
 						settings.isZebraEnabled = input.checked;
+						onSettingsChange();
 					};
 				}),
 			},
@@ -809,6 +842,7 @@ export const ChatPlugin: Plugin = {
 					input.value = settings.timestampFormat;
 					input.onchange = () => {
 						settings.timestampFormat = input.value;
+						onSettingsChange();
 					};
 				}),
 				reset: (input) => {
@@ -828,6 +862,7 @@ export const ChatPlugin: Plugin = {
 					input.value = settings.popupDelayMultiplier.toString();
 					input.onchange = () => {
 						settings.popupDelayMultiplier = parseFloat(input.value);
+						onSettingsChange();
 					};
 				}),
 				reset: (input) => {
@@ -848,6 +883,7 @@ export const ChatPlugin: Plugin = {
 					input.value = settings.maxChatLength.toString();
 					input.onchange = () => {
 						settings.maxChatLength = parseInt(input.value, 10);
+						onSettingsChange();
 					};
 				}),
 				reset: (input) => {
@@ -865,6 +901,7 @@ export const ChatPlugin: Plugin = {
 					input.value = settings.maxChatLogLength.toString();
 					input.onchange = () => {
 						settings.maxChatLogLength = parseInt(input.value, 10);
+						onSettingsChange();
 					};
 				}),
 				reset: (input) => {
