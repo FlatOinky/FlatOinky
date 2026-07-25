@@ -392,6 +392,7 @@ const initSettingsWindow = (
 		title: 'Client settings',
 		icon: ui.el.icon.settings``.element,
 		storage,
+		lockable: false,
 	});
 	window.body.replaceChildren(container);
 

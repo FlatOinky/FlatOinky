@@ -113,6 +113,7 @@ type WindowOptions = {
 	onPreMount?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void;
 	onClose?: () => void;
 	icon?: Element;
+	lockable?: boolean;
 };
 
 export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: TaskbarApi) => {
@@ -129,6 +130,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	// #region > windowFrame
 	const initWindow = (lifecycle: Lifecycle, options: WindowOptions) => {
 		const { id, title, storage, onPreMount, icon } = options;
+		const lockable = options.lockable !== false;
 		const windowState = storage.reactive<WindowState>(`window/${id}`, {
 			width: 640,
 			height: 400,
@@ -138,6 +140,9 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			minimized: false,
 			...(options.initialState ?? {}),
 		});
+		if (!lockable) {
+			windowState.locked = false;
+		}
 		const windowFrame = initElement(lifecycle, container, id, 'article');
 		windowFrame.setAttribute('oinky-window', 'root');
 		windowFrame.setAttribute('oinky-window-id', id);
@@ -256,13 +261,17 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		});
 
 		const windowLocks = windowFrame.querySelectorAll<HTMLInputElement>('input[oinky-window=lock]');
-		windowLocks.forEach((windowLock) => {
-			windowLock.checked = windowState.locked;
-			windowLock.onchange = () => {
-				windowState.locked = !windowState.locked;
-				updateWindowFrameLock(windowFrame, windowState);
-			};
-		});
+		if (lockable) {
+			windowLocks.forEach((windowLock) => {
+				windowLock.checked = windowState.locked;
+				windowLock.onchange = () => {
+					windowState.locked = !windowState.locked;
+					updateWindowFrameLock(windowFrame, windowState);
+				};
+			});
+		} else {
+			windowLocks.forEach((windowLock) => windowLock.closest('label')?.remove());
+		}
 
 		const windowButtonIcon = icon ?? el.icon.appWindow``.element;
 		const { button: windowButton } = taskbar.initWindowButton(lifecycle, id, {
