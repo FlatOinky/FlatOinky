@@ -93,6 +93,7 @@ type ChatElements = {
 	addTabCancel: HTMLButtonElement;
 	logActivator: HTMLButtonElement;
 	settingsActivator: HTMLButtonElement;
+	mutedPlayersActivator: HTMLButtonElement;
 	logModal: HTMLDialogElement;
 	logContainer: HTMLUListElement;
 	logGoTop: HTMLButtonElement;
@@ -625,7 +626,16 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 		},
 	);
 
-	return { logActivator, settingsActivator };
+	const mutedPlayersActivatorItem = el.li``.mount(dropdown, 'muted-players-activator-item');
+	const mutedPlayersActivator = el.button``.mount(
+		mutedPlayersActivatorItem,
+		'muted-players-activator',
+		(mutedPlayersActivator) => {
+			mutedPlayersActivator.textContent = 'Muted Players';
+		},
+	);
+
+	return { logActivator, settingsActivator, mutedPlayersActivator };
 };
 
 const mountChatLog = (root: HTMLElement) => {
@@ -751,7 +761,8 @@ const initChat = (
 	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
 	const { tabsContainer, addTabButton } = mountChatTabs(root);
 	const addTabRefs = mountAddTabModal(root);
-	const { logActivator, settingsActivator } = mountChatActionsDropdown(root);
+	const { logActivator, settingsActivator, mutedPlayersActivator } =
+		mountChatActionsDropdown(root);
 	const logRefs = mountChatLog(root);
 
 	const elements: ChatElements = {
@@ -767,6 +778,7 @@ const initChat = (
 		addTabButton,
 		logActivator,
 		settingsActivator,
+		mutedPlayersActivator,
 		...addTabRefs,
 		...logRefs,
 	};
@@ -840,6 +852,131 @@ const mountChatMessage = (
 	}
 };
 
+// #region muted players
+
+const initialMutedPlayers = {
+	usernames: [] as string[],
+};
+type MutedPlayers = typeof initialMutedPlayers;
+
+const mutedChatTypes = new Set(['local', 'yell', 'pm_from', 'pm_to']);
+
+const isChatMessageMuted = (chatMessage: ChatMessage, mutedPlayers: MutedPlayers): boolean => {
+	if (!chatMessage.username || !mutedChatTypes.has(chatMessage.type)) return false;
+	return mutedPlayers.usernames.includes(chatMessage.username);
+};
+
+const isValidMuteUsername = (username: string): boolean =>
+	username.length >= 3 && username.length <= 12;
+
+const getMutedUsernames = (mutedPlayers: MutedPlayers): string[] =>
+	Array.isArray(mutedPlayers.usernames) ? Array.from(mutedPlayers.usernames) : [];
+
+const setMutedUsernames = (mutedPlayers: MutedPlayers, usernames: string[]): void => {
+	mutedPlayers.usernames = usernames;
+};
+
+const importMutedPlayersFromGame = (mutedPlayers: MutedPlayers): void => {
+	setMutedUsernames(mutedPlayers, [
+		...new Set([...getMutedUsernames(mutedPlayers), ...get_local_mutes()]),
+	]);
+};
+
+const exportMutedPlayersToGame = (mutedPlayers: MutedPlayers): void => {
+	save_local_mutes(new Set([...get_local_mutes(), ...getMutedUsernames(mutedPlayers)]));
+	refresh_local_mutes_html();
+};
+
+const addMutedPlayer = (mutedPlayers: MutedPlayers, username: string): boolean => {
+	const trimmed = username.trim();
+	if (!isValidMuteUsername(trimmed)) return false;
+	const usernames = getMutedUsernames(mutedPlayers);
+	if (usernames.includes(trimmed)) return false;
+	setMutedUsernames(mutedPlayers, [...usernames, trimmed]);
+	return true;
+};
+
+const removeMutedPlayer = (mutedPlayers: MutedPlayers, username: string): void => {
+	setMutedUsernames(
+		mutedPlayers,
+		getMutedUsernames(mutedPlayers).filter((entry) => entry !== username),
+	);
+};
+
+const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Element =>
+	el.div`flex flex-col gap-3 w-full`.then((root) => {
+		el.div`flex gap-2 flex-wrap`.mount(root, undefined, (actions) => {
+			el.button`btn btn-sm btn-ghost border-base-content/20`.mount(actions, undefined, (button) => {
+				button.type = 'button';
+				button.textContent = 'Import from Flat MMO';
+				button.onclick = () => {
+					importMutedPlayersFromGame(mutedPlayers);
+					refreshList();
+				};
+			});
+			el.button`btn btn-sm btn-ghost border-base-content/20`.mount(actions, undefined, (button) => {
+				button.type = 'button';
+				button.textContent = 'Export to Flat MMO';
+				button.onclick = () => exportMutedPlayersToGame(mutedPlayers);
+			});
+		});
+
+		const list =
+			el.ul`flex flex-col gap-1 w-full max-h-64 overflow-y-auto scrollbar-thumb-base-content/50 scrollbar-track-base-200/70`.mount(
+				root,
+			);
+
+		const refreshList = () => {
+			list.replaceChildren();
+			for (const username of getMutedUsernames(mutedPlayers)) {
+				el.li`flex items-center gap-2`.mount(list, undefined, (row) => {
+					el.button`btn btn-ghost btn-error btn-square btn-xs`.mount(
+						row,
+						undefined,
+						(button) => {
+							button.type = 'button';
+							button.title = `Unmute ${username}`;
+							el.icon.x`size-4`.mount(button);
+							button.onclick = () => {
+								removeMutedPlayer(mutedPlayers, username);
+								refreshList();
+							};
+						},
+					);
+					el.span`flex-1 min-w-0 truncate`.mount(row, undefined, (span) => {
+						span.textContent = username;
+					});
+				});
+			}
+		};
+
+		el.form`join w-full`.mount(root, undefined, (form) => {
+			const label = el.label`input input-sm join-item flex-1 min-w-0 w-full`.mount(form);
+			const addInput = el.input.text``.mount(label, undefined, (input) => {
+				input.name = 'username';
+				input.placeholder = 'Username';
+				input.maxLength = 12;
+				input.autocomplete = 'off';
+			});
+			el.button`btn btn-sm btn-ghost btn-success border-base-content/20 join-item`.mount(
+				form,
+				undefined,
+				(button) => {
+					button.type = 'submit';
+					button.textContent = 'Add';
+				},
+			);
+			form.onsubmit = (event) => {
+				event.preventDefault();
+				if (!addMutedPlayer(mutedPlayers, addInput.value)) return;
+				addInput.value = '';
+				refreshList();
+			};
+		});
+
+		refreshList();
+	});
+
 // #region Plugin
 
 export const ChatPlugin: Plugin = {
@@ -849,6 +986,7 @@ export const ChatPlugin: Plugin = {
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const channels = context.storages.character.reactive('channels', initialChannels);
+		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
 
 		const elements = initChat(lifecycle, context, settings, channels);
 
@@ -971,16 +1109,25 @@ export const ChatPlugin: Plugin = {
 			},
 		]);
 
+		const mutedPlayersSection = context.settings.registerSection('Muted Players', [
+			createMutedPlayersSettingsNode(mutedPlayers),
+		]);
+
 		if (elements) {
 			elements.settingsActivator.onclick = () => {
 				elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
 				context.settings.openSection([chatNamespaceIndex]);
+			};
+			elements.mutedPlayersActivator.onclick = () => {
+				elements.mutedPlayersActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+				context.settings.openSection(mutedPlayersSection);
 			};
 		}
 
 		return {
 			onChatMessage: (chatMessage) => {
 				if (!elements) return;
+				if (isChatMessageMuted(chatMessage, mutedPlayers)) return;
 				mountChatMessage(chatMessage, context, settings, elements);
 			},
 			hookAddToChat: () => false,

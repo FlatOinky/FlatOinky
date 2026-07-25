@@ -79,6 +79,9 @@ declare global {
 		color: string,
 		message: string,
 	): void;
+	function get_local_mutes(): Set<string>;
+	function save_local_mutes(set: Set<string>): void;
+	function refresh_local_mutes_html(): void;
 	var opened_modals: Set<string>;
 	var ground_items: object[];
 	var sound_off: boolean;
