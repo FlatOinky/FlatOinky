@@ -1,6 +1,13 @@
 import { protocol, net } from 'electron';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
+import {
+	isStale,
+	readCachedAsset,
+	touchCachedAsset,
+	writeCachedAsset,
+	type AssetCacheEntry,
+} from './asset_cache';
 
 const FLAT_URL = 'https://flatmmo.com';
 
@@ -28,6 +35,7 @@ const proxyToFlat = (
 	relativePath: string,
 	search: string,
 	request?: Request,
+	headers?: HeadersInit,
 ): Promise<Response> => {
 	const target = `${FLAT_URL}${relativePath}${search}`;
 	if (request && request.method !== 'GET' && request.method !== 'HEAD') {
@@ -39,7 +47,120 @@ const proxyToFlat = (
 			bypassCustomProtocolHandlers: true,
 		} as RequestInit);
 	}
-	return net.fetch(target, { bypassCustomProtocolHandlers: true });
+	return net.fetch(target, {
+		headers,
+		bypassCustomProtocolHandlers: true,
+	});
+};
+
+const responseFromCache = (entry: AssetCacheEntry, method: string): Response => {
+	const headers: Record<string, string> = {
+		'content-type': entry.contentType,
+		'x-flat-oinky-cache': 'hit',
+	};
+	if (entry.etag) headers.etag = entry.etag;
+	if (entry.lastModified) headers['last-modified'] = entry.lastModified;
+	return new Response(method === 'HEAD' ? null : new Uint8Array(entry.body), {
+		status: 200,
+		headers,
+	});
+};
+
+const storeUpstreamAsset = async (relativePath: string, response: Response): Promise<Buffer> => {
+	const body = Buffer.from(await response.arrayBuffer());
+	const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
+	const etag = response.headers.get('etag') ?? undefined;
+	const lastModified = response.headers.get('last-modified') ?? undefined;
+	try {
+		await writeCachedAsset(relativePath, { body, contentType, etag, lastModified });
+	} catch (error) {
+		console.error('asset_proxy: failed to write cache entry', relativePath, error);
+	}
+	return body;
+};
+
+const revalidateCachedAsset = async (
+	relativePath: string,
+	search: string,
+	entry: AssetCacheEntry,
+): Promise<void> => {
+	const headers: Record<string, string> = {};
+	if (entry.etag) headers['if-none-match'] = entry.etag;
+	if (entry.lastModified) headers['if-modified-since'] = entry.lastModified;
+	try {
+		const response = await proxyToFlat(relativePath, search, undefined, headers);
+		if (response.status === 304) {
+			await touchCachedAsset(relativePath);
+			return;
+		}
+		if (response.ok) {
+			await storeUpstreamAsset(relativePath, response);
+		}
+	} catch (error) {
+		console.error('asset_proxy: revalidation failed', relativePath, error);
+	}
+};
+
+const fetchAndCacheStaticAsset = async (
+	relativePath: string,
+	search: string,
+	request?: Request,
+): Promise<Response> => {
+	const response = await proxyToFlat(relativePath, search, request);
+	const method = request?.method ?? 'GET';
+	if (method !== 'GET' && method !== 'HEAD') {
+		return response;
+	}
+	if (!response.ok) return response;
+	try {
+		const body = await storeUpstreamAsset(relativePath, response);
+		const headers = new Headers(response.headers);
+		headers.set('x-flat-oinky-cache', 'miss');
+		return new Response(method === 'HEAD' ? null : new Uint8Array(body), {
+			status: response.status,
+			statusText: response.statusText,
+			headers,
+		});
+	} catch (error) {
+		console.error('asset_proxy: failed to buffer upstream asset', relativePath, error);
+		return proxyToFlat(relativePath, search, request);
+	}
+};
+
+const proxyStaticAsset = async (
+	relativePath: string,
+	search: string,
+	request?: Request,
+): Promise<Response> => {
+	const method = request?.method ?? 'GET';
+	if (method !== 'GET' && method !== 'HEAD') {
+		return proxyToFlat(relativePath, search, request);
+	}
+
+	try {
+		const cached = await readCachedAsset(relativePath);
+		if (cached) {
+			if (isStale(cached)) {
+				void revalidateCachedAsset(relativePath, search, cached);
+			}
+			return responseFromCache(cached, method);
+		}
+	} catch (error) {
+		console.error('asset_proxy: cache read failed', relativePath, error);
+	}
+
+	return fetchAndCacheStaticAsset(relativePath, search, request);
+};
+
+const proxyRequest = (
+	relativePath: string,
+	search: string,
+	request?: Request,
+): Promise<Response> => {
+	if (isAssetPath(relativePath)) {
+		return proxyStaticAsset(relativePath, search, request);
+	}
+	return proxyToFlat(relativePath, search, request);
 };
 
 const setupDevProxy = (rendererOrigin: string): void => {
@@ -50,7 +171,7 @@ const setupDevProxy = (rendererOrigin: string): void => {
 			(isAssetPath(url.pathname) || isPhpPath(url.pathname)) &&
 			!isAppOwnedPath(url.pathname)
 		) {
-			return proxyToFlat(url.pathname, url.search, request);
+			return proxyRequest(url.pathname, url.search, request);
 		}
 		return net.fetch(request, { bypassCustomProtocolHandlers: true });
 	});
@@ -70,7 +191,7 @@ const setupProdProxy = (): void => {
 				(isAssetPath(relativePath) || isPhpPath(relativePath)) &&
 				!relativePath.startsWith('/assets/')
 			) {
-				return proxyToFlat(relativePath, url.search, request);
+				return proxyRequest(relativePath, url.search, request);
 			}
 		}
 		return net.fetch(request, { bypassCustomProtocolHandlers: true });
