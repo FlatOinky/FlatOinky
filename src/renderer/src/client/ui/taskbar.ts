@@ -175,9 +175,11 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 	) => {
 		const anchorName = `--oinky-taskbar-window-btn-${id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 		const menuId = `oinky-taskbar-window-menu-${id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+		const WINDOW_BUTTON_WIDTH = '40px';
+		const WINDOW_BUTTON_COLLAPSE_MS = 150;
 
-		const button = initElement(lifecycle, openWindowsContainer, id, 'button', (button) => {
-			button.className = 'btn btn-square btn-primary transition-[width]';
+		const button = mountElement(openWindowsContainer, id, 'button', (button) => {
+			button.className = 'btn btn-square btn-primary transition-[width] overflow-hidden';
 			button.style.width = '0px';
 			button.style.setProperty('anchor-name', anchorName);
 			options.icon.classList.add('size-7');
@@ -200,12 +202,12 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			}
 			requestAnimationFrame(() =>
 				requestAnimationFrame(() => {
-					button.style.width = '40px';
+					button.style.width = WINDOW_BUTTON_WIDTH;
 				}),
 			);
 		});
 
-		const menu = initElement(lifecycle, openWindowsContainer, `${id}Menu`, 'div', (menu) => {
+		const menu = mountElement(openWindowsContainer, `${id}Menu`, 'div', (menu) => {
 			menu.className =
 				'dropdown dropdown-top dropdown-start w-3xs rounded-box bg-base-100 shadow -translate-y-2 border border-base-content/20';
 			menu.setAttribute('popover', '');
@@ -215,6 +217,27 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 
 		mountElement(menu, 'list', 'ul', (list) => {
 			list.className = 'menu w-full';
+		});
+
+		lifecycle.onCleanup(() => {
+			// Drop oinky ids first so a quick reopen can mount a fresh button.
+			button.removeAttribute('oinky');
+			menu.removeAttribute('oinky');
+			menu.remove();
+			button.style.width = '0px';
+			let removed = false;
+			const removeButton = () => {
+				if (removed) return;
+				removed = true;
+				button.remove();
+			};
+			const onTransitionEnd = (event: TransitionEvent) => {
+				if (event.target !== button || event.propertyName !== 'width') return;
+				button.removeEventListener('transitionend', onTransitionEnd);
+				removeButton();
+			};
+			button.addEventListener('transitionend', onTransitionEnd);
+			setTimeout(removeButton, WINDOW_BUTTON_COLLAPSE_MS);
 		});
 
 		return { button, menu };
