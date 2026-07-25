@@ -27,6 +27,10 @@ type SettingsNode =
 	| (SettingsNodeBase & {
 			specialType: 'selectTextCombo';
 			options: SettingsNodeOption[];
+	  })
+	| (SettingsNodeBase & {
+			specialType: 'selectColorCombo';
+			options: SettingsNodeOption[];
 	  });
 
 // #region setupPluginApi
@@ -116,11 +120,142 @@ const makeSelectTextComboChild = (
 	return container;
 };
 
+const channelToHex = (channel: number) =>
+	Math.max(0, Math.min(255, Math.round(channel)))
+		.toString(16)
+		.padStart(2, '0');
+
+/** Convert a computed CSS color (rgb/rgba/oklch/etc.) to #rrggbb for <input type="color">. */
+const computedColorToHex = (computed: string): string => {
+	const rgbMatch = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(computed);
+	if (rgbMatch) {
+		return `#${channelToHex(Number(rgbMatch[1]))}${channelToHex(Number(rgbMatch[2]))}${channelToHex(Number(rgbMatch[3]))}`;
+	}
+	const canvas = document.createElement('canvas');
+	canvas.width = 1;
+	canvas.height = 1;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) return '#000000';
+	ctx.fillStyle = '#000000';
+	ctx.fillStyle = computed;
+	ctx.fillRect(0, 0, 1, 1);
+	const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+	canvas.remove();
+	return `#${channelToHex(r)}${channelToHex(g)}${channelToHex(b)}`;
+};
+
+/**
+ * Resolve any CSS color (including var(--color-*)) to #rrggbb.
+ * `context` must be in the themed DOM so CSS variables resolve.
+ */
+const cssColorToHex = (color: string, context: Element = document.documentElement): string => {
+	if (/^#[0-9a-fA-F]{6}$/.test(color)) return color.toLowerCase();
+	if (/^#[0-9a-fA-F]{3}$/.test(color)) {
+		const [r, g, b] = color.slice(1);
+		return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+	}
+	const probe = document.createElement('span');
+	probe.style.color = color;
+	context.appendChild(probe);
+	const computed = getComputedStyle(probe).color;
+	probe.remove();
+	return computedColorToHex(computed);
+};
+
+const makeSelectColorComboChild = (
+	node: SettingsNodeBase & {
+		specialType: 'selectColorCombo';
+		options: SettingsNodeOption[];
+	},
+): Element => {
+	const { options } = node;
+	const container = el.div`flex gap-2 items-center w-full`.element;
+	const dropdownId = `settings-color-${crypto.randomUUID()}`;
+	const anchorName = `--${dropdownId}`;
+
+	const dropdownWrap = el.div`shrink-0`.mount(container);
+	const trigger = el.button`btn btn-sm btn-square border border-base-content/20`.mount(
+		dropdownWrap,
+		undefined,
+		(button) => {
+			button.type = 'button';
+			button.setAttribute('popovertarget', dropdownId);
+			button.style.setProperty('anchor-name', anchorName);
+		},
+	);
+	el.icon.chevronDown`size-3.5 opacity-60`.mount(trigger);
+
+	const menu =
+		el.ul`dropdown dropdown-start menu p-1 w-max min-w-44 max-h-64 overflow-y-auto overflow-x-hidden rounded-box bg-base-100 shadow border border-base-content/20 z-10`.mount(
+			dropdownWrap,
+			undefined,
+			(list) => {
+				list.id = dropdownId;
+				list.setAttribute('popover', '');
+				list.style.setProperty('position-anchor', anchorName);
+			},
+		);
+
+	const writeTextValue = (value: string) => {
+		node.input.value = value;
+		node.input.dispatchEvent(new Event('input'));
+		node.input.dispatchEvent(new Event('change'));
+	};
+
+	for (const opt of options) {
+		el.li``.mount(menu, undefined, (item) => {
+			el.button`flex gap-2 items-center whitespace-nowrap`.mount(item, undefined, (button) => {
+				button.type = 'button';
+				el.span`size-4 rounded-sm border border-base-content/30 shrink-0`.mount(
+					button,
+					undefined,
+					(optionSwatch) => {
+						optionSwatch.style.backgroundColor = opt.value;
+					},
+				);
+				el.span``.mount(button, undefined, (label) => {
+					label.textContent = opt.label;
+				});
+				button.onclick = () => {
+					writeTextValue(opt.value);
+					menu.hidePopover();
+				};
+			});
+		});
+	}
+
+	const colorInput = el.input.color`input input-sm p-1 w-14 h-9 cursor-pointer shrink-0`.mount(
+		container,
+	);
+	colorInput.addEventListener('input', () => writeTextValue(colorInput.value));
+	colorInput.addEventListener('change', () => writeTextValue(colorInput.value));
+
+	const syncFromText = () => {
+		const text = node.input.value;
+		const match = options.find((opt) => opt.value === text);
+		const cssColor = match?.value ?? text;
+		trigger.classList.toggle('italic', !match);
+		const context = container.isConnected ? container : document.documentElement;
+		const hex = cssColorToHex(cssColor, context);
+		if (colorInput.value !== hex) colorInput.value = hex;
+	};
+	node.input.addEventListener('input', syncFromText);
+	node.input.addEventListener('change', syncFromText);
+
+	node.input.classList = 'input input-sm flex-1 min-w-0 w-full';
+	syncFromText();
+	container.appendChild(node.input);
+	return container;
+};
+
 const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 	const getValueDisplay = () =>
 		(node.valuePrefix ?? '') + node.input.value + (node.valueSuffix ?? '');
 	if (node.specialType === 'selectTextCombo') {
 		return makeSelectTextComboChild(node);
+	}
+	if (node.specialType === 'selectColorCombo') {
+		return makeSelectColorComboChild(node);
 	}
 	if (node.input instanceof HTMLTextAreaElement) {
 		node.input.classList = 'textarea textarea-sm w-full';
@@ -280,6 +415,7 @@ const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
 		case 'range':
 		case 'select':
 		case 'selectTextCombo':
+		case 'selectColorCombo':
 		case 'file':
 		case 'color':
 		case 'text':

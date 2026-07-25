@@ -7,14 +7,46 @@ type XPDrop = {
 	timestamp: number;
 };
 
+const daisyUiColors = {
+	primary: 'var(--color-primary)',
+	'primary-content': 'var(--color-primary-content)',
+	secondary: 'var(--color-secondary)',
+	'secondary-content': 'var(--color-secondary-content)',
+	accent: 'var(--color-accent)',
+	'accent-content': 'var(--color-accent-content)',
+	neutral: 'var(--color-neutral)',
+	'neutral-content': 'var(--color-neutral-content)',
+	info: 'var(--color-info)',
+	'info-content': 'var(--color-info-content)',
+	success: 'var(--color-success)',
+	'success-content': 'var(--color-success-content)',
+	warning: 'var(--color-warning)',
+	'warning-content': 'var(--color-warning-content)',
+	error: 'var(--color-error)',
+	'error-content': 'var(--color-error-content)',
+} as const;
+
+const formatDaisyUiColorLabel = (name: string) =>
+	name
+		.split('-')
+		.map((part) => {
+			if (/^\d+$/.test(part)) return part;
+			const word = part === 'content' ? 'text' : part;
+			return word.charAt(0).toUpperCase() + word.slice(1);
+		})
+		.join(' ');
+
 const initialSettings = {
 	xpRateType: 'hr' as 'hr' | 'min',
 	/** minutes */
 	timeSpan: 5,
 	/** seconds */
 	updateInterval: 1,
-	isMetricsWindowOpen: false,
-	showMetricsWindowTotalBlock: true,
+	chartColor: 'var(--color-accent)',
+	metricsWindow: {
+		isOpen: false,
+		showTotal: true,
+	},
 };
 type Settings = typeof initialSettings;
 
@@ -101,10 +133,15 @@ const formatXp = (value: number) => Math.round(value).toLocaleString();
 
 // #region mounts
 
+const applyChartColor = (svg: SVGSVGElement, color: string) => {
+	svg.style.color = color;
+};
+
 const mountSkillChart = (
 	context: PluginContext,
 	container: HTMLElement,
 	xpTracker: XpTracker,
+	color: string,
 	{ responsive = false }: { responsive?: boolean } = {},
 ) => {
 	const graphData = [...xpTracker.initialMetrics.smoothedValues];
@@ -114,7 +151,7 @@ const mountSkillChart = (
 		lineWidth: 1.5,
 		responsive,
 	});
-	lineGraph.svg.classList.add('text-accent');
+	applyChartColor(lineGraph.svg, color);
 	if (responsive) {
 		lineGraph.svg.style.display = 'block';
 		lineGraph.svg.classList.add('w-full');
@@ -130,6 +167,7 @@ const mountSkillChart = (
 	return {
 		lineGraph,
 		runInterval,
+		setColor: (next: string) => applyChartColor(lineGraph.svg, next),
 	};
 };
 
@@ -141,7 +179,7 @@ const mountSkillBlock = (
 	skill: string,
 	activeSkillCharts: { [key: string]: boolean },
 ) => {
-	let showTotal = settings.showMetricsWindowTotalBlock && skill === 'total';
+	let showTotal = settings.metricsWindow.showTotal && skill === 'total';
 	let xpTracker = startXpTracker(
 		xpDrops,
 		settings,
@@ -183,7 +221,9 @@ const mountSkillBlock = (
 		);
 	}
 
-	const skillChart = mountSkillChart(context, container, xpTracker, { responsive: true });
+	const skillChart = mountSkillChart(context, container, xpTracker, settings.chartColor, {
+		responsive: true,
+	});
 
 	const updateStats = (metrics: XpTrackerMetrics) => {
 		const xpRateValue = {
@@ -195,11 +235,17 @@ const mountSkillBlock = (
 		statXpRate.innerHTML = `${formatXp(xpRateValue)}xp / ${settings.xpRateType}`;
 	};
 	const updateVisibility = (metrics: XpTrackerMetrics) => {
-		showTotal = settings.showMetricsWindowTotalBlock && skill === 'total';
+		showTotal = settings.metricsWindow.showTotal && skill === 'total';
 		const isVisible =
 			showTotal || (skill !== 'total' && metrics.isActive && activeSkillCharts[skill]);
 		container.classList.toggle('hidden', !isVisible);
 		container.classList.toggle('flex', isVisible);
+	};
+	const syncShowTotal = () => {
+		if (skill !== 'total') return;
+		showTotal = settings.metricsWindow.showTotal;
+		container.classList.toggle('hidden', !showTotal);
+		container.classList.toggle('flex', showTotal);
 	};
 	updateStats(xpTracker.initialMetrics);
 	updateVisibility(xpTracker.initialMetrics);
@@ -216,6 +262,7 @@ const mountSkillBlock = (
 		xpTracker,
 		skillChart,
 		runInterval,
+		syncShowTotal,
 	};
 };
 
@@ -264,7 +311,7 @@ export const MetricsPlugin: Plugin = {
 
 		let windowMetrics: ReturnType<typeof initMetricsWindow> | undefined;
 		const createWindowMetrics = () => {
-			if (!settings.isMetricsWindowOpen) return;
+			if (!settings.metricsWindow.isOpen) return;
 			const newWindow = initMetricsWindow(
 				lifecycle,
 				context,
@@ -272,7 +319,7 @@ export const MetricsPlugin: Plugin = {
 				settings,
 				activeSkillCharts,
 				() => {
-					settings.isMetricsWindowOpen = false;
+					settings.metricsWindow.isOpen = false;
 				},
 			);
 			newWindow.lifecycle.onCleanup(() => {
@@ -298,14 +345,14 @@ export const MetricsPlugin: Plugin = {
 			if (windowMetrics?.window.state.minimized === false) {
 				windowMetrics?.window.hideWindow();
 			} else {
-				settings.isMetricsWindowOpen = true;
+				settings.metricsWindow.isOpen = true;
 				windowMetrics ??= createWindowMetrics();
 				windowMetrics?.window.showWindow();
 			}
 		};
 
 		let xpTracker = startXpTracker(xpDrops, settings);
-		let toggleChart = mountSkillChart(context, toggleButton, xpTracker);
+		let toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 
 		let intervalId: ReturnType<typeof setInterval> | undefined;
 		const restartUpdateLoop = () => {
@@ -320,12 +367,46 @@ export const MetricsPlugin: Plugin = {
 		const refreshMetrics = () => {
 			toggleChart.lineGraph.svg.remove();
 			xpTracker = startXpTracker(xpDrops, settings);
-			toggleChart = mountSkillChart(context, toggleButton, xpTracker);
+			toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 			refreshWindowMetrics();
 			restartUpdateLoop();
 		};
 
-		context.settings.registerSection('Stats', [
+		const applyChartColors = () => {
+			toggleChart.setColor(settings.chartColor);
+			windowMetrics?.skillCharts.forEach((chart) => chart.skillChart.setColor(settings.chartColor));
+		};
+
+		context.settings.registerSection('Display', [
+			{
+				label: 'Show total XP',
+				description: 'Show the combined total XP chart in the metrics window.',
+				specialType: 'toggle',
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.metricsWindow.showTotal;
+					input.onchange = () => {
+						settings.metricsWindow.showTotal = input.checked;
+						windowMetrics?.skillCharts.forEach((chart) => chart.syncShowTotal());
+					};
+				}),
+			},
+			{
+				label: 'Chart color',
+				description: 'Color of the XP rate line charts.',
+				specialType: 'selectColorCombo',
+				options: Object.entries(daisyUiColors).map(([name, value]) => ({
+					label: formatDaisyUiColorLabel(name),
+					value,
+				})),
+				initialValue: initialSettings.chartColor,
+				input: el.input.text``.then((input) => {
+					input.value = settings.chartColor;
+					input.onchange = () => {
+						settings.chartColor = input.value;
+						applyChartColors();
+					};
+				}),
+			},
 			{
 				label: 'XP Rate',
 				description: 'The type of XP rate to display.',
