@@ -52,13 +52,13 @@ type Settings = typeof initialSettings;
 
 const intervalPresets = [
 	{ label: 'Fastest', timeSpan: 1, updateInterval: 0.1 },
-	{ label: 'Fast', timeSpan: 2, updateInterval: 0.2 },
+	{ label: 'Fast', timeSpan: 3, updateInterval: 0.5 },
 	{
 		label: 'Base',
 		timeSpan: initialSettings.timeSpan,
 		updateInterval: initialSettings.updateInterval,
 	},
-	{ label: 'Slow', timeSpan: 7.5, updateInterval: 2 },
+	{ label: 'Slow', timeSpan: 7.5, updateInterval: 3 },
 	{ label: 'Slowest', timeSpan: 10, updateInterval: 5 },
 ] as const;
 const intervalPresetValue = (timeSpan: number, updateInterval: number) =>
