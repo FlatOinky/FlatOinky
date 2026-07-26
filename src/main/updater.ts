@@ -28,12 +28,16 @@ const broadcast = (channel: string, ...args: unknown[]): void => {
 // to stay on the beta channel or it would ask for a file its release lacks.
 const getDefaultChannel = (): UpdateChannel => (app.getVersion().includes('-') ? 'beta' : 'latest');
 
-export const getChannel = async (): Promise<UpdateChannel> => {
+let cachedChannel: UpdateChannel | undefined;
+
+const loadChannelFromStorage = async (): Promise<UpdateChannel> => {
 	const globalStorage = (await storage.loadGlobalStorage()) ?? {};
 	const stored = dot.getProperty(globalStorage, channelKey);
 	if (stored === 'latest' || stored === 'beta') return stored;
 	return getDefaultChannel();
 };
+
+export const getChannel = (): UpdateChannel => cachedChannel ?? getDefaultChannel();
 
 const applyChannel = (channel: UpdateChannel): void => {
 	autoUpdater.channel = channel;
@@ -44,6 +48,7 @@ const applyChannel = (channel: UpdateChannel): void => {
 };
 
 export const setChannel = async (channel: UpdateChannel): Promise<void> => {
+	cachedChannel = channel;
 	await storage.updateGlobalStorage(channelKey, channel);
 	await checkForUpdates();
 };
@@ -52,7 +57,7 @@ export const setChannel = async (channel: UpdateChannel): Promise<void> => {
 
 export const checkForUpdates = async (): Promise<void> => {
 	if (!canCheck()) return;
-	applyChannel(await getChannel());
+	applyChannel(getChannel());
 	await autoUpdater.checkForUpdates();
 };
 
@@ -65,7 +70,7 @@ export const quitAndInstall = (): void => autoUpdater.quitAndInstall();
 
 // #region init
 
-export const initUpdater = (): void => {
+export const initUpdater = async (): Promise<void> => {
 	log.initialize();
 	autoUpdater.logger = log;
 	// The renderer decides when to download, so the user is never surprised by
@@ -79,4 +84,7 @@ export const initUpdater = (): void => {
 	autoUpdater.on('download-progress', ({ percent }) => broadcast('updateProgress', percent));
 	autoUpdater.on('update-downloaded', ({ version }) => broadcast('updateReady', version));
 	autoUpdater.on('error', (error) => broadcast('updateError', error.message));
+
+	cachedChannel = await loadChannelFromStorage();
+	applyChannel(cachedChannel);
 };

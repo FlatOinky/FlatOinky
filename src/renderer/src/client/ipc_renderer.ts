@@ -24,9 +24,6 @@ export type UpdateChannel = 'latest' | 'beta';
 
 export const getAppVersion = (): Promise<string> => ipcRenderer.invoke('getAppVersion');
 
-export const getUpdateChannel = (): Promise<UpdateChannel> =>
-	ipcRenderer.invoke('getUpdateChannel');
-
 export const checkForUpdates = (): void => ipcRenderer.send('checkForUpdates');
 
 export const downloadUpdate = (): void => ipcRenderer.send('downloadUpdate');

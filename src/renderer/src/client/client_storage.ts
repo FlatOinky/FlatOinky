@@ -158,7 +158,7 @@ export const createPluginStorages = async (
 }> => {
 	const state = await getState();
 	return {
-		global: wrapStorageData(state, ['global', namespace]),
+		global: wrapStorageData(state, ['global', 'plugins', namespace]),
 		profile: wrapStorageData(state, ['profiles', profile, namespace]),
 		character: wrapStorageData(state, ['characters', username, namespace]),
 	};

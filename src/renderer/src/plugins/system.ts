@@ -93,15 +93,9 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lif
 
 // The updater is owned by the client; this only wires it into the taskbar menu
 // and the settings window.
-const initUpdates = async (lifecycle: Lifecycle, context: PluginContext): Promise<void> => {
-	let disposed = false;
-	lifecycle.onCleanup(() => {
-		disposed = true;
-	});
-
+const initUpdates = (lifecycle: Lifecycle, context: PluginContext): void => {
 	const { updater } = context;
-	const channel = await updater.getChannel();
-	if (disposed) return;
+	const channel = updater.getChannel();
 
 	let handleMenuAction = () => updater.check();
 	const { button } = context.ui.taskbar.initMenuAction(
@@ -214,7 +208,7 @@ export const SystemPlugin: Plugin = {
 			dynamicCanvasLifecycle = initDynamicCanvas(lifecycle, context.canvas);
 		};
 
-		initUpdates(lifecycle, context).catch((error) => console.warn(error));
+		initUpdates(lifecycle, context);
 
 		context.ui.taskbar.initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
 		context.ui.taskbar.initMenuAction(

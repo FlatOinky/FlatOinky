@@ -3,7 +3,7 @@ import { ChatMessage, parseChatMessage } from './client/chat_message';
 import { createGlobalStorage, createPluginStorages } from './client/client_storage';
 import { getProfileKey } from './client/profiles';
 import { initUi } from './client/ui';
-import { openDevTools, saveReferences } from './client/ipc_renderer';
+import { getAppVersion, openDevTools, saveReferences } from './client/ipc_renderer';
 import { initSettings, ClientSettings } from './client/settings';
 import { initUpdater, Updater } from './client/updater';
 
@@ -313,10 +313,14 @@ export const initClient = async (character: FMMOCharacter, references: FMMORefer
 	const lifecycle = initLifecycle();
 	const ui = initUi(lifecycle, canvasContainer);
 	const ipc = initIpc(references);
-	const updater = await initUpdater(lifecycle, ui);
+	const [clientStorage, updaterStorage, version] = await Promise.all([
+		createGlobalStorage('client'),
+		createGlobalStorage('updater'),
+		getAppVersion(),
+	]);
+	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
 	const context = createContext(character, ui, canvas, canvasContainer, ipc, updater);
-	const globalStorage = await createGlobalStorage('client');
-	const settings = initSettings(lifecycle, ui, globalStorage);
+	const settings = initSettings(lifecycle, ui, clientStorage);
 
 	const plugins = initPlugins(lifecycle, context, settings);
 

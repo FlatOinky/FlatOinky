@@ -44,8 +44,6 @@ export const ipcMainSetup = (): void => {
 
 	ipcMain.handle('getAppVersion', () => app.getVersion());
 
-	ipcMain.handle('getUpdateChannel', () => updater.getChannel());
-
 	ipcMain.on('checkForUpdates', () => {
 		updater.checkForUpdates().catch((error) => console.warn(error));
 	});

@@ -1,11 +1,9 @@
 import { ClientUi, Lifecycle } from '../client';
 import * as el from './ui/elements';
-import { createGlobalStorage } from './client_storage';
+import type { ClientStorage } from './client_storage';
 import {
 	checkForUpdates,
 	downloadUpdate,
-	getAppVersion,
-	getUpdateChannel,
 	ipcRenderer,
 	quitAndInstall,
 	setUpdateChannel,
@@ -23,12 +21,24 @@ export type UpdateState =
 	| { name: 'ready'; version: string }
 	| { name: 'error'; message: string };
 
-export type Updater = Awaited<ReturnType<typeof initUpdater>>;
+export type Updater = ReturnType<typeof initUpdater>;
 
 const initialSettings = { checkOnLaunch: true, autoDownload: false };
 
 // How long the "up to date" and error notices linger before hiding themselves.
 const TRANSIENT_MS = 6000;
+
+// #region channel
+
+// Releases built from a `-beta` version publish beta.yml, so a beta build has
+// to stay on the beta channel or it would ask for a file its release lacks.
+const getDefaultChannel = (version: string): UpdateChannel =>
+	version.includes('-') ? 'beta' : 'latest';
+
+const resolveChannel = (stored: unknown, version: string): UpdateChannel => {
+	if (stored === 'latest' || stored === 'beta') return stored;
+	return getDefaultChannel(version);
+};
 
 // #region activity
 
@@ -59,10 +69,13 @@ const createActivity = (lifecycle: Lifecycle, ui: ClientUi, onDismiss: () => voi
 
 // #region updater
 
-export const initUpdater = async (lifecycle: Lifecycle, ui: ClientUi) => {
-	const storage = await createGlobalStorage('updater');
+export const initUpdater = (
+	lifecycle: Lifecycle,
+	ui: ClientUi,
+	storage: ClientStorage,
+	version: string,
+) => {
 	const settings = storage.reactive('settings', initialSettings);
-	const version = await getAppVersion();
 	const listeners = new Set<(state: UpdateState) => void>();
 
 	let state: UpdateState = { name: 'idle' };
@@ -163,6 +176,8 @@ export const initUpdater = async (lifecycle: Lifecycle, ui: ClientUi) => {
 		checkForUpdates();
 	};
 
+	const getChannel = (): UpdateChannel => resolveChannel(storage.get('channel'), version);
+
 	// A login check in dev would nag on every reload with an update that cannot
 	// install anyway; manual checks still run there.
 	const isDevelopment = process.env.NODE_ENV === 'development';
@@ -175,8 +190,9 @@ export const initUpdater = async (lifecycle: Lifecycle, ui: ClientUi) => {
 		download,
 		install: (): void => quitAndInstall(),
 		getState: (): UpdateState => state,
-		getChannel: (): Promise<UpdateChannel> => getUpdateChannel(),
+		getChannel,
 		setChannel: (channel: UpdateChannel): void => {
+			storage.set('channel', channel);
 			silent = false;
 			setState({ name: 'checking' });
 			setUpdateChannel(channel);
