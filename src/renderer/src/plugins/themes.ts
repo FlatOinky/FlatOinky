@@ -7,6 +7,8 @@ type Settings = typeof initialSettings;
 const themes = [
 	{ id: 'dark', name: 'Dark (default)' },
 	{ id: 'light', name: 'Light' },
+	{ id: 'flatmmo', name: 'Flat MMO' },
+	{ id: 'flatoinky', name: 'Flat Oinky' },
 	{ id: 'cupcake', name: 'Cupcake' },
 	{ id: 'bumblebee', name: 'Bumblebee' },
 	{ id: 'emerald', name: 'Emerald' },

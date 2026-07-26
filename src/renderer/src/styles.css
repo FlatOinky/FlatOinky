@@ -56,6 +56,8 @@
 	themes:
 		dark --default,
 		light,
+		flatmmo,
+		flatoinky,
 		cupcake,
 		bumblebee,
 		emerald,
@@ -89,6 +91,96 @@
 		caramellatte,
 		abyss,
 		silk;
+}
+
+/* Colors sampled from Flat MMO UI (cream panels, pink rows, neon status dots) */
+@plugin "daisyui/theme" {
+	name: "flatmmo";
+	color-scheme: light;
+
+	/* Panel parchment + slot/tab chrome */
+	--color-base-100: #faead6;
+	--color-base-200: #e1e1e1;
+	--color-base-300: #bfbfbf;
+	--color-base-content: #000000;
+
+	/* Incomplete / required list rows */
+	--color-primary: #ffb4b4;
+	--color-primary-content: #313131;
+
+	/* Completed quest row tint */
+	--color-secondary: #d1d4f9;
+	--color-secondary-content: #313131;
+
+	/* Item-count / in-progress yellow */
+	--color-accent: #00ff00;
+	--color-accent-content: #313131;
+
+	/* HUD / dark chrome */
+	--color-neutral: #202020;
+	--color-neutral-content: #ffffff;
+
+	/* Quest/info blue, progress green, status yellow/red */
+	--color-info: #2875ff;
+	--color-info-content: #ffffff;
+	--color-success: #007f00;
+	--color-success-content: #ffffff;
+	--color-warning: #ffff00;
+	--color-warning-content: #313131;
+	--color-error: #ff0000;
+	--color-error-content: #ffffff;
+
+	/* Flat pixel UI: tight radii */
+	--radius-selector: 0.125rem;
+	--radius-field: 0.125rem;
+	--radius-box: 0.15rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 0;
+}
+
+/* Flat MMO palette shifted pinker for Flat Oinky */
+@plugin "daisyui/theme" {
+	name: "flatoinky";
+	color-scheme: light;
+
+	/* Rose parchment + pink chrome */
+	--color-base-100: #ffe4ec;
+	--color-base-200: #f5c4d0;
+	--color-base-300: #e8a0b4;
+	--color-base-content: #2a1018;
+
+	/* Stronger pink primary */
+	--color-primary: #ff7a96;
+	--color-primary-content: #2a1018;
+
+	/* Soft mauve secondary */
+	--color-secondary: #f0b4d8;
+	--color-secondary-content: #2a1018;
+
+	/* Hot pink accent */
+	--color-accent: #ff4d7a;
+	--color-accent-content: #ffffff;
+
+	/* Deep rose-tinted chrome */
+	--color-neutral: #2a1420;
+	--color-neutral-content: #ffe4ec;
+
+	--color-info: #954cb4;
+	--color-info-content: #ffffff;
+	--color-success: #007f00;
+	--color-success-content: #ffffff;
+	--color-warning: #ffff00;
+	--color-warning-content: #2a1018;
+	--color-error: #ff0000;
+	--color-error-content: #ffffff;
+
+	--radius-selector: 0.125rem;
+	--radius-field: 0.125rem;
+	--radius-box: 0.15rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 0;
 }
 
 @plugin "@iconify/tailwind4";
