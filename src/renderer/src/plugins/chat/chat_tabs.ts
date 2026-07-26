@@ -62,10 +62,12 @@ export const mountChatTabs = (root: HTMLElement) => {
 	tabsContainer.setAttribute('role', 'tablist');
 
 	const addTabWrapper = el.div`tabs tabs-lift tabs-bottom tabs-xs`.mount(tabsBar, 'add-tab');
-	const addTabButton = el.button`tab mx-1 btn btn-xs engaged:btn-secondary text-(--btn-fg)`.mount(
-		addTabWrapper,
-		'button',
-	);
+	const addTabButton =
+		el.button`tab mx-1 btn btn-xs engaged:btn-secondary text-(--btn-fg) tooltip tooltip-secondary tooltip-right tooltip-end`.mount(
+			addTabWrapper,
+			'button',
+		);
+	addTabButton.setAttribute('data-tip', 'Add a PM tab, right-click to remove');
 	el.icon.plus``.mount(addTabButton, 'icon');
 
 	return { tabsContainer, addTabButton };
