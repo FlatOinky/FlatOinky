@@ -214,8 +214,7 @@ const mountSkillBlock = (
 	sessionTotals: { all: number; bySkill: { [key: string]: number } },
 ) => {
 	let showTotal = settings.metricsWindow.showTotal && skill === 'total';
-	const skillFilter =
-		skill === 'total' ? () => true : (xpDrop: XPDrop) => xpDrop.skill === skill;
+	const skillFilter = skill === 'total' ? () => true : (xpDrop: XPDrop) => xpDrop.skill === skill;
 	let xpTracker = startXpTracker(
 		xpDrops,
 		settings,
@@ -558,10 +557,7 @@ export const MetricsPlugin: Plugin = {
 			{
 				label: 'Preset',
 				description: 'Apply a preconfigured time span and refresh rate together.',
-				initialValue: intervalPresetValue(
-					initialSettings.timeSpan,
-					initialSettings.updateInterval,
-				),
+				initialValue: intervalPresetValue(initialSettings.timeSpan, initialSettings.updateInterval),
 				input: el.select``.then((input) => {
 					intervalPresetSelect = input;
 					for (const preset of intervalPresets) {

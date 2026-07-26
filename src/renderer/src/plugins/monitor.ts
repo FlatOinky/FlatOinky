@@ -97,18 +97,14 @@ const initTrayMenu = (
 		},
 	);
 
-	el.input.range`range range-xs flex-1`.mount(
-		container,
-		'volume-slider',
-		(volumeSlider) => {
-			volumeSlider.min = '0';
-			volumeSlider.max = '1';
-			volumeSlider.step = '0.05';
-			volumeSlider.value = String(settings.global.audioVolume);
-			volumeSlider.onchange = () =>
-				(settings.global.audioVolume = parseFloat(volumeSlider.value ?? '0'));
-		},
-	);
+	el.input.range`range range-xs flex-1`.mount(container, 'volume-slider', (volumeSlider) => {
+		volumeSlider.min = '0';
+		volumeSlider.max = '1';
+		volumeSlider.step = '0.05';
+		volumeSlider.value = String(settings.global.audioVolume);
+		volumeSlider.onchange = () =>
+			(settings.global.audioVolume = parseFloat(volumeSlider.value ?? '0'));
+	});
 
 	el.button`btn btn-xs btn-square btn-soft btn-accent tooltip tooltip-accent`.mount(
 		container,
@@ -146,21 +142,15 @@ const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => 
 		const label = el.div`capitalize text-sm`.mount(textColumn, 'label');
 		label.textContent = item.replaceAll('_', ' ');
 
-		const details = el.div`flex gap-1 justify-between items-baseline`.mount(
-			textColumn,
-			'details',
-		);
-		completedBadge = el.div`badge badge-xs badge-primary`.mount(
-			details,
-			'completed-badge',
-		);
+		const details = el.div`flex gap-1 justify-between items-baseline`.mount(textColumn, 'details');
+		completedBadge = el.div`badge badge-xs badge-primary`.mount(details, 'completed-badge');
 		xpBadge = el.div`badge badge-xs badge-secondary`.mount(details, 'xp-badge');
 
-		const cancelButton = el
-			.button`btn btn-ghost btn-error btn-square btn-sm pointer-events-auto`.mount(
-			container,
-			'cancel-button',
-		);
+		const cancelButton =
+			el.button`btn btn-ghost btn-error btn-square btn-sm pointer-events-auto`.mount(
+				container,
+				'cancel-button',
+			);
 		el.icon.x`size-5`.mount(cancelButton, 'icon');
 		cancelButton.onclick = () => Globals.websocket?.send('CANCEL_MAKE_ITEM');
 

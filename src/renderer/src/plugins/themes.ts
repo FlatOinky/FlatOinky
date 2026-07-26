@@ -52,11 +52,11 @@ const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, setting
 	el.fieldset``.mount(container, 'fieldset', (fieldset) => {
 		const legend = el.legend`fieldset-legend`.mount(fieldset, 'legend');
 		legend.append('Theme ');
-		const tooltip = el
-			.span`tooltip tooltip-info bg-info rounded-selector size-[1lh] text-info-content text-xs`.mount(
-			legend,
-			'tooltip',
-		);
+		const tooltip =
+			el.span`tooltip tooltip-info bg-info rounded-selector size-[1lh] text-info-content text-xs`.mount(
+				legend,
+				'tooltip',
+			);
 		tooltip.setAttribute('data-tip', 'Not every theme has colors that work well with the UI');
 		el.icon.infoSmall`size-[1.5lh] m-[-0.25lh]`.mount(tooltip, 'icon');
 	});

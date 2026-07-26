@@ -1,53 +1,45 @@
-[oinky="taskbar/chat/toggle"]:has(:checked) [oinky="taskbar/chat/toggle/icon"] {
+[oinky='taskbar/chat/toggle']:has(:checked) [oinky='taskbar/chat/toggle/icon'] {
 	transform: scaleY(1);
 }
 
-[oinky="taskbar/chat/toggle"]:not(:has(:checked)) [oinky="taskbar/chat/toggle/icon"] {
+[oinky='taskbar/chat/toggle']:not(:has(:checked)) [oinky='taskbar/chat/toggle/icon'] {
 	transform: scaleY(-1);
 }
 
-[oinky="taskbar/chat/toggle"]:has(:checked) ~ * [oinky="taskbar/chat/messages/list"],
-[oinky="taskbar/chat/toggle"]:not(:has(:checked)) ~ * [oinky="taskbar/chat/messages/popups"] {
+[oinky='taskbar/chat/toggle']:has(:checked) ~ * [oinky='taskbar/chat/messages/list'],
+[oinky='taskbar/chat/toggle']:not(:has(:checked)) ~ * [oinky='taskbar/chat/messages/popups'] {
 	opacity: 1;
 }
 
-[oinky="taskbar/chat/toggle"]:not(:has(:checked)) ~ * [oinky="taskbar/chat/messages/list"],
-[oinky="taskbar/chat/toggle"]:has(:checked) ~ * [oinky="taskbar/chat/messages/popups"] {
+[oinky='taskbar/chat/toggle']:not(:has(:checked)) ~ * [oinky='taskbar/chat/messages/list'],
+[oinky='taskbar/chat/toggle']:has(:checked) ~ * [oinky='taskbar/chat/messages/popups'] {
 	opacity: 0;
 }
 
 /* Pause investor-tag animations when the hosting chat panel is not visible. */
-[oinky="taskbar/chat/toggle"]:not(:has(:checked))
+[oinky='taskbar/chat/toggle']:not(:has(:checked))
 	~ *
-	[oinky="taskbar/chat/messages/list"]
-	:is(
-		.chat-tag-investor-plus,
-		.chat-tag-investor-gold,
-		.chat-tag-investor-plus-gold
-	)::before,
-[oinky="taskbar/chat/toggle"]:not(:has(:checked))
+	[oinky='taskbar/chat/messages/list']
+	:is(.chat-tag-investor-plus, .chat-tag-investor-gold, .chat-tag-investor-plus-gold)::before,
+[oinky='taskbar/chat/toggle']:not(:has(:checked))
 	~ *
-	[oinky="taskbar/chat/messages/list"]
+	[oinky='taskbar/chat/messages/list']
 	:is(.chat-tag-investor-plus-gold)::after,
-[oinky="taskbar/chat/toggle"]:not(:has(:checked))
+[oinky='taskbar/chat/toggle']:not(:has(:checked))
 	~ *
-	[oinky="taskbar/chat/messages/list"]
+	[oinky='taskbar/chat/messages/list']
 	.chat-tag-investor-gold,
-[oinky="taskbar/chat/toggle"]:has(:checked)
+[oinky='taskbar/chat/toggle']:has(:checked)
 	~ *
-	[oinky="taskbar/chat/messages/popups"]
-	:is(
-		.chat-tag-investor-plus,
-		.chat-tag-investor-gold,
-		.chat-tag-investor-plus-gold
-	)::before,
-[oinky="taskbar/chat/toggle"]:has(:checked)
+	[oinky='taskbar/chat/messages/popups']
+	:is(.chat-tag-investor-plus, .chat-tag-investor-gold, .chat-tag-investor-plus-gold)::before,
+[oinky='taskbar/chat/toggle']:has(:checked)
 	~ *
-	[oinky="taskbar/chat/messages/popups"]
+	[oinky='taskbar/chat/messages/popups']
 	:is(.chat-tag-investor-plus-gold)::after,
-[oinky="taskbar/chat/toggle"]:has(:checked)
+[oinky='taskbar/chat/toggle']:has(:checked)
 	~ *
-	[oinky="taskbar/chat/messages/popups"]
+	[oinky='taskbar/chat/messages/popups']
 	.chat-tag-investor-gold {
 	animation: none;
 }
