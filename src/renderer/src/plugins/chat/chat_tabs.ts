@@ -11,17 +11,23 @@ const getRandomUsername = (context: PluginContext): string => {
 };
 
 const updateChatTabInputLabel = (channels: Channels, inputLabel: HTMLSpanElement): void => {
-	const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
+	const prefix = channels.chatTabs[channels.chatTabIndex]?.prefix ?? '';
 	inputLabel.classList.toggle('hidden', prefix === '');
 	inputLabel.innerText = prefix;
 };
+
+/** Plain JSON clone — reactive proxies are not structured-cloneable for IPC persistence. */
+const cloneChannelsTabs = (channels: Channels): Channels['chatTabs'] =>
+	JSON.parse(JSON.stringify(channels.chatTabs));
 
 export const updateChatTabs = (
 	tabsContainer: HTMLDivElement,
 	channels: Channels,
 	inputLabel: HTMLSpanElement,
 ): void => {
-	updateChatTabInputLabel(channels, inputLabel);
+	if (channels.chatTabIndex >= channels.chatTabs.length) {
+		channels.chatTabIndex = Math.max(0, channels.chatTabs.length - 1);
+	}
 	tabsContainer.replaceChildren();
 	channels.chatTabs.forEach((chatTab, index) => {
 		const isActive = index === channels.chatTabIndex;
@@ -38,12 +44,15 @@ export const updateChatTabs = (
 					event.preventDefault();
 					if (index < 2) return;
 					if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
-					channels.chatTabs = channels.chatTabs.filter((_, i) => i !== index);
+					const tabs = cloneChannelsTabs(channels);
+					tabs.splice(index, 1);
+					channels.chatTabs = tabs;
 					updateChatTabs(tabsContainer, channels, inputLabel);
 				};
 			},
 		);
 	});
+	updateChatTabInputLabel(channels, inputLabel);
 };
 
 export const mountChatTabs = (root: HTMLElement) => {
