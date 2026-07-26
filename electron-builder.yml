@@ -36,7 +36,6 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-afterAllArtifactBuild: ./build/after_all_artifact_build.mjs
 publish:
   provider: github
   owner: FlatOinky

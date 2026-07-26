@@ -135,29 +135,24 @@ $ npm run build:linux
 
 Releases are cut by hand from a local machine. There is no CI.
 
-1. Export a `GH_TOKEN` with contents write access on the repository.
-2. Bump `version` in `package.json`. It drives the release tag, the artifact
+1. Bump `version` in `package.json`. It drives the release tag, the artifact
    names, and the version shown in the taskbar.
-3. Build and publish each platform, one after the other:
+2. Build each platform:
 
 ```bash
-$ npm run release:win
-$ npm run release:linux
+$ npm run build:win
+$ npm run build:linux
 ```
 
-Never run the two at once. The second run finds the draft release the first one
-created by matching the `v<version>` tag; two concurrent runs can both miss it
-and create duplicate drafts holding half the assets each.
+Each `build:*` script ends with `build/copy_channel_files.mjs`, which copies
+`latest*.yml` to `beta*.yml` in `dist/`. electron-builder always emits
+`latest*.yml` (the channel comes from `publish.channel`, not the version tag),
+so a beta build still produces those files — leave them out of the upload.
 
-4. Check the draft's asset list before publishing. A beta needs `-setup.exe`,
-   `-setup.exe.blockmap`, `.AppImage`, `beta.yml`, and `beta-linux.yml`. A
-   stable release needs those same binaries plus `latest.yml`,
-   `latest-linux.yml`, `beta.yml`, and `beta-linux.yml` — the `beta*.yml` copies
-   let existing beta users move onto stable, and are generated automatically by
-   `build/after_all_artifact_build.js`.
-5. For a `-beta` version, tick 'Set as a pre-release' before publishing.
-   electron-builder always drafts with that flag off, and a beta left as the
-   'Latest' release breaks updates for everyone on stable.
-6. Publish the draft only once both platform runs have finished. Once a release
-   has been published for more than two hours, electron-builder refuses to
-   upload to it unless `EP_GH_IGNORE_TIME` is set.
+3. Create a GitHub release with tag `v<version>` and upload from `dist/`. A
+   beta needs `-setup.exe`, `-setup.exe.blockmap`, `.AppImage`, `beta.yml`,
+   and `beta-linux.yml`. A stable release needs those same binaries plus
+   `latest.yml`, `latest-linux.yml`, `beta.yml`, and `beta-linux.yml` — the
+   `beta*.yml` copies let existing beta users move onto stable.
+4. For a `-beta` version, tick 'Set as a pre-release' before publishing. A
+   beta left as the 'Latest' release breaks updates for everyone on stable.
