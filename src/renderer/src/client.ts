@@ -260,6 +260,8 @@ const createClientHooks = (plugins: ClientPlugins) => {
 					showXpBar: values[6] ? values[6] === 'true' : true,
 				};
 				if (isNaN(args.xp)) return;
+				// NOTE: turns out, if this isn't true smitty is probably using xp drops for something else.
+				if (!args.showXpBar) return;
 				return plugins.api.onXpDrop(args);
 			}
 			case 'MAKE_ITEM_UI': {
