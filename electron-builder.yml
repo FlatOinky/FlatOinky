@@ -1,4 +1,4 @@
-appId: com.flat-oinky.desktop
+appId: io.github.flatoinky.FlatOinky
 productName: Flat Oinky
 directories:
   buildResources: build
@@ -29,10 +29,19 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  syncDesktopName: true
+  desktop:
+    entry:
+      Name: Flat Oinky
+      Comment: A desktop application for Flat MMO
+      Categories: Game
+      Keywords: flat;mmo;game
+      Terminal: false
+      Type: Application
   target:
     - AppImage
   maintainer: https://github.com/FlatOinky/FlatOinky
-  category: Utility
+  category: Game
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false

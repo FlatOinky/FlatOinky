@@ -10,7 +10,7 @@ import { initUpdater } from './updater';
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 	// Set app user model id for windows
-	electronApp.setAppUserModelId('com.flat-oinky.desktop');
+	electronApp.setAppUserModelId('io.github.flatoinky.FlatOinky');
 
 	// Default open or close DevTools by F12 in development
 	// and ignore CommandOrControl + R in production.
@@ -45,7 +45,3 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
-
-if (process.platform === 'win32') {
-	app.setAppUserModelId('flat-oinky.flat-oinky-desktop');
-}

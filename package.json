@@ -5,6 +5,7 @@
 	"main": "./out/main/index.js",
 	"author": "soggypiggy <dev@soggypiggy.com>",
 	"homepage": "https://github.com/FlatOinky/FlatOinky",
+	"desktopName": "io.github.flatoinky.FlatOinky.desktop",
 	"scripts": {
 		"format": "oxfmt",
 		"format:check": "oxfmt --check",
