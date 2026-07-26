@@ -182,6 +182,7 @@ export const h4 = setupHTMLElement('h4');
 export const h5 = setupHTMLElement('h5');
 export const h6 = setupHTMLElement('h6');
 export const img = setupHTMLElement('img');
+export const progress = setupHTMLElement('progress');
 export const dialog = setupHTMLElement('dialog');
 export const form = setupHTMLElement('form');
 export const fieldset = setupHTMLElement('fieldset');

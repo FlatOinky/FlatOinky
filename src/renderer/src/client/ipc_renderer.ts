@@ -17,3 +17,21 @@ export const createNotification = (title: string, message?: string): void => {
 
 export const saveReferences = (references: FMMOReference[]): void =>
 	ipcRenderer.send('saveReferences', references);
+
+// #region updates
+
+export type UpdateChannel = 'latest' | 'beta';
+
+export const getAppVersion = (): Promise<string> => ipcRenderer.invoke('getAppVersion');
+
+export const getUpdateChannel = (): Promise<UpdateChannel> =>
+	ipcRenderer.invoke('getUpdateChannel');
+
+export const checkForUpdates = (): void => ipcRenderer.send('checkForUpdates');
+
+export const downloadUpdate = (): void => ipcRenderer.send('downloadUpdate');
+
+export const quitAndInstall = (): void => ipcRenderer.send('quitAndInstall');
+
+export const setUpdateChannel = (channel: UpdateChannel): void =>
+	ipcRenderer.send('setUpdateChannel', channel);

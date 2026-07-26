@@ -36,6 +36,8 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
+afterAllArtifactBuild: ./build/after_all_artifact_build.mjs
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: FlatOinky
+  repo: FlatOinky

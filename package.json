@@ -20,7 +20,9 @@
 		"build:unpack": "npm run build && electron-builder --dir",
 		"build:win": "npm run build && electron-builder --win",
 		"build:mac": "npm run build && electron-builder --mac",
-		"build:linux": "npm run build && electron-builder --linux"
+		"build:linux": "npm run build && electron-builder --linux",
+		"release:win": "npm run build && electron-builder --win --publish always",
+		"release:linux": "npm run build && electron-builder --linux --publish always"
 	},
 	"dependencies": {
 		"@electron-toolkit/preload": "^3.0.2",
@@ -28,6 +30,8 @@
 		"@tailwindcss/vite": "^4.3.3",
 		"date-fns": "^4.4.0",
 		"dot-prop": "^10.2.0",
+		"electron-log": "^5.4.4",
+		"electron-updater": "^6.8.9",
 		"modern-tar": "^0.7.7",
 		"mustache": "^4.2.0",
 		"numeral": "^2.0.6",

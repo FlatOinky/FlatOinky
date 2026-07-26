@@ -5,6 +5,7 @@ import { getProfileKey } from './client/profiles';
 import { initUi } from './client/ui';
 import { openDevTools, saveReferences } from './client/ipc_renderer';
 import { initSettings, ClientSettings } from './client/settings';
+import { initUpdater, Updater } from './client/updater';
 
 export type { ChatMessage };
 
@@ -60,8 +61,9 @@ const createContext = (
 	canvas: HTMLCanvasElement,
 	container: HTMLElement,
 	ipc: ClientIpc,
+	updater: Updater,
 ) => {
-	return { character, ui, canvas, container, ipc };
+	return { character, ui, canvas, container, ipc, updater };
 };
 
 export type PluginContext = Awaited<ReturnType<typeof createPluginContext>>;
@@ -311,7 +313,8 @@ export const initClient = async (character: FMMOCharacter, references: FMMORefer
 	const lifecycle = initLifecycle();
 	const ui = initUi(lifecycle, canvasContainer);
 	const ipc = initIpc(references);
-	const context = createContext(character, ui, canvas, canvasContainer, ipc);
+	const updater = await initUpdater(lifecycle, ui);
+	const context = createContext(character, ui, canvas, canvasContainer, ipc, updater);
 	const globalStorage = await createGlobalStorage('client');
 	const settings = initSettings(lifecycle, ui, globalStorage);
 

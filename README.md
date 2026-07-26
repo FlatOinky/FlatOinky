@@ -34,11 +34,16 @@ A desktop application for Flat MMO
 - Auto captures input focus when letter key is pressed
 - Message chunking (large messages are broken up into multiple messages)
 
+#### Updates
+
+- Checks for a new version on launch (Windows and Linux)
+- Downloads only when you ask it to, then installs on restart
+- Opt-in beta channel under Settings -> Updates
+
 ### Planned Features
 
 Here's a list of some of the features that are planned on making into the client. This list does not represent priority and features may be added to the client out of order.
 
-- Auto updating
 - Plugin settings
 - FlatMMO+ plugins support
 - AFK detection & notifications
@@ -80,10 +85,24 @@ Currently there is only Windows and Linux support. If enough feedback requesting
 
 3. Install Flat Oinky via the installer
 
+Flat Oinky updates itself from then on. The unsigned installer warning above only
+applies to this first manual install; later updates install without it.
+
 ### Linux Installation
 
 1. Obtain the .AppImage file from the [latest release](https://github.com/FlatOinky/FlatOinky/releases)
 2. Execute the AppImage
+
+Updates replace the AppImage in place, so keep it somewhere you can write to.
+Running it through AppImageLauncher's integrated copy will stop updates from
+applying.
+
+### Updates
+
+Flat Oinky checks for a new version on launch and offers it; nothing downloads
+until you click. Stable and beta are separate tracks, and beta builds are only
+offered if 'Receive Beta Updates' is on under Settings -> Updates. If an update
+ever fails, the reason is in `logs/main.log` inside the user data folder (window: `%APPDATA%`, linux: `~/.config`).
 
 ## Project Setup (Development)
 
@@ -111,3 +130,34 @@ $ npm run build:mac
 # For Linux
 $ npm run build:linux
 ```
+
+### Releasing
+
+Releases are cut by hand from a local machine. There is no CI.
+
+1. Export a `GH_TOKEN` with contents write access on the repository.
+2. Bump `version` in `package.json`. It drives the release tag, the artifact
+   names, and the version shown in the taskbar.
+3. Build and publish each platform, one after the other:
+
+```bash
+$ npm run release:win
+$ npm run release:linux
+```
+
+Never run the two at once. The second run finds the draft release the first one
+created by matching the `v<version>` tag; two concurrent runs can both miss it
+and create duplicate drafts holding half the assets each.
+
+4. Check the draft's asset list before publishing. A beta needs `-setup.exe`,
+   `-setup.exe.blockmap`, `.AppImage`, `beta.yml`, and `beta-linux.yml`. A
+   stable release needs those same binaries plus `latest.yml`,
+   `latest-linux.yml`, `beta.yml`, and `beta-linux.yml` — the `beta*.yml` copies
+   let existing beta users move onto stable, and are generated automatically by
+   `build/after_all_artifact_build.js`.
+5. For a `-beta` version, tick 'Set as a pre-release' before publishing.
+   electron-builder always drafts with that flag off, and a beta left as the
+   'Latest' release breaks updates for everyone on stable.
+6. Publish the draft only once both platform runs have finished. Once a release
+   has been published for more than two hours, electron-builder refuses to
+   upload to it unless `EP_GH_IGNORE_TIME` is set.

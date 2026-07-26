@@ -1,6 +1,7 @@
-import { ipcMain, Notification, dialog } from 'electron';
+import { app, ipcMain, Notification, dialog } from 'electron';
 import * as storage from './storage';
 import * as flatMmo from './flat_mmo';
+import * as updater from './updater';
 import { clearAssetCache } from './asset_cache';
 import { saveFile, saveReferencesArchive } from './files';
 import type { StorageKey } from './storage';
@@ -37,6 +38,27 @@ export const ipcMainSetup = (): void => {
 	ipcMain.on('createNotification', (_event, title: string, message: string) => {
 		const notification = new Notification({ title, body: message });
 		notification.show();
+	});
+
+	// #region updates
+
+	ipcMain.handle('getAppVersion', () => app.getVersion());
+
+	ipcMain.handle('getUpdateChannel', () => updater.getChannel());
+
+	ipcMain.on('checkForUpdates', () => {
+		updater.checkForUpdates().catch((error) => console.warn(error));
+	});
+
+	ipcMain.on('downloadUpdate', () => {
+		updater.downloadUpdate().catch((error) => console.warn(error));
+	});
+
+	ipcMain.on('quitAndInstall', () => updater.quitAndInstall());
+
+	ipcMain.on('setUpdateChannel', (_event, channel: updater.UpdateChannel) => {
+		if (channel !== 'latest' && channel !== 'beta') return;
+		updater.setChannel(channel).catch((error) => console.warn(error));
 	});
 
 	// #region FlatMMO
