@@ -190,15 +190,29 @@ export const SystemPlugin: Plugin = {
 			devtoolsLifecycle = null;
 			if (!settings.enabledDevtools) return;
 			devtoolsLifecycle = lifecycle.spawnLifecycle();
-			context.ui.taskbar.initMenuAction(devtoolsLifecycle, 'devtools', 'Open DevTools', () =>
-				context.ipc.openDevTools(),
-			);
-			context.ui.taskbar.initMenuAction(
+			const { trayMenu } = context.ui.taskbar.initTrayButtonMenu(
 				devtoolsLifecycle,
-				'saveReferences',
-				'Save References',
-				() => context.ipc.saveReferences(),
+				'devtools',
+				{
+					button: {
+						title: 'Devtools',
+						icon: el.icon.tools``.element,
+					},
+				},
 			);
+			const menu = el.ul`menu w-full`.mount(trayMenu);
+			el.li``.mount(menu, 'openDevTools', (item) => {
+				el.button``.mount(item, 'button', (button) => {
+					button.textContent = 'Open DevTools';
+					button.onclick = () => context.ipc.openDevTools();
+				});
+			});
+			el.li``.mount(menu, 'saveReferences', (item) => {
+				el.button``.mount(item, 'button', (button) => {
+					button.textContent = 'Save References';
+					button.onclick = () => context.ipc.saveReferences();
+				});
+			});
 		};
 
 		const syncDynamicCanvas = () => {
@@ -250,7 +264,7 @@ export const SystemPlugin: Plugin = {
 		context.settings.registerSection('Devtools', [
 			{
 				label: 'Enable Devtools',
-				description: 'Show Open DevTools and Save References in the system menu.',
+				description: 'Show Open DevTools and Save References in the tray.',
 				specialType: 'toggle',
 				input: el.input.checkbox``.then((input) => {
 					input.checked = settings.enabledDevtools;
