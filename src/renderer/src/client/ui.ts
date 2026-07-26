@@ -36,7 +36,6 @@ const mountLineGraph = (
 	path.setAttribute('class', 'stroke-accent');
 	path.setAttribute('fill', 'transparent');
 	path.setAttribute('stroke', 'currentColor');
-	path.setAttribute('class', 'transition-all');
 	path.style.strokeWidth = `${lineWidth}px`;
 	path.style.strokeLinecap = 'round';
 	if (responsive) {

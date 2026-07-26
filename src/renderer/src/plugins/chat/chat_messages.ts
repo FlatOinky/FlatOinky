@@ -9,11 +9,32 @@ import { ChatElements, colorMap, namespace, Settings } from './chat_types';
 
 // #region Utils
 
-export const persistChatMessages = (): void => {
+const PERSIST_DEBOUNCE_MS = 300;
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+
+const writeChatMessages = (): void => {
 	localStorage.setItem(
 		`oinky/${namespace}/chatMessages`,
 		JSON.stringify(chatMessages.filter((message) => message.type !== 'welcome')),
 	);
+};
+
+/** Debounced persist — coalesces bursts of chat traffic. */
+export const persistChatMessages = (): void => {
+	if (persistTimer !== undefined) clearTimeout(persistTimer);
+	persistTimer = setTimeout(() => {
+		persistTimer = undefined;
+		writeChatMessages();
+	}, PERSIST_DEBOUNCE_MS);
+};
+
+/** Flush pending persist immediately (settings changes / teardown). */
+export const persistChatMessagesNow = (): void => {
+	if (persistTimer !== undefined) {
+		clearTimeout(persistTimer);
+		persistTimer = undefined;
+	}
+	writeChatMessages();
 };
 
 export const trimChatMessages = (settings: Settings): void => {
@@ -181,10 +202,10 @@ export const updateToggleIndicator = (
 
 export const applyChatSettings = (elements: ChatElements, settings: Settings): void => {
 	trimChatMessages(settings);
-	persistChatMessages();
+	persistChatMessagesNow();
 
-	const { messagesContainer } = elements;
-	const wasAtBottom = checkIsAtBottom(messagesContainer);
+	const { messagesContainer, stickiness } = elements;
+	const wasSticky = stickiness.isSticky;
 
 	messageBgTickTock = false;
 	messagesContainer.replaceChildren(
@@ -193,8 +214,9 @@ export const applyChatSettings = (elements: ChatElements, settings: Settings): v
 		),
 	);
 
-	if (wasAtBottom) {
+	if (wasSticky) {
 		messagesContainer.scrollTop = messagesContainer.scrollHeight;
+		stickiness.isSticky = true;
 	}
 };
 
@@ -206,8 +228,7 @@ export const mountChatMessage = (
 ): void => {
 	storeChatMessage(chatMessage, settings);
 	if (chatMessage.username) usernamesCache.add(chatMessage.username);
-	const { messagesContainer, popupsContainer } = elements;
-	const isAtBottom = checkIsAtBottom(messagesContainer);
+	const { messagesContainer, popupsContainer, stickiness } = elements;
 	const messageBg = getMessageBg(settings.enableZebra);
 	const content = createChatMessageContent(chatMessage, settings);
 	messagesContainer.appendChild(createMessageLi(content, messageBg));
@@ -219,10 +240,9 @@ export const mountChatMessage = (
 	while (messagesContainer.children.length > settings.maxChatLength) {
 		messagesContainer.children[0].remove();
 	}
-	if (isAtBottom) {
+	if (stickiness.isSticky) {
 		messagesContainer.scrollTop = messagesContainer.scrollHeight;
-	}
-	if (!isAtBottom && settings.isExpanded) {
+	} else if (settings.isExpanded) {
 		updateToggleIndicator(elements.toggleIndicator, true);
 	}
 };

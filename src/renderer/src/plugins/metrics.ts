@@ -7,6 +7,8 @@ type XPDrop = {
 	timestamp: number;
 };
 
+const MAX_NODE_COUNT = 300;
+
 const daisyUiColors = {
 	primary: 'var(--color-primary)',
 	'primary-content': 'var(--color-primary-content)',
@@ -52,18 +54,28 @@ type Settings = typeof initialSettings;
 
 type XpTracker = ReturnType<typeof startXpTracker>;
 
+const trimXpDrops = (xpDrops: XPDrop[], timeSpanMinutes: number) => {
+	const cutoff = performance.now() - timeSpanMinutes * 60 * 1000;
+	let removed = 0;
+	while (removed < xpDrops.length && xpDrops[removed].timestamp < cutoff) removed++;
+	if (removed > 0) xpDrops.splice(0, removed);
+};
+
 const startXpTracker = (
 	xpDrops: XPDrop[],
 	settings: Settings,
 	xpDropFilter: (xpDrop: XPDrop) => boolean = () => true,
+	initialSessionTotal?: number,
 ) => {
 	const timeSpan = 1000 * 60 * settings.timeSpan;
 	const updateInterval = 1000 * settings.updateInterval;
 	const updateIntervalSeconds = settings.updateInterval;
-	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
+	const nodeCount = Math.max(1, Math.min(MAX_NODE_COUNT, Math.ceil(timeSpan / updateInterval)));
 	const recentWindow = Math.max(1, Math.ceil(nodeCount * 0.35));
-	let sliceIndex = xpDrops.length;
-	let sessionTotalXp = xpDrops.filter(xpDropFilter).reduce((total, xpDrop) => total + xpDrop.xp, 0);
+	let consumedUntil = performance.now();
+	let sessionTotalXp =
+		initialSessionTotal ??
+		xpDrops.filter(xpDropFilter).reduce((total, xpDrop) => total + xpDrop.xp, 0);
 	const intervalSums = new Array(nodeCount).fill(0);
 	const now = performance.now();
 	for (const xpDrop of xpDrops) {
@@ -103,11 +115,15 @@ const startXpTracker = (
 	};
 
 	const runInterval = () => {
-		const intervalXpDrops = xpDrops.slice(sliceIndex);
-		sliceIndex = xpDrops.length;
-		const intervalSum = intervalXpDrops
-			.filter(xpDropFilter)
-			.reduce((total, xpDrop) => total + xpDrop.xp, 0);
+		const intervalEnd = performance.now();
+		let intervalSum = 0;
+		for (let i = xpDrops.length - 1; i >= 0; i--) {
+			const xpDrop = xpDrops[i];
+			if (xpDrop.timestamp <= consumedUntil) break;
+			if (!xpDropFilter(xpDrop)) continue;
+			intervalSum += xpDrop.xp;
+		}
+		consumedUntil = intervalEnd;
 		intervalSums.shift();
 		intervalSums.push(intervalSum);
 		sessionTotalXp += intervalSum;
@@ -158,10 +174,10 @@ const mountSkillChart = (
 	}
 	container.appendChild(lineGraph.svg);
 
-	const runInterval = (value: number) => {
+	const runInterval = (value: number, updateDom = true) => {
 		graphData.shift();
 		graphData.push(value);
-		lineGraph.updatePath();
+		if (updateDom) lineGraph.updatePath();
 	};
 
 	return {
@@ -178,12 +194,16 @@ const mountSkillBlock = (
 	settings: Settings,
 	skill: string,
 	activeSkillCharts: { [key: string]: boolean },
+	sessionTotals: { all: number; bySkill: { [key: string]: number } },
 ) => {
 	let showTotal = settings.metricsWindow.showTotal && skill === 'total';
+	const skillFilter =
+		skill === 'total' ? () => true : (xpDrop: XPDrop) => xpDrop.skill === skill;
 	let xpTracker = startXpTracker(
 		xpDrops,
 		settings,
-		skill === 'total' ? () => true : (xpDrop) => xpDrop.skill === skill,
+		skillFilter,
+		skill === 'total' ? sessionTotals.all : (sessionTotals.bySkill[skill] ?? 0),
 	);
 	const container =
 		el.div`rounded-box bg-base-200 in-locked-window:bg-base-100/50 p-[calc(var(--radius-box)/2)] flex-col gap-0.5 relative order-(--skill-order) transition-[background-color]`.mount(
@@ -214,7 +234,8 @@ const mountSkillBlock = (
 					xpTracker = startXpTracker(
 						xpDrops,
 						settings,
-						showTotal ? () => true : (xpDrop) => xpDrop.skill === skill,
+						skillFilter,
+						sessionTotals.bySkill[skill] ?? 0,
 					);
 				};
 			},
@@ -225,25 +246,50 @@ const mountSkillBlock = (
 		responsive: true,
 	});
 
+	let lastOrder = '';
+	let lastSessionText = '';
+	let lastRateText = '';
+	let lastVisible = showTotal;
+
+	const isBlockVisible = (metrics: XpTrackerMetrics) =>
+		(skill === 'total' && settings.metricsWindow.showTotal) ||
+		(skill !== 'total' && metrics.isActive && activeSkillCharts[skill]);
+
 	const updateStats = (metrics: XpTrackerMetrics) => {
 		const xpRateValue = {
 			hr: metrics.xpPerHrSmoothed,
 			min: metrics.xpPerMinSmoothed,
 		}[settings.xpRateType];
-		container.style.setProperty('--skill-order', `-${Math.ceil(xpRateValue)}`);
-		statSessionXp.innerHTML = `${formatXp(metrics.sessionTotalXp)}xp`;
-		statXpRate.innerHTML = `${formatXp(xpRateValue)}xp / ${settings.xpRateType}`;
+		const order = `-${Math.ceil(xpRateValue)}`;
+		if (order !== lastOrder) {
+			lastOrder = order;
+			container.style.setProperty('--skill-order', order);
+		}
+		const sessionText = `${formatXp(metrics.sessionTotalXp)}xp`;
+		if (sessionText !== lastSessionText) {
+			lastSessionText = sessionText;
+			statSessionXp.textContent = sessionText;
+		}
+		const rateText = `${formatXp(xpRateValue)}xp / ${settings.xpRateType}`;
+		if (rateText !== lastRateText) {
+			lastRateText = rateText;
+			statXpRate.textContent = rateText;
+		}
 	};
 	const updateVisibility = (metrics: XpTrackerMetrics) => {
 		showTotal = settings.metricsWindow.showTotal && skill === 'total';
-		const isVisible =
-			showTotal || (skill !== 'total' && metrics.isActive && activeSkillCharts[skill]);
+		const isVisible = isBlockVisible(metrics);
+		if (isVisible === lastVisible) return isVisible;
+		lastVisible = isVisible;
 		container.classList.toggle('hidden', !isVisible);
 		container.classList.toggle('flex', isVisible);
+		return isVisible;
 	};
 	const syncShowTotal = () => {
 		if (skill !== 'total') return;
 		showTotal = settings.metricsWindow.showTotal;
+		if (showTotal === lastVisible) return;
+		lastVisible = showTotal;
 		container.classList.toggle('hidden', !showTotal);
 		container.classList.toggle('flex', showTotal);
 	};
@@ -252,12 +298,17 @@ const mountSkillBlock = (
 
 	const runInterval = () => {
 		const metrics = xpTracker.runInterval();
-		updateStats(metrics);
-		skillChart.runInterval(metrics.smoothedValue);
-		updateVisibility(metrics);
+		const isVisible = updateVisibility(metrics);
+		if (isVisible) {
+			updateStats(metrics);
+			skillChart.runInterval(metrics.smoothedValue, true);
+		} else {
+			skillChart.runInterval(metrics.smoothedValue, false);
+		}
 		return metrics;
 	};
 	return {
+		skill,
 		container,
 		xpTracker,
 		skillChart,
@@ -266,12 +317,15 @@ const mountSkillBlock = (
 	};
 };
 
+type SkillBlock = ReturnType<typeof mountSkillBlock>;
+
 const initMetricsWindow = (
 	parentLifecycle: Lifecycle,
 	context: PluginContext,
 	xpDrops: XPDrop[],
 	settings: Settings,
 	activeSkillCharts: { [key: string]: boolean },
+	sessionTotals: { all: number; bySkill: { [key: string]: number } },
 	onClose: () => void,
 ) => {
 	const lifecycle = parentLifecycle.spawnLifecycle();
@@ -292,10 +346,30 @@ const initMetricsWindow = (
 		},
 	});
 
-	const skillCharts = ['total', ...valid_skills.values()].map((skill) => {
-		return mountSkillBlock(context, window.body, xpDrops, settings, skill, activeSkillCharts);
-	});
-	return { window, activeSkillCharts, skillCharts, lifecycle };
+	const skillCharts: SkillBlock[] = [];
+	const mountedSkills = new Set<string>();
+	const ensureSkillMounted = (skill: string) => {
+		if (mountedSkills.has(skill)) return;
+		mountedSkills.add(skill);
+		skillCharts.push(
+			mountSkillBlock(
+				context,
+				window.body,
+				xpDrops,
+				settings,
+				skill,
+				activeSkillCharts,
+				sessionTotals,
+			),
+		);
+	};
+
+	if (settings.metricsWindow.showTotal) ensureSkillMounted('total');
+	for (const skill of valid_skills.values()) {
+		if (activeSkillCharts[skill]) ensureSkillMounted(skill);
+	}
+
+	return { window, activeSkillCharts, skillCharts, lifecycle, ensureSkillMounted };
 };
 // #region plugin
 
@@ -305,6 +379,7 @@ export const MetricsPlugin: Plugin = {
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const xpDrops: XPDrop[] = [];
+		const sessionTotals = { all: 0, bySkill: {} as { [key: string]: number } };
 		const activeSkillCharts: { [key: string]: boolean } = Object.fromEntries(
 			valid_skills.values().map((skill) => [skill, false]),
 		);
@@ -318,6 +393,7 @@ export const MetricsPlugin: Plugin = {
 				xpDrops,
 				settings,
 				activeSkillCharts,
+				sessionTotals,
 				() => {
 					settings.metricsWindow.isOpen = false;
 				},
@@ -351,22 +427,25 @@ export const MetricsPlugin: Plugin = {
 			}
 		};
 
-		let xpTracker = startXpTracker(xpDrops, settings);
+		let xpTracker = startXpTracker(xpDrops, settings, () => true, sessionTotals.all);
 		let toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 
 		let intervalId: ReturnType<typeof setInterval> | undefined;
 		const restartUpdateLoop = () => {
 			if (intervalId !== undefined) clearInterval(intervalId);
 			intervalId = setInterval(() => {
+				trimXpDrops(xpDrops, settings.timeSpan);
 				const metrics = xpTracker.runInterval();
 				toggleChart.runInterval(metrics.smoothedValue);
-				windowMetrics?.skillCharts.forEach((chart) => chart.runInterval());
+				if (windowMetrics && windowMetrics.window.state.minimized === false) {
+					windowMetrics.skillCharts.forEach((chart) => chart.runInterval());
+				}
 			}, settings.updateInterval * 1000);
 		};
 
 		const refreshMetrics = () => {
 			toggleChart.lineGraph.svg.remove();
-			xpTracker = startXpTracker(xpDrops, settings);
+			xpTracker = startXpTracker(xpDrops, settings, () => true, sessionTotals.all);
 			toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 			refreshWindowMetrics();
 			restartUpdateLoop();
@@ -386,6 +465,7 @@ export const MetricsPlugin: Plugin = {
 					input.checked = settings.metricsWindow.showTotal;
 					input.onchange = () => {
 						settings.metricsWindow.showTotal = input.checked;
+						if (input.checked) windowMetrics?.ensureSkillMounted('total');
 						windowMetrics?.skillCharts.forEach((chart) => chart.syncShowTotal());
 					};
 				}),
@@ -477,10 +557,12 @@ export const MetricsPlugin: Plugin = {
 			onXpDrop: ({ username, skill, xp }) => {
 				if (username !== context.character.username) return;
 				if (typeof xp !== 'number' || xp <= 0 || isNaN(xp)) return;
-				if (windowMetrics) {
-					windowMetrics.activeSkillCharts[skill] = true;
-				}
+				sessionTotals.all += xp;
+				sessionTotals.bySkill[skill] = (sessionTotals.bySkill[skill] ?? 0) + xp;
+				activeSkillCharts[skill] = true;
 				xpDrops.push({ skill, xp, timestamp: performance.now() });
+				trimXpDrops(xpDrops, settings.timeSpan);
+				windowMetrics?.ensureSkillMounted(skill);
 			},
 		};
 	},

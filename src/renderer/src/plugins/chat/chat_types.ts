@@ -31,7 +31,7 @@ export type Channels = typeof initialChannels;
 export const initialSettings = {
 	isExpanded: true,
 	enableZebra: true,
-	maxChatLength: 250,
+	maxChatLength: 100,
 	maxChatLogLength: 1000,
 	popupDuration: 8,
 	enableTimestamp: true,
@@ -57,6 +57,10 @@ export const timestampFormatOptions = [
 	'yyyy-MM-dd HH:mm',
 ].map((value) => ({ label: formatDate(timestampFormatSample, value), value }));
 
+export type ChatStickiness = {
+	isSticky: boolean;
+};
+
 export type ChatElements = {
 	root: HTMLDivElement;
 	toggleButton: HTMLLabelElement;
@@ -66,6 +70,7 @@ export type ChatElements = {
 	chatInput: HTMLInputElement;
 	messagesContainer: HTMLUListElement;
 	popupsContainer: HTMLUListElement;
+	stickiness: ChatStickiness;
 	tabsContainer: HTMLDivElement;
 	addTabButton: HTMLButtonElement;
 	addTabModal: HTMLDialogElement;

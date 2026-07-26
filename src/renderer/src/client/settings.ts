@@ -76,6 +76,9 @@ const setupPluginApi = (
 
 // #region mountSettingsMenuNode
 
+const boundSelectTextComboInputs = new WeakSet<SettingsInput>();
+const selectTextComboSelects = new WeakMap<SettingsInput, HTMLSelectElement>();
+
 const makeSelectTextComboChild = (
 	node: SettingsNodeBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] },
 ): Element => {
@@ -98,21 +101,29 @@ const makeSelectTextComboChild = (
 		select.classList.toggle('italic', !select.matches(':focus') && select.value === CUSTOM_VALUE);
 	};
 	const syncSelectFromInput = () => {
+		const activeSelect = selectTextComboSelects.get(node.input) ?? select;
 		const match = options.find((opt) => opt.value === node.input.value);
-		select.value = match ? match.value : CUSTOM_VALUE;
-		syncSelectItalic();
+		activeSelect.value = match ? match.value : CUSTOM_VALUE;
+		activeSelect.classList.toggle(
+			'italic',
+			!activeSelect.matches(':focus') && activeSelect.value === CUSTOM_VALUE,
+		);
 	};
-	select.addEventListener('focus', syncSelectItalic);
-	select.addEventListener('blur', syncSelectItalic);
-	select.addEventListener('change', () => {
+	select.onfocus = syncSelectItalic;
+	select.onblur = syncSelectItalic;
+	select.onchange = () => {
 		syncSelectItalic();
 		if (select.value === CUSTOM_VALUE) return;
 		node.input.value = select.value;
 		node.input.dispatchEvent(new Event('input'));
 		node.input.dispatchEvent(new Event('change'));
-	});
-	node.input.addEventListener('input', syncSelectFromInput);
-	node.input.addEventListener('change', syncSelectFromInput);
+	};
+	selectTextComboSelects.set(node.input, select);
+	if (!boundSelectTextComboInputs.has(node.input)) {
+		boundSelectTextComboInputs.add(node.input);
+		node.input.addEventListener('input', syncSelectFromInput);
+		node.input.addEventListener('change', syncSelectFromInput);
+	}
 
 	node.input.classList = 'input input-sm flex-1 min-w-0 w-full';
 	syncSelectFromInput();
@@ -161,6 +172,17 @@ const cssColorToHex = (color: string, context: Element = document.documentElemen
 	probe.remove();
 	return computedColorToHex(computed);
 };
+
+const boundSelectColorComboInputs = new WeakSet<SettingsInput>();
+const selectColorComboUi = new WeakMap<
+	SettingsInput,
+	{
+		colorInput: HTMLInputElement;
+		trigger: HTMLButtonElement;
+		container: HTMLElement;
+		options: SettingsNodeOption[];
+	}
+>();
 
 const makeSelectColorComboChild = (
 	node: SettingsNodeBase & {
@@ -227,26 +249,35 @@ const makeSelectColorComboChild = (
 	const colorInput = el.input.color`input input-sm p-1 w-14 h-9 cursor-pointer shrink-0`.mount(
 		container,
 	);
-	colorInput.addEventListener('input', () => writeTextValue(colorInput.value));
-	colorInput.addEventListener('change', () => writeTextValue(colorInput.value));
+	colorInput.oninput = () => writeTextValue(colorInput.value);
+	colorInput.onchange = () => writeTextValue(colorInput.value);
 
 	const syncFromText = () => {
+		const ui = selectColorComboUi.get(node.input);
+		if (!ui) return;
 		const text = node.input.value;
-		const match = options.find((opt) => opt.value === text);
+		const match = ui.options.find((opt) => opt.value === text);
 		const cssColor = match?.value ?? text;
-		trigger.classList.toggle('italic', !match);
-		const context = container.isConnected ? container : document.documentElement;
+		ui.trigger.classList.toggle('italic', !match);
+		const context = ui.container.isConnected ? ui.container : document.documentElement;
 		const hex = cssColorToHex(cssColor, context);
-		if (colorInput.value !== hex) colorInput.value = hex;
+		if (ui.colorInput.value !== hex) ui.colorInput.value = hex;
 	};
-	node.input.addEventListener('input', syncFromText);
-	node.input.addEventListener('change', syncFromText);
+	selectColorComboUi.set(node.input, { colorInput, trigger, container, options });
+	if (!boundSelectColorComboInputs.has(node.input)) {
+		boundSelectColorComboInputs.add(node.input);
+		node.input.addEventListener('input', syncFromText);
+		node.input.addEventListener('change', syncFromText);
+	}
 
 	node.input.classList = 'input input-sm flex-1 min-w-0 w-full';
 	syncFromText();
 	container.appendChild(node.input);
 	return container;
 };
+
+const boundRangeInputs = new WeakSet<SettingsInput>();
+const rangeValueLabels = new WeakMap<SettingsInput, HTMLElement>();
 
 const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 	const getValueDisplay = () =>
@@ -300,9 +331,17 @@ const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 				);
 			}
 			el.div`text-xs text-center text-base-content/70`.mount(container, undefined, (div) => {
-				node.input.addEventListener('change', () => (div.textContent = getValueDisplay()));
-				node.input.addEventListener('input', () => (div.textContent = getValueDisplay()));
+				rangeValueLabels.set(node.input, div);
 				div.textContent = getValueDisplay();
+				if (!boundRangeInputs.has(node.input)) {
+					boundRangeInputs.add(node.input);
+					const updateDisplay = () => {
+						const label = rangeValueLabels.get(node.input);
+						if (label) label.textContent = getValueDisplay();
+					};
+					node.input.addEventListener('input', updateDisplay);
+					node.input.addEventListener('change', updateDisplay);
+				}
 			});
 			return container;
 		}
@@ -573,12 +612,20 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		}
 	};
 
-	const updateVisuals = () => {
+	let visualsScheduled = false;
+	const flushVisuals = () => {
+		visualsScheduled = false;
 		settingsMenu.update();
 		settingsWindow?.window.body.replaceChildren(settingsMenu.container);
 	};
+	const updateVisuals = () => {
+		if (visualsScheduled) return;
+		visualsScheduled = true;
+		queueMicrotask(flushVisuals);
+	};
 
 	const openSection = (indices: SettingsSectionIndex) => {
+		if (visualsScheduled) flushVisuals();
 		settingsWindow ??= createSettingsWindow();
 		settingsWindow.window.showWindow();
 		const [namespaceIndex, sectionIndex] = indices;

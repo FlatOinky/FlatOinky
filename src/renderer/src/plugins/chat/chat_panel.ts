@@ -7,12 +7,13 @@ import {
 	createWelcomeChatMessage,
 	getMessageBg,
 	getVisibleChatMessages,
+	persistChatMessagesNow,
 	renderMessageLi,
 	updateToggleIndicator,
 } from './chat_messages';
 import { chatMessages } from './chat_state';
 import { handleAddTabClick, mountAddTabModal, mountChatTabs, updateChatTabs } from './chat_tabs';
-import { Channels, ChatElements, Settings } from './chat_types';
+import { Channels, ChatElements, ChatStickiness, Settings } from './chat_types';
 
 const hideUpstreamChatNode = (lifecycle: Lifecycle, selector: string): void => {
 	const node = document.body.querySelector<HTMLElement>(selector);
@@ -101,7 +102,9 @@ const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settin
 		event.y >= containerRect.top;
 	if (!hoveringChat) return;
 	const targetScrollTop = chatMessageContainer.scrollTop + event.deltaY;
-	if (checkIsAtBottom(chatMessageContainer, targetScrollTop)) {
+	const willBeSticky = checkIsAtBottom(chatMessageContainer, targetScrollTop);
+	elements.stickiness.isSticky = willBeSticky;
+	if (willBeSticky) {
 		updateToggleIndicator(elements.toggleIndicator, false);
 	}
 	chatMessageContainer.scroll({
@@ -114,8 +117,9 @@ const handleToggleChange = (elements: ChatElements, settings: Settings): void =>
 	const chatMessageContainer = elements.messagesContainer;
 	updateToggleIndicator(elements.toggleIndicator, false);
 	if (settings.isExpanded) {
-		if (!checkIsAtBottom(chatMessageContainer)) {
+		if (!elements.stickiness.isSticky) {
 			elements.toggleCheckbox.checked = true;
+			elements.stickiness.isSticky = true;
 			chatMessageContainer.scroll({
 				top: chatMessageContainer.scrollHeight,
 				behavior: 'smooth',
@@ -124,6 +128,7 @@ const handleToggleChange = (elements: ChatElements, settings: Settings): void =>
 		}
 	}
 	chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
+	elements.stickiness.isSticky = true;
 	settings.isExpanded = elements.toggleCheckbox.checked;
 };
 
@@ -146,6 +151,7 @@ export const initChat = (
 	const { logActivator, settingsActivator, mutedPlayersActivator } = mountChatActionsDropdown(root);
 	const logRefs = mountChatLog(root);
 
+	const stickiness: ChatStickiness = { isSticky: true };
 	const elements: ChatElements = {
 		root,
 		toggleButton,
@@ -155,6 +161,7 @@ export const initChat = (
 		chatInput,
 		messagesContainer,
 		popupsContainer,
+		stickiness,
 		tabsContainer,
 		addTabButton,
 		logActivator,
@@ -177,11 +184,22 @@ export const initChat = (
 		);
 	});
 	messagesContainer.scrollTop = messagesContainer.scrollHeight;
+	stickiness.isSticky = true;
 
 	// wiring
+	const onMessagesScroll = () => {
+		stickiness.isSticky = checkIsAtBottom(messagesContainer);
+		if (stickiness.isSticky) {
+			updateToggleIndicator(toggleIndicator, false);
+		}
+	};
+	messagesContainer.addEventListener('scroll', onMessagesScroll, { passive: true });
+	lifecycle.onCleanup(() => messagesContainer.removeEventListener('scroll', onMessagesScroll));
+
 	const wheelHandler = (event: WheelEvent) => handleWheel(event, elements, settings);
 	document.addEventListener('wheel', wheelHandler);
 	lifecycle.onCleanup(() => document.removeEventListener('wheel', wheelHandler));
+	lifecycle.onCleanup(() => persistChatMessagesNow());
 
 	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels);
 	toggleCheckbox.onchange = () => handleToggleChange(elements, settings);
