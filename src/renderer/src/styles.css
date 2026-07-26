@@ -96,7 +96,6 @@
 @config "./tailwind.config.js";
 
 @theme {
-	--oinky-window-transition: transform, translate, scale, rotate, opacity;
 	--animate-fade-out: fadeOut;
 }
 
