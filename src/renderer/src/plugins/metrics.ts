@@ -7,8 +7,6 @@ type XPDrop = {
 	timestamp: number;
 };
 
-const MAX_NODE_COUNT = 300;
-
 const daisyUiColors = {
 	primary: 'var(--color-primary)',
 	'primary-content': 'var(--color-primary-content)',
@@ -52,6 +50,25 @@ const initialSettings = {
 };
 type Settings = typeof initialSettings;
 
+const intervalPresets = [
+	{ label: 'Fastest', timeSpan: 1, updateInterval: 0.1 },
+	{ label: 'Fast', timeSpan: 2, updateInterval: 0.2 },
+	{
+		label: 'Base',
+		timeSpan: initialSettings.timeSpan,
+		updateInterval: initialSettings.updateInterval,
+	},
+	{ label: 'Slow', timeSpan: 7.5, updateInterval: 2 },
+	{ label: 'Slowest', timeSpan: 10, updateInterval: 5 },
+] as const;
+const intervalPresetValue = (timeSpan: number, updateInterval: number) =>
+	`${timeSpan}:${updateInterval}`;
+const CUSTOM_INTERVAL_PRESET = '__custom__';
+const findIntervalPreset = (timeSpan: number, updateInterval: number) =>
+	intervalPresets.find(
+		(preset) => preset.timeSpan === timeSpan && preset.updateInterval === updateInterval,
+	);
+
 type XpTracker = ReturnType<typeof startXpTracker>;
 
 const trimXpDrops = (xpDrops: XPDrop[], timeSpanMinutes: number) => {
@@ -70,7 +87,7 @@ const startXpTracker = (
 	const timeSpan = 1000 * 60 * settings.timeSpan;
 	const updateInterval = 1000 * settings.updateInterval;
 	const updateIntervalSeconds = settings.updateInterval;
-	const nodeCount = Math.max(1, Math.min(MAX_NODE_COUNT, Math.ceil(timeSpan / updateInterval)));
+	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
 	const recentWindow = Math.max(1, Math.ceil(nodeCount * 0.35));
 	let consumedUntil = performance.now();
 	let sessionTotalXp =
@@ -509,7 +526,71 @@ export const MetricsPlugin: Plugin = {
 			},
 		]);
 
+		let timeSpanInput: HTMLInputElement | undefined;
+		let updateIntervalInput: HTMLInputElement | undefined;
+		let intervalPresetSelect: HTMLSelectElement | undefined;
+
+		const syncIntervalPresetSelect = () => {
+			if (!intervalPresetSelect) return;
+			const match = findIntervalPreset(settings.timeSpan, settings.updateInterval);
+			intervalPresetSelect.value = match
+				? intervalPresetValue(match.timeSpan, match.updateInterval)
+				: CUSTOM_INTERVAL_PRESET;
+			intervalPresetSelect.classList.toggle(
+				'italic',
+				!intervalPresetSelect.matches(':focus') &&
+					intervalPresetSelect.value === CUSTOM_INTERVAL_PRESET,
+			);
+		};
+
+		const syncIntervalRangeInputs = () => {
+			if (timeSpanInput && timeSpanInput.value !== String(settings.timeSpan)) {
+				timeSpanInput.value = String(settings.timeSpan);
+				timeSpanInput.dispatchEvent(new Event('input'));
+			}
+			if (updateIntervalInput && updateIntervalInput.value !== String(settings.updateInterval)) {
+				updateIntervalInput.value = String(settings.updateInterval);
+				updateIntervalInput.dispatchEvent(new Event('input'));
+			}
+		};
+
 		context.settings.registerSection('Intervals', [
+			{
+				label: 'Preset',
+				description: 'Apply a preconfigured time span and refresh rate together.',
+				initialValue: intervalPresetValue(
+					initialSettings.timeSpan,
+					initialSettings.updateInterval,
+				),
+				input: el.select``.then((input) => {
+					intervalPresetSelect = input;
+					for (const preset of intervalPresets) {
+						el.option`not-italic`.mount(input, preset.label, (option) => {
+							option.value = intervalPresetValue(preset.timeSpan, preset.updateInterval);
+							option.textContent = preset.label;
+						});
+					}
+					el.option`italic`.mount(input, 'custom', (option) => {
+						option.value = CUSTOM_INTERVAL_PRESET;
+						option.textContent = 'custom';
+					});
+					syncIntervalPresetSelect();
+					input.onfocus = syncIntervalPresetSelect;
+					input.onblur = syncIntervalPresetSelect;
+					input.onchange = () => {
+						if (input.value === CUSTOM_INTERVAL_PRESET) {
+							syncIntervalPresetSelect();
+							return;
+						}
+						const [timeSpanText, updateIntervalText] = input.value.split(':');
+						settings.timeSpan = parseFloat(timeSpanText);
+						settings.updateInterval = parseFloat(updateIntervalText);
+						syncIntervalRangeInputs();
+						syncIntervalPresetSelect();
+						refreshMetrics();
+					};
+				}),
+			},
 			{
 				label: 'Time Span',
 				tooltip: 'In minutes',
@@ -517,12 +598,14 @@ export const MetricsPlugin: Plugin = {
 				valueSuffix: 'm',
 				initialValue: initialSettings.timeSpan,
 				input: el.input.range``.then((input) => {
+					timeSpanInput = input;
 					input.min = '1';
-					input.max = '20';
-					input.step = '0.2';
+					input.max = '10';
+					input.step = '0.5';
 					input.value = settings.timeSpan.toString();
 					input.onchange = () => {
-						settings.timeSpan = parseInt(input.value);
+						settings.timeSpan = parseFloat(input.value);
+						syncIntervalPresetSelect();
 						refreshMetrics();
 					};
 				}),
@@ -534,12 +617,14 @@ export const MetricsPlugin: Plugin = {
 				valueSuffix: 's',
 				initialValue: initialSettings.updateInterval,
 				input: el.input.range``.then((input) => {
+					updateIntervalInput = input;
 					input.min = '0.1';
 					input.max = '10';
 					input.step = '0.1';
 					input.value = settings.updateInterval.toString();
 					input.onchange = () => {
 						settings.updateInterval = parseFloat(input.value);
+						syncIntervalPresetSelect();
 						refreshMetrics();
 					};
 				}),

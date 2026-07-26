@@ -33,7 +33,6 @@ const mountLineGraph = (
 	}
 
 	const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-	path.setAttribute('class', 'stroke-accent');
 	path.setAttribute('fill', 'transparent');
 	path.setAttribute('stroke', 'currentColor');
 	path.style.strokeWidth = `${lineWidth}px`;

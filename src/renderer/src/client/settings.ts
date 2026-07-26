@@ -298,7 +298,7 @@ const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
 			node.input.classList = 'textarea textarea-sm w-full';
 			return node.input;
 		case 'select':
-			node.input.classList = 'select select-sm cursor-pointer w-full';
+			node.input.classList = 'select select-sm cursor-pointer self-start w-auto min-w-32';
 			return node.input;
 		case 'checkbox':
 			node.input.classList = 'checkbox checkbox-sm';
