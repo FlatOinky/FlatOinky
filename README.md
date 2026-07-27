@@ -6,6 +6,41 @@ A desktop application for Flat MMO
 
 ### Current Features
 
+#### Interface
+
+- Taskbar along the bottom of the game with tray buttons, menus, and per-window buttons
+- Floating windows you can drag, resize, and snap to a grid
+- Minimize a window to its taskbar button, or lock it to keep it out of your way
+- Window positions and sizes are remembered between sessions
+- An icon tray to the right of the menu in taskbar.
+- A single 'Client settings' window that every plugin adds its own section to, accessible through the taskbar icons tray.
+
+#### Chat
+
+- PM chat tabs
+- Max chat messages (reduces long-running client lag)
+- Collapsible
+- Pop up messages that fade away when collapsed
+- Timestamps, with a configurable format
+- Custom icons to represent "yelled" and PMs
+- Chat tab prefix label (See what the chat tab will append to the front of your message)
+- `/` command 'escape hatch' (Commands bypass the Yell/PM tab auto prefixing)
+- Clickable links
+- Sent Message chunking (large messages are broken up into multiple messages)
+- Muted players list, with import from and export to Flat MMO
+- Persistent chat log you can scroll back through and export to a `.txt` file
+- Zebra striping to make messages easier to tell apart
+- Resend previous messages with the up and down arrow keys
+- An indicator when new messages arrive while you are scrolled up
+
+#### Metrics
+
+- XP rate line charts per skill, shown per hour or per minute
+- Session XP totals, plus an optional combined total chart
+- A live chart in the taskbar that opens the full Metrics window
+- Configurable time span (1-10 minutes) and refresh rate (0.1-10 seconds), with presets
+- Pick the chart color
+
 #### Monitor
 
 - Desktop Notifications
@@ -15,43 +50,30 @@ A desktop application for Flat MMO
   - Tree falling
   - Gem geode
   - Alien
+- Crafting progress above the taskbar showing the item, how many are done, session XP, and a cancel button
 
-#### UI Tweaks
+#### Themes
 
-- Bank clear search button
+- 37 color themes (not all work), including custom 'Flat MMO' and 'Flat Oinky' styles
+- Picked from the taskbar menu and saved per profile
 
-#### Chat Interface
+#### System
 
-- PM chat tabs
-- Max chat messages (reduces long-running client lag)
-- Collapsible
-- Pop up messages that fade away when collapsed
-- Timestamps
-- Custom icons to represent "yelled" and PMs
-- Chat tab prefix label (See what the chat tab will append to the front of your message)
-- `/` command 'escape hatch' (Commands bypass the Yell/PM tab auto prefixing)
-- Clickable links
-- Auto captures input focus when letter key is pressed
-- Message chunking (large messages are broken up into multiple messages)
+- Darken Sky, to dim the sky map for easier viewing
+- Dynamic Canvas (Beta), which scales the game canvas to fit the window
+- Reload the window or clear the asset cache from the taskbar menu
+- Opt-in devtools in the tray
 
 #### Updates
 
 - Checks for a new version on launch (Windows and Linux)
 - Downloads only when you ask it to, then installs on restart
+- Optionally download updates automatically as soon as one is found
 - Opt-in beta channel under Settings -> Updates
 
 ### Planned Features
 
-Here's a list of some of the features that are planned on making into the client. This list does not represent priority and features may be added to the client out of order.
-
-- Plugin settings
-- FlatMMO+ plugins support
-- AFK detection & notifications
-- XP/hr tracking
-- Color themes
-- More chat features
-  - Block/Highlight users & words
-  - More customizable chat tabs
+Features that are planned but not yet in the client are tracked in [TODO.md](TODO.md). That list does not represent priority, and features may be added to the client out of order.
 
 ## Installing Flat Oinky
 
@@ -108,27 +130,31 @@ ever fails, the reason is in `logs/main.log` inside the user data folder (window
 
 ### Install
 
+The toolchain is managed with [mise](https://mise.jdx.dev/), which pins Node and pnpm
+(see `mise.toml`). Install those first, then the dependencies:
+
 ```bash
-$ npm install
+$ mise install
+$ pnpm install
 ```
 
 ### Development
 
 ```bash
-$ npm run dev
+$ pnpm dev
 ```
 
 ### Build
 
 ```bash
 # For windows
-$ npm run build:win
+$ pnpm build:win
 
 # For macOS
-$ npm run build:mac
+$ pnpm build:mac
 
 # For Linux
-$ npm run build:linux
+$ pnpm build:linux
 ```
 
 ### Releasing
@@ -140,8 +166,8 @@ Releases are cut by hand from a local machine. There is no CI.
 2. Build each platform:
 
 ```bash
-$ npm run build:win
-$ npm run build:linux
+$ pnpm build:win
+$ pnpm build:linux
 ```
 
 Each `build:*` script ends with `build/copy_channel_files.mjs`, which copies

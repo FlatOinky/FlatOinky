@@ -11,16 +11,20 @@ client.
 
 - Toolchain is managed with **mise** (Node.js + pnpm). Ensure `node` and `pnpm` resolve
   before working; versions specified in `./mise.toml`.
-- Install dependencies with `pnpm install` (see section 5: requires approval).
+- Install dependencies with `pnpm install` (see section 4: requires approval).
 - Stack: **Electron** + **Vite** (via `electron-vite`), **TypeScript**, **Tailwind CSS
   v4** + **DaisyUI** for styling, **oxlint** for linting, **oxfmt** for formatting.
 - `./refs` holds the upstream Flat MMO source for reference. It is git-ignored (never
-  commit it) but may be read to understand game behavior.
+  commit it) but may be read to understand game behavior. The one exception is
+  `refs/AGENTS.md`, which is un-ignored via `!/refs/AGENTS.md` and is tracked.
+- There is no CI. Releases are built and published by hand; see 'Releasing' in
+  `README.md`.
 
 ## 2. Code style and conventions
 
 - Format with **oxfmt** (`.oxfmtrc.json`): single quotes, 100-column print width, tab
-  indentation, semicolons. Run `pnpm run format` (or `pnpm run format:check`).
+  indentation. Semicolons come from oxfmt's defaults rather than the config. Run
+  `pnpm run format` (or `pnpm run format:check`).
 - Lint with **oxlint** (`.oxlintrc.json`): run `pnpm run lint` (or `pnpm run lint:fix`).
 - TypeScript: no `any` (`typescript/no-explicit-any`), no `var`, `prefer-const`, no
   unused vars. Type-check with `pnpm run typecheck`.
@@ -32,29 +36,45 @@ client.
 - `src/main/` — Electron main process.
   - `index.ts` — app entry / window bootstrap.
   - `ipc_main.ts` — IPC handlers (login, worlds, client HTML, assets, storage).
+  - `updater.ts` — electron-updater wrapper: channel (`latest`/`beta`), check,
+    download, install, and update events to the renderer.
+  - `asset_cache.ts` — on-disk HTTP asset cache under userData, with ETag metadata.
   - `flat_mmo.ts`, `asset_proxy.ts`, `storage.ts`, `client_window.ts`, `files.ts`.
 - `src/preload/index.ts` — context bridge exposing safe APIs to the renderer.
 - `src/renderer/src/` — renderer / UI.
   - `main.ts` — page routing and mounting (login, character select, client).
-  - `client.ts` — plugin system, lifecycle, and FlatMMO client hooks.
+  - `client.ts` — plugin system, lifecycle, and FlatMMO client hooks. Registers and
+    starts every plugin exported from `plugins.ts`.
+  - `plugins.ts` — barrel that re-exports the core plugins; contains no logic.
   - `transpilers.ts` — rewrites FlatMMO scripts/HTML/URLs and injects hooks.
   - `styles.css` — Tailwind/DaisyUI entry and scoped base styles.
-  - `client/`, `plugins/`, `templates/`, `assets/`, `styles/`.
+  - `client/settings.ts` — the 'Client settings' window and the registry plugins use
+    to add their own sections.
+  - `client/client_storage.ts` — reactive storage scoped to global, profile, or
+    character, persisted over IPC.
+  - `client/profiles.ts` — profile list and per-character profile mapping.
+  - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, devtools,
+    notifications, updates).
+  - `client/updater.ts` — update UI state machine wired to the main updater.
+  - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and
+    the typed DOM builders in `elements.ts`.
+  - `plugins/`, `templates/`, `assets/`, `styles/`.
 - `./refs/` — git-ignored Flat MMO reference source (read-only).
 - Config: `electron.vite.config.ts`, `tsconfig*.json`, `.oxlintrc.json`, `.oxfmtrc.json`.
 
 ## 4. Safety and permission boundaries
 
+> Note: this repo has **no test framework and no test files**. There is nothing to run
+> for tests, so do not add or invoke one unless asked.
+
 ### Allowed without prompting
 
 - Read files, list directories
 - Single file linting, type checking, formatting
-- Unit tests on specific files
 
 ### Require approval first
 
 - Package installations (`pnpm`, `pnpm install`, `pnpm run`)
 - Git operations (`git push`, `git commit`)
 - File deletion
-- Running full build or E2E test suites
-- Terraform apply/destroy operations
+- Running a full build (`pnpm build`, `pnpm build:win`, `pnpm build:linux`)
