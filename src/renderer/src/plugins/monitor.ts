@@ -8,51 +8,63 @@ import * as el from '../client/ui/elements';
 const initialAlertSettings = {
 	enableNotification: true,
 	enableAudio: true,
-	audioVolume: 0.35,
-	customSound: undefined as string | undefined,
+	audioVolume: 1,
 };
 
+const audioCues = {
+	gemDrop: { path: 'sounds/short/gem.ogg', title: 'Gem Drop' },
+	fallingTree: { path: 'sounds/short/fallingtree.mp3', title: 'Falling Tree' },
+	birdNest: { path: 'sounds/short/birdnest.ogg', title: 'Bird Nest' },
+	alienEncounter: { path: 'sounds/alien.mp3', title: 'Alien Encounter' },
+} as const;
+type AudioCueKey = keyof typeof audioCues;
+
 const initialSettings = {
-	global: { ...initialAlertSettings },
-	triggers: {
+	global: {
+		...initialAlertSettings,
+		audioVolume: 0.35,
+		customSound: undefined as string | undefined,
+	},
+	audioCues: {
 		gemDrop: { ...initialAlertSettings },
 		fallingTree: { ...initialAlertSettings },
 		birdNest: { ...initialAlertSettings },
 		alienEncounter: { ...initialAlertSettings },
-	},
+	} satisfies Record<AudioCueKey, typeof initialAlertSettings>,
 };
 type Settings = typeof initialSettings;
-
-const triggerSounds = [
-	{ path: 'sounds/short/gem.ogg', title: 'Gem Drop' },
-	{ path: 'sounds/short/fallingtree.mp3', title: 'Falling Tree' },
-	{ path: 'sounds/short/birdnest.ogg', title: 'Bird Nest' },
-	{ path: 'sounds/alien.mp3', title: 'Alien Encounter' },
-];
+type AlertScope = typeof initialAlertSettings;
 
 // #region notify
+
+const resolveAlert = (settings: Settings, audioCue?: AudioCueKey) => {
+	const scoped = audioCue ? settings.audioCues[audioCue] : undefined;
+	return {
+		enableNotification: settings.global.enableNotification && (scoped?.enableNotification ?? true),
+		enableAudio: settings.global.enableAudio && (scoped?.enableAudio ?? true),
+		audioVolume: settings.global.audioVolume * (scoped?.audioVolume ?? 1),
+	};
+};
 
 const notify = (
 	alertAudio: HTMLAudioElement,
 	settings: Settings,
 	title: string,
 	message?: string,
+	audioCue?: AudioCueKey,
 ): void => {
-	if (settings.global.enableNotification) createNotification(title, message);
-	if (settings.global.enableAudio) {
-		alertAudio.volume = settings.global.audioVolume;
+	const alert = resolveAlert(settings, audioCue);
+	if (alert.enableNotification) createNotification(title, message);
+	if (alert.enableAudio) {
+		alertAudio.volume = alert.audioVolume;
 		alertAudio.play();
 	}
 };
 
 // #region tray menu
 
-const updateToggleButton = (button: HTMLButtonElement, enabled: boolean): void => {
-	button.classList.toggle('btn-secondary', enabled);
-	button.classList.toggle('btn-ghost', !enabled);
-	button.classList.toggle('border', !enabled);
-	button.classList.toggle('border-error', !enabled);
-};
+const toggleStyle =
+	'swap btn btn-square btn-xs tooltip tooltip-secondary tooltip-start has-checked:btn-secondary not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error';
 
 const initTrayMenu = (
 	lifecycle: Lifecycle,
@@ -69,33 +81,25 @@ const initTrayMenu = (
 
 	const container = el.div`flex gap-2 p-2 items-center`.mount(trayMenu);
 
-	el.button`btn btn-square btn-xs tooltip tooltip-secondary`.mount(
-		container,
-		'notification-toggle',
-		(notificationToggle) => {
-			updateToggleButton(notificationToggle, settings.global.enableNotification);
-			notificationToggle.setAttribute('data-tip', 'Desktop Notifications');
-			el.icon.deviceDesktopExclamation`size-4`.mount(notificationToggle, 'icon');
-			notificationToggle.onclick = () => {
-				settings.global.enableNotification = !settings.global.enableNotification;
-				updateToggleButton(notificationToggle, settings.global.enableNotification);
-			};
-		},
-	);
+	el.label`${toggleStyle}`.mount(container, 'notification-toggle', (notificationToggle) => {
+		notificationToggle.setAttribute('data-tip', 'Desktop Notifications');
+		el.input.checkbox`sr-only`.mount(notificationToggle, 'input', (input) => {
+			input.checked = settings.global.enableNotification;
+			input.onchange = () => (settings.global.enableNotification = input.checked);
+		});
+		el.icon.bell`swap-on size-4`.mount(notificationToggle, 'icon-on');
+		el.icon.bellOff`swap-off size-4`.mount(notificationToggle, 'icon-off');
+	});
 
-	el.button`btn btn-square btn-xs tooltip tooltip-secondary`.mount(
-		container,
-		'audio-toggle',
-		(audioToggle) => {
-			updateToggleButton(audioToggle, settings.global.enableAudio);
-			audioToggle.setAttribute('data-tip', 'Alert Sound');
-			el.icon.volume`size-4`.mount(audioToggle, 'icon');
-			audioToggle.onclick = () => {
-				settings.global.enableAudio = !settings.global.enableAudio;
-				updateToggleButton(audioToggle, settings.global.enableAudio);
-			};
-		},
-	);
+	el.label`${toggleStyle}`.mount(container, 'audio-toggle', (audioToggle) => {
+		audioToggle.setAttribute('data-tip', 'Alert Sound');
+		el.input.checkbox`sr-only`.mount(audioToggle, 'input', (input) => {
+			input.checked = settings.global.enableAudio;
+			input.onchange = () => (settings.global.enableAudio = input.checked);
+		});
+		el.icon.volume`swap-on size-4`.mount(audioToggle, 'icon-on');
+		el.icon.volumeOff`swap-off size-4`.mount(audioToggle, 'icon-off');
+	});
 
 	el.input.range`range range-xs flex-1`.mount(container, 'volume-slider', (volumeSlider) => {
 		volumeSlider.min = '0';
@@ -106,12 +110,12 @@ const initTrayMenu = (
 			(settings.global.audioVolume = parseFloat(volumeSlider.value ?? '0'));
 	});
 
-	el.button`btn btn-xs btn-square btn-soft btn-accent tooltip tooltip-accent`.mount(
+	el.button`btn btn-xs btn-square btn-soft btn-accent tooltip tooltip-accent tooltip-end`.mount(
 		container,
 		'test-button',
 		(testButton) => {
 			testButton.setAttribute('data-tip', 'Test alert');
-			el.icon.testPipe2Filled`size-4`.mount(testButton, 'icon');
+			el.icon.play`size-4`.mount(testButton, 'icon');
 			testButton.onclick = () => {
 				alertAudio.currentTime = 0;
 				notify(alertAudio, settings, 'Test', 'This is a test notification');
@@ -176,12 +180,47 @@ const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => 
 	return { update };
 };
 
+// #region settings
+
+const makeAlertNode = (
+	label: string,
+	scope: AlertScope,
+	defaults: AlertScope,
+	onTest: () => void,
+	description?: string,
+) => ({
+	label,
+	description,
+	specialType: 'alertCombo' as const,
+	notificationInput: el.input.checkbox``.then((input) => {
+		input.checked = scope.enableNotification;
+		input.onchange = () => (scope.enableNotification = input.checked);
+	}),
+	audioInput: el.input.checkbox``.then((input) => {
+		input.checked = scope.enableAudio;
+		input.onchange = () => (scope.enableAudio = input.checked);
+	}),
+	volumeInput: el.input.range``.then((input) => {
+		input.min = '0';
+		input.max = '1';
+		input.step = '0.05';
+		input.value = String(scope.audioVolume);
+		input.onchange = () => (scope.audioVolume = parseFloat(input.value));
+	}),
+	onTest,
+	reset: (notification: HTMLInputElement, audio: HTMLInputElement, volume: HTMLInputElement) => {
+		notification.checked = defaults.enableNotification;
+		audio.checked = defaults.enableAudio;
+		volume.value = String(defaults.audioVolume);
+	},
+});
+
 // #region Plugin
 
 export const MonitorPlugin: Plugin = {
 	namespace: 'core/monitor',
 	name: 'Monitor',
-	description: 'Desktop/sound alerts for trigger events, plus a crafting progress indicator.',
+	description: 'Desktop/sound alerts for audioCue events, plus a crafting progress indicator.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('alertSettings', initialSettings);
 		const alertAudio = new Audio(notificationMp3);
@@ -190,11 +229,40 @@ export const MonitorPlugin: Plugin = {
 		initTrayMenu(lifecycle, context, settings, alertAudio);
 		const craftingActivity = mountCraftingActivity(lifecycle, context);
 
+		const settingsMenu = context.settings.initMenu(lifecycle);
+		settingsMenu.mountSection('Global', [
+			makeAlertNode(
+				'Global Controls',
+				settings.global,
+				initialSettings.global,
+				() => {
+					alertAudio.currentTime = 0;
+					notify(alertAudio, settings, 'Test', 'This is a test notification');
+				},
+				'Master switches that gate every alert.',
+			),
+		]);
+		settingsMenu.mountSection(
+			'Audio Cues',
+			Object.entries(audioCues).map(([key, audioCue]) => {
+				const audioCueKey = key as AudioCueKey;
+				return makeAlertNode(
+					audioCue.title,
+					settings.audioCues[audioCueKey],
+					initialSettings.audioCues[audioCueKey],
+					() => {
+						alertAudio.currentTime = 0;
+						notify(alertAudio, settings, audioCue.title, undefined, audioCueKey);
+					},
+				);
+			}),
+		);
+
 		return {
 			hookPlaySound: (url) => {
-				triggerSounds.forEach((triggerSound) => {
-					if (!url.endsWith(triggerSound.path)) return;
-					notify(alertAudio, settings, triggerSound.title);
+				Object.entries(audioCues).forEach(([key, audioCueSound]) => {
+					if (!url.endsWith(audioCueSound.path)) return;
+					notify(alertAudio, settings, audioCueSound.title, undefined, key as AudioCueKey);
 				});
 			},
 			onMakeUiChange: (item, completed, total, sessionXp) =>

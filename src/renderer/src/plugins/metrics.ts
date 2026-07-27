@@ -495,7 +495,7 @@ export const MetricsPlugin: Plugin = {
 					label: formatDaisyUiColorLabel(name),
 					value,
 				})),
-				initialValue: initialSettings.chartColor,
+				reset: (input) => (input.value = initialSettings.chartColor),
 				input: el.input.text``.then((input) => {
 					input.value = settings.chartColor;
 					input.onchange = () => {
@@ -558,7 +558,11 @@ export const MetricsPlugin: Plugin = {
 			{
 				label: 'Preset',
 				description: 'Apply a preconfigured time span and refresh rate together.',
-				initialValue: intervalPresetValue(initialSettings.timeSpan, initialSettings.updateInterval),
+				reset: (input) =>
+					(input.value = intervalPresetValue(
+						initialSettings.timeSpan,
+						initialSettings.updateInterval,
+					)),
 				input: el.select``.then((input) => {
 					intervalPresetSelect = input;
 					for (const preset of intervalPresets) {
@@ -593,7 +597,7 @@ export const MetricsPlugin: Plugin = {
 				tooltip: 'In minutes',
 				description: 'The duration of the time window to be displayed.',
 				valueSuffix: 'm',
-				initialValue: initialSettings.timeSpan,
+				reset: (input) => (input.value = String(initialSettings.timeSpan)),
 				input: el.input.range``.then((input) => {
 					timeSpanInput = input;
 					input.min = '1';
@@ -612,7 +616,7 @@ export const MetricsPlugin: Plugin = {
 				tooltip: 'In seconds',
 				description: 'The interval at which the metrics will be captured and updated.',
 				valueSuffix: 's',
-				initialValue: initialSettings.updateInterval,
+				reset: (input) => (input.value = String(initialSettings.updateInterval)),
 				input: el.input.range``.then((input) => {
 					updateIntervalInput = input;
 					input.min = '0.1';

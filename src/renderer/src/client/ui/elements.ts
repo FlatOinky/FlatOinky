@@ -227,9 +227,13 @@ export const input = {
 // #region icon elements
 
 export const icon = {
+	alertSquareRounded: setupIconElement('icon-[tabler--alert-square-rounded]'),
+	alertSquareRoundedOff: setupIconElement('icon-[tabler--alert-square-rounded-off]'),
 	alertTriangle: setupIconElement('icon-[tabler--alert-triangle]'),
 	appWindow: setupIconElement('icon-[tabler--app-window]'),
 	at: setupIconElement('icon-[tabler--at]'),
+	bell: setupIconElement('icon-[tabler--bell]'),
+	bellOff: setupIconElement('icon-[tabler--bell-off]'),
 	chartLine: setupIconElement('icon-[tabler--chart-line]'),
 	check: setupIconElement('icon-[tabler--check]'),
 	chevronDown: setupIconElement('icon-[tabler--chevron-down]'),
@@ -248,12 +252,14 @@ export const icon = {
 	infoSmall: setupIconElement('icon-[tabler--info-small]'),
 	menu: setupIconElement('icon-[tabler--menu-2]'),
 	paint: setupIconElement('icon-[tabler--paint]'),
+	play: setupIconElement('icon-[tabler--play]'),
 	plus: setupIconElement('icon-[tabler--plus]'),
 	restore: setupIconElement('icon-[tabler--restore]'),
 	settings: setupIconElement('icon-[tabler--settings]'),
 	testPipe2Filled: setupIconElement('icon-[tabler--test-pipe-2-filled]'),
 	tools: setupIconElement('icon-[tabler--tools]'),
 	volume: setupIconElement('icon-[tabler--volume]'),
+	volumeOff: setupIconElement('icon-[tabler--volume-off]'),
 	x: setupIconElement('icon-[tabler--x]'),
 };
 

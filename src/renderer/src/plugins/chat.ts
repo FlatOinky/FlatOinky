@@ -51,7 +51,7 @@ export const ChatPlugin: Plugin = {
 		) => ({
 			label,
 			description,
-			initialValue: initialSettings[key],
+			reset: (input) => (input.value = String(initialSettings[key])),
 			input: el.input.number``.then((input) => {
 				input.min = min;
 				input.max = max;
@@ -84,7 +84,7 @@ export const ChatPlugin: Plugin = {
 				}),
 				specialType: 'selectTextCombo',
 				options: timestampFormatOptions,
-				initialValue: initialSettings.timestampFormat,
+				reset: (input) => (input.value = initialSettings.timestampFormat),
 				input: el.input.text``.then((input) => {
 					input.value = settings.timestampFormat;
 					input.onchange = () => {
@@ -98,7 +98,7 @@ export const ChatPlugin: Plugin = {
 				tooltip: 'In seconds',
 				description: 'How long popup messages stay visible.',
 				valueSuffix: 's',
-				initialValue: initialSettings.popupDuration,
+				reset: (input) => (input.value = String(initialSettings.popupDuration)),
 				input: el.input.range``.then((input) => {
 					input.min = '2';
 					input.max = '20';

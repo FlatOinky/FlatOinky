@@ -8,29 +8,35 @@ type SettingsRegistry = [namespace: string, title: string, sections: SettingsSec
 type SettingsSection = { title: string; nodes: SettingsNode[] };
 type SettingsInput = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 type SettingsNodeOption = { label: string; value: string };
-type SettingsNodeBase = {
-	input: SettingsInput;
+type SettingsNodeBase<TResetInputs extends SettingsInput[] = SettingsInput[]> = {
 	label?: string;
 	description?: string | Element;
 	tooltip?: string;
 	valueSuffix?: string;
 	valuePrefix?: string;
-	/** When set, shows a reset button that restores this value and fires input/change. */
-	initialValue?: string | number | boolean;
+	/** Restore defaults; input/change fire automatically for each input this changes. */
+	reset?: (...inputs: TResetInputs) => void;
 };
-type SettingsNode =
-	| Element
-	| (SettingsNodeBase & {
-			specialType?: 'toggle' | 'textarea' | 'select';
-	  })
-	| (SettingsNodeBase & {
-			specialType: 'selectTextCombo';
-			options: SettingsNodeOption[];
-	  })
-	| (SettingsNodeBase & {
-			specialType: 'selectColorCombo';
-			options: SettingsNodeOption[];
-	  });
+type SettingsInputBase = SettingsNodeBase<[SettingsInput]> & { input: SettingsInput };
+type SettingsInputNode =
+	| (SettingsInputBase & { specialType?: 'toggle' | 'textarea' | 'select' })
+	| (SettingsInputBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] })
+	| (SettingsInputBase & { specialType: 'selectColorCombo'; options: SettingsNodeOption[] });
+type SettingsAlertComboNode = SettingsNodeBase<
+	[HTMLInputElement, HTMLInputElement, HTMLInputElement]
+> & {
+	specialType: 'alertCombo';
+	notificationInput: HTMLInputElement;
+	audioInput: HTMLInputElement;
+	volumeInput: HTMLInputElement;
+	onTest: () => void;
+};
+type SettingsNode = Element | SettingsInputNode | SettingsAlertComboNode;
+type SettingsRowLayout = {
+	/** CSS grid-template-columns, e.g. 'auto auto 1fr auto'; omit for equal flex cells. */
+	columns?: string;
+	cells: SettingsNode[];
+};
 
 // #region setupPluginApi
 
@@ -70,7 +76,7 @@ const boundSelectTextComboInputs = new WeakSet<SettingsInput>();
 const selectTextComboSelects = new WeakMap<SettingsInput, HTMLSelectElement>();
 
 const makeSelectTextComboChild = (
-	node: SettingsNodeBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] },
+	node: SettingsInputBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] },
 ): Element => {
 	const CUSTOM_VALUE = '__custom__';
 	const { options } = node;
@@ -175,7 +181,7 @@ const selectColorComboUi = new WeakMap<
 >();
 
 const makeSelectColorComboChild = (
-	node: SettingsNodeBase & {
+	node: SettingsInputBase & {
 		specialType: 'selectColorCombo';
 		options: SettingsNodeOption[];
 	},
@@ -269,7 +275,7 @@ const makeSelectColorComboChild = (
 const boundRangeInputs = new WeakSet<SettingsInput>();
 const rangeValueLabels = new WeakMap<SettingsInput, HTMLElement>();
 
-const makeNodeChild = (node: Exclude<SettingsNode, Element>): Element => {
+const makeNodeChild = (node: SettingsInputNode): Element => {
 	const getValueDisplay = () =>
 		(node.valuePrefix ?? '') + node.input.value + (node.valueSuffix ?? '');
 	if (node.specialType === 'selectTextCombo') {
@@ -369,6 +375,30 @@ const ensureInputId = (input: SettingsInput) => {
 	return input.id;
 };
 
+const readInputState = (input: SettingsInput) =>
+	input instanceof HTMLInputElement && (input.type === 'checkbox' || input.type === 'radio')
+		? String(input.checked)
+		: input.value;
+
+/** Runs `action`, then fires input/change on each input it actually changed. */
+const dispatchChanged = (inputs: readonly SettingsInput[], action: () => void) => {
+	const before = inputs.map(readInputState);
+	action();
+	inputs.forEach((input, index) => {
+		if (readInputState(input) === before[index]) return;
+		input.dispatchEvent(new Event('input'));
+		input.dispatchEvent(new Event('change'));
+	});
+};
+
+const applyReset = (node: Exclude<SettingsNode, Element>) => {
+	if (node.specialType === 'alertCombo') {
+		const inputs = [node.notificationInput, node.audioInput, node.volumeInput] as const;
+		return dispatchChanged(inputs, () => node.reset?.(...inputs));
+	}
+	dispatchChanged([node.input], () => node.reset?.(node.input));
+};
+
 const mountNodeHeader = (
 	container: HTMLElement,
 	node: Exclude<SettingsNode, Element>,
@@ -382,35 +412,34 @@ const mountNodeHeader = (
 		const tooltip = el.tooltip.info`tooltip-top tooltip-start text-base-content/50`.mount(header);
 		tooltip.setAttribute('data-tip', node.tooltip);
 	}
-	const inputId = ensureInputId(node.input);
-	el.label`font-medium text-sm cursor-pointer`.mount(header, undefined, (label) => {
-		label.htmlFor = inputId;
-		label.textContent = node.label ?? '';
-	});
+	const hasInput = 'input' in node;
+	el.label`${hasInput ? 'font-medium text-sm cursor-pointer' : 'font-medium text-sm'}`.mount(
+		header,
+		undefined,
+		(label) => {
+			if (hasInput) label.htmlFor = ensureInputId(node.input);
+			label.textContent = node.label ?? '';
+		},
+	);
 	el.span`flex-1 w-full`.mount(header);
-	if (node.initialValue !== undefined) {
+	if (node.reset) {
 		el.button`btn btn-xs btn-square btn-soft btn-secondary opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
 			header,
 			'reset',
 			(resetButton) => {
 				resetButton.setAttribute('data-tip', 'Reset to default');
 				el.icon.restore`size-4`.mount(resetButton);
-				resetButton.onclick = () => {
-					if (typeof node.initialValue === 'boolean') {
-						(node.input as HTMLInputElement).checked = node.initialValue;
-					} else {
-						node.input.value = String(node.initialValue);
-					}
-					node.input.dispatchEvent(new Event('input'));
-					node.input.dispatchEvent(new Event('change'));
-				};
+				resetButton.onclick = () => applyReset(node);
 			},
 		);
 	}
 	return header;
 };
 
-const mountNodeDescription = (container: HTMLElement, node: Exclude<SettingsNode, Element>) => {
+const mountNodeDescription = (
+	container: HTMLElement,
+	node: Pick<SettingsNodeBase, 'description'>,
+) => {
 	if (!node.description) return;
 	const description = el.div`text-xs text-base-content/60 font-normal`.mount(
 		container,
@@ -423,9 +452,111 @@ const mountNodeDescription = (container: HTMLElement, node: Exclude<SettingsNode
 	}
 };
 
+// #region alertCombo
+
+const makeAlertToggle = (
+	input: HTMLInputElement,
+	onIcon: Element,
+	offIcon: Element,
+	tip: string,
+): Element => {
+	const toggle =
+		el.label`swap btn btn-sm btn-square tooltip tooltip-top tooltip-start has-checked:btn-secondary not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`
+			.element;
+	toggle.setAttribute('data-tip', tip);
+	input.classList = 'sr-only';
+	onIcon.classList.add('swap-on');
+	offIcon.classList.add('swap-off');
+	toggle.append(input, onIcon, offIcon);
+	return toggle;
+};
+
+const boundAlertVolumeInputs = new WeakSet<HTMLInputElement>();
+const alertVolumeLabels = new WeakMap<HTMLInputElement, HTMLElement>();
+
+const makeAlertVolume = (input: HTMLInputElement): Element => {
+	const container = el.div`flex gap-2 items-center w-full min-w-0`.element;
+	input.classList = 'range range-sm flex-1 min-w-0';
+	container.appendChild(input);
+	el.span`text-xs tabular-nums w-9 text-right text-base-content/70`.mount(
+		container,
+		undefined,
+		(label) => {
+			alertVolumeLabels.set(input, label);
+			const updateDisplay = () => {
+				const activeLabel = alertVolumeLabels.get(input);
+				if (!activeLabel) return;
+				const min = Number(input.min || 0);
+				const max = Number(input.max || 1);
+				const value = Number(input.value);
+				const ratio = max === min ? 0 : (value - min) / (max - min);
+				activeLabel.textContent = `${Math.round(ratio * 100)}%`;
+			};
+			updateDisplay();
+			if (!boundAlertVolumeInputs.has(input)) {
+				boundAlertVolumeInputs.add(input);
+				input.addEventListener('input', updateDisplay);
+				input.addEventListener('change', updateDisplay);
+			}
+		},
+	);
+	return container;
+};
+
+const makeAlertTestButton = (onTest: () => void): Element =>
+	el.button`btn btn-sm btn-square btn-soft btn-accent tooltip tooltip-top tooltip-end`.then(
+		(button) => {
+			button.type = 'button';
+			button.setAttribute('data-tip', 'Test alert');
+			el.icon.play`size-4`.mount(button);
+			button.onclick = onTest;
+		},
+	);
+
+const mountRowNode = (
+	container: HTMLElement,
+	node: Exclude<SettingsNode, Element>,
+	layout: SettingsRowLayout,
+) => {
+	if (node.label || node.tooltip || node.reset) mountNodeHeader(container, node);
+	mountNodeDescription(container, node);
+	const row = el.div`flex gap-2 items-center w-full`.mount(container, 'row', (element) => {
+		if (!layout.columns) return;
+		element.classList = 'grid gap-2 items-center w-full';
+		element.style.gridTemplateColumns = layout.columns;
+	});
+	const cellStyle = `flex flex-col gap-0.5 min-w-0${layout.columns ? '' : ' flex-1'}`;
+	layout.cells.forEach((cell) => mountSettingsMenuNode(el.div`${cellStyle}`.mount(row), cell));
+};
+
+const mountAlertComboNode = (container: HTMLElement, node: SettingsAlertComboNode) =>
+	mountRowNode(container, node, {
+		columns: 'auto auto 1fr auto',
+		cells: [
+			makeAlertToggle(
+				node.notificationInput,
+				el.icon.bell`size-4`.element,
+				el.icon.bellOff`size-4`.element,
+				'Desktop notifications',
+			),
+			makeAlertToggle(
+				node.audioInput,
+				el.icon.volume`size-4`.element,
+				el.icon.volumeOff`size-4`.element,
+				'Alert sound',
+			),
+			makeAlertVolume(node.volumeInput),
+			makeAlertTestButton(node.onTest),
+		],
+	});
+
 const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
 	if (node instanceof Element) {
 		container.appendChild(node);
+		return;
+	}
+	if (node.specialType === 'alertCombo') {
+		mountAlertComboNode(container, node);
 		return;
 	}
 	if (node.input instanceof HTMLTextAreaElement) {
