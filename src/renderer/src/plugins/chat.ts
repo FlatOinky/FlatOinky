@@ -17,6 +17,7 @@ export const ChatPlugin: Plugin = {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const channels = context.storages.character.reactive('channels', initialChannels);
 		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
+		const settingsMenu = context.settings.initMenu(lifecycle);
 
 		const elements = initChat(lifecycle, context, settings, channels);
 
@@ -62,7 +63,7 @@ export const ChatPlugin: Plugin = {
 			}),
 		});
 
-		const [chatNamespaceIndex] = context.settings.registerSection('Display', [
+		settingsMenu.mountSection('Display', [
 			toggleSetting('Zebra striping', 'Alternate message background colors.', 'enableZebra'),
 			toggleSetting(
 				'Show timestamps',
@@ -111,7 +112,7 @@ export const ChatPlugin: Plugin = {
 			},
 		]);
 
-		context.settings.registerSection('Limits', [
+		settingsMenu.mountSection('Limits', [
 			numberSetting(
 				'Visible messages',
 				'Maximum messages shown in the chat window.',
@@ -128,17 +129,17 @@ export const ChatPlugin: Plugin = {
 			),
 		]);
 
-		const mutedPlayersSection = context.settings.registerSection('Muted Players', [
+		const mutedPlayersSection = settingsMenu.mountSection('Muted Players', [
 			createMutedPlayersSettingsNode(mutedPlayers),
 		]);
 
 		elements.settingsActivator.onclick = () => {
 			elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-			context.settings.openSection([chatNamespaceIndex]);
+			settingsMenu.open();
 		};
 		elements.mutedPlayersActivator.onclick = () => {
 			elements.mutedPlayersActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-			context.settings.openSection(mutedPlayersSection);
+			mutedPlayersSection.open();
 		};
 
 		return {

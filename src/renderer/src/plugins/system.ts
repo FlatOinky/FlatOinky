@@ -1,5 +1,6 @@
 import { Lifecycle, Plugin, PluginContext } from '../client';
 import { clearAssetCache, reloadWindow } from '../client/ipc_renderer';
+import { SettingsMenu } from '../client/settings';
 import * as el from '../client/ui/elements';
 const initialSettings = {
 	enabledDevtools: false,
@@ -93,7 +94,11 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lif
 
 // The updater is owned by the client; this only wires it into the taskbar menu
 // and the settings window.
-const initUpdates = (lifecycle: Lifecycle, context: PluginContext): void => {
+const initUpdates = (
+	lifecycle: Lifecycle,
+	context: PluginContext,
+	settingsMenu: SettingsMenu,
+): void => {
 	const { updater } = context;
 	const channel = updater.getChannel();
 
@@ -128,7 +133,7 @@ const initUpdates = (lifecycle: Lifecycle, context: PluginContext): void => {
 		}),
 	);
 
-	context.settings.registerSection('Updates', [
+	settingsMenu.mountSection('Updates', [
 		el.div`flex items-center justify-between gap-2`.then((container) => {
 			el.span`text-sm`.mount(container, undefined, (label) => {
 				label.textContent = `Current version v${updater.version}`;
@@ -181,6 +186,7 @@ export const SystemPlugin: Plugin = {
 	description: 'System interactions for Flat Oinky',
 	init: (lifecycle, context) => {
 		const settings = context.storages.global.reactive('settings', initialSettings);
+		const settingsMenu = context.settings.initMenu(lifecycle);
 		let devtoolsLifecycle: Lifecycle | null = null;
 		let dynamicCanvasLifecycle: Lifecycle | null = null;
 		let darkenSkyLifecycle: Lifecycle | null = null;
@@ -190,16 +196,12 @@ export const SystemPlugin: Plugin = {
 			devtoolsLifecycle = null;
 			if (!settings.enabledDevtools) return;
 			devtoolsLifecycle = lifecycle.spawnLifecycle();
-			const { trayMenu } = context.ui.taskbar.initTrayButtonMenu(
-				devtoolsLifecycle,
-				'devtools',
-				{
-					button: {
-						title: 'Devtools',
-						icon: el.icon.tools``.element,
-					},
+			const { trayMenu } = context.ui.taskbar.initTrayButtonMenu(devtoolsLifecycle, 'devtools', {
+				button: {
+					title: 'Devtools',
+					icon: el.icon.tools``.element,
 				},
-			);
+			});
 			const menu = el.ul`menu w-full`.mount(trayMenu);
 			el.li``.mount(menu, 'openDevTools', (item) => {
 				el.button``.mount(item, 'button', (button) => {
@@ -222,7 +224,7 @@ export const SystemPlugin: Plugin = {
 			dynamicCanvasLifecycle = initDynamicCanvas(lifecycle, context.canvas);
 		};
 
-		initUpdates(lifecycle, context);
+		initUpdates(lifecycle, context, settingsMenu);
 
 		context.ui.taskbar.initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
 		context.ui.taskbar.initMenuAction(
@@ -235,7 +237,7 @@ export const SystemPlugin: Plugin = {
 		syncDevtoolsMenu();
 		syncDynamicCanvas();
 
-		context.settings.registerSection('Tweaks', [
+		settingsMenu.mountSection('Tweaks', [
 			{
 				label: 'Darken Sky',
 				description: 'Dim the sky map for easier viewing.',
@@ -261,7 +263,7 @@ export const SystemPlugin: Plugin = {
 			},
 		]);
 
-		context.settings.registerSection('Devtools', [
+		settingsMenu.mountSection('Devtools', [
 			{
 				label: 'Enable Devtools',
 				description: 'Show Open DevTools and Save References in the tray.',

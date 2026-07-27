@@ -394,6 +394,7 @@ export const MetricsPlugin: Plugin = {
 	name: 'Metrics',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
+		const settingsMenu = context.settings.initMenu(lifecycle);
 		const xpDrops: XPDrop[] = [];
 		const sessionTotals = { all: 0, bySkill: {} as { [key: string]: number } };
 		const activeSkillCharts: { [key: string]: boolean } = Object.fromEntries(
@@ -472,7 +473,7 @@ export const MetricsPlugin: Plugin = {
 			windowMetrics?.skillCharts.forEach((chart) => chart.skillChart.setColor(settings.chartColor));
 		};
 
-		context.settings.registerSection('Display', [
+		settingsMenu.mountSection('Display', [
 			{
 				label: 'Show total XP',
 				description: 'Show the combined total XP chart in the metrics window.',
@@ -553,7 +554,7 @@ export const MetricsPlugin: Plugin = {
 			}
 		};
 
-		context.settings.registerSection('Intervals', [
+		settingsMenu.mountSection('Intervals', [
 			{
 				label: 'Preset',
 				description: 'Apply a preconfigured time span and refresh rate together.',

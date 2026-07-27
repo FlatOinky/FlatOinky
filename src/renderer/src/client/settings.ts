@@ -6,7 +6,6 @@ import * as el from './ui/elements';
 
 type SettingsRegistry = [namespace: string, title: string, sections: SettingsSection[]][];
 type SettingsSection = { title: string; nodes: SettingsNode[] };
-type SettingsSectionIndex = [namespaceIndex: number, sectionIndex?: number];
 type SettingsInput = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 type SettingsNodeOption = { label: string; value: string };
 type SettingsNodeBase = {
@@ -38,41 +37,32 @@ type SettingsNode =
 const setupPluginApi = (
 	registry: SettingsRegistry,
 	updateVisuals: () => void,
-	openSection: (indices: SettingsSectionIndex) => void,
+	openSection: (namespace: string, section?: SettingsSection) => void,
 	pluginNamespace: string,
 	pluginTitle: string,
 ) => ({
-	registerSection: (title: string, nodes: SettingsNode[]): SettingsSectionIndex => {
-		let namespaceIndex = registry.findIndex(([ns]) => ns === pluginNamespace);
-		if (namespaceIndex < 0) {
-			namespaceIndex = registry.length;
-			registry[namespaceIndex] = [pluginNamespace, pluginTitle, []];
-		}
-		const sectionIndex = registry[namespaceIndex][2].length;
-		registry[namespaceIndex][2].push({ title, nodes });
+	initMenu: (lifecycle: Lifecycle) => {
+		const entry: SettingsRegistry[number] = [pluginNamespace, pluginTitle, []];
+		registry.push(entry);
 		updateVisuals();
-		return [namespaceIndex, sectionIndex];
+		lifecycle.onCleanup(() => {
+			const namespaceIndex = registry.indexOf(entry);
+			if (namespaceIndex >= 0) registry.splice(namespaceIndex, 1);
+			updateVisuals();
+		});
+		return {
+			mountSection: (title: string, nodes: SettingsNode[]) => {
+				const section: SettingsSection = { title, nodes };
+				entry[2].push(section);
+				updateVisuals();
+				return { section, open: () => openSection(pluginNamespace, section) };
+			},
+			open: () => openSection(pluginNamespace),
+		};
 	},
-	modifySection: (
-		title: string,
-		modifier: (section: SettingsSection) => void,
-	): SettingsSectionIndex => {
-		let namespaceIndex = registry.findIndex(([ns]) => ns === pluginNamespace);
-		if (namespaceIndex < 0) {
-			namespaceIndex = registry.length;
-			registry[namespaceIndex] = [pluginNamespace, pluginTitle, []];
-		}
-		let sectionIndex = registry[namespaceIndex][2].findIndex((section) => section.title === title);
-		if (sectionIndex < 0) {
-			sectionIndex = registry[namespaceIndex][2].length;
-			registry[namespaceIndex][2].push({ title, nodes: [] });
-		}
-		modifier(registry[namespaceIndex][2][sectionIndex]);
-		updateVisuals();
-		return [namespaceIndex, sectionIndex];
-	},
-	openSection,
 });
+
+export type SettingsMenu = ReturnType<ReturnType<typeof setupPluginApi>['initMenu']>;
 
 // #region mountSettingsMenuNode
 
@@ -518,45 +508,47 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 	const update = () => {
 		sectionsContainer.replaceChildren();
 		navContainer.replaceChildren();
-		registry.forEach(([pluginNamespace, pluginTitle, sections], namespaceIndex) => {
-			const sectionBlock = el.div`flex flex-col gap-6`.mount(sectionsContainer, pluginNamespace);
-			el.h2`text-2xl font-bold tracking-tight text-base-content/90`.mount(
-				sectionBlock,
-				undefined,
-				(header) => (header.textContent = pluginTitle),
-			);
-			const navNamespaceStyle =
-				'link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm' +
-				(namespaceIndex > 0 ? ' mt-2' : '');
-			el.button`${navNamespaceStyle}`.mount(navContainer, pluginNamespace, (navButton) => {
-				navButton.textContent = pluginTitle;
-				navButton.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
-			});
-
-			sections.forEach((section, sectionIndex) => {
-				const sectionContainer = el.div`flex flex-col gap-2`.mount(
+		registry
+			.filter(([, , sections]) => sections.length > 0)
+			.forEach(([pluginNamespace, pluginTitle, sections], namespaceIndex) => {
+				const sectionBlock = el.div`flex flex-col gap-6`.mount(sectionsContainer, pluginNamespace);
+				el.h2`text-2xl font-bold tracking-tight text-base-content/90`.mount(
 					sectionBlock,
-					String(sectionIndex),
-				);
-				el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
-					sectionContainer,
 					undefined,
-					(divider) => (divider.textContent = section.title),
+					(header) => (header.textContent = pluginTitle),
 				);
-				el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
-					navContainer,
-					undefined,
-					(header) => {
-						header.innerHTML = section.title;
-						header.onclick = () => sectionContainer.scrollIntoView({ behavior: 'smooth' });
-					},
-				);
-				section.nodes.forEach((node) => {
-					const nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1`.mount(sectionContainer);
-					mountSettingsMenuNode(nodeContainer, node);
+				const navNamespaceStyle =
+					'link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm' +
+					(namespaceIndex > 0 ? ' mt-2' : '');
+				el.button`${navNamespaceStyle}`.mount(navContainer, pluginNamespace, (navButton) => {
+					navButton.textContent = pluginTitle;
+					navButton.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
+				});
+
+				sections.forEach((section, sectionIndex) => {
+					const sectionContainer = el.div`flex flex-col gap-2`.mount(
+						sectionBlock,
+						String(sectionIndex),
+					);
+					el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
+						sectionContainer,
+						undefined,
+						(divider) => (divider.textContent = section.title),
+					);
+					el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
+						navContainer,
+						undefined,
+						(header) => {
+							header.innerHTML = section.title;
+							header.onclick = () => sectionContainer.scrollIntoView({ behavior: 'smooth' });
+						},
+					);
+					section.nodes.forEach((node) => {
+						const nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1`.mount(sectionContainer);
+						mountSettingsMenuNode(nodeContainer, node);
+					});
 				});
 			});
-		});
 	};
 
 	return { container, navContainer, sectionsContainer, update };
@@ -624,15 +616,15 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		queueMicrotask(flushVisuals);
 	};
 
-	const openSection = (indices: SettingsSectionIndex) => {
+	const openSection = (namespace: string, section?: SettingsSection) => {
 		if (visualsScheduled) flushVisuals();
 		settingsWindow ??= createSettingsWindow();
 		settingsWindow.window.showWindow();
-		const [namespaceIndex, sectionIndex] = indices;
-		const namespace = registry[namespaceIndex]?.[0];
-		if (namespace === undefined) return;
+		const namespaceIndex = registry.findIndex(([ns]) => ns === namespace);
+		if (namespaceIndex < 0) return;
+		const sectionIndex = section ? registry[namespaceIndex][2].indexOf(section) : -1;
 		const oinkyId =
-			sectionIndex === undefined
+			sectionIndex < 0
 				? `settings/sections/${namespace}`
 				: `settings/sections/${namespace}/${sectionIndex}`;
 		settingsMenu.sectionsContainer
