@@ -293,7 +293,7 @@ const makeSwapToggle = (
 	tipAlign = 'tooltip-start',
 ): Element => {
 	const toggle =
-		el.label`swap btn btn-sm btn-square tooltip tooltip-top ${tipAlign} has-checked:btn-secondary not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`
+		el.label`swap btn btn-sm btn-square tooltip tooltip-top ${tipAlign} has-checked:btn-soft not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`
 			.element;
 	toggle.setAttribute('data-tip', tip);
 	input.classList = 'sr-only';
@@ -528,7 +528,7 @@ const mountNodeHeader = (
 		header.append(...trailing);
 	}
 	if (node.reset) {
-		el.button`btn btn-xs btn-square btn-soft btn-secondary opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
+		el.button`btn btn-xs btn-square btn-soft btn-soft opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
 			header,
 			'reset',
 			(resetButton) => {

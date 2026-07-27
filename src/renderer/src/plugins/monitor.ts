@@ -68,7 +68,7 @@ const notify = (
 // #region tray menu
 
 const toggleStyle =
-	'swap btn btn-square btn-xs tooltip tooltip-secondary tooltip-start has-checked:btn-secondary not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error';
+	'swap btn btn-square btn-xs tooltip tooltip-secondary tooltip-start has-checked:btn-soft not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error';
 
 const initTrayMenu = (
 	lifecycle: Lifecycle,
