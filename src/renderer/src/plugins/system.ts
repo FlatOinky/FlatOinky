@@ -6,6 +6,7 @@ const initialSettings = {
 	enabledDevtools: false,
 	enableDarkenSky: true,
 	enableDynamicCanvas_beta: false,
+	enableProjectileCleanup: true,
 };
 
 // The FlatMMO canvas renders at a fixed internal resolution; everything else is
@@ -86,6 +87,44 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lif
 	// Size once after the game's table layout has settled.
 	requestAnimationFrame(() => applyCanvasSize());
 	return dynamicCanvasLifecycle;
+};
+
+// #endregion
+
+// #region projectiles
+
+// FlatMMO only removes a projectile once it reaches its target, and the
+// player-projectile paint loop never checks whether that target still exists.
+// SET_MAP drops every non-local player, so anything mid-flight is stranded on
+// the canvas (and keeps its frame interval alive) for the rest of the session.
+const sweepProjectiles = (force = false): void => {
+	for (const [uuid, projectile] of Object.entries(projectile_to_player_objects)) {
+		if (!force && players[projectile.username_to_target]) continue;
+		clearInterval(projectile.frames_interval_1);
+		delete projectile_to_player_objects[uuid];
+	}
+	for (const [uuid, projectile] of Object.entries(projectile_objects)) {
+		if (!force && npcs[projectile.npc_uuid_target]) continue;
+		clearInterval(projectile.frames_interval_1);
+		delete projectile_objects[uuid];
+	}
+	if (!force) return;
+	// Environment projectiles have no target to test, so only the manual clear
+	// touches them; SET_MAP already resets them inside the game's own scope.
+	for (const [uuid, projectile] of Object.entries(projectile_environment_objects)) {
+		clearInterval(projectile.frames_interval_1);
+		delete projectile_environment_objects[uuid];
+	}
+};
+
+let sweepScheduled = false;
+const scheduleSweep = (): void => {
+	if (sweepScheduled) return;
+	sweepScheduled = true;
+	queueMicrotask(() => {
+		sweepScheduled = false;
+		sweepProjectiles();
+	});
 };
 
 // #endregion
@@ -259,6 +298,32 @@ export const SystemPlugin: Plugin = {
 					};
 				}),
 			},
+			{
+				label: 'Clear Stuck Projectiles',
+				description:
+					'Automatically remove projectiles whose target left the map, so they stop drawing on the canvas.',
+				specialType: 'toggle',
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.enableProjectileCleanup;
+					input.onchange = () => {
+						settings.enableProjectileCleanup = input.checked;
+					};
+				}),
+			},
+			el.div`flex items-center justify-between gap-2`.then((container) => {
+				el.div`flex flex-col gap-0.5`.mount(container, undefined, (text) => {
+					el.span`font-medium text-sm`.mount(text, undefined, (label) => {
+						label.textContent = 'Clear Projectiles Now';
+					});
+					el.span`text-xs text-base-content/60`.mount(text, undefined, (description) => {
+						description.textContent = 'Remove every projectile currently drawn on the canvas.';
+					});
+				});
+				el.button`btn btn-sm`.mount(container, undefined, (button) => {
+					button.textContent = 'Clear';
+					button.onclick = () => sweepProjectiles(true);
+				});
+			}),
 		]);
 
 		initUpdates(lifecycle, context, settingsMenu);
@@ -289,6 +354,17 @@ export const SystemPlugin: Plugin = {
 					context.canvas.style.filter = '';
 					darkenSkyLifecycle = null;
 				});
+			},
+			hookServerCommand: (command) => {
+				if (!settings.enableProjectileCleanup) return true;
+				switch (command) {
+					case 'SET_MAP':
+					case 'CLIENT_REMOVE_PLAYER':
+					case 'CLEAR_CLIENT_NPC':
+					case 'CLEAR_CLIENT_NPCS':
+						scheduleSweep();
+				}
+				return true;
 			},
 		};
 	},

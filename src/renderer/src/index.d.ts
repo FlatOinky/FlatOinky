@@ -33,6 +33,20 @@ export type FMMOPlayer = {
 	y: string;
 };
 
+export type FMMONpcProjectile = {
+	npc_uuid_target: string;
+	frames_interval_1: ReturnType<typeof setInterval>;
+};
+
+export type FMMOPlayerProjectile = {
+	username_to_target: string;
+	frames_interval_1: ReturnType<typeof setInterval>;
+};
+
+export type FMMOEnvironmentProjectile = {
+	frames_interval_1: ReturnType<typeof setInterval>;
+};
+
 declare global {
 	interface Window {
 		// Electron stuff
@@ -87,5 +101,9 @@ declare global {
 	var sound_off: boolean;
 	var music_off: boolean;
 	var players: { [username: string]: FMMOPlayer };
+	var npcs: { [uuid: string]: object };
+	var projectile_objects: { [uuid: string]: FMMONpcProjectile };
+	var projectile_to_player_objects: { [uuid: string]: FMMOPlayerProjectile };
+	var projectile_environment_objects: { [uuid: string]: FMMOEnvironmentProjectile };
 	var valid_skills: Set<string>;
 }
