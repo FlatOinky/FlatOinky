@@ -69,7 +69,7 @@ client.
 
 ### Allowed without prompting
 
-- Read files, list directories
+- Read files, list directories, inside project folder
 - Single file linting, type checking, formatting
 
 ### Require approval first
@@ -78,3 +78,4 @@ client.
 - Git operations (`git push`, `git commit`)
 - File deletion
 - Running a full build (`pnpm build`, `pnpm build:win`, `pnpm build:linux`)
+- Read files, list directories, outside project folder
