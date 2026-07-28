@@ -72,8 +72,9 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    - `global` — all characters / this install
    - `profile` — shared across characters on the same profile
    - `character` — one character only
-   Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC
-   automatically. Do not re-save manually.
+
+     Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC
+     automatically. Do not re-save manually.
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is

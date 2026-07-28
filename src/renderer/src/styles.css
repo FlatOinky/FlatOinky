@@ -95,7 +95,7 @@
 
 /* Colors sampled from Flat MMO UI (cream panels, pink rows, neon status dots) */
 @plugin "daisyui/theme" {
-	name: "flatmmo";
+	name: 'flatmmo';
 	color-scheme: light;
 
 	/* Panel parchment + slot/tab chrome */
@@ -141,7 +141,7 @@
 
 /* Flat MMO palette shifted pinker for Flat Oinky */
 @plugin "daisyui/theme" {
-	name: "flatoinky";
+	name: 'flatoinky';
 	color-scheme: light;
 
 	/* Rose parchment + pink chrome */
