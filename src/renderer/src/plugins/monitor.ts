@@ -1,4 +1,5 @@
 import notificationMp3 from '../assets/notification.mp3';
+import type { SettingsAlertComboNode } from '../client/settings';
 import { Lifecycle, Plugin, PluginContext } from '../client';
 import { createNotification } from '../client/ipc_renderer';
 import * as el from '../client/ui/elements';
@@ -185,12 +186,13 @@ const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => 
 const makeAlertNode = (
 	label: string,
 	scope: AlertScope,
-	defaults: AlertScope,
-	onTest: () => void,
-	description?: string,
-) => ({
+	options: Omit<
+		SettingsAlertComboNode,
+		'label' | 'specialType' | 'notificationInput' | 'audioInput' | 'volumeInput'
+	>,
+): SettingsAlertComboNode => ({
+	...options,
 	label,
-	description,
 	specialType: 'alertCombo' as const,
 	notificationInput: el.input.checkbox``.then((input) => {
 		input.checked = scope.enableNotification;
@@ -207,12 +209,6 @@ const makeAlertNode = (
 		input.value = String(scope.audioVolume);
 		input.onchange = () => (scope.audioVolume = parseFloat(input.value));
 	}),
-	onTest,
-	reset: (notification: HTMLInputElement, audio: HTMLInputElement, volume: HTMLInputElement) => {
-		notification.checked = defaults.enableNotification;
-		audio.checked = defaults.enableAudio;
-		volume.value = String(defaults.audioVolume);
-	},
 });
 
 // #region Plugin
@@ -231,30 +227,33 @@ export const MonitorPlugin: Plugin = {
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Global', [
-			makeAlertNode(
-				'Global Controls',
-				settings.global,
-				initialSettings.global,
-				() => {
+			makeAlertNode('Global Controls', settings.global, {
+				description: 'Master switches that gate every alert.',
+				onTest: () => {
 					alertAudio.currentTime = 0;
 					notify(alertAudio, settings, 'Test', 'This is a test notification');
 				},
-				'Master switches that gate every alert.',
-			),
+				reset: (
+					notification: HTMLInputElement,
+					audio: HTMLInputElement,
+					volume: HTMLInputElement,
+				) => {
+					notification.checked = initialSettings.global.enableNotification;
+					audio.checked = initialSettings.global.enableAudio;
+					volume.value = String(initialSettings.global.audioVolume);
+				},
+			}),
 		]);
 		settingsMenu.mountSection(
 			'Audio Cues',
 			Object.entries(audioCues).map(([key, audioCue]) => {
 				const audioCueKey = key as AudioCueKey;
-				return makeAlertNode(
-					audioCue.title,
-					settings.audioCues[audioCueKey],
-					initialSettings.audioCues[audioCueKey],
-					() => {
+				return makeAlertNode(audioCue.title, settings.audioCues[audioCueKey], {
+					onTest: () => {
 						alertAudio.currentTime = 0;
 						notify(alertAudio, settings, audioCue.title, undefined, audioCueKey);
 					},
-				);
+				});
 			}),
 		);
 

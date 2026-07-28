@@ -224,8 +224,6 @@ export const SystemPlugin: Plugin = {
 			dynamicCanvasLifecycle = initDynamicCanvas(lifecycle, context.canvas);
 		};
 
-		initUpdates(lifecycle, context, settingsMenu);
-
 		context.ui.taskbar.initMenuAction(lifecycle, 'restart', 'Reload Window', () => reloadWindow());
 		context.ui.taskbar.initMenuAction(
 			lifecycle,
@@ -262,6 +260,8 @@ export const SystemPlugin: Plugin = {
 				}),
 			},
 		]);
+
+		initUpdates(lifecycle, context, settingsMenu);
 
 		settingsMenu.mountSection('Devtools', [
 			{

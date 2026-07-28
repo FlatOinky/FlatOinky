@@ -22,7 +22,7 @@ type SettingsInputNode =
 	| (SettingsInputBase & { specialType?: 'toggle' | 'textarea' | 'select' })
 	| (SettingsInputBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] })
 	| (SettingsInputBase & { specialType: 'selectColorCombo'; options: SettingsNodeOption[] });
-type SettingsAlertComboNode = SettingsNodeBase<
+export type SettingsAlertComboNode = SettingsNodeBase<
 	[HTMLInputElement, HTMLInputElement, HTMLInputElement]
 > & {
 	specialType: 'alertCombo';
