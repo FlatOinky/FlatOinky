@@ -222,8 +222,12 @@ export const MonitorPlugin: Plugin = {
 	description: 'Desktop/sound alerts for audioCue events, plus a crafting progress indicator.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('alertSettings', initialSettings);
-		const alertAudio = new Audio(notificationMp3);
+		const alertAudio = new Audio(settings.global.customSound ?? notificationMp3);
 		lifecycle.onCleanup(() => alertAudio.remove());
+
+		const applyCustomSound = (url?: string) => {
+			alertAudio.src = url ?? notificationMp3;
+		};
 
 		initTrayMenu(lifecycle, context, settings, alertAudio);
 		const craftingActivity = mountCraftingActivity(lifecycle, context);
@@ -246,6 +250,22 @@ export const MonitorPlugin: Plugin = {
 					volume.value = String(initialSettings.global.audioVolume);
 				},
 			}),
+			{
+				label: 'Custom sound',
+				description: 'URL of an audio file to play for alerts. Leave blank for the default.',
+				reset: (input) => (input.value = ''),
+				input: el.input.url``.then((input) => {
+					input.value = settings.global.customSound ?? '';
+					input.placeholder = 'https://example.com/alert.mp3';
+					input.onchange = () => {
+						if (!input.checkValidity()) return;
+						const trimmed = input.value.trim();
+						const value = trimmed === '' ? undefined : trimmed;
+						settings.global.customSound = value;
+						applyCustomSound(value);
+					};
+				}),
+			},
 		]);
 		settingsMenu.mountSection(
 			'Audio Cues',

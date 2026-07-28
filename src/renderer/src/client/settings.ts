@@ -275,6 +275,9 @@ const makeSelectColorComboChild = (
 const boundRangeInputs = new WeakSet<SettingsInput>();
 const rangeValueLabels = new WeakMap<SettingsInput, HTMLElement>();
 
+/** Applied to `type="url"` inputs via `pattern`; implicitly anchored by the browser. */
+const urlPattern = /(?:https?|file):\/\/\S+/;
+
 const makeNodeChild = (node: SettingsInputNode): Element => {
 	const getValueDisplay = () =>
 		(node.valuePrefix ?? '') + node.input.value + (node.valueSuffix ?? '');
@@ -350,12 +353,22 @@ const makeNodeChild = (node: SettingsInputNode): Element => {
 		case 'image':
 			node.input.classList = 'btn btn-sm';
 			return node.input;
+		case 'url': {
+			const urlInput = node.input as HTMLInputElement;
+			urlInput.classList = 'input input-sm w-full validator';
+			if (!urlInput.pattern) urlInput.pattern = urlPattern.source;
+			const container = el.div`flex flex-col gap-0.5 w-full`.element;
+			container.appendChild(urlInput);
+			el.span`validator-hint hidden text-xs`.mount(container, undefined, (hint) => {
+				hint.textContent = 'Must be an http://, https://, or file:// URL';
+			});
+			return container;
+		}
 		case 'text':
 		case 'email':
 		case 'password':
 		case 'search':
 		case 'tel':
-		case 'url':
 		case 'number':
 		case 'date':
 		case 'datetime-local':
