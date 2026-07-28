@@ -13,12 +13,15 @@ const initialAlertSettings = {
 };
 
 const audioCues = {
-	gemDrop: { path: 'sounds/short/gem.ogg', title: 'Gem Drop' },
-	fallingTree: { path: 'sounds/short/fallingtree.mp3', title: 'Falling Tree' },
-	birdNest: { path: 'sounds/short/birdnest.ogg', title: 'Bird Nest' },
-	alienEncounter: { path: 'sounds/alien.mp3', title: 'Alien Encounter' },
+	gemDrop: { file: 'gem.ogg', title: 'Gem Drop' },
+	fallingTree: { file: 'fallingtree.mp3', title: 'Falling Tree' },
+	birdNest: { file: 'birdnest.ogg', title: 'Bird Nest' },
+	alienEncounter: { file: 'alien.mp3', title: 'Alien Encounter' },
 } as const;
 type AudioCueKey = keyof typeof audioCues;
+
+const soundFileName = (source: string): string =>
+	source.split('?')[0]?.split('#')[0]?.split('/').pop()?.toLowerCase() ?? '';
 
 const initialSettings = {
 	global: {
@@ -259,10 +262,10 @@ export const MonitorPlugin: Plugin = {
 
 		return {
 			hookPlaySound: (url) => {
-				Object.entries(audioCues).forEach(([key, audioCueSound]) => {
-					if (!url.endsWith(audioCueSound.path)) return;
-					notify(alertAudio, settings, audioCueSound.title, undefined, key as AudioCueKey);
-				});
+				const file = soundFileName(url);
+				const cue = Object.entries(audioCues).find(([, audioCue]) => audioCue.file === file);
+				if (!cue) return;
+				notify(alertAudio, settings, cue[1].title, undefined, cue[0] as AudioCueKey);
 			},
 			onMakeUiChange: (item, completed, total, sessionXp) =>
 				craftingActivity.update(item, completed, total, sessionXp),
