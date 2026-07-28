@@ -10,7 +10,6 @@ import bannerLumberjackSrc from './assets/fmmo_lumberjack.gif';
 import bannerMinerSrc from './assets/fmmo_miner.gif';
 import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
-import { FMMOCharacter, FMMOReference, FMMOWorld } from '.';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
 import { hookedFunctions, initClient } from './client';
 import './styles.css';
@@ -98,7 +97,7 @@ const toReferenceName = (url: string, index: number, ext: string): string => {
 const scrubConnectString = (content: string): string =>
 	content.replace(/(Globals\.connect_str\s*=\s*)(['"]).*?\2/g, '$1"<scrubbed>"');
 
-const parseCharactersHtmlText = (htmlText: string): FMMOCharacter[] => {
+const parseCharactersHtmlText = (htmlText: string): FMMO.Character[] => {
 	if (typeof htmlText !== 'string' || htmlText.length < 1) return [];
 	const charactersDocument = parseHtmlText(htmlText);
 	const characterElements = charactersDocument.querySelectorAll(
@@ -366,9 +365,9 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 
 	// Collect the raw (untranspiled) FlatMMO sources as references, excluding
 	// third-party assets (e.g. Google Fonts) from the download.
-	const htmlReference: FMMOReference = { name: 'play.html', content: clientHtmlText };
+	const htmlReference: FMMO.Reference = { name: 'play.html', content: clientHtmlText };
 
-	const styleReferences: FMMOReference[] = Array.from(clientStyles)
+	const styleReferences: FMMO.Reference[] = Array.from(clientStyles)
 		.map((element, index) => ({ element, content: styleContents[index] ?? '' }))
 		.filter(({ element }) => !(element instanceof HTMLLinkElement) || isFirstPartyUrl(element.href))
 		.map(({ element, content }, index) => ({
@@ -376,7 +375,7 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 			content,
 		}));
 
-	const scriptReferences: FMMOReference[] = Array.from(clientScripts)
+	const scriptReferences: FMMO.Reference[] = Array.from(clientScripts)
 		.map((element, index) => ({ element, content: scriptContents[index] ?? '' }))
 		.filter(({ element }) => isFirstPartyUrl(element.src))
 		.map(({ element, content }, index) => ({
@@ -384,7 +383,7 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 			content,
 		}));
 
-	const references: FMMOReference[] = [htmlReference, ...styleReferences, ...scriptReferences].map(
+	const references: FMMO.Reference[] = [htmlReference, ...styleReferences, ...scriptReferences].map(
 		(reference) => ({ ...reference, content: scrubConnectString(reference.content) }),
 	);
 
@@ -439,7 +438,7 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 				if (worlds.length < 1) {
 					errors.worlds = 'Unable to get worlds';
 				} else {
-					flatOinky.worlds = worlds as FMMOWorld[];
+					flatOinky.worlds = worlds as FMMO.World[];
 				}
 			}
 			const characters = parseCharactersHtmlText(dashboardHtmlText);

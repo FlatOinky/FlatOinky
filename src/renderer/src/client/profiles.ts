@@ -1,5 +1,3 @@
-import { FMMOCharacter } from '..';
-
 export const profiles: { id: string; name: string }[] = (() => {
 	const storedProfiles = localStorage.getItem('oinky/profiles');
 	if (!storedProfiles) return [];
@@ -12,5 +10,5 @@ if (profiles.length < 1) {
 	profiles.push({ id: 'default', name: 'Default' });
 }
 
-export const getProfileKey = (username: FMMOCharacter['username']): string =>
+export const getProfileKey = (username: FMMO.Character['username']): string =>
 	localStorage.getItem(`oinky/characters/${username}/profileKey`) ?? profiles[0]?.id ?? 'default';

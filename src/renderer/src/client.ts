@@ -1,4 +1,3 @@
-import { FMMOCharacter, FMMOReference } from '.';
 import { ChatMessage, parseChatMessage } from './client/chat_message';
 import { createGlobalStorage, createPluginStorages } from './client/client_storage';
 import { getProfileKey } from './client/profiles';
@@ -42,7 +41,7 @@ export const initLifecycle = () => {
 
 export type ClientIpc = ReturnType<typeof initIpc>;
 
-const initIpc = (references: FMMOReference[]) => {
+const initIpc = (references: FMMO.Reference[]) => {
 	return {
 		openDevTools: () => openDevTools(),
 		saveReferences: () => saveReferences(references),
@@ -56,7 +55,7 @@ export type ClientUi = ReturnType<typeof initUi>;
 export type ClientContext = Awaited<ReturnType<typeof createContext>>;
 
 const createContext = (
-	character: FMMOCharacter,
+	character: FMMO.Character,
 	ui: ClientUi,
 	canvas: HTMLCanvasElement,
 	container: HTMLElement,
@@ -308,7 +307,7 @@ export const hookedFunctions = [
 	'pause_track',
 ];
 
-export const initClient = async (character: FMMOCharacter, references: FMMOReference[]) => {
+export const initClient = async (character: FMMO.Character, references: FMMO.Reference[]) => {
 	const canvas = document.querySelector<HTMLCanvasElement>('canvas#canvas');
 	const canvasContainer = canvas?.parentElement;
 	if (!canvas || !canvasContainer) return;

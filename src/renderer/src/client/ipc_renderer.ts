@@ -1,5 +1,4 @@
 import type { ElectronAPI } from '@electron-toolkit/preload';
-import type { FMMOReference } from '..';
 
 export const { ipcRenderer } = window.electron as ElectronAPI;
 
@@ -15,7 +14,7 @@ export const createNotification = (title: string, message?: string): void => {
 	ipcRenderer.send('createNotification', title, message);
 };
 
-export const saveReferences = (references: FMMOReference[]): void =>
+export const saveReferences = (references: FMMO.Reference[]): void =>
 	ipcRenderer.send('saveReferences', references);
 
 // #region updates

@@ -1,52 +1,6 @@
 import type { Client } from './client';
 import type { webFrame } from 'electron';
 
-export type FMMOWorld = {
-	id: number;
-	name: string;
-	wss: string;
-	players_online: number;
-	max_players_online: number;
-	world_type: string;
-};
-
-export type FMMOCharacter = {
-	id: string;
-	username: string;
-	level: string;
-};
-
-export type FMMOReference = { name: string; content: string };
-
-export type FMMOPlayer = {
-	client_pathing: unknown[];
-	client_x: number;
-	client_y: number;
-	face_left: boolean;
-	is_running: true;
-	has_all_ach: boolean;
-	has_all_quests: boolean;
-	hp: string;
-	max_hp: string;
-	total_level: number;
-	x: string;
-	y: string;
-};
-
-export type FMMONpcProjectile = {
-	npc_uuid_target: string;
-	frames_interval_1: ReturnType<typeof setInterval>;
-};
-
-export type FMMOPlayerProjectile = {
-	username_to_target: string;
-	frames_interval_1: ReturnType<typeof setInterval>;
-};
-
-export type FMMOEnvironmentProjectile = {
-	frames_interval_1: ReturnType<typeof setInterval>;
-};
-
 declare global {
 	interface Window {
 		// Electron stuff
@@ -64,9 +18,9 @@ declare global {
 		position_chat?: () => void;
 		flatOinky: {
 			page: string;
-			worlds: FMMOWorld[] | null;
+			worlds: FMMO.World[] | null;
 			worldIndex: number;
-			characters: FMMOCharacter[] | null;
+			characters: FMMO.Character[] | null;
 			characterIndex: number;
 			loading: Record<string, boolean>;
 			errors: Record<string, string>;
@@ -100,10 +54,10 @@ declare global {
 	var ground_items: object[];
 	var sound_off: boolean;
 	var music_off: boolean;
-	var players: { [username: string]: FMMOPlayer };
+	var players: { [username: string]: FMMO.Player };
 	var npcs: { [uuid: string]: object };
-	var projectile_objects: { [uuid: string]: FMMONpcProjectile };
-	var projectile_to_player_objects: { [uuid: string]: FMMOPlayerProjectile };
-	var projectile_environment_objects: { [uuid: string]: FMMOEnvironmentProjectile };
+	var projectile_objects: { [uuid: string]: FMMO.NpcProjectile };
+	var projectile_to_player_objects: { [uuid: string]: FMMO.PlayerProjectile };
+	var projectile_environment_objects: { [uuid: string]: FMMO.EnvironmentProjectile };
 	var valid_skills: Set<string>;
 }
