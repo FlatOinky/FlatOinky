@@ -247,6 +247,8 @@ export const icon = {
 	deviceDesktopExclamation: setupIconElement('icon-[tabler--device-desktop-exclamation]'),
 	dotsVertical: setupIconElement('icon-[tabler--dots-vertical]'),
 	download: setupIconElement('icon-[tabler--download]'),
+	edit: setupIconElement('icon-[tabler--edit]'),
+	editOff: setupIconElement('icon-[tabler--edit-off]'),
 	eye: setupIconElement('icon-[tabler--eye]'),
 	infoCircleFilled: setupIconElement('icon-[tabler--info-circle-filled]'),
 	infoSmall: setupIconElement('icon-[tabler--info-small]'),

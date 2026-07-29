@@ -11,6 +11,7 @@ import { initChat } from './chat/chat_panel';
 import { initialChannels, initialSettings, timestampFormatOptions } from './chat/chat_types';
 import {
 	createFilterWordsSettingsNode,
+	createHighlightVolumeSettingsNode,
 	createHighlightWordsSettingsNode,
 	initialFilterWords,
 	initialHighlightWords,
@@ -152,7 +153,8 @@ export const ChatPlugin: Plugin = {
 		]);
 
 		const highlightWordsSection = settingsMenu.mountSection('Highlight Words', [
-			createHighlightWordsSettingsNode(highlightWords, alertAudio, onSettingsChange),
+			createHighlightVolumeSettingsNode(highlightWords, alertAudio),
+			createHighlightWordsSettingsNode(highlightWords, onSettingsChange),
 		]);
 
 		const filterWordsSection = settingsMenu.mountSection('Filter Words', [

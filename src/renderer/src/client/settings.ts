@@ -21,7 +21,9 @@ type SettingsInputBase = SettingsNodeBase<[SettingsInput]> & { input: SettingsIn
 type SettingsInputNode =
 	| (SettingsInputBase & { specialType?: 'toggle' | 'textarea' | 'select' })
 	| (SettingsInputBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] })
-	| (SettingsInputBase & { specialType: 'selectColorCombo'; options: SettingsNodeOption[] });
+	| (SettingsInputBase & { specialType: 'selectColorCombo'; options: SettingsNodeOption[] })
+	| (SettingsInputBase & { specialType: 'swap'; onIcon: Element; offIcon: Element })
+	| (SettingsInputBase & { specialType: 'alertVolume'; onTest: () => void });
 export type SettingsAlertComboNode = SettingsNodeBase<
 	[HTMLInputElement, HTMLInputElement, HTMLInputElement]
 > & {
@@ -31,7 +33,16 @@ export type SettingsAlertComboNode = SettingsNodeBase<
 	volumeInput: HTMLInputElement;
 	onTest: () => void;
 };
-export type SettingsNode = Element | SettingsInputNode | SettingsAlertComboNode;
+export type SettingsAlertTogglesNode = SettingsNodeBase<[HTMLInputElement, HTMLInputElement]> & {
+	specialType: 'alertToggles';
+	notificationInput: HTMLInputElement;
+	audioInput: HTMLInputElement;
+};
+export type SettingsNode =
+	| Element
+	| SettingsInputNode
+	| SettingsAlertComboNode
+	| SettingsAlertTogglesNode;
 type SettingsRowLayout = {
 	/** CSS grid-template-columns, e.g. 'auto auto 1fr auto'; omit for equal flex cells. */
 	columns?: string;
@@ -272,6 +283,70 @@ const makeSelectColorComboChild = (
 	return container;
 };
 
+// #region swap + alert controls
+
+const makeSwapToggle = (
+	input: SettingsInput,
+	onIcon: Element,
+	offIcon: Element,
+	tip: string,
+	tipAlign = 'tooltip-start',
+): Element => {
+	const toggle =
+		el.label`swap btn btn-sm btn-square tooltip tooltip-top ${tipAlign} has-checked:btn-secondary not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`
+			.element;
+	toggle.setAttribute('data-tip', tip);
+	input.classList = 'sr-only';
+	onIcon.classList.add('swap-on');
+	offIcon.classList.add('swap-off');
+	toggle.append(input, onIcon, offIcon);
+	return toggle;
+};
+
+const boundAlertVolumeInputs = new WeakSet<SettingsInput>();
+const alertVolumeLabels = new WeakMap<SettingsInput, HTMLElement>();
+
+const makeAlertVolume = (input: SettingsInput): Element => {
+	const container = el.div`flex gap-2 items-center w-full min-w-0`.element;
+	input.classList = 'range range-sm flex-1 min-w-0';
+	container.appendChild(input);
+	el.span`text-xs tabular-nums w-9 text-right text-base-content/70`.mount(
+		container,
+		undefined,
+		(label) => {
+			alertVolumeLabels.set(input, label);
+			const updateDisplay = () => {
+				const activeLabel = alertVolumeLabels.get(input);
+				if (!activeLabel) return;
+				const min = Number(input.getAttribute('min') || 0);
+				const max = Number(input.getAttribute('max') || 1);
+				const value = Number(input.value);
+				const ratio = max === min ? 0 : (value - min) / (max - min);
+				activeLabel.textContent = `${Math.round(ratio * 100)}%`;
+			};
+			updateDisplay();
+			if (!boundAlertVolumeInputs.has(input)) {
+				boundAlertVolumeInputs.add(input);
+				input.addEventListener('input', updateDisplay);
+				input.addEventListener('change', updateDisplay);
+			}
+		},
+	);
+	return container;
+};
+
+const makeAlertTestButton = (onTest: () => void): Element =>
+	el.button`btn btn-sm btn-square btn-soft btn-accent tooltip tooltip-top tooltip-end`.then(
+		(button) => {
+			button.type = 'button';
+			button.setAttribute('data-tip', 'Test alert');
+			el.icon.play`size-4`.mount(button);
+			button.onclick = onTest;
+		},
+	);
+
+// #region makeNodeChild
+
 const boundRangeInputs = new WeakSet<SettingsInput>();
 const rangeValueLabels = new WeakMap<SettingsInput, HTMLElement>();
 
@@ -286,6 +361,14 @@ const makeNodeChild = (node: SettingsInputNode): Element => {
 	}
 	if (node.specialType === 'selectColorCombo') {
 		return makeSelectColorComboChild(node);
+	}
+	if (node.specialType === 'swap') {
+		return makeSwapToggle(node.input, node.onIcon, node.offIcon, node.tooltip ?? '', 'tooltip-end');
+	}
+	if (node.specialType === 'alertVolume') {
+		const container = el.div`flex gap-2 items-center w-full`.element;
+		container.append(makeAlertVolume(node.input), makeAlertTestButton(node.onTest));
+		return container;
 	}
 	if (node.input instanceof HTMLTextAreaElement) {
 		node.input.classList = 'textarea textarea-sm w-full';
@@ -409,6 +492,10 @@ const applyReset = (node: Exclude<SettingsNode, Element>) => {
 		const inputs = [node.notificationInput, node.audioInput, node.volumeInput] as const;
 		return dispatchChanged(inputs, () => node.reset?.(...inputs));
 	}
+	if (node.specialType === 'alertToggles') {
+		const inputs = [node.notificationInput, node.audioInput] as const;
+		return dispatchChanged(inputs, () => node.reset?.(...inputs));
+	}
 	dispatchChanged([node.input], () => node.reset?.(node.input));
 };
 
@@ -416,12 +503,14 @@ const mountNodeHeader = (
 	container: HTMLElement,
 	node: Exclude<SettingsNode, Element>,
 	leading?: Element,
+	trailing?: Element[],
 ) => {
 	const header = el.div`flex gap-2 items-center`.mount(container);
 	if (leading) {
 		header.appendChild(leading);
 	}
-	if (node.tooltip) {
+	// The swap layout carries the tooltip on its control, so the info icon is redundant.
+	if (node.tooltip && node.specialType !== 'swap') {
 		const tooltip = el.tooltip.info`tooltip-top tooltip-start text-base-content/50`.mount(header);
 		tooltip.setAttribute('data-tip', node.tooltip);
 	}
@@ -435,6 +524,9 @@ const mountNodeHeader = (
 		},
 	);
 	el.span`flex-1 w-full`.mount(header);
+	if (trailing) {
+		header.append(...trailing);
+	}
 	if (node.reset) {
 		el.button`btn btn-xs btn-square btn-soft btn-secondary opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
 			header,
@@ -465,66 +557,7 @@ const mountNodeDescription = (
 	}
 };
 
-// #region alertCombo
-
-const makeAlertToggle = (
-	input: HTMLInputElement,
-	onIcon: Element,
-	offIcon: Element,
-	tip: string,
-): Element => {
-	const toggle =
-		el.label`swap btn btn-sm btn-square tooltip tooltip-top tooltip-start has-checked:btn-secondary not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`
-			.element;
-	toggle.setAttribute('data-tip', tip);
-	input.classList = 'sr-only';
-	onIcon.classList.add('swap-on');
-	offIcon.classList.add('swap-off');
-	toggle.append(input, onIcon, offIcon);
-	return toggle;
-};
-
-const boundAlertVolumeInputs = new WeakSet<HTMLInputElement>();
-const alertVolumeLabels = new WeakMap<HTMLInputElement, HTMLElement>();
-
-const makeAlertVolume = (input: HTMLInputElement): Element => {
-	const container = el.div`flex gap-2 items-center w-full min-w-0`.element;
-	input.classList = 'range range-sm flex-1 min-w-0';
-	container.appendChild(input);
-	el.span`text-xs tabular-nums w-9 text-right text-base-content/70`.mount(
-		container,
-		undefined,
-		(label) => {
-			alertVolumeLabels.set(input, label);
-			const updateDisplay = () => {
-				const activeLabel = alertVolumeLabels.get(input);
-				if (!activeLabel) return;
-				const min = Number(input.min || 0);
-				const max = Number(input.max || 1);
-				const value = Number(input.value);
-				const ratio = max === min ? 0 : (value - min) / (max - min);
-				activeLabel.textContent = `${Math.round(ratio * 100)}%`;
-			};
-			updateDisplay();
-			if (!boundAlertVolumeInputs.has(input)) {
-				boundAlertVolumeInputs.add(input);
-				input.addEventListener('input', updateDisplay);
-				input.addEventListener('change', updateDisplay);
-			}
-		},
-	);
-	return container;
-};
-
-const makeAlertTestButton = (onTest: () => void): Element =>
-	el.button`btn btn-sm btn-square btn-soft btn-accent tooltip tooltip-top tooltip-end`.then(
-		(button) => {
-			button.type = 'button';
-			button.setAttribute('data-tip', 'Test alert');
-			el.icon.play`size-4`.mount(button);
-			button.onclick = onTest;
-		},
-	);
+// #region alert nodes
 
 const mountRowNode = (
 	container: HTMLElement,
@@ -546,13 +579,13 @@ const mountAlertComboNode = (container: HTMLElement, node: SettingsAlertComboNod
 	mountRowNode(container, node, {
 		columns: 'auto auto 1fr auto',
 		cells: [
-			makeAlertToggle(
+			makeSwapToggle(
 				node.notificationInput,
 				el.icon.bell`size-4`.element,
 				el.icon.bellOff`size-4`.element,
 				'Desktop notifications',
 			),
-			makeAlertToggle(
+			makeSwapToggle(
 				node.audioInput,
 				el.icon.volume`size-4`.element,
 				el.icon.volumeOff`size-4`.element,
@@ -563,6 +596,27 @@ const mountAlertComboNode = (container: HTMLElement, node: SettingsAlertComboNod
 		],
 	});
 
+/** Label on the left, notification/audio toggles right-aligned; volume lives elsewhere. */
+const mountAlertTogglesNode = (container: HTMLElement, node: SettingsAlertTogglesNode) => {
+	mountNodeHeader(container, node, undefined, [
+		makeSwapToggle(
+			node.notificationInput,
+			el.icon.bell`size-4`.element,
+			el.icon.bellOff`size-4`.element,
+			'Desktop notifications',
+			'tooltip-end',
+		),
+		makeSwapToggle(
+			node.audioInput,
+			el.icon.volume`size-4`.element,
+			el.icon.volumeOff`size-4`.element,
+			'Alert sound',
+			'tooltip-end',
+		),
+	]);
+	mountNodeDescription(container, node);
+};
+
 export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
 	if (node instanceof Element) {
 		container.appendChild(node);
@@ -570,6 +624,10 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 	}
 	if (node.specialType === 'alertCombo') {
 		mountAlertComboNode(container, node);
+		return;
+	}
+	if (node.specialType === 'alertToggles') {
+		mountAlertTogglesNode(container, node);
 		return;
 	}
 	if (node.input instanceof HTMLTextAreaElement) {
@@ -589,6 +647,7 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 		case 'select':
 		case 'selectTextCombo':
 		case 'selectColorCombo':
+		case 'alertVolume':
 		case 'file':
 		case 'color':
 		case 'text':
@@ -614,6 +673,12 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 		case 'radio': {
 			// NOTE: Single-line layout — control left, label right.
 			mountNodeHeader(container, node, nodeChild);
+			mountNodeDescription(container, node);
+			break;
+		}
+		case 'swap': {
+			// NOTE: Single-line layout — label left, control right.
+			mountNodeHeader(container, node, undefined, [nodeChild]);
 			mountNodeDescription(container, node);
 			break;
 		}

@@ -1,6 +1,6 @@
 import { ChatMessage } from '../../client';
 import { createNotification } from '../../client/ipc_renderer';
-import { mountSettingsMenuNode } from '../../client/settings';
+import { mountSettingsMenuNode, SettingsNode } from '../../client/settings';
 import * as el from '../../client/ui/elements';
 import { createListEditor } from './chat_list_editor';
 import { MutedPlayers } from './chat_muted';
@@ -9,18 +9,18 @@ export const initialHighlightWordEntry = {
 	word: '',
 	enableNotification: false,
 	enableAudio: false,
-	audioVolume: 0.35,
 };
 
 export type HighlightWordEntry = {
 	word: string;
 	enableNotification: boolean;
 	enableAudio: boolean;
-	audioVolume: number;
 };
 
 export const initialHighlightWords = {
 	entries: [] as HighlightWordEntry[],
+	/** Shared by every highlight word; individual entries only toggle alerts on or off. */
+	audioVolume: 0.35,
 };
 export type HighlightWords = typeof initialHighlightWords;
 
@@ -65,8 +65,8 @@ const entryEnableNotification = (entry: HighlightWordEntry): boolean =>
 const entryEnableAudio = (entry: HighlightWordEntry): boolean =>
 	entry.enableAudio ?? initialHighlightWordEntry.enableAudio;
 
-const entryAudioVolume = (entry: HighlightWordEntry): number =>
-	entry.audioVolume ?? initialHighlightWordEntry.audioVolume;
+const highlightAudioVolume = (highlight: HighlightWords): number =>
+	highlight.audioVolume ?? initialHighlightWords.audioVolume;
 
 const entryFilterFromLog = (entry: FilterWordEntry): boolean =>
 	entry.filterFromLog ?? initialFilterWordEntry.filterFromLog;
@@ -229,19 +229,10 @@ const removeFilterEntry = (filter: FilterWords, word: string): void => {
 	filter.entries = filterEntries(filter).filter((entry) => entry.word !== word);
 };
 
-export const playHighlightAlert = (
-	alertAudio: HTMLAudioElement,
-	entry: HighlightWordEntry,
-	message?: string,
-): void => {
-	if (entryEnableNotification(entry)) {
-		createNotification(entryWord(entry) || 'Highlight', message);
-	}
-	if (entryEnableAudio(entry)) {
-		alertAudio.currentTime = 0;
-		alertAudio.volume = entryAudioVolume(entry);
-		void alertAudio.play();
-	}
+const previewHighlightAlert = (alertAudio: HTMLAudioElement, highlight: HighlightWords): void => {
+	alertAudio.currentTime = 0;
+	alertAudio.volume = highlightAudioVolume(highlight);
+	void alertAudio.play();
 };
 
 export const notifyHighlightMatches = (
@@ -264,16 +255,31 @@ export const notifyHighlightMatches = (
 		createNotification(entryWord(notifyMatches[0]), body);
 	}
 	if (audioMatches.length > 0) {
-		const volume = Math.max(...audioMatches.map((entry) => entryAudioVolume(entry)));
 		alertAudio.currentTime = 0;
-		alertAudio.volume = volume;
+		alertAudio.volume = highlightAudioVolume(highlight);
 		void alertAudio.play();
 	}
 };
 
-export const createHighlightWordsSettingsNode = (
+export const createHighlightVolumeSettingsNode = (
 	highlight: HighlightWords,
 	alertAudio: HTMLAudioElement,
+): SettingsNode => ({
+	label: 'Alert volume',
+	description: 'Volume of the alert sound, shared by every highlight word.',
+	specialType: 'alertVolume',
+	onTest: () => previewHighlightAlert(alertAudio, highlight),
+	input: el.input.range``.then((input) => {
+		input.min = '0';
+		input.max = '1';
+		input.step = '0.05';
+		input.value = String(highlightAudioVolume(highlight));
+		input.onchange = () => (highlight.audioVolume = parseFloat(input.value));
+	}),
+});
+
+export const createHighlightWordsSettingsNode = (
+	highlight: HighlightWords,
 	onChange?: () => void,
 ): Element =>
 	createListEditor({
@@ -289,7 +295,7 @@ export const createHighlightWordsSettingsNode = (
 		renderItem: (body, entry) => {
 			mountSettingsMenuNode(body, {
 				label: entry.word,
-				specialType: 'alertCombo',
+				specialType: 'alertToggles',
 				notificationInput: el.input.checkbox``.then((input) => {
 					input.checked = entryEnableNotification(entry);
 					input.onchange = () => {
@@ -304,27 +310,6 @@ export const createHighlightWordsSettingsNode = (
 						updateHighlightEntry(highlight, entry.word, { enableAudio: input.checked });
 					};
 				}),
-				volumeInput: el.input.range``.then((input) => {
-					input.min = '0';
-					input.max = '1';
-					input.step = '0.05';
-					input.value = String(entryAudioVolume(entry));
-					input.onchange = () => {
-						updateHighlightEntry(highlight, entry.word, {
-							audioVolume: parseFloat(input.value),
-						});
-					};
-				}),
-				onTest: () => {
-					const current =
-						highlightEntries(highlight).find((item) => item.word === entry.word) ?? entry;
-					playHighlightAlert(alertAudio, current, `Test alert for "${entry.word}"`);
-				},
-				reset: (notification, audio, volume) => {
-					notification.checked = initialHighlightWordEntry.enableNotification;
-					audio.checked = initialHighlightWordEntry.enableAudio;
-					volume.value = String(initialHighlightWordEntry.audioVolume);
-				},
 			});
 		},
 	});
@@ -346,7 +331,9 @@ export const createFilterWordsSettingsNode = (
 			mountSettingsMenuNode(body, {
 				label: entry.word,
 				tooltip: 'Also drop this word from the chat log',
-				specialType: 'toggle',
+				specialType: 'swap',
+				onIcon: el.icon.editOff`size-4`.element,
+				offIcon: el.icon.edit`size-4`.element,
 				input: el.input.checkbox``.then((input) => {
 					input.id = `filter-word-${crypto.randomUUID()}`;
 					input.checked = entryFilterFromLog(entry);

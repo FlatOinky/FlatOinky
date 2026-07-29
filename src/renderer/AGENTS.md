@@ -78,7 +78,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
-   `toggle | textarea | select | selectTextCombo | selectColorCombo | alertCombo`
+   one of `toggle`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
+   `alertVolume`, `alertCombo`, or `alertToggles`
    (see [src/client/settings.ts](src/client/settings.ts)).
 5. **UI** — on `context.ui`:
    - Taskbar: `initMenuItem`, `initTrayButton`, `initTrayButtonMenu`, `initWidget`,
