@@ -1,8 +1,10 @@
 import { ipcRenderer } from '../../client/ipc_renderer';
 import * as el from '../../client/ui/elements';
 import { getMessageBg, renderMessageLi } from './chat_messages';
+import { isChatMessageMutedFromLog } from './chat_muted';
 import { chatMessages } from './chat_state';
 import { ChatElements, namespace, Settings } from './chat_types';
+import { ChatFilters, isChatMessageFilteredFromLog } from './chat_words';
 
 export const mountChatLog = (root: HTMLElement) => {
 	const logModal = el.dialog`modal`.mount(root, 'log-modal');
@@ -56,14 +58,23 @@ export const mountChatLog = (root: HTMLElement) => {
 	return { logModal, logContainer, logGoTop, logGoUp, logGoDown, logGoBottom, logExport };
 };
 
-export const wireChatLog = (elements: ChatElements, settings: Settings): void => {
+export const wireChatLog = (
+	elements: ChatElements,
+	settings: Settings,
+	filters: ChatFilters,
+): void => {
 	const modalId = `oinky/${namespace}/`;
 	const { logActivator, logModal, logContainer } = elements;
 	logActivator.onclick = () => {
 		opened_modals.add(modalId);
+		const logMessages = chatMessages.filter(
+			(chatMessage) =>
+				!isChatMessageMutedFromLog(chatMessage, filters.muted) &&
+				!isChatMessageFilteredFromLog(chatMessage, filters.filter),
+		);
 		logContainer.replaceChildren(
-			...chatMessages.map((chatMessage) =>
-				renderMessageLi(chatMessage, settings, getMessageBg(false)),
+			...logMessages.map((chatMessage) =>
+				renderMessageLi(chatMessage, settings, getMessageBg(false), filters),
 			),
 		);
 		logContainer.scrollTop = logContainer.scrollHeight;

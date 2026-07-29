@@ -31,7 +31,7 @@ export type SettingsAlertComboNode = SettingsNodeBase<
 	volumeInput: HTMLInputElement;
 	onTest: () => void;
 };
-type SettingsNode = Element | SettingsInputNode | SettingsAlertComboNode;
+export type SettingsNode = Element | SettingsInputNode | SettingsAlertComboNode;
 type SettingsRowLayout = {
 	/** CSS grid-template-columns, e.g. 'auto auto 1fr auto'; omit for equal flex cells. */
 	columns?: string;
@@ -563,7 +563,7 @@ const mountAlertComboNode = (container: HTMLElement, node: SettingsAlertComboNod
 		],
 	});
 
-const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
+export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
 	if (node instanceof Element) {
 		container.appendChild(node);
 		return;

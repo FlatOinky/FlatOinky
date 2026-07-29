@@ -66,6 +66,9 @@ const routeUpdate = (path: readonly (string | number | symbol)[], value: unknown
 
 const clone = <T>(data: T): T => JSON.parse(JSON.stringify(data));
 
+const plainValue = <T>(value: T): T =>
+	typeof value === 'object' && value !== null ? clone(value) : value;
+
 const deepProxy = <T extends object>(
 	target: T,
 	onChange: (
@@ -89,8 +92,9 @@ const deepProxy = <T extends object>(
 		set(target, property, newValue, receiver) {
 			const oldValue = Reflect.get(target, property, receiver);
 			if (oldValue === newValue) return true;
-			Reflect.set(target, property, newValue, receiver);
-			onChange([...path, property], newValue, oldValue);
+			const value = plainValue(newValue);
+			Reflect.set(target, property, value, receiver);
+			onChange([...path, property], value, oldValue);
 			return true;
 		},
 		deleteProperty(target, property) {
@@ -121,8 +125,9 @@ const wrapStorageData = (
 		},
 		set(property, value) {
 			const path = resolve(property);
-			dot.setProperty(state, path, value);
-			routeUpdate(path, value);
+			const next = plainValue(value);
+			dot.setProperty(state, path, next);
+			routeUpdate(path, next);
 		},
 		delete(property) {
 			const path = resolve(property);

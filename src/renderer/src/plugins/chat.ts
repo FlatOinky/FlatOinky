@@ -1,6 +1,7 @@
+import notificationMp3 from '../assets/notification.mp3';
 import { Plugin } from '../client';
 import * as el from '../client/ui/elements';
-import { applyChatSettings, mountChatMessage } from './chat/chat_messages';
+import { applyChatSettings, mountChatMessage, storeChatMessage } from './chat/chat_messages';
 import {
 	createMutedPlayersSettingsNode,
 	initialMutedPlayers,
@@ -8,6 +9,15 @@ import {
 } from './chat/chat_muted';
 import { initChat } from './chat/chat_panel';
 import { initialChannels, initialSettings, timestampFormatOptions } from './chat/chat_types';
+import {
+	createFilterWordsSettingsNode,
+	createHighlightWordsSettingsNode,
+	initialFilterWords,
+	initialHighlightWords,
+	isChatMessageFiltered,
+	isChatMessageFilteredFromLog,
+	notifyHighlightMatches,
+} from './chat/chat_words';
 
 export const ChatPlugin: Plugin = {
 	namespace: 'core/chat',
@@ -17,12 +27,24 @@ export const ChatPlugin: Plugin = {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const channels = context.storages.character.reactive('channels', initialChannels);
 		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
+		const highlightWords = context.storages.global.reactive(
+			'highlightWords',
+			initialHighlightWords,
+		);
+		const filterWords = context.storages.global.reactive('filterWords', initialFilterWords);
+		const filters = {
+			highlight: highlightWords,
+			filter: filterWords,
+			muted: mutedPlayers,
+		};
+		const alertAudio = new Audio(notificationMp3);
+		lifecycle.onCleanup(() => alertAudio.remove());
 		const settingsMenu = context.settings.initMenu(lifecycle);
 
-		const elements = initChat(lifecycle, context, settings, channels);
+		const elements = initChat(lifecycle, context, settings, channels, filters);
 
 		const onSettingsChange = () => {
-			applyChatSettings(elements, settings);
+			applyChatSettings(elements, settings, filters);
 		};
 
 		const toggleSetting = (
@@ -129,13 +151,41 @@ export const ChatPlugin: Plugin = {
 			),
 		]);
 
+		const highlightWordsSection = settingsMenu.mountSection('Highlight Words', [
+			createHighlightWordsSettingsNode(highlightWords, alertAudio, onSettingsChange),
+		]);
+
+		const filterWordsSection = settingsMenu.mountSection('Filter Words', [
+			createFilterWordsSettingsNode(filterWords, onSettingsChange),
+		]);
+
 		const mutedPlayersSection = settingsMenu.mountSection('Muted Players', [
+			{
+				label: 'Discard muted messages',
+				description: 'Drop muted messages entirely instead of keeping them in the chat log.',
+				specialType: 'toggle' as const,
+				input: el.input.checkbox``.then((input) => {
+					input.checked = mutedPlayers.discardMessages;
+					input.onchange = () => {
+						mutedPlayers.discardMessages = input.checked;
+						onSettingsChange();
+					};
+				}),
+			},
 			createMutedPlayersSettingsNode(mutedPlayers),
 		]);
 
 		elements.settingsActivator.onclick = () => {
 			elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
 			settingsMenu.open();
+		};
+		elements.highlightWordsActivator.onclick = () => {
+			elements.highlightWordsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+			highlightWordsSection.open();
+		};
+		elements.filterWordsActivator.onclick = () => {
+			elements.filterWordsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+			filterWordsSection.open();
 		};
 		elements.mutedPlayersActivator.onclick = () => {
 			elements.mutedPlayersActivator.closest<HTMLElement>('[popover]')?.hidePopover();
@@ -144,8 +194,18 @@ export const ChatPlugin: Plugin = {
 
 		return {
 			onChatMessage: (chatMessage) => {
-				if (isChatMessageMuted(chatMessage, mutedPlayers)) return;
-				mountChatMessage(chatMessage, context, settings, elements);
+				if (isChatMessageMuted(chatMessage, mutedPlayers)) {
+					if (mutedPlayers.discardMessages) return;
+					storeChatMessage(chatMessage, settings);
+					return;
+				}
+				if (isChatMessageFiltered(chatMessage, filterWords)) {
+					if (isChatMessageFilteredFromLog(chatMessage, filterWords)) return;
+					storeChatMessage(chatMessage, settings);
+					return;
+				}
+				notifyHighlightMatches(chatMessage, highlightWords, alertAudio, context.character.username);
+				mountChatMessage(chatMessage, context, settings, elements, filters);
 			},
 			hookAddToChat: () => false,
 		};

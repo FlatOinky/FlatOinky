@@ -81,6 +81,8 @@ export type ChatElements = {
 	logActivator: HTMLButtonElement;
 	settingsActivator: HTMLButtonElement;
 	mutedPlayersActivator: HTMLButtonElement;
+	highlightWordsActivator: HTMLButtonElement;
+	filterWordsActivator: HTMLButtonElement;
 	logModal: HTMLDialogElement;
 	logContainer: HTMLUListElement;
 	logGoTop: HTMLButtonElement;

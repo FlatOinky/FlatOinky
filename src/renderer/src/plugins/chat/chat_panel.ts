@@ -14,6 +14,7 @@ import {
 import { chatMessages } from './chat_state';
 import { handleAddTabClick, mountAddTabModal, mountChatTabs, updateChatTabs } from './chat_tabs';
 import { Channels, ChatElements, ChatStickiness, Settings } from './chat_types';
+import { ChatFilters } from './chat_words';
 
 const hideUpstreamChatNode = (lifecycle: Lifecycle, selector: string): void => {
 	const node = document.body.querySelector<HTMLElement>(selector);
@@ -73,11 +74,19 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 	dropdown.id = 'oinky-chat-actions';
 	dropdown.style.setProperty('position-anchor', '--oinky-chat-actions-toggle');
 
-	const [logActivator, settingsActivator, mutedPlayersActivator] = (
+	const [
+		logActivator,
+		settingsActivator,
+		mutedPlayersActivator,
+		highlightWordsActivator,
+		filterWordsActivator,
+	] = (
 		[
 			['log-activator', 'Open Chat Log'],
 			['settings-activator', 'Open Settings'],
 			['muted-players-activator', 'Muted Players'],
+			['highlight-words-activator', 'Highlight Words'],
+			['filter-words-activator', 'Filter Words'],
 		] as const
 	).map(([id, label]) => {
 		const item = el.li``.mount(dropdown, `${id}-item`);
@@ -86,7 +95,13 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 		});
 	});
 
-	return { logActivator, settingsActivator, mutedPlayersActivator };
+	return {
+		logActivator,
+		settingsActivator,
+		mutedPlayersActivator,
+		highlightWordsActivator,
+		filterWordsActivator,
+	};
 };
 
 const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settings): void => {
@@ -137,6 +152,7 @@ export const initChat = (
 	context: PluginContext,
 	settings: Settings,
 	channels: Channels,
+	filters: ChatFilters,
 ): ChatElements => {
 	hideUpstreamChatNode(lifecycle, '#chat-input');
 	hideUpstreamChatNode(lifecycle, '#chat');
@@ -148,7 +164,13 @@ export const initChat = (
 	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
 	const { tabsContainer, addTabButton } = mountChatTabs(root);
 	const addTabRefs = mountAddTabModal(root);
-	const { logActivator, settingsActivator, mutedPlayersActivator } = mountChatActionsDropdown(root);
+	const {
+		logActivator,
+		settingsActivator,
+		mutedPlayersActivator,
+		highlightWordsActivator,
+		filterWordsActivator,
+	} = mountChatActionsDropdown(root);
 	const logRefs = mountChatLog(root);
 
 	const stickiness: ChatStickiness = { isSticky: true };
@@ -166,6 +188,8 @@ export const initChat = (
 		addTabButton,
 		logActivator,
 		settingsActivator,
+		highlightWordsActivator,
+		filterWordsActivator,
 		mutedPlayersActivator,
 		...addTabRefs,
 		...logRefs,
@@ -178,9 +202,9 @@ export const initChat = (
 		),
 	);
 
-	getVisibleChatMessages(settings).forEach((chatMessage) => {
+	getVisibleChatMessages(settings, filters).forEach((chatMessage) => {
 		messagesContainer.appendChild(
-			renderMessageLi(chatMessage, settings, getMessageBg(settings.enableZebra)),
+			renderMessageLi(chatMessage, settings, getMessageBg(settings.enableZebra), filters),
 		);
 	});
 	messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -208,7 +232,7 @@ export const initChat = (
 		handleAddTabClick(elements, channels, context);
 	};
 	updateChatTabs(tabsContainer, channels, inputLabel);
-	wireChatLog(elements, settings);
+	wireChatLog(elements, settings, filters);
 
 	return elements;
 };

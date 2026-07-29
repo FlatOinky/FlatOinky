@@ -6,6 +6,13 @@ import { ChatMessage, PluginContext } from '../../client';
 import * as el from '../../client/ui/elements';
 import { chatMessages, usernamesCache } from './chat_state';
 import { ChatElements, colorMap, namespace, Settings } from './chat_types';
+import { isChatMessageMuted } from './chat_muted';
+import {
+	ChatFilters,
+	highlightMessageWords,
+	isChatMessageFiltered,
+	isChatMessageHighlighted,
+} from './chat_words';
 
 // #region Utils
 
@@ -51,7 +58,7 @@ export const trimChatMessages = (settings: Settings): void => {
 	}
 };
 
-const storeChatMessage = (chatMessage: ChatMessage, settings: Settings): void => {
+export const storeChatMessage = (chatMessage: ChatMessage, settings: Settings): void => {
 	chatMessages.push(chatMessage);
 	trimChatMessages(settings);
 	persistChatMessages();
@@ -67,8 +74,14 @@ export const createWelcomeChatMessage = (loginSpan: HTMLSpanElement): ChatMessag
 	tag: undefined,
 });
 
-export const getVisibleChatMessages = (settings: Settings): ChatMessage[] =>
-	chatMessages.slice(Math.max(0, chatMessages.length - settings.maxChatLength));
+export const getVisibleChatMessages = (settings: Settings, filters: ChatFilters): ChatMessage[] => {
+	const visible = chatMessages.filter(
+		(chatMessage) =>
+			!isChatMessageMuted(chatMessage, filters.muted) &&
+			!isChatMessageFiltered(chatMessage, filters.filter),
+	);
+	return visible.slice(Math.max(0, visible.length - settings.maxChatLength));
+};
 
 let messageBgTickTock = false;
 export const getMessageBg = (enableZebra: boolean): HTMLElement['className'] => {
@@ -142,9 +155,12 @@ const appendSpaced = (container: HTMLElement, parts: Node[]): void => {
 	});
 };
 
+const highlightedRowClass = 'ring-1 ring-inset ring-accent/70';
+
 export const createChatMessageContent = (
 	chatMessage: ChatMessage,
 	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat'>,
+	filters: ChatFilters,
 ): HTMLDivElement => {
 	const { type, icon, tag, username } = chatMessage;
 	const colorClassName = colorMap[chatMessage.color] ?? colorMap.white;
@@ -170,6 +186,7 @@ export const createChatMessageContent = (
 	parts.push(
 		el.span``.then((messageEl) => {
 			messageEl.innerHTML = formatMessageHtml(chatMessage.message);
+			highlightMessageWords(messageEl, filters.highlight);
 		}),
 	);
 
@@ -177,21 +194,37 @@ export const createChatMessageContent = (
 	return content;
 };
 
-export const createMessageLi = (content: HTMLElement, bgClass: string): HTMLLIElement =>
-	el.li`p-1 text-shadow-md ${bgClass}`.then((li) => {
+export const createMessageLi = (
+	content: HTMLElement,
+	bgClass: string,
+	highlighted = false,
+): HTMLLIElement =>
+	el.li`p-1 text-shadow-md ${bgClass}${highlighted ? ` ${highlightedRowClass}` : ''}`.then((li) => {
 		li.appendChild(content);
 	});
 
-export const createPopupLi = (content: HTMLElement, bgClass: string): HTMLLIElement =>
-	el.li`px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${bgClass}`.then((li) => {
-		li.appendChild(content);
-	});
+export const createPopupLi = (
+	content: HTMLElement,
+	bgClass: string,
+	highlighted = false,
+): HTMLLIElement =>
+	el.li`px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${bgClass}${highlighted ? ` ${highlightedRowClass}` : ''}`.then(
+		(li) => {
+			li.appendChild(content);
+		},
+	);
 
 export const renderMessageLi = (
 	chatMessage: ChatMessage,
 	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat'>,
 	bgClass: string,
-): HTMLLIElement => createMessageLi(createChatMessageContent(chatMessage, settings), bgClass);
+	filters: ChatFilters,
+): HTMLLIElement =>
+	createMessageLi(
+		createChatMessageContent(chatMessage, settings, filters),
+		bgClass,
+		isChatMessageHighlighted(chatMessage, filters.highlight),
+	);
 
 export const updateToggleIndicator = (
 	toggleIndicator: HTMLDivElement,
@@ -200,7 +233,11 @@ export const updateToggleIndicator = (
 	toggleIndicator.classList.toggle('hidden', !active);
 };
 
-export const applyChatSettings = (elements: ChatElements, settings: Settings): void => {
+export const applyChatSettings = (
+	elements: ChatElements,
+	settings: Settings,
+	filters: ChatFilters,
+): void => {
 	trimChatMessages(settings);
 	persistChatMessagesNow();
 
@@ -209,8 +246,8 @@ export const applyChatSettings = (elements: ChatElements, settings: Settings): v
 
 	messageBgTickTock = false;
 	messagesContainer.replaceChildren(
-		...getVisibleChatMessages(settings).map((chatMessage) =>
-			renderMessageLi(chatMessage, settings, getMessageBg(settings.enableZebra)),
+		...getVisibleChatMessages(settings, filters).map((chatMessage) =>
+			renderMessageLi(chatMessage, settings, getMessageBg(settings.enableZebra), filters),
 		),
 	);
 
@@ -225,15 +262,17 @@ export const mountChatMessage = (
 	context: PluginContext,
 	settings: Settings,
 	elements: ChatElements,
+	filters: ChatFilters,
 ): void => {
 	storeChatMessage(chatMessage, settings);
 	if (chatMessage.username) usernamesCache.add(chatMessage.username);
 	const { messagesContainer, popupsContainer, stickiness } = elements;
 	const messageBg = getMessageBg(settings.enableZebra);
-	const content = createChatMessageContent(chatMessage, settings);
-	messagesContainer.appendChild(createMessageLi(content, messageBg));
+	const highlighted = isChatMessageHighlighted(chatMessage, filters.highlight);
+	const content = createChatMessageContent(chatMessage, settings, filters);
+	messagesContainer.appendChild(createMessageLi(content, messageBg, highlighted));
 
-	const popupLi = createPopupLi(content.cloneNode(true) as HTMLElement, messageBg);
+	const popupLi = createPopupLi(content.cloneNode(true) as HTMLElement, messageBg, highlighted);
 	popupsContainer.appendChild(popupLi);
 	context.ui.fadeRemoveElement(popupLi, settings.popupDuration * 1000);
 

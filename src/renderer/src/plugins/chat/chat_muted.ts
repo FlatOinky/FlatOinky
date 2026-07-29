@@ -1,8 +1,10 @@
 import { ChatMessage } from '../../client';
 import * as el from '../../client/ui/elements';
+import { createListEditor } from './chat_list_editor';
 
 export const initialMutedPlayers = {
 	usernames: [] as string[],
+	discardMessages: true,
 };
 export type MutedPlayers = typeof initialMutedPlayers;
 
@@ -18,6 +20,12 @@ export const isChatMessageMuted = (
 	if (!chatMessage.username || !mutedChatTypes.has(chatMessage.type)) return false;
 	return mutedUsernames(mutedPlayers).includes(chatMessage.username);
 };
+
+export const isChatMessageMutedFromLog = (
+	chatMessage: ChatMessage,
+	mutedPlayers: MutedPlayers,
+): boolean =>
+	isChatMessageMuted(chatMessage, mutedPlayers) && (mutedPlayers.discardMessages ?? true);
 
 const isValidMuteUsername = (username: string): boolean =>
 	username.length >= 3 && username.length <= 12;
@@ -45,8 +53,20 @@ const removeMutedPlayer = (mutedPlayers: MutedPlayers, username: string): void =
 };
 
 export const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Element =>
-	el.div`flex flex-col gap-3 w-full`.then((root) => {
-		el.div`flex gap-2 flex-wrap`.mount(root, undefined, (actions) => {
+	createListEditor({
+		title: (count) => `Muted players (${count})`,
+		placeholder: 'Username',
+		maxLength: 12,
+		removeTitle: (username) => `Unmute ${username}`,
+		getItems: () => mutedUsernames(mutedPlayers),
+		add: (value) => addMutedPlayer(mutedPlayers, value),
+		remove: (username) => removeMutedPlayer(mutedPlayers, username),
+		renderItem: (body, username) => {
+			el.span`flex-1 min-w-0 truncate py-0.5`.mount(body, undefined, (span) => {
+				span.textContent = username;
+			});
+		},
+		actions: (actions, refresh) => {
 			el.button`btn btn-sm btn-ghost border-base-content/20 tooltip tooltip-start`.mount(
 				actions,
 				undefined,
@@ -59,7 +79,7 @@ export const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Elem
 					button.textContent = 'Import from Flat MMO';
 					button.onclick = () => {
 						importMutedPlayersFromGame(mutedPlayers);
-						refreshList();
+						refresh();
 					};
 				},
 			);
@@ -76,70 +96,5 @@ export const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Elem
 					button.onclick = () => exportMutedPlayersToGame(mutedPlayers);
 				},
 			);
-		});
-
-		const listTitle = el.div`collapse-title min-h-0 py-2 px-3 text-sm font-medium`.element;
-		const list =
-			el.ul`flex flex-col gap-1 w-full max-h-64 overflow-y-auto scrollbar-thumb-base-content/50 scrollbar-track-base-200/70`
-				.element;
-
-		el.div`collapse collapse-arrow border border-base-content/20 rounded-box`.mount(
-			root,
-			undefined,
-			(collapse) => {
-				el.input.checkbox``.mount(collapse);
-				collapse.append(listTitle);
-				el.div`collapse-content px-3`.mount(collapse, undefined, (content) => {
-					content.append(list);
-				});
-			},
-		);
-
-		const refreshList = () => {
-			const usernames = mutedUsernames(mutedPlayers);
-			listTitle.textContent = `Muted players (${usernames.length})`;
-			list.replaceChildren();
-			for (const username of usernames) {
-				el.li`flex items-center gap-2`.mount(list, undefined, (row) => {
-					el.button`btn btn-ghost btn-error btn-square btn-xs`.mount(row, undefined, (button) => {
-						button.type = 'button';
-						button.title = `Unmute ${username}`;
-						el.icon.x`size-4`.mount(button);
-						button.onclick = () => {
-							removeMutedPlayer(mutedPlayers, username);
-							refreshList();
-						};
-					});
-					el.span`flex-1 min-w-0 truncate`.mount(row, undefined, (span) => {
-						span.textContent = username;
-					});
-				});
-			}
-		};
-
-		el.form`join w-full`.mount(root, undefined, (form) => {
-			const label = el.label`input input-sm join-item flex-1 min-w-0 w-full`.mount(form);
-			const addInput = el.input.text``.mount(label, undefined, (input) => {
-				input.name = 'username';
-				input.placeholder = 'Username';
-				input.maxLength = 12;
-				input.autocomplete = 'off';
-			});
-			el.button`btn btn-sm btn-ghost btn-success border-base-content/20 join-item`.mount(
-				form,
-				undefined,
-				(button) => {
-					button.type = 'submit';
-					button.textContent = 'Add';
-				},
-			);
-			form.onsubmit = (event) => {
-				event.preventDefault();
-				if (!addMutedPlayer(mutedPlayers, addInput.value)) return;
-				addInput.value = '';
-				refreshList();
-			};
-		});
-
-		refreshList();
+		},
 	});
