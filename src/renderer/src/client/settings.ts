@@ -715,7 +715,7 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 		'settings',
 	);
 	const navContainer =
-		el.div`flex flex-col gap-0.5 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
+		el.div`space-y-0.5 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
 			container,
 			'nav',
 		);
@@ -755,7 +755,7 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 						undefined,
 						(divider) => (divider.textContent = section.title),
 					);
-					el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
+					el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
 						navContainer,
 						undefined,
 						(header) => {
