@@ -26,12 +26,13 @@ export type HighlightWords = typeof initialHighlightWords;
 
 export type FilterWordEntry = {
 	word: string;
-	filterFromLog: boolean;
+	/** When true, filtered messages are still kept in the chat log. */
+	saveToLog: boolean;
 };
 
 export const initialFilterWordEntry = {
 	word: '',
-	filterFromLog: true,
+	saveToLog: false,
 };
 
 export const initialFilterWords = {
@@ -68,8 +69,13 @@ const entryEnableAudio = (entry: HighlightWordEntry): boolean =>
 const highlightAudioVolume = (highlight: HighlightWords): number =>
 	highlight.audioVolume ?? initialHighlightWords.audioVolume;
 
-const entryFilterFromLog = (entry: FilterWordEntry): boolean =>
-	entry.filterFromLog ?? initialFilterWordEntry.filterFromLog;
+const entrySaveToLog = (entry: FilterWordEntry): boolean => {
+	if (typeof entry.saveToLog === 'boolean') return entry.saveToLog;
+	// Migrate inverted legacy field: filterFromLog true meant "drop from log".
+	const legacy = (entry as { filterFromLog?: boolean }).filterFromLog;
+	if (typeof legacy === 'boolean') return !legacy;
+	return initialFilterWordEntry.saveToLog;
+};
 
 const messageMatchesWord = (message: string, word: string): boolean => {
 	const trimmed = normalizeWord(word);
@@ -103,7 +109,7 @@ export const isChatMessageFilteredFromLog = (
 	filter: FilterWords,
 ): boolean => {
 	if (chatMessage.type === 'welcome') return false;
-	return matchedFilterEntries(chatMessage, filter).some((entry) => entryFilterFromLog(entry));
+	return matchedFilterEntries(chatMessage, filter).some((entry) => !entrySaveToLog(entry));
 };
 
 export const isChatMessageHighlighted = (
@@ -330,15 +336,15 @@ export const createFilterWordsSettingsNode = (
 		renderItem: (body, entry) => {
 			mountSettingsMenuNode(body, {
 				label: entry.word,
-				tooltip: 'Also drop this word from the chat log',
+				tooltip: 'Keep matching messages in the chat log',
 				specialType: 'swap',
-				onIcon: el.icon.editOff`size-4`.element,
-				offIcon: el.icon.edit`size-4`.element,
+				onIcon: el.icon.messages`size-4`.element,
+				offIcon: el.icon.messagesOff`size-4`.element,
 				input: el.input.checkbox``.then((input) => {
 					input.id = `filter-word-${crypto.randomUUID()}`;
-					input.checked = entryFilterFromLog(entry);
+					input.checked = entrySaveToLog(entry);
 					input.onchange = () => {
-						updateFilterEntry(filter, entry.word, { filterFromLog: input.checked });
+						updateFilterEntry(filter, entry.word, { saveToLog: input.checked });
 						onChange?.();
 					};
 				}),

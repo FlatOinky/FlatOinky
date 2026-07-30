@@ -253,6 +253,8 @@ export const icon = {
 	infoCircleFilled: setupIconElement('icon-[tabler--info-circle-filled]'),
 	infoSmall: setupIconElement('icon-[tabler--info-small]'),
 	menu: setupIconElement('icon-[tabler--menu-2]'),
+	messages: setupIconElement('icon-[tabler--messages]'),
+	messagesOff: setupIconElement('icon-[tabler--messages-off]'),
 	paint: setupIconElement('icon-[tabler--paint]'),
 	play: setupIconElement('icon-[tabler--play]'),
 	plus: setupIconElement('icon-[tabler--plus]'),

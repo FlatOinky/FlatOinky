@@ -58,7 +58,7 @@ export const createListEditor = <TItem>(options: ListEditorOptions<TItem>): Elem
 			list.replaceChildren();
 			for (const item of items) {
 				el.li`flex items-start gap-2`.mount(list, undefined, (row) => {
-					el.button`btn btn-ghost btn-error btn-square btn-xs shrink-0 mt-0.5`.mount(
+					el.button`btn btn-ghost btn-error btn-square btn-xs shrink-0 mt-0.5 active:translate-none`.mount(
 						row,
 						undefined,
 						(button) => {

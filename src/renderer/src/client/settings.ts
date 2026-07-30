@@ -292,8 +292,10 @@ const makeSwapToggle = (
 	tip: string,
 	tipAlign = 'tooltip-start',
 ): Element => {
+	// DaisyUI's btn press style uses `translate: 0 .5px`, which expands scroll
+	// overflow on the last row of a list and flashes a scrollbar — cancel it.
 	const toggle =
-		el.label`swap btn btn-sm btn-square tooltip tooltip-top ${tipAlign} has-checked:btn-soft not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`
+		el.label`swap btn btn-sm btn-square tooltip tooltip-top ${tipAlign} active:translate-none has-checked:btn-soft not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`
 			.element;
 	toggle.setAttribute('data-tip', tip);
 	input.classList = 'sr-only';
@@ -528,7 +530,7 @@ const mountNodeHeader = (
 		header.append(...trailing);
 	}
 	if (node.reset) {
-		el.button`btn btn-xs btn-square btn-soft btn-soft opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
+		el.button`btn btn-xs btn-square btn-secondary btn-soft opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
 			header,
 			'reset',
 			(resetButton) => {
