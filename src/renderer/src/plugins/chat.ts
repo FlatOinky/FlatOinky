@@ -1,14 +1,25 @@
 import notificationMp3 from '../assets/notification.mp3';
 import { Plugin } from '../client';
 import * as el from '../client/ui/elements';
-import { applyChatSettings, mountChatMessage, storeChatMessage } from './chat/chat_messages';
+import {
+	applyChatColors,
+	applyChatSettings,
+	mountChatMessage,
+	storeChatMessage,
+} from './chat/chat_messages';
 import {
 	createMutedPlayersSettingsNode,
 	initialMutedPlayers,
 	isChatMessageMuted,
 } from './chat/chat_muted';
 import { initChat } from './chat/chat_panel';
-import { initialChannels, initialSettings, timestampFormatOptions } from './chat/chat_types';
+import {
+	chatColorMeta,
+	initialChannels,
+	initialChatColors,
+	initialSettings,
+	timestampFormatOptions,
+} from './chat/chat_types';
 import {
 	createFilterWordsSettingsNode,
 	createHighlightVolumeSettingsNode,
@@ -20,12 +31,48 @@ import {
 	notifyHighlightMatches,
 } from './chat/chat_words';
 
+const daisyUiColors = {
+	primary: 'var(--color-primary)',
+	'primary-content': 'var(--color-primary-content)',
+	secondary: 'var(--color-secondary)',
+	'secondary-content': 'var(--color-secondary-content)',
+	accent: 'var(--color-accent)',
+	'accent-content': 'var(--color-accent-content)',
+	neutral: 'var(--color-neutral)',
+	'neutral-content': 'var(--color-neutral-content)',
+	info: 'var(--color-info)',
+	'info-content': 'var(--color-info-content)',
+	success: 'var(--color-success)',
+	'success-content': 'var(--color-success-content)',
+	warning: 'var(--color-warning)',
+	'warning-content': 'var(--color-warning-content)',
+	error: 'var(--color-error)',
+	'error-content': 'var(--color-error-content)',
+	'base-content': 'var(--color-base-content)',
+} as const;
+
+const formatDaisyUiColorLabel = (name: string) =>
+	name
+		.split('-')
+		.map((part) => {
+			if (/^\d+$/.test(part)) return part;
+			const word = part === 'content' ? 'text' : part;
+			return word.charAt(0).toUpperCase() + word.slice(1);
+		})
+		.join(' ');
+
+const colorOptions = Object.entries(daisyUiColors).map(([name, value]) => ({
+	label: formatDaisyUiColorLabel(name),
+	value,
+}));
+
 export const ChatPlugin: Plugin = {
 	namespace: 'core/chat',
 	name: 'Chat',
 	description: 'A custom chat implementation',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
+		const colors = context.storages.profile.reactive('colors', initialChatColors);
 		const channels = context.storages.character.reactive('channels', initialChannels);
 		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
 		const highlightWords = context.storages.global.reactive(
@@ -47,6 +94,10 @@ export const ChatPlugin: Plugin = {
 		const onSettingsChange = () => {
 			applyChatSettings(elements, settings, filters);
 		};
+		const onColorsChange = () => {
+			applyChatColors(elements.root, colors);
+		};
+		onColorsChange();
 
 		const toggleSetting = (
 			label: string,
@@ -151,6 +202,24 @@ export const ChatPlugin: Plugin = {
 				'10000',
 			),
 		]);
+
+		settingsMenu.mountSection(
+			'Colors',
+			chatColorMeta.map((meta) => ({
+				label: meta.label,
+				description: meta.description,
+				specialType: 'selectColorCombo' as const,
+				options: colorOptions,
+				reset: (input) => (input.value = initialChatColors[meta.type]),
+				input: el.input.text``.then((input) => {
+					input.value = colors[meta.type];
+					input.onchange = () => {
+						colors[meta.type] = input.value;
+						onColorsChange();
+					};
+				}),
+			})),
+		);
 
 		const highlightWordsSection = settingsMenu.mountSection('Highlight Words', [
 			createHighlightVolumeSettingsNode(highlightWords, alertAudio),

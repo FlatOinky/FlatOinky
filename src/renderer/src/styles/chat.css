@@ -43,3 +43,19 @@
 	.chat-tag-investor-gold {
 	animation: none;
 }
+
+/* Fallback chat message colors (overridden by profile settings via inline styles). */
+[oinky='taskbar/chat'] {
+	--oinky-chat-local: var(--color-base-content);
+	--oinky-chat-yell: var(--color-base-content);
+	--oinky-chat-pm-to: var(--color-accent);
+	--oinky-chat-pm-from: var(--color-accent);
+	--oinky-chat-level-up: var(--color-success);
+	--oinky-chat-announcement: var(--color-info);
+	--oinky-chat-restore: var(--color-success);
+	--oinky-chat-error: var(--color-error);
+	--oinky-chat-warning: var(--color-warning);
+	--oinky-chat-achievement: var(--color-success);
+	--oinky-chat-info: var(--color-info);
+	--oinky-chat-welcome: var(--color-info);
+}

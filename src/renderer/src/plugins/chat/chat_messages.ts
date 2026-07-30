@@ -5,7 +5,14 @@ import pmFromIconSrc from '../../assets/pm_from.png';
 import { ChatMessage, PluginContext } from '../../client';
 import * as el from '../../client/ui/elements';
 import { chatMessages, usernamesCache } from './chat_state';
-import { ChatElements, colorMap, namespace, Settings } from './chat_types';
+import {
+	ChatColors,
+	ChatElements,
+	chatColorClassMap,
+	chatColorMeta,
+	namespace,
+	Settings,
+} from './chat_types';
 import { isChatMessageMuted } from './chat_muted';
 import {
 	ChatFilters,
@@ -163,7 +170,7 @@ export const createChatMessageContent = (
 	filters: ChatFilters,
 ): HTMLDivElement => {
 	const { type, icon, tag, username } = chatMessage;
-	const colorClassName = colorMap[chatMessage.color] ?? colorMap.white;
+	const colorClassName = chatColorClassMap[chatMessage.type] ?? chatColorClassMap.info;
 	const content = el.div`contents ${colorClassName}`.element;
 
 	const parts: Node[] = [];
@@ -231,6 +238,12 @@ export const updateToggleIndicator = (
 	active: boolean = true,
 ): void => {
 	toggleIndicator.classList.toggle('hidden', !active);
+};
+
+export const applyChatColors = (root: HTMLElement, colors: ChatColors): void => {
+	for (const meta of chatColorMeta) {
+		root.style.setProperty(meta.cssVar, colors[meta.type]);
+	}
 };
 
 export const applyChatSettings = (
