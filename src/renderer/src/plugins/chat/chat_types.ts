@@ -30,7 +30,7 @@ export const initialChatColors = {
 	yell: 'var(--color-base-content)',
 	pm: 'var(--color-accent)',
 	level_up: 'var(--color-success)',
-	announcement: 'var(--color-info)',
+	announcement: 'var(--color-success)',
 	restore: 'var(--color-success)',
 	error: 'var(--color-error)',
 	warning: 'var(--color-warning)',
@@ -132,6 +132,7 @@ export const initialSettings = {
 	popupDuration: 8,
 	enableTimestamp: true,
 	timestampFormat: 'h:mmaaa',
+	yellIndicator: 'text' as 'guy' | 'icon' | 'text',
 };
 export type Settings = typeof initialSettings;
 
@@ -177,8 +178,7 @@ export type ChatElements = {
 	logActivator: HTMLButtonElement;
 	settingsActivator: HTMLButtonElement;
 	mutedPlayersActivator: HTMLButtonElement;
-	highlightWordsActivator: HTMLButtonElement;
-	filterWordsActivator: HTMLButtonElement;
+	keyWordsActivator: HTMLButtonElement;
 	logModal: HTMLDialogElement;
 	logContainer: HTMLUListElement;
 	logGoTop: HTMLButtonElement;

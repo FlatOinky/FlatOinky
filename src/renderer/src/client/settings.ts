@@ -58,6 +58,7 @@ const setupPluginApi = (
 	pluginNamespace: string,
 	pluginTitle: string,
 ) => ({
+	helpers: settingsHelpers,
 	initMenu: (lifecycle: Lifecycle) => {
 		const entry: SettingsRegistry[number] = [pluginNamespace, pluginTitle, []];
 		registry.push(entry);
@@ -346,6 +347,14 @@ const makeAlertTestButton = (onTest: () => void): Element =>
 			button.onclick = onTest;
 		},
 	);
+
+/** Reusable DOM builders exposed to plugins via `context.settings.helpers`. */
+export const settingsHelpers = {
+	swapToggle: makeSwapToggle,
+	alertVolume: makeAlertVolume,
+	alertTestButton: makeAlertTestButton,
+};
+export type SettingsHelpers = typeof settingsHelpers;
 
 // #region makeNodeChild
 

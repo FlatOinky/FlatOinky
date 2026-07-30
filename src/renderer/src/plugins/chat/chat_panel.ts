@@ -74,19 +74,12 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 	dropdown.id = 'oinky-chat-actions';
 	dropdown.style.setProperty('position-anchor', '--oinky-chat-actions-toggle');
 
-	const [
-		logActivator,
-		settingsActivator,
-		mutedPlayersActivator,
-		highlightWordsActivator,
-		filterWordsActivator,
-	] = (
+	const [logActivator, settingsActivator, mutedPlayersActivator, keyWordsActivator] = (
 		[
 			['log-activator', 'Open Chat Log'],
 			['settings-activator', 'Open Settings'],
 			['muted-players-activator', 'Muted Players'],
-			['highlight-words-activator', 'Highlight Words'],
-			['filter-words-activator', 'Filter Words'],
+			['key-words-activator', 'Key Words'],
 		] as const
 	).map(([id, label]) => {
 		const item = el.li``.mount(dropdown, `${id}-item`);
@@ -99,8 +92,7 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 		logActivator,
 		settingsActivator,
 		mutedPlayersActivator,
-		highlightWordsActivator,
-		filterWordsActivator,
+		keyWordsActivator,
 	};
 };
 
@@ -164,13 +156,8 @@ export const initChat = (
 	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
 	const { tabsContainer, addTabButton } = mountChatTabs(root);
 	const addTabRefs = mountAddTabModal(root);
-	const {
-		logActivator,
-		settingsActivator,
-		mutedPlayersActivator,
-		highlightWordsActivator,
-		filterWordsActivator,
-	} = mountChatActionsDropdown(root);
+	const { logActivator, settingsActivator, mutedPlayersActivator, keyWordsActivator } =
+		mountChatActionsDropdown(root);
 	const logRefs = mountChatLog(root);
 
 	const stickiness: ChatStickiness = { isSticky: true };
@@ -188,8 +175,7 @@ export const initChat = (
 		addTabButton,
 		logActivator,
 		settingsActivator,
-		highlightWordsActivator,
-		filterWordsActivator,
+		keyWordsActivator,
 		mutedPlayersActivator,
 		...addTabRefs,
 		...logRefs,

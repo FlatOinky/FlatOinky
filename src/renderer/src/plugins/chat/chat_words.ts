@@ -1,136 +1,168 @@
 import { ChatMessage } from '../../client';
 import type { Notifications } from '../../client/notifications';
-import { mountSettingsMenuNode, SettingsNode } from '../../client/settings';
+import type { SettingsHelpers, SettingsNode } from '../../client/settings';
 import * as el from '../../client/ui/elements';
 import { createListEditor } from './chat_list_editor';
 import { MutedPlayers } from './chat_muted';
 
-export const initialHighlightWordEntry = {
-	word: '',
-	enableNotification: false,
-	enableAudio: false,
-};
+export type KeyWordType = 'visible' | 'highlight' | 'collapse' | 'filter';
 
-export type HighlightWordEntry = {
+export const keyWordTypeOptions: ReadonlyArray<{ label: string; value: KeyWordType }> = [
+	{ label: 'Visible', value: 'visible' },
+	{ label: 'Highlight', value: 'highlight' },
+	{ label: 'Collapse', value: 'collapse' },
+	{ label: 'Hide', value: 'filter' },
+];
+
+export type KeyWordEntry = {
 	word: string;
+	type: KeyWordType;
+	/** When true, filtered messages are still kept in the chat log. */
+	logMessages: boolean;
 	enableNotification: boolean;
 	enableAudio: boolean;
+	regex: boolean;
 };
 
-export const initialHighlightWords = {
-	entries: [] as HighlightWordEntry[],
-	/** Shared by every highlight word; individual entries only toggle alerts on or off. */
-	audioVolume: 0.35,
-};
-export type HighlightWords = typeof initialHighlightWords;
-
-export type FilterWordEntry = {
-	word: string;
-	/** When true, filtered messages are still kept in the chat log. */
-	saveToLog: boolean;
-};
-
-export const initialFilterWordEntry = {
+export const initialKeyWordEntry: KeyWordEntry = {
 	word: '',
-	saveToLog: false,
+	type: 'visible',
+	logMessages: true,
+	enableNotification: false,
+	enableAudio: false,
+	regex: false,
 };
 
-export const initialFilterWords = {
-	entries: [] as FilterWordEntry[],
+export const initialKeyWords = {
+	entries: [] as KeyWordEntry[],
+	/** Shared by every key word; individual entries only toggle alerts on or off. */
+	audioVolume: 1,
 };
-export type FilterWords = typeof initialFilterWords;
+export type KeyWords = typeof initialKeyWords;
 
 export type ChatFilters = {
-	highlight: HighlightWords;
-	filter: FilterWords;
+	keyWords: KeyWords;
 	muted: MutedPlayers;
+};
+
+type SwapToggle = SettingsHelpers['swapToggle'];
+
+const keyWordTypePrecedence: Record<KeyWordType, number> = {
+	filter: 4,
+	collapse: 3,
+	highlight: 2,
+	visible: 1,
 };
 
 const normalizeWord = (value: string): string => value.trim();
 
 const entryList = <T>(entries: T[] | undefined): T[] => (Array.isArray(entries) ? entries : []);
 
-const highlightEntries = (highlight: HighlightWords): HighlightWordEntry[] =>
-	entryList(highlight.entries);
-
-const filterEntries = (filter: FilterWords): FilterWordEntry[] => entryList(filter.entries);
+const keyWordEntries = (keyWords: KeyWords): KeyWordEntry[] => entryList(keyWords.entries);
 
 const hasWord = (entries: { word: string }[], candidate: string): boolean =>
 	entries.some((entry) => entry.word.toLowerCase() === candidate.toLowerCase());
 
 const entryWord = (entry: { word?: string }): string => normalizeWord(entry.word ?? '');
 
-const entryEnableNotification = (entry: HighlightWordEntry): boolean =>
-	entry.enableNotification ?? initialHighlightWordEntry.enableNotification;
+const entryType = (entry: KeyWordEntry): KeyWordType => entry.type ?? initialKeyWordEntry.type;
 
-const entryEnableAudio = (entry: HighlightWordEntry): boolean =>
-	entry.enableAudio ?? initialHighlightWordEntry.enableAudio;
+const entryLogMessages = (entry: KeyWordEntry): boolean =>
+	entry.logMessages ?? initialKeyWordEntry.logMessages;
 
-const highlightAudioVolume = (highlight: HighlightWords): number =>
-	highlight.audioVolume ?? initialHighlightWords.audioVolume;
+const entryEnableNotification = (entry: KeyWordEntry): boolean =>
+	entry.enableNotification ?? initialKeyWordEntry.enableNotification;
 
-const entrySaveToLog = (entry: FilterWordEntry): boolean => {
-	if (typeof entry.saveToLog === 'boolean') return entry.saveToLog;
-	// Migrate inverted legacy field: filterFromLog true meant "drop from log".
-	const legacy = (entry as { filterFromLog?: boolean }).filterFromLog;
-	if (typeof legacy === 'boolean') return !legacy;
-	return initialFilterWordEntry.saveToLog;
+const entryEnableAudio = (entry: KeyWordEntry): boolean =>
+	entry.enableAudio ?? initialKeyWordEntry.enableAudio;
+
+const entryRegex = (entry: KeyWordEntry): boolean => entry.regex ?? initialKeyWordEntry.regex;
+
+const keyWordsAudioVolume = (keyWords: KeyWords): number =>
+	keyWords.audioVolume ?? initialKeyWords.audioVolume;
+
+const tryCompileRegex = (pattern: string, flags: string): RegExp | null => {
+	try {
+		return new RegExp(pattern, flags);
+	} catch {
+		return null;
+	}
 };
 
-const messageMatchesWord = (message: string, word: string): boolean => {
-	const trimmed = normalizeWord(word);
-	return trimmed.length > 0 && message.toLowerCase().includes(trimmed.toLowerCase());
+const entryMatchesMessage = (entry: KeyWordEntry, message: string): boolean => {
+	const trimmed = entryWord(entry);
+	if (!trimmed) return false;
+	if (entryRegex(entry)) {
+		const pattern = tryCompileRegex(trimmed, 'i');
+		return pattern ? pattern.test(message) : false;
+	}
+	return message.toLowerCase().includes(trimmed.toLowerCase());
 };
 
-const matchedFilterEntries = (chatMessage: ChatMessage, filter: FilterWords): FilterWordEntry[] => {
-	if (chatMessage.type === 'welcome' || !chatMessage.message) return [];
-	return filterEntries(filter).filter((entry) =>
-		messageMatchesWord(chatMessage.message, entryWord(entry)),
-	);
-};
-
-export const matchedHighlightEntries = (
+export const matchedKeyWordEntries = (
 	chatMessage: ChatMessage,
-	highlight: HighlightWords,
-): HighlightWordEntry[] => {
+	keyWords: KeyWords,
+): KeyWordEntry[] => {
 	if (chatMessage.type === 'welcome' || !chatMessage.message) return [];
-	return highlightEntries(highlight).filter((entry) =>
-		messageMatchesWord(chatMessage.message, entryWord(entry)),
+	return keyWordEntries(keyWords).filter((entry) =>
+		entryMatchesMessage(entry, chatMessage.message),
 	);
 };
 
-export const isChatMessageFiltered = (chatMessage: ChatMessage, filter: FilterWords): boolean => {
-	if (chatMessage.type === 'welcome') return false;
-	return matchedFilterEntries(chatMessage, filter).length > 0;
+export const effectiveKeyWordType = (
+	chatMessage: ChatMessage,
+	keyWords: KeyWords,
+): KeyWordType | undefined => {
+	const matches = matchedKeyWordEntries(chatMessage, keyWords);
+	if (matches.length === 0) return undefined;
+	let best: KeyWordType = entryType(matches[0]!);
+	for (const entry of matches) {
+		const type = entryType(entry);
+		if (keyWordTypePrecedence[type] > keyWordTypePrecedence[best]) best = type;
+	}
+	return best;
 };
+
+export const isChatMessageFiltered = (chatMessage: ChatMessage, keyWords: KeyWords): boolean =>
+	effectiveKeyWordType(chatMessage, keyWords) === 'filter';
 
 export const isChatMessageFilteredFromLog = (
 	chatMessage: ChatMessage,
-	filter: FilterWords,
+	keyWords: KeyWords,
 ): boolean => {
 	if (chatMessage.type === 'welcome') return false;
-	return matchedFilterEntries(chatMessage, filter).some((entry) => !entrySaveToLog(entry));
+	return matchedKeyWordEntries(chatMessage, keyWords)
+		.filter((entry) => entryType(entry) === 'filter')
+		.some((entry) => !entryLogMessages(entry));
 };
 
-export const isChatMessageHighlighted = (
-	chatMessage: ChatMessage,
-	highlight: HighlightWords,
-): boolean => matchedHighlightEntries(chatMessage, highlight).length > 0;
+export const isChatMessageCollapsed = (chatMessage: ChatMessage, keyWords: KeyWords): boolean =>
+	effectiveKeyWordType(chatMessage, keyWords) === 'collapse';
+
+export const isChatMessageHighlighted = (chatMessage: ChatMessage, keyWords: KeyWords): boolean =>
+	effectiveKeyWordType(chatMessage, keyWords) === 'highlight';
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const highlightPattern = (entries: HighlightWordEntry[]): RegExp | null => {
+const highlightPattern = (entries: KeyWordEntry[]): RegExp | null => {
 	const parts = entries
-		.map((entry) => entryWord(entry))
-		.filter((word) => word.length > 0)
-		.map(escapeRegExp);
+		.filter((entry) => entryType(entry) === 'highlight')
+		.map((entry) => {
+			const word = entryWord(entry);
+			if (!word) return null;
+			if (entryRegex(entry)) {
+				return tryCompileRegex(word, 'i') ? word : null;
+			}
+			return escapeRegExp(word);
+		})
+		.filter((part): part is string => part !== null);
 	if (parts.length === 0) return null;
 	parts.sort((a, b) => b.length - a.length);
-	return new RegExp(`(${parts.join('|')})`, 'gi');
+	return tryCompileRegex(`(${parts.join('|')})`, 'gi');
 };
 
-export const highlightMessageWords = (messageEl: HTMLElement, highlight: HighlightWords): void => {
-	const pattern = highlightPattern(highlightEntries(highlight));
+export const highlightMessageWords = (messageEl: HTMLElement, keyWords: KeyWords): void => {
+	const pattern = highlightPattern(keyWordEntries(keyWords));
 	if (!pattern) return;
 
 	const walker = document.createTreeWalker(messageEl, NodeFilter.SHOW_TEXT);
@@ -177,81 +209,52 @@ const unescapeMessageEntities = (message: string): string =>
 		.replaceAll('&quot;', '"')
 		.replaceAll('&#039;', "'");
 
-const updateHighlightEntry = (
-	highlight: HighlightWords,
+const updateKeyWordEntry = (
+	keyWords: KeyWords,
 	word: string,
-	patch: Partial<Omit<HighlightWordEntry, 'word'>>,
+	patch: Partial<Omit<KeyWordEntry, 'word'>>,
 ): void => {
-	highlight.entries = highlightEntries(highlight).map((entry) =>
+	keyWords.entries = keyWordEntries(keyWords).map((entry) =>
 		entry.word === word ? { ...entry, ...patch } : entry,
 	);
 };
 
-const updateFilterEntry = (
-	filter: FilterWords,
-	word: string,
-	patch: Partial<Omit<FilterWordEntry, 'word'>>,
-): void => {
-	filter.entries = filterEntries(filter).map((entry) =>
-		entry.word === word ? { ...entry, ...patch } : entry,
-	);
-};
-
-const addHighlightEntry = (highlight: HighlightWords, value: string): boolean => {
+const addKeyWordEntry = (keyWords: KeyWords, value: string): boolean => {
 	const trimmed = normalizeWord(value);
 	if (!trimmed) return false;
-	const entries = highlightEntries(highlight);
+	const entries = keyWordEntries(keyWords);
 	if (hasWord(entries, trimmed)) return false;
-	highlight.entries = [
+	keyWords.entries = [
 		...entries,
 		{
-			...initialHighlightWordEntry,
+			...initialKeyWordEntry,
 			word: trimmed,
 		},
 	];
 	return true;
 };
 
-const addFilterEntry = (filter: FilterWords, value: string): boolean => {
-	const trimmed = normalizeWord(value);
-	if (!trimmed) return false;
-	const entries = filterEntries(filter);
-	if (hasWord(entries, trimmed)) return false;
-	filter.entries = [
-		...entries,
-		{
-			...initialFilterWordEntry,
-			word: trimmed,
-		},
-	];
-	return true;
+const removeKeyWordEntry = (keyWords: KeyWords, word: string): void => {
+	keyWords.entries = keyWordEntries(keyWords).filter((entry) => entry.word !== word);
 };
 
-const removeHighlightEntry = (highlight: HighlightWords, word: string): void => {
-	highlight.entries = highlightEntries(highlight).filter((entry) => entry.word !== word);
-};
-
-const removeFilterEntry = (filter: FilterWords, word: string): void => {
-	filter.entries = filterEntries(filter).filter((entry) => entry.word !== word);
-};
-
-const previewHighlightAlert = (notifications: Notifications, highlight: HighlightWords): void => {
-	notifications.send('Highlight', {
-		volume: highlightAudioVolume(highlight),
+const previewKeyWordAlert = (notifications: Notifications, keyWords: KeyWords): void => {
+	notifications.send('Key word', {
+		volume: keyWordsAudioVolume(keyWords),
 		notification: false,
 	});
 };
 
-export const notifyHighlightMatches = (
+export const notifyKeyWordMatches = (
 	chatMessage: ChatMessage,
-	highlight: HighlightWords,
+	keyWords: KeyWords,
 	notifications: Notifications,
 	ownUsername: string,
 ): void => {
 	if (chatMessage.type === 'welcome' || chatMessage.type === 'pm_to') return;
 	if (chatMessage.username && chatMessage.username === ownUsername) return;
 
-	const matches = matchedHighlightEntries(chatMessage, highlight);
+	const matches = matchedKeyWordEntries(chatMessage, keyWords);
 	if (matches.length === 0) return;
 
 	const notifyMatches = matches.filter((entry) => entryEnableNotification(entry));
@@ -262,94 +265,126 @@ export const notifyHighlightMatches = (
 		const title = entryWord((notifyMatches[0] ?? audioMatches[0])!);
 		notifications.send(title, {
 			message: body,
-			volume: highlightAudioVolume(highlight),
+			volume: keyWordsAudioVolume(keyWords),
 			notification: notifyMatches.length > 0,
 			audio: audioMatches.length > 0,
 		});
 	}
 };
 
-export const createHighlightVolumeSettingsNode = (
-	highlight: HighlightWords,
+export const createKeyWordsVolumeSettingsNode = (
+	keyWords: KeyWords,
 	notifications: Notifications,
 ): SettingsNode => ({
 	label: 'Alert volume',
-	description: 'Volume of the alert sound, shared by every highlight word.',
+	description: 'Volume of the alert sound, shared by every key word.',
 	specialType: 'alertVolume',
-	onTest: () => previewHighlightAlert(notifications, highlight),
+	onTest: () => previewKeyWordAlert(notifications, keyWords),
 	input: el.input.range``.then((input) => {
 		input.min = '0';
 		input.max = '1';
 		input.step = '0.05';
-		input.value = String(highlightAudioVolume(highlight));
-		input.onchange = () => (highlight.audioVolume = parseFloat(input.value));
+		input.value = String(keyWordsAudioVolume(keyWords));
+		input.onchange = () => (keyWords.audioVolume = parseFloat(input.value));
 	}),
 });
 
-export const createHighlightWordsSettingsNode = (
-	highlight: HighlightWords,
-	onChange?: () => void,
+export const createKeyWordsSettingsNode = (
+	keyWords: KeyWords,
+	onChange: (() => void) | undefined,
+	swapToggle: SwapToggle,
 ): Element =>
 	createListEditor({
-		title: (count) => `Highlight words (${count})`,
+		title: (count) => `Key words (${count})`,
 		placeholder: 'Word or phrase',
 		maxLength: 64,
 		removeTitle: (entry) => `Remove ${entry.word}`,
-		getItems: () => highlightEntries(highlight),
-		add: (value) => addHighlightEntry(highlight, value),
-		remove: (entry) => removeHighlightEntry(highlight, entry.word),
+		getItems: () => keyWordEntries(keyWords),
+		add: (value) => addKeyWordEntry(keyWords, value),
+		remove: (entry) => removeKeyWordEntry(keyWords, entry.word),
 		collapsible: false,
 		onChange,
 		renderItem: (body, entry) => {
-			mountSettingsMenuNode(body, {
-				label: entry.word,
-				specialType: 'alertToggles',
-				notificationInput: el.input.checkbox``.then((input) => {
-					input.checked = entryEnableNotification(entry);
-					input.onchange = () => {
-						updateHighlightEntry(highlight, entry.word, {
-							enableNotification: input.checked,
-						});
-					};
-				}),
-				audioInput: el.input.checkbox``.then((input) => {
-					input.checked = entryEnableAudio(entry);
-					input.onchange = () => {
-						updateHighlightEntry(highlight, entry.word, { enableAudio: input.checked });
-					};
-				}),
-			});
-		},
-	});
+			el.div`flex gap-2 items-center flex-wrap w-full`.mount(body, undefined, (row) => {
+				el.span`font-medium text-sm flex-1 min-w-0 truncate`.mount(row, undefined, (label) => {
+					label.textContent = entry.word;
+					label.title = entry.word;
+				});
 
-export const createFilterWordsSettingsNode = (
-	filter: FilterWords,
-	onChange?: () => void,
-): Element =>
-	createListEditor({
-		title: (count) => `Filter words (${count})`,
-		placeholder: 'Word or phrase',
-		maxLength: 64,
-		removeTitle: (entry) => `Remove ${entry.word}`,
-		getItems: () => filterEntries(filter),
-		add: (value) => addFilterEntry(filter, value),
-		remove: (entry) => removeFilterEntry(filter, entry.word),
-		onChange,
-		renderItem: (body, entry) => {
-			mountSettingsMenuNode(body, {
-				label: entry.word,
-				tooltip: 'Keep matching messages in the chat log',
-				specialType: 'swap',
-				onIcon: el.icon.messages`size-4`.element,
-				offIcon: el.icon.messagesOff`size-4`.element,
-				input: el.input.checkbox``.then((input) => {
-					input.id = `filter-word-${crypto.randomUUID()}`;
-					input.checked = entrySaveToLog(entry);
-					input.onchange = () => {
-						updateFilterEntry(filter, entry.word, { saveToLog: input.checked });
+				el.select`select select-sm w-28 shrink-0`.mount(row, undefined, (select) => {
+					for (const option of keyWordTypeOptions) {
+						el.option``.mount(select, undefined, (opt) => {
+							opt.value = option.value;
+							opt.textContent = option.label;
+						});
+					}
+					select.value = entryType(entry);
+					select.onchange = () => {
+						updateKeyWordEntry(keyWords, entry.word, {
+							type: select.value as KeyWordType,
+						});
 						onChange?.();
 					};
-				}),
+				});
+
+				row.append(
+					swapToggle(
+						el.input.checkbox``.then((input) => {
+							input.checked = entryLogMessages(entry);
+							input.onchange = () => {
+								updateKeyWordEntry(keyWords, entry.word, {
+									logMessages: input.checked,
+								});
+								onChange?.();
+							};
+						}),
+						el.icon.messages`size-4`.element,
+						el.icon.messagesOff`size-4`.element,
+						'Keep in chat log',
+						'tooltip-end',
+					),
+					swapToggle(
+						el.input.checkbox``.then((input) => {
+							input.checked = entryEnableNotification(entry);
+							input.onchange = () => {
+								updateKeyWordEntry(keyWords, entry.word, {
+									enableNotification: input.checked,
+								});
+							};
+						}),
+						el.icon.bell`size-4`.element,
+						el.icon.bellOff`size-4`.element,
+						'Desktop notifications',
+						'tooltip-end',
+					),
+					swapToggle(
+						el.input.checkbox``.then((input) => {
+							input.checked = entryEnableAudio(entry);
+							input.onchange = () => {
+								updateKeyWordEntry(keyWords, entry.word, {
+									enableAudio: input.checked,
+								});
+							};
+						}),
+						el.icon.volume`size-4`.element,
+						el.icon.volumeOff`size-4`.element,
+						'Alert sound',
+						'tooltip-end',
+					),
+					swapToggle(
+						el.input.checkbox``.then((input) => {
+							input.checked = entryRegex(entry);
+							input.onchange = () => {
+								updateKeyWordEntry(keyWords, entry.word, { regex: input.checked });
+								onChange?.();
+							};
+						}),
+						el.icon.regex`size-4`.element,
+						el.icon.regexOff`size-4`.element,
+						'Match as regular expression',
+						'tooltip-end',
+					),
+				);
 			});
 		},
 	});

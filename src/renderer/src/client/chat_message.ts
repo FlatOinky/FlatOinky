@@ -28,6 +28,7 @@ type ChatMessageOther = ChatMessageBase & {
 
 type ChatMessageWelcome = {
 	type: 'welcome';
+	username: undefined;
 	timestamp: Date;
 	element: HTMLElement;
 };

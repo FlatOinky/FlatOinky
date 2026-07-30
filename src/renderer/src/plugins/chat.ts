@@ -20,14 +20,12 @@ import {
 	timestampFormatOptions,
 } from './chat/chat_types';
 import {
-	createFilterWordsSettingsNode,
-	createHighlightVolumeSettingsNode,
-	createHighlightWordsSettingsNode,
-	initialFilterWords,
-	initialHighlightWords,
+	createKeyWordsSettingsNode,
+	createKeyWordsVolumeSettingsNode,
+	initialKeyWords,
 	isChatMessageFiltered,
 	isChatMessageFilteredFromLog,
-	notifyHighlightMatches,
+	notifyKeyWordMatches,
 } from './chat/chat_words';
 
 const daisyUiColors = {
@@ -74,14 +72,9 @@ export const ChatPlugin: Plugin = {
 		const colors = context.storages.profile.reactive('colors', initialChatColors);
 		const channels = context.storages.character.reactive('channels', initialChannels);
 		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
-		const highlightWords = context.storages.global.reactive(
-			'highlightWords',
-			initialHighlightWords,
-		);
-		const filterWords = context.storages.global.reactive('filterWords', initialFilterWords);
+		const keyWords = context.storages.global.reactive('keyWords', initialKeyWords);
 		const filters = {
-			highlight: highlightWords,
-			filter: filterWords,
+			keyWords,
 			muted: mutedPlayers,
 		};
 		const settingsMenu = context.settings.initMenu(lifecycle);
@@ -147,6 +140,32 @@ export const ChatPlugin: Plugin = {
 				'enableSmoothScroll',
 			),
 			{
+				label: 'Yell indicator',
+				description: 'What to display when a player yells.',
+				input: el.select``.then((input) => {
+					input.value = settings.yellIndicator;
+					el.option``.mount(input, 'guy', (option) => {
+						option.textContent = "Lil' Guy";
+						option.value = 'guy';
+						option.selected = settings.yellIndicator === 'guy';
+					});
+					el.option``.mount(input, 'icon', (option) => {
+						option.textContent = 'Icon';
+						option.value = 'icon';
+						option.selected = settings.yellIndicator === 'icon';
+					});
+					el.option``.mount(input, 'text', (option) => {
+						option.textContent = 'Text';
+						option.value = 'text';
+						option.selected = settings.yellIndicator === 'text';
+					});
+					input.onchange = () => {
+						settings.yellIndicator = input.value as 'guy' | 'icon' | 'text';
+						onSettingsChange();
+					};
+				}),
+			},
+			{
 				label: 'Timestamp format',
 				description: el.span``.then((span) => {
 					span.append('date-fns format string for message timestamps. See ');
@@ -187,23 +206,6 @@ export const ChatPlugin: Plugin = {
 			},
 		]);
 
-		settingsMenu.mountSection('Limits', [
-			numberSetting(
-				'Visible messages',
-				'Maximum messages shown in the chat window.',
-				'maxChatLength',
-				'10',
-				'2000',
-			),
-			numberSetting(
-				'Chat log length',
-				'Maximum messages kept in the persistent chat log.',
-				'maxChatLogLength',
-				'50',
-				'10000',
-			),
-		]);
-
 		settingsMenu.mountSection(
 			'Colors',
 			chatColorMeta.map((meta) => ({
@@ -222,19 +224,33 @@ export const ChatPlugin: Plugin = {
 			})),
 		);
 
-		const highlightWordsSection = settingsMenu.mountSection('Highlight Words', [
-			createHighlightVolumeSettingsNode(highlightWords, context.notifications),
-			createHighlightWordsSettingsNode(highlightWords, onSettingsChange),
+		settingsMenu.mountSection('Limits', [
+			numberSetting(
+				'Visible messages',
+				'Maximum messages shown in the chat window.',
+				'maxChatLength',
+				'10',
+				'2000',
+			),
+			numberSetting(
+				'Chat log length',
+				'Maximum messages kept in the persistent chat log.',
+				'maxChatLogLength',
+				'50',
+				'10000',
+			),
 		]);
 
-		const filterWordsSection = settingsMenu.mountSection('Filter Words', [
-			createFilterWordsSettingsNode(filterWords, onSettingsChange),
+		const keyWordsSection = settingsMenu.mountSection('Key Words', [
+			createKeyWordsVolumeSettingsNode(keyWords, context.notifications),
+			createKeyWordsSettingsNode(keyWords, onSettingsChange, context.settings.helpers.swapToggle),
 		]);
 
 		const mutedPlayersSection = settingsMenu.mountSection('Muted Players', [
 			{
 				label: 'Discard muted messages',
-				description: 'Drop muted messages entirely instead of keeping them in the chat log.',
+				description:
+					'Drop muted players messages entirely instead of keeping them in the chat log.',
 				specialType: 'toggle' as const,
 				input: el.input.checkbox``.then((input) => {
 					input.checked = mutedPlayers.discardMessages;
@@ -251,13 +267,9 @@ export const ChatPlugin: Plugin = {
 			elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
 			settingsMenu.open();
 		};
-		elements.highlightWordsActivator.onclick = () => {
-			elements.highlightWordsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-			highlightWordsSection.open();
-		};
-		elements.filterWordsActivator.onclick = () => {
-			elements.filterWordsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-			filterWordsSection.open();
+		elements.keyWordsActivator.onclick = () => {
+			elements.keyWordsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+			keyWordsSection.open();
 		};
 		elements.mutedPlayersActivator.onclick = () => {
 			elements.mutedPlayersActivator.closest<HTMLElement>('[popover]')?.hidePopover();
@@ -271,17 +283,17 @@ export const ChatPlugin: Plugin = {
 					storeChatMessage(chatMessage, settings);
 					return;
 				}
-				if (isChatMessageFiltered(chatMessage, filterWords)) {
-					if (isChatMessageFilteredFromLog(chatMessage, filterWords)) return;
-					storeChatMessage(chatMessage, settings);
-					return;
-				}
-				notifyHighlightMatches(
+				notifyKeyWordMatches(
 					chatMessage,
-					highlightWords,
+					keyWords,
 					context.notifications,
 					context.character.username,
 				);
+				if (isChatMessageFiltered(chatMessage, keyWords)) {
+					if (isChatMessageFilteredFromLog(chatMessage, keyWords)) return;
+					storeChatMessage(chatMessage, settings);
+					return;
+				}
 				mountChatMessage(chatMessage, context, settings, elements, filters);
 			},
 			hookAddToChat: () => false,

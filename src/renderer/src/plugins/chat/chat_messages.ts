@@ -17,6 +17,7 @@ import { isChatMessageMuted } from './chat_muted';
 import {
 	ChatFilters,
 	highlightMessageWords,
+	isChatMessageCollapsed,
 	isChatMessageFiltered,
 	isChatMessageHighlighted,
 } from './chat_words';
@@ -92,6 +93,7 @@ export const createWelcomeChatMessage = (loginSpan: HTMLSpanElement): ChatMessag
 	const element = loginSpan.cloneNode(true) as HTMLElement;
 	walkWelcomeChatMessageNodesModifier(element);
 	return {
+		username: undefined,
 		timestamp: new Date(),
 		type: 'welcome',
 		element,
@@ -102,7 +104,7 @@ export const getVisibleChatMessages = (settings: Settings, filters: ChatFilters)
 	const visible = chatMessages.filter(
 		(chatMessage) =>
 			!isChatMessageMuted(chatMessage, filters.muted) &&
-			!isChatMessageFiltered(chatMessage, filters.filter),
+			!isChatMessageFiltered(chatMessage, filters.keyWords),
 	);
 	return visible.slice(Math.max(0, visible.length - settings.maxChatLength));
 };
@@ -183,7 +185,7 @@ const highlightedRowClass = 'ring-1 ring-inset ring-accent/70';
 
 export const createChatMessageContent = (
 	chatMessage: ChatMessage,
-	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat'>,
+	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat' | 'yellIndicator'>,
 	filters: ChatFilters,
 ): HTMLDivElement => {
 	const colorClassName = chatColorClassMap[chatMessage.type] ?? chatColorClassMap.info;
@@ -210,14 +212,24 @@ export const createChatMessageContent = (
 	if (tagEl) parts.push(tagEl);
 	const usernameEl = createUsername(username, type, colorClassName);
 	if (usernameEl) parts.push(usernameEl);
-	if (type === 'yell') parts.push(createIconImg(yellIconSrc));
+	if (type === 'yell') {
+		if (settings.yellIndicator === 'guy') parts.push(createIconImg(yellIconSrc));
+		if (settings.yellIndicator === 'icon') parts.push(el.icon.speakerphone``.element);
+		if (settings.yellIndicator === 'text')
+			parts.push(
+				el.span`w-1`.then((span) => {
+					span.classList = 'text-xs font-medium opacity-70';
+					span.textContent = 'yelled';
+				}),
+			);
+	}
 	if (type === 'pm_to') parts.push(createIconImg(pmToIconSrc));
 	if (type === 'pm_from') parts.push(createIconImg(pmFromIconSrc));
 
 	parts.push(
 		el.span``.then((messageEl) => {
 			messageEl.innerHTML = formatMessageHtml(chatMessage.message);
-			highlightMessageWords(messageEl, filters.highlight);
+			highlightMessageWords(messageEl, filters.keyWords);
 		}),
 	);
 
@@ -245,17 +257,44 @@ export const createPopupLi = (
 		},
 	);
 
-export const renderMessageLi = (
+const createCollapsedMessageLi = (
 	chatMessage: ChatMessage,
-	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat'>,
+	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat' | 'yellIndicator'>,
 	bgClass: string,
 	filters: ChatFilters,
-): HTMLLIElement =>
-	createMessageLi(
+): HTMLLIElement => {
+	return el.li`text-shadow-md ${bgClass}`.then((li) => {
+		el.button`-my-1 mx-1 px-1 py-px btn btn-ghost btn-xs justify-start opacity-70 hover:opacity-100 pointer-events-auto`.mount(
+			li,
+			undefined,
+			(button) => {
+				button.type = 'button';
+				button.textContent = chatMessage.username ? `${chatMessage.username}: ` : '';
+				button.textContent += 'click to show';
+				button.onclick = () => {
+					li.classList.add('p-1');
+					li.replaceChildren(createChatMessageContent(chatMessage, settings, filters));
+				};
+			},
+		);
+	});
+};
+
+export const renderMessageLi = (
+	chatMessage: ChatMessage,
+	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat' | 'yellIndicator'>,
+	bgClass: string,
+	filters: ChatFilters,
+): HTMLLIElement => {
+	if (isChatMessageCollapsed(chatMessage, filters.keyWords)) {
+		return createCollapsedMessageLi(chatMessage, settings, bgClass, filters);
+	}
+	return createMessageLi(
 		createChatMessageContent(chatMessage, settings, filters),
 		bgClass,
-		isChatMessageHighlighted(chatMessage, filters.highlight),
+		isChatMessageHighlighted(chatMessage, filters.keyWords),
 	);
+};
 
 export const updateToggleIndicator = (
 	toggleIndicator: HTMLDivElement,
@@ -307,13 +346,21 @@ export const mountChatMessage = (
 	}
 	const { messagesContainer, popupsContainer, stickiness } = elements;
 	const messageBg = getMessageBg(settings.enableZebra);
-	const highlighted = isChatMessageHighlighted(chatMessage, filters.highlight);
-	const content = createChatMessageContent(chatMessage, settings, filters);
-	messagesContainer.appendChild(createMessageLi(content, messageBg, highlighted));
+	const collapsed = isChatMessageCollapsed(chatMessage, filters.keyWords);
+	const highlighted = isChatMessageHighlighted(chatMessage, filters.keyWords);
 
-	const popupLi = createPopupLi(content.cloneNode(true) as HTMLElement, messageBg, highlighted);
-	popupsContainer.appendChild(popupLi);
-	context.ui.fadeRemoveElement(popupLi, settings.popupDuration * 1000);
+	if (collapsed) {
+		messagesContainer.appendChild(
+			createCollapsedMessageLi(chatMessage, settings, messageBg, filters),
+		);
+	} else {
+		const content = createChatMessageContent(chatMessage, settings, filters);
+		messagesContainer.appendChild(createMessageLi(content, messageBg, highlighted));
+
+		const popupLi = createPopupLi(content.cloneNode(true) as HTMLElement, messageBg, highlighted);
+		popupsContainer.appendChild(popupLi);
+		context.ui.fadeRemoveElement(popupLi, settings.popupDuration * 1000);
+	}
 
 	while (messagesContainer.children.length > settings.maxChatLength) {
 		messagesContainer.children[0].remove();
