@@ -46,6 +46,7 @@ const initialSettings = {
 	metricsWindow: {
 		isOpen: false,
 		showTotal: true,
+		showInactiveSkills: false,
 	},
 };
 type Settings = typeof initialSettings;
@@ -269,7 +270,11 @@ const mountSkillBlock = (
 
 	const isBlockVisible = (metrics: XpTrackerMetrics) =>
 		(skill === 'total' && settings.metricsWindow.showTotal) ||
-		(skill !== 'total' && metrics.isActive && activeSkillCharts[skill]);
+		(skill !== 'total' &&
+			activeSkillCharts[skill] &&
+			(metrics.isActive || settings.metricsWindow.showInactiveSkills));
+
+	let lastMetrics = xpTracker.initialMetrics;
 
 	const updateStats = (metrics: XpTrackerMetrics) => {
 		const xpRateValue = {
@@ -309,11 +314,13 @@ const mountSkillBlock = (
 		container.classList.toggle('hidden', !showTotal);
 		container.classList.toggle('flex', showTotal);
 	};
+	const syncVisibility = () => updateVisibility(lastMetrics);
 	updateStats(xpTracker.initialMetrics);
 	updateVisibility(xpTracker.initialMetrics);
 
 	const runInterval = () => {
 		const metrics = xpTracker.runInterval();
+		lastMetrics = metrics;
 		const isVisible = updateVisibility(metrics);
 		if (isVisible) {
 			updateStats(metrics);
@@ -330,6 +337,7 @@ const mountSkillBlock = (
 		skillChart,
 		runInterval,
 		syncShowTotal,
+		syncVisibility,
 	};
 };
 
@@ -484,6 +492,18 @@ export const MetricsPlugin: Plugin = {
 						settings.metricsWindow.showTotal = input.checked;
 						if (input.checked) windowMetrics?.ensureSkillMounted('total');
 						windowMetrics?.skillCharts.forEach((chart) => chart.syncShowTotal());
+					};
+				}),
+			},
+			{
+				label: 'Show inactive skills',
+				description: 'Keep skill charts visible after they stop gaining XP.',
+				specialType: 'toggle',
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.metricsWindow.showInactiveSkills;
+					input.onchange = () => {
+						settings.metricsWindow.showInactiveSkills = input.checked;
+						windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
 					};
 				}),
 			},
