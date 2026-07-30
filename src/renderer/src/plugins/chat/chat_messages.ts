@@ -71,15 +71,32 @@ export const storeChatMessage = (chatMessage: ChatMessage, settings: Settings): 
 	persistChatMessages();
 };
 
-export const createWelcomeChatMessage = (loginSpan: HTMLSpanElement): ChatMessage => ({
-	timestamp: new Date(),
-	color: loginSpan.style.color || 'white',
-	type: 'welcome',
-	message: loginSpan.textContent ?? '',
-	username: undefined,
-	icon: undefined,
-	tag: undefined,
-});
+const walkWelcomeChatMessageNodesModifier = (element: HTMLElement | null) => {
+	if (!element || !(element instanceof HTMLElement)) return;
+	element.style.color = 'inherit';
+	if (element.onclick || element.tagName === 'a') {
+		if (element instanceof HTMLAnchorElement) {
+			element.classList.add('tooltip');
+			element.setAttribute('data-tip', element.href);
+		}
+		element.style.textDecoration = 'underline';
+		element.style.pointerEvents = 'auto';
+		element.style.cursor = 'pointer';
+	}
+	for (const child of element.children) {
+		walkWelcomeChatMessageNodesModifier(child as HTMLElement);
+	}
+};
+
+export const createWelcomeChatMessage = (loginSpan: HTMLSpanElement): ChatMessage => {
+	const element = loginSpan.cloneNode(true) as HTMLElement;
+	walkWelcomeChatMessageNodesModifier(element);
+	return {
+		timestamp: new Date(),
+		type: 'welcome',
+		element,
+	};
+};
 
 export const getVisibleChatMessages = (settings: Settings, filters: ChatFilters): ChatMessage[] => {
 	const visible = chatMessages.filter(
@@ -169,7 +186,6 @@ export const createChatMessageContent = (
 	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat'>,
 	filters: ChatFilters,
 ): HTMLDivElement => {
-	const { type, icon, tag, username } = chatMessage;
 	const colorClassName = chatColorClassMap[chatMessage.type] ?? chatColorClassMap.info;
 	const content = el.div`contents ${colorClassName}`.element;
 
@@ -181,6 +197,14 @@ export const createChatMessageContent = (
 			}),
 		);
 	}
+
+	if (chatMessage.type === 'welcome') {
+		parts.push(chatMessage.element.cloneNode(true));
+		appendSpaced(content, parts);
+		return content;
+	}
+
+	const { type, icon, tag, username } = chatMessage;
 	if (icon) parts.push(createIconImg(icon));
 	const tagEl = createUserTag(tag);
 	if (tagEl) parts.push(tagEl);
@@ -278,7 +302,9 @@ export const mountChatMessage = (
 	filters: ChatFilters,
 ): void => {
 	storeChatMessage(chatMessage, settings);
-	if (chatMessage.username) usernamesCache.add(chatMessage.username);
+	if (chatMessage.type !== 'welcome' && chatMessage.username) {
+		usernamesCache.add(chatMessage.username);
+	}
 	const { messagesContainer, popupsContainer, stickiness } = elements;
 	const messageBg = getMessageBg(settings.enableZebra);
 	const highlighted = isChatMessageHighlighted(chatMessage, filters.highlight);

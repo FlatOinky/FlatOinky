@@ -17,6 +17,7 @@ export const isChatMessageMuted = (
 	chatMessage: ChatMessage,
 	mutedPlayers: MutedPlayers,
 ): boolean => {
+	if (chatMessage.type === 'welcome') return false;
 	if (!chatMessage.username || !mutedChatTypes.has(chatMessage.type)) return false;
 	return mutedUsernames(mutedPlayers).includes(chatMessage.username);
 };

@@ -83,7 +83,7 @@ const messageMatchesWord = (message: string, word: string): boolean => {
 };
 
 const matchedFilterEntries = (chatMessage: ChatMessage, filter: FilterWords): FilterWordEntry[] => {
-	if (!chatMessage.message) return [];
+	if (chatMessage.type === 'welcome' || !chatMessage.message) return [];
 	return filterEntries(filter).filter((entry) =>
 		messageMatchesWord(chatMessage.message, entryWord(entry)),
 	);
@@ -93,7 +93,7 @@ export const matchedHighlightEntries = (
 	chatMessage: ChatMessage,
 	highlight: HighlightWords,
 ): HighlightWordEntry[] => {
-	if (!chatMessage.message) return [];
+	if (chatMessage.type === 'welcome' || !chatMessage.message) return [];
 	return highlightEntries(highlight).filter((entry) =>
 		messageMatchesWord(chatMessage.message, entryWord(entry)),
 	);
@@ -248,7 +248,7 @@ export const notifyHighlightMatches = (
 	notifications: Notifications,
 	ownUsername: string,
 ): void => {
-	if (chatMessage.type === 'pm_to') return;
+	if (chatMessage.type === 'welcome' || chatMessage.type === 'pm_to') return;
 	if (chatMessage.username && chatMessage.username === ownUsername) return;
 
 	const matches = matchedHighlightEntries(chatMessage, highlight);

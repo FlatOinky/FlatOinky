@@ -20,13 +20,23 @@ type ChatMessageLevelUp = ChatMessageBase & {
 };
 
 type ChatMessageOther = ChatMessageBase & {
-	type: 'announcement' | 'restore' | 'error' | 'warning' | 'achievement' | 'info' | 'welcome';
+	type: 'announcement' | 'restore' | 'error' | 'warning' | 'achievement' | 'info';
 	username: undefined;
 	icon: undefined;
 	tag: undefined;
 };
 
-export type ChatMessage = ChatMessageChatter | ChatMessageLevelUp | ChatMessageOther;
+type ChatMessageWelcome = {
+	type: 'welcome';
+	timestamp: Date;
+	element: HTMLElement;
+};
+
+export type ChatMessage =
+	| ChatMessageChatter
+	| ChatMessageLevelUp
+	| ChatMessageOther
+	| ChatMessageWelcome;
 
 const sanitizeMessage = (message: string): string =>
 	message
