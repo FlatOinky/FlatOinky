@@ -1,4 +1,3 @@
-import notificationMp3 from '../assets/notification.mp3';
 import { Plugin } from '../client';
 import * as el from '../client/ui/elements';
 import {
@@ -85,8 +84,6 @@ export const ChatPlugin: Plugin = {
 			filter: filterWords,
 			muted: mutedPlayers,
 		};
-		const alertAudio = new Audio(notificationMp3);
-		lifecycle.onCleanup(() => alertAudio.remove());
 		const settingsMenu = context.settings.initMenu(lifecycle);
 
 		const elements = initChat(lifecycle, context, settings, channels, filters);
@@ -227,7 +224,7 @@ export const ChatPlugin: Plugin = {
 		);
 
 		const highlightWordsSection = settingsMenu.mountSection('Highlight Words', [
-			createHighlightVolumeSettingsNode(highlightWords, alertAudio),
+			createHighlightVolumeSettingsNode(highlightWords, context.notifications),
 			createHighlightWordsSettingsNode(highlightWords, onSettingsChange),
 		]);
 
@@ -280,7 +277,12 @@ export const ChatPlugin: Plugin = {
 					storeChatMessage(chatMessage, settings);
 					return;
 				}
-				notifyHighlightMatches(chatMessage, highlightWords, alertAudio, context.character.username);
+				notifyHighlightMatches(
+					chatMessage,
+					highlightWords,
+					context.notifications,
+					context.character.username,
+				);
 				mountChatMessage(chatMessage, context, settings, elements, filters);
 			},
 			hookAddToChat: () => false,

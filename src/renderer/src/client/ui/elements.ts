@@ -227,6 +227,8 @@ export const input = {
 // #region icon elements
 
 export const icon = {
+	alertSquare: setupIconElement('icon-[tabler--alert-square]'),
+	alertCircle: setupIconElement('icon-[tabler--alert-circle]'),
 	alertSquareRounded: setupIconElement('icon-[tabler--alert-square-rounded]'),
 	alertSquareRoundedOff: setupIconElement('icon-[tabler--alert-square-rounded-off]'),
 	alertTriangle: setupIconElement('icon-[tabler--alert-triangle]'),

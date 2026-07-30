@@ -219,6 +219,111 @@ const initUpdates = (
 
 // #endregion
 
+// #region notifications tray
+
+const toggleStyle =
+	'swap btn btn-square btn-xs tooltip tooltip-start has-checked:btn-soft has-checked:btn-success not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error';
+
+// Keep duplicate controls (tray + settings) pointing at the same value. Changing
+// either writes storage and mirrors the new value onto every peer input.
+const bindCheckboxPeers = (
+	inputs: HTMLInputElement[],
+	read: () => boolean,
+	write: (value: boolean) => void,
+): void => {
+	const value = read();
+	for (const input of inputs) {
+		input.checked = value;
+		input.onchange = () => {
+			write(input.checked);
+			for (const peer of inputs) {
+				if (peer !== input) peer.checked = input.checked;
+			}
+		};
+	}
+};
+
+const bindRangePeers = (
+	inputs: HTMLInputElement[],
+	read: () => number,
+	write: (value: number) => void,
+): void => {
+	let syncing = false;
+	const sync = (source: HTMLInputElement) => {
+		if (syncing) return;
+		syncing = true;
+		try {
+			write(parseFloat(source.value));
+			for (const peer of inputs) {
+				if (peer === source) continue;
+				peer.value = source.value;
+				// `makeAlertVolume` listens for these to refresh the % label.
+				peer.dispatchEvent(new Event('input'));
+				peer.dispatchEvent(new Event('change'));
+			}
+		} finally {
+			syncing = false;
+		}
+	};
+	const value = String(read());
+	for (const input of inputs) {
+		input.value = value;
+		input.oninput = () => sync(input);
+		input.onchange = () => sync(input);
+	}
+};
+
+const initTrayMenu = (lifecycle: Lifecycle, context: PluginContext) => {
+	const { trayButton, trayMenu } = context.ui.taskbar.initTrayButtonMenu(
+		lifecycle,
+		'notifications',
+		{
+			button: {
+				title: 'Notifications',
+				icon: el.icon.alertCircle``.element,
+			},
+		},
+	);
+
+	const container = el.div`flex gap-2 p-2 items-center`.mount(trayMenu);
+
+	let notificationInput!: HTMLInputElement;
+	el.label`${toggleStyle}`.mount(container, 'notification-toggle', (notificationToggle) => {
+		notificationToggle.setAttribute('data-tip', 'Desktop Notifications');
+		notificationInput = el.input.checkbox`sr-only`.mount(notificationToggle, 'input');
+		el.icon.bell`swap-on size-4`.mount(notificationToggle, 'icon-on');
+		el.icon.bellOff`swap-off size-4`.mount(notificationToggle, 'icon-off');
+	});
+
+	let audioInput!: HTMLInputElement;
+	el.label`${toggleStyle}`.mount(container, 'audio-toggle', (audioToggle) => {
+		audioToggle.setAttribute('data-tip', 'Alert Sound');
+		audioInput = el.input.checkbox`sr-only`.mount(audioToggle, 'input');
+		el.icon.volume`swap-on size-4`.mount(audioToggle, 'icon-on');
+		el.icon.volumeOff`swap-off size-4`.mount(audioToggle, 'icon-off');
+	});
+
+	const volumeInput = el.input.range`range range-xs flex-1`.mount(container, 'volume-slider');
+	volumeInput.min = '0';
+	volumeInput.max = '1';
+	volumeInput.step = '0.05';
+
+	el.button`btn btn-xs btn-square btn-soft btn-accent tooltip tooltip-accent tooltip-end`.mount(
+		container,
+		'test-button',
+		(testButton) => {
+			testButton.setAttribute('data-tip', 'Test alert');
+			el.icon.play`size-4`.mount(testButton, 'icon');
+			testButton.onclick = () =>
+				context.notifications.send('Test', { message: 'This is a test notification' });
+		},
+	);
+
+	return { trayButton, trayMenu, notificationInput, audioInput, volumeInput };
+};
+
+// #endregion
+
 export const SystemPlugin: Plugin = {
 	namespace: 'core/system',
 	name: 'System',
@@ -273,6 +378,69 @@ export const SystemPlugin: Plugin = {
 
 		syncDevtoolsMenu();
 		syncDynamicCanvas();
+		const tray = initTrayMenu(lifecycle, context);
+		const { settings: notificationSettings } = context.notifications;
+
+		const settingsNotificationInput = el.input.checkbox``.element;
+		const settingsAudioInput = el.input.checkbox``.element;
+		const settingsVolumeInput = el.input.range``.then((input) => {
+			input.min = '0';
+			input.max = '1';
+			input.step = '0.05';
+		});
+
+		bindCheckboxPeers(
+			[tray.notificationInput, settingsNotificationInput],
+			() => notificationSettings.enableNotification,
+			(value) => (notificationSettings.enableNotification = value),
+		);
+		bindCheckboxPeers(
+			[tray.audioInput, settingsAudioInput],
+			() => notificationSettings.enableAudio,
+			(value) => (notificationSettings.enableAudio = value),
+		);
+		bindRangePeers(
+			[tray.volumeInput, settingsVolumeInput],
+			() => notificationSettings.audioVolume,
+			(value) => (notificationSettings.audioVolume = value),
+		);
+
+		settingsMenu.mountSection('Notifications', [
+			{
+				label: 'Global Controls',
+				description: 'Master switches that gate every alert.',
+				specialType: 'alertCombo' as const,
+				notificationInput: settingsNotificationInput,
+				audioInput: settingsAudioInput,
+				volumeInput: settingsVolumeInput,
+				onTest: () =>
+					context.notifications.send('Test', { message: 'This is a test notification' }),
+				reset: (
+					notification: HTMLInputElement,
+					audio: HTMLInputElement,
+					volume: HTMLInputElement,
+				) => {
+					const { initialSettings } = context.notifications;
+					notification.checked = initialSettings.enableNotification;
+					audio.checked = initialSettings.enableAudio;
+					volume.value = String(initialSettings.audioVolume);
+				},
+			},
+			{
+				label: 'Custom sound',
+				description: 'URL of an audio file to play for alerts. Leave blank for the default.',
+				reset: (input) => (input.value = ''),
+				input: el.input.url``.then((input) => {
+					input.value = notificationSettings.customSound ?? '';
+					input.placeholder = 'https://example.com/alert.mp3';
+					input.onchange = () => {
+						if (!input.checkValidity()) return;
+						const trimmed = input.value.trim();
+						notificationSettings.customSound = trimmed === '' ? undefined : trimmed;
+					};
+				}),
+			},
+		]);
 
 		settingsMenu.mountSection('Tweaks', [
 			{

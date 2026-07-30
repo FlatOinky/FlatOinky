@@ -150,6 +150,10 @@ export const createGlobalStorage = async (namespace: string) => {
 	return wrapStorageData(await getState(), ['global', namespace]);
 };
 
+export const createProfileStorage = async (profile: string, namespace: string) => {
+	return wrapStorageData(await getState(), ['profiles', profile, namespace]);
+};
+
 // #region factory
 
 export const createPluginStorages = async (

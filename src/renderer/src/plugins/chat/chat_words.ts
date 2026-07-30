@@ -1,5 +1,5 @@
 import { ChatMessage } from '../../client';
-import { createNotification } from '../../client/ipc_renderer';
+import type { Notifications } from '../../client/notifications';
 import { mountSettingsMenuNode, SettingsNode } from '../../client/settings';
 import * as el from '../../client/ui/elements';
 import { createListEditor } from './chat_list_editor';
@@ -235,16 +235,17 @@ const removeFilterEntry = (filter: FilterWords, word: string): void => {
 	filter.entries = filterEntries(filter).filter((entry) => entry.word !== word);
 };
 
-const previewHighlightAlert = (alertAudio: HTMLAudioElement, highlight: HighlightWords): void => {
-	alertAudio.currentTime = 0;
-	alertAudio.volume = highlightAudioVolume(highlight);
-	void alertAudio.play();
+const previewHighlightAlert = (notifications: Notifications, highlight: HighlightWords): void => {
+	notifications.send('Highlight', {
+		volume: highlightAudioVolume(highlight),
+		notification: false,
+	});
 };
 
 export const notifyHighlightMatches = (
 	chatMessage: ChatMessage,
 	highlight: HighlightWords,
-	alertAudio: HTMLAudioElement,
+	notifications: Notifications,
 	ownUsername: string,
 ): void => {
 	if (chatMessage.type === 'pm_to') return;
@@ -257,24 +258,25 @@ export const notifyHighlightMatches = (
 	const audioMatches = matches.filter((entry) => entryEnableAudio(entry));
 	const body = unescapeMessageEntities(chatMessage.message);
 
-	if (notifyMatches.length > 0) {
-		createNotification(entryWord(notifyMatches[0]), body);
-	}
-	if (audioMatches.length > 0) {
-		alertAudio.currentTime = 0;
-		alertAudio.volume = highlightAudioVolume(highlight);
-		void alertAudio.play();
+	if (notifyMatches.length > 0 || audioMatches.length > 0) {
+		const title = entryWord((notifyMatches[0] ?? audioMatches[0])!);
+		notifications.send(title, {
+			message: body,
+			volume: highlightAudioVolume(highlight),
+			notification: notifyMatches.length > 0,
+			audio: audioMatches.length > 0,
+		});
 	}
 };
 
 export const createHighlightVolumeSettingsNode = (
 	highlight: HighlightWords,
-	alertAudio: HTMLAudioElement,
+	notifications: Notifications,
 ): SettingsNode => ({
 	label: 'Alert volume',
 	description: 'Volume of the alert sound, shared by every highlight word.',
 	specialType: 'alertVolume',
-	onTest: () => previewHighlightAlert(alertAudio, highlight),
+	onTest: () => previewHighlightAlert(notifications, highlight),
 	input: el.input.range``.then((input) => {
 		input.min = '0';
 		input.max = '1';

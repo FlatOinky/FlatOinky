@@ -1,9 +1,14 @@
 import { ChatMessage, parseChatMessage } from './client/chat_message';
-import { createGlobalStorage, createPluginStorages } from './client/client_storage';
-import { getProfileKey } from './client/profiles';
-import { initUi } from './client/ui';
+import {
+	createGlobalStorage,
+	createPluginStorages,
+	createProfileStorage,
+} from './client/client_storage';
 import { getAppVersion, openDevTools, saveReferences } from './client/ipc_renderer';
+import { initNotifications, Notifications } from './client/notifications';
+import { getProfileKey } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
+import { initUi } from './client/ui';
 import { initUpdater, Updater } from './client/updater';
 
 export type { ChatMessage };
@@ -61,8 +66,9 @@ const createContext = (
 	container: HTMLElement,
 	ipc: ClientIpc,
 	updater: Updater,
+	notifications: Notifications,
 ) => {
-	return { character, ui, canvas, container, ipc, updater };
+	return { character, ui, canvas, container, ipc, updater, notifications };
 };
 
 export type PluginContext = Awaited<ReturnType<typeof createPluginContext>>;
@@ -314,13 +320,24 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	const lifecycle = initLifecycle();
 	const ui = initUi(lifecycle, canvasContainer);
 	const ipc = initIpc(references);
-	const [clientStorage, updaterStorage, version] = await Promise.all([
+	const profileKey = getProfileKey(character.username);
+	const [clientStorage, updaterStorage, notificationsStorage, version] = await Promise.all([
 		createGlobalStorage('client'),
 		createGlobalStorage('updater'),
+		createProfileStorage(profileKey, 'notifications'),
 		getAppVersion(),
 	]);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
-	const context = createContext(character, ui, canvas, canvasContainer, ipc, updater);
+	const notifications = initNotifications(lifecycle, notificationsStorage);
+	const context = createContext(
+		character,
+		ui,
+		canvas,
+		canvasContainer,
+		ipc,
+		updater,
+		notifications,
+	);
 	const settings = initSettings(lifecycle, ui, clientStorage);
 
 	const plugins = initPlugins(lifecycle, context, settings);
