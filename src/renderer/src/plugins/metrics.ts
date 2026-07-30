@@ -614,8 +614,7 @@ export const MetricsPlugin: Plugin = {
 			},
 			{
 				label: 'Time Span',
-				tooltip: 'In minutes',
-				description: 'The duration of the time window to be displayed.',
+				description: 'In minutes, the duration of the time window to be displayed.',
 				valueSuffix: 'm',
 				reset: (input) => (input.value = String(initialSettings.timeSpan)),
 				input: el.input.range``.then((input) => {
@@ -633,8 +632,7 @@ export const MetricsPlugin: Plugin = {
 			},
 			{
 				label: 'Refresh Rate',
-				tooltip: 'In seconds',
-				description: 'The interval at which the metrics will be captured and updated.',
+				description: 'In seconds, the interval at which the metrics will be captured and updated.',
 				valueSuffix: 's',
 				reset: (input) => (input.value = String(initialSettings.updateInterval)),
 				input: el.input.range``.then((input) => {

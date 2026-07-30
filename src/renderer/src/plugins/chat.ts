@@ -171,8 +171,7 @@ export const ChatPlugin: Plugin = {
 			},
 			{
 				label: 'Popup duration',
-				tooltip: 'In seconds',
-				description: 'How long popup messages stay visible.',
+				description: 'In seconds, how long popup messages stay visible.',
 				valueSuffix: 's',
 				reset: (input) => (input.value = String(initialSettings.popupDuration)),
 				input: el.input.range``.then((input) => {
