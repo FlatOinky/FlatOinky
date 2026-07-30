@@ -376,8 +376,6 @@ export const SystemPlugin: Plugin = {
 			() => void clearAssetCache(),
 		);
 
-		syncDevtoolsMenu();
-		syncDynamicCanvas();
 		const tray = initTrayMenu(lifecycle, context);
 		const { settings: notificationSettings } = context.notifications;
 
@@ -404,43 +402,6 @@ export const SystemPlugin: Plugin = {
 			() => notificationSettings.audioVolume,
 			(value) => (notificationSettings.audioVolume = value),
 		);
-
-		settingsMenu.mountSection('Notifications', [
-			{
-				label: 'Global Controls',
-				description: 'Master switches that gate every alert.',
-				specialType: 'alertCombo' as const,
-				notificationInput: settingsNotificationInput,
-				audioInput: settingsAudioInput,
-				volumeInput: settingsVolumeInput,
-				onTest: () =>
-					context.notifications.send('Test', { message: 'This is a test notification' }),
-				reset: (
-					notification: HTMLInputElement,
-					audio: HTMLInputElement,
-					volume: HTMLInputElement,
-				) => {
-					const { initialSettings } = context.notifications;
-					notification.checked = initialSettings.enableNotification;
-					audio.checked = initialSettings.enableAudio;
-					volume.value = String(initialSettings.audioVolume);
-				},
-			},
-			{
-				label: 'Custom sound',
-				description: 'URL of an audio file to play for alerts. Leave blank for the default.',
-				reset: (input) => (input.value = ''),
-				input: el.input.url``.then((input) => {
-					input.value = notificationSettings.customSound ?? '';
-					input.placeholder = 'https://example.com/alert.mp3';
-					input.onchange = () => {
-						if (!input.checkValidity()) return;
-						const trimmed = input.value.trim();
-						notificationSettings.customSound = trimmed === '' ? undefined : trimmed;
-					};
-				}),
-			},
-		]);
 
 		settingsMenu.mountSection('Tweaks', [
 			{
@@ -494,7 +455,47 @@ export const SystemPlugin: Plugin = {
 			}),
 		]);
 
+		settingsMenu.mountSection('Notifications', [
+			{
+				label: 'Global Controls',
+				description: 'Master switches that gate every alert.',
+				specialType: 'alertCombo' as const,
+				notificationInput: settingsNotificationInput,
+				audioInput: settingsAudioInput,
+				volumeInput: settingsVolumeInput,
+				onTest: () =>
+					context.notifications.send('Test', { message: 'This is a test notification' }),
+				reset: (
+					notification: HTMLInputElement,
+					audio: HTMLInputElement,
+					volume: HTMLInputElement,
+				) => {
+					const { initialSettings } = context.notifications;
+					notification.checked = initialSettings.enableNotification;
+					audio.checked = initialSettings.enableAudio;
+					volume.value = String(initialSettings.audioVolume);
+				},
+			},
+			{
+				label: 'Custom sound',
+				description: 'URL of an audio file to play for alerts. Leave blank for the default.',
+				reset: (input) => (input.value = ''),
+				input: el.input.url``.then((input) => {
+					input.value = notificationSettings.customSound ?? '';
+					input.placeholder = 'https://example.com/alert.mp3';
+					input.onchange = () => {
+						if (!input.checkValidity()) return;
+						const trimmed = input.value.trim();
+						notificationSettings.customSound = trimmed === '' ? undefined : trimmed;
+					};
+				}),
+			},
+		]);
+
 		initUpdates(lifecycle, context, settingsMenu);
+
+		syncDevtoolsMenu();
+		syncDynamicCanvas();
 
 		settingsMenu.mountSection('Devtools', [
 			{
