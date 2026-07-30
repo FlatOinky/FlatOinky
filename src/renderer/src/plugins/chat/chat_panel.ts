@@ -124,7 +124,7 @@ const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settin
 	}
 	chatMessageContainer.scroll({
 		top: targetScrollTop,
-		behavior: 'smooth',
+		behavior: settings.enableSmoothScroll ? 'smooth' : 'instant',
 	});
 };
 
@@ -137,7 +137,7 @@ const handleToggleChange = (elements: ChatElements, settings: Settings): void =>
 			elements.stickiness.isSticky = true;
 			chatMessageContainer.scroll({
 				top: chatMessageContainer.scrollHeight,
-				behavior: 'smooth',
+				behavior: settings.enableSmoothScroll ? 'smooth' : 'instant',
 			});
 			return;
 		}

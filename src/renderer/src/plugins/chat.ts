@@ -102,7 +102,7 @@ export const ChatPlugin: Plugin = {
 		const toggleSetting = (
 			label: string,
 			description: string,
-			key: 'enableZebra' | 'enableTimestamp',
+			key: 'enableZebra' | 'enableTimestamp' | 'enableSmoothScroll',
 		) => ({
 			label,
 			description,
@@ -143,6 +143,11 @@ export const ChatPlugin: Plugin = {
 				'Show timestamps',
 				'Show a timestamp before each chat message.',
 				'enableTimestamp',
+			),
+			toggleSetting(
+				'Smooth scrolling',
+				'Animate chat scroll when using the mouse wheel.',
+				'enableSmoothScroll',
 			),
 			{
 				label: 'Timestamp format',
