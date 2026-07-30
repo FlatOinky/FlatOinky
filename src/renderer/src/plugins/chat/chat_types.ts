@@ -13,8 +13,8 @@ export type ChatTab = {
 export const chatColorClassMap: Record<ChatMessage['type'], string> = {
 	local: 'text-(--oinky-chat-local)',
 	yell: 'text-(--oinky-chat-yell)',
-	pm_to: 'text-(--oinky-chat-pm-to)',
-	pm_from: 'text-(--oinky-chat-pm-from)',
+	pm_to: 'text-(--oinky-chat-pm)',
+	pm_from: 'text-(--oinky-chat-pm)',
 	level_up: 'text-(--oinky-chat-level-up)',
 	announcement: 'text-(--oinky-chat-announcement)',
 	restore: 'text-(--oinky-chat-restore)',
@@ -25,11 +25,10 @@ export const chatColorClassMap: Record<ChatMessage['type'], string> = {
 	welcome: 'text-(--oinky-chat-welcome)',
 };
 
-export const initialChatColors: Record<ChatMessage['type'], string> = {
+export const initialChatColors = {
 	local: 'var(--color-base-content)',
 	yell: 'var(--color-base-content)',
-	pm_to: 'var(--color-accent)',
-	pm_from: 'var(--color-accent)',
+	pm: 'var(--color-accent)',
 	level_up: 'var(--color-success)',
 	announcement: 'var(--color-info)',
 	restore: 'var(--color-success)',
@@ -55,16 +54,10 @@ export const chatColorMeta = [
 		description: 'Yell / world shout messages.',
 	},
 	{
-		type: 'pm_to',
-		cssVar: '--oinky-chat-pm-to',
-		label: 'PM (to)',
-		description: 'Private messages you send.',
-	},
-	{
-		type: 'pm_from',
-		cssVar: '--oinky-chat-pm-from',
-		label: 'PM (from)',
-		description: 'Private messages you receive.',
+		type: 'pm',
+		cssVar: '--oinky-chat-pm',
+		label: 'Private message',
+		description: 'Private messages you send or receive.',
 	},
 	{
 		type: 'level_up',
@@ -73,10 +66,10 @@ export const chatColorMeta = [
 		description: 'Skill level-up congratulations.',
 	},
 	{
-		type: 'announcement',
-		cssVar: '--oinky-chat-announcement',
-		label: 'Announcement',
-		description: 'Server announcements.',
+		type: 'achievement',
+		cssVar: '--oinky-chat-achievement',
+		label: 'Achievement',
+		description: 'Achievement completion notices.',
 	},
 	{
 		type: 'restore',
@@ -85,22 +78,16 @@ export const chatColorMeta = [
 		description: 'Full HP / energy restore notices.',
 	},
 	{
-		type: 'error',
-		cssVar: '--oinky-chat-error',
-		label: 'Error',
-		description: 'Error messages from the server.',
+		type: 'announcement',
+		cssVar: '--oinky-chat-announcement',
+		label: 'Announcement',
+		description: 'Server announcements.',
 	},
 	{
-		type: 'warning',
-		cssVar: '--oinky-chat-warning',
-		label: 'Warning',
-		description: 'Warning messages from the server.',
-	},
-	{
-		type: 'achievement',
-		cssVar: '--oinky-chat-achievement',
-		label: 'Achievement',
-		description: 'Achievement completion notices.',
+		type: 'welcome',
+		cssVar: '--oinky-chat-welcome',
+		label: 'Welcome',
+		description: 'Login welcome messages.',
 	},
 	{
 		type: 'info',
@@ -109,13 +96,19 @@ export const chatColorMeta = [
 		description: 'General info messages.',
 	},
 	{
-		type: 'welcome',
-		cssVar: '--oinky-chat-welcome',
-		label: 'Welcome',
-		description: 'Login welcome messages.',
+		type: 'warning',
+		cssVar: '--oinky-chat-warning',
+		label: 'Warning',
+		description: 'Warning messages from the server.',
+	},
+	{
+		type: 'error',
+		cssVar: '--oinky-chat-error',
+		label: 'Error',
+		description: 'Error messages from the server.',
 	},
 ] as const satisfies ReadonlyArray<{
-	type: ChatMessage['type'];
+	type: keyof ChatColors;
 	cssVar: string;
 	label: string;
 	description: string;
