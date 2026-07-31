@@ -132,7 +132,7 @@ export const initialSettings = {
 	popupDuration: 8,
 	enableTimestamp: true,
 	timestampFormat: 'h:mmaaa',
-	yellIndicator: 'text' as 'guy' | 'icon' | 'text',
+	yellIndicator: 'guy' as 'guy' | 'icon' | 'text',
 };
 export type Settings = typeof initialSettings;
 
