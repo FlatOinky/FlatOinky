@@ -29,19 +29,6 @@ const MIN_SCALE = 0.1;
 const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lifecycle => {
 	const dynamicCanvasLifecycle = lifecycle.spawnLifecycle();
 
-	// `canvas_scale` is a classic-script `let` in the game source, so it is not
-	// reachable from this module. Inject a classic <script> that shares the
-	// game's global lexical scope; it can reassign `canvas_scale` for us, which
-	// keeps click/tile mapping correct after we resize the canvas.
-	const scaleBridge = document.createElement('script');
-	scaleBridge.textContent =
-		'window.__oinkySetCanvasScale=function(s){try{canvas_scale=s;}catch(e){}};';
-	document.body.appendChild(scaleBridge);
-	dynamicCanvasLifecycle.onCleanup(() => {
-		scaleBridge.remove();
-		delete window.__oinkySetCanvasScale;
-	});
-
 	const canvasDisplay = canvas.style.display;
 	const canvasMargin = canvas.style.margin;
 	canvas.style.display = 'block';
@@ -64,7 +51,7 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lif
 		);
 		canvas.style.width = `${CANVAS_WIDTH * scale}px`;
 		canvas.style.height = `${CANVAS_HEIGHT * scale}px`;
-		window.__oinkySetCanvasScale?.(scale);
+		canvas_scale = scale;
 		window.position_chat?.();
 	};
 
@@ -73,7 +60,7 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lif
 		canvas.style.height = '';
 		const computedWidth = parseInt(window.getComputedStyle(canvas).width, 10);
 		if (!Number.isNaN(computedWidth) && computedWidth > 0) {
-			window.__oinkySetCanvasScale?.(computedWidth / CANVAS_WIDTH);
+			canvas_scale = computedWidth / CANVAS_WIDTH;
 		}
 		window.position_chat?.();
 	};
