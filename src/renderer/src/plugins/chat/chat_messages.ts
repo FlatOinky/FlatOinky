@@ -119,7 +119,7 @@ export const getMessageBg = (enableZebra: boolean): HTMLElement['className'] => 
 };
 
 export const checkIsAtBottom = (element: HTMLElement, scrollTop = element.scrollTop): boolean =>
-	scrollTop + element.clientHeight >= element.scrollHeight - element.clientHeight / 3;
+	scrollTop + element.offsetHeight >= element.scrollHeight - element.offsetHeight / 3;
 
 const formatMessageHtml = (message: string): string => {
 	let result = message
