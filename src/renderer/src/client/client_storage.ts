@@ -1,5 +1,6 @@
 import * as dot from 'dot-prop';
 import { ipcStorage } from './ipc_renderer';
+import type { ScopeKind, StorageContext, StorageInitPayload } from './ipc_renderer/ipc_storage';
 
 type JSONData =
 	| boolean
@@ -11,9 +12,9 @@ type JSONData =
 export type StorageKey = string | readonly (string | number)[];
 
 export type StorageData = {
-	global: { [namespace: string]: Record<string, JSONData> };
-	profiles: { [profile: string]: { [namespace: string]: Record<string, JSONData> } };
-	characters: { [character: string]: { [namespace: string]: Record<string, JSONData> } };
+	global: { [context: string]: { [namespace: string]: Record<string, JSONData> } };
+	profile: { [context: string]: { [namespace: string]: Record<string, JSONData> } };
+	character: { [context: string]: { [namespace: string]: Record<string, JSONData> } };
 };
 
 export type ClientStorage = {
@@ -25,41 +26,51 @@ export type ClientStorage = {
 
 // #region state
 
-// The whole client state lives as a single shared object. Every scoped storage
-// reads and writes this same object so that all accesses share memory and stay
-// consistent between reloads (disk is only rehydrated once at load).
 let statePromise: Promise<StorageData> | undefined;
+let initPayload: StorageInitPayload | undefined;
 
-const getState = (): Promise<StorageData> =>
-	(statePromise ??= ipcStorage.loadStorage<Partial<StorageData>>().then((loaded) => ({
-		global: loaded.global ?? {},
-		profiles: loaded.profiles ?? {},
-		characters: loaded.characters ?? {},
-	})));
+export const getInitPayload = (): StorageInitPayload => {
+	if (!initPayload) throw new Error('Storage has not been initialized');
+	return initPayload;
+};
+
+export const initClientStorage = async (characterName: string): Promise<StorageInitPayload> => {
+	const payload = await ipcStorage.initStorage(characterName);
+	initPayload = payload;
+	statePromise = Promise.resolve({
+		global: (payload.settings.global ?? {}) as StorageData['global'],
+		profile: (payload.settings.profile ?? {}) as StorageData['profile'],
+		character: (payload.settings.character ?? {}) as StorageData['character'],
+	});
+	return payload;
+};
+
+export const replaceClientStorageSettings = (settings: StorageInitPayload['settings']): void => {
+	if (!initPayload) return;
+	initPayload = { ...initPayload, settings };
+	statePromise = Promise.resolve({
+		global: (settings.global ?? {}) as StorageData['global'],
+		profile: (settings.profile ?? {}) as StorageData['profile'],
+		character: (settings.character ?? {}) as StorageData['character'],
+	});
+};
+
+const getState = (): Promise<StorageData> => {
+	if (!statePromise) throw new Error('Storage has not been initialized');
+	return statePromise;
+};
 
 // #region routing
 
-// Dispatches a mutation on the single state object to the matching persistence
-// channel. The first path segment selects the channel and is stripped so the
-// remaining path matches what `ipc_storage` expects.
 const routeUpdate = (path: readonly (string | number | symbol)[], value: unknown): void => {
-	if (path.length < 2) return;
-	const [root, ...rest] = path;
+	if (path.length < 3) return;
+	const [root, context, namespace, ...rest] = path;
+	if (typeof context !== 'string' || typeof namespace !== 'string') return;
+	if (root !== 'global' && root !== 'profile' && root !== 'character') return;
 	const key = rest.filter((segment): segment is string | number => typeof segment !== 'symbol');
 	if (key.length !== rest.length) return;
-	switch (root) {
-		case 'global':
-			ipcStorage.updateGlobalStorage(key, value);
-			return;
-		case 'profiles':
-			ipcStorage.updateProfileStorage(key, value);
-			return;
-		case 'characters':
-			ipcStorage.updateCharacterStorage(key, value);
-			return;
-		default:
-			return;
-	}
+	if (key.length < 1) return;
+	ipcStorage.updateSettings(root as ScopeKind, context, namespace, key, value);
 };
 
 // #region proxy
@@ -108,9 +119,6 @@ const deepProxy = <T extends object>(
 
 // #region scoped views
 
-// Creates a plugin-scoped view over the single shared state. Every operation is
-// rooted at `basePath` (e.g. `['global', namespace]`) and mutations flow through
-// `routeUpdate` so they are persisted via `ipc_storage`.
 const wrapStorageData = (
 	state: StorageData,
 	basePath: readonly (string | number)[],
@@ -146,33 +154,37 @@ const wrapStorageData = (
 	};
 };
 
-export const createGlobalStorage = async (namespace: string) => {
-	return wrapStorageData(await getState(), ['global', namespace]);
+export const createGlobalStorage = async (context: StorageContext | string, namespace: string) => {
+	return wrapStorageData(await getState(), ['global', context, namespace]);
 };
 
-export const createProfileStorage = async (profile: string, namespace: string) => {
-	return wrapStorageData(await getState(), ['profiles', profile, namespace]);
+export const createProfileStorage = async (context: StorageContext | string, namespace: string) => {
+	return wrapStorageData(await getState(), ['profile', context, namespace]);
+};
+
+export const createCharacterStorage = async (
+	context: StorageContext | string,
+	namespace: string,
+) => {
+	return wrapStorageData(await getState(), ['character', context, namespace]);
 };
 
 // #region factory
 
 export const createPluginStorages = async (
 	namespace: string,
-	profile: string,
-	username: string,
 ): Promise<{
 	global: ClientStorage;
 	profile: ClientStorage;
 	character: ClientStorage;
 }> => {
 	const state = await getState();
+	const context: StorageContext = 'plugins';
 	return {
-		global: wrapStorageData(state, ['global', 'plugins', namespace]),
-		profile: wrapStorageData(state, ['profiles', profile, namespace]),
-		character: wrapStorageData(state, ['characters', username, namespace]),
+		global: wrapStorageData(state, ['global', context, namespace]),
+		profile: wrapStorageData(state, ['profile', context, namespace]),
+		character: wrapStorageData(state, ['character', context, namespace]),
 	};
 };
 
-// A single Proxy over the whole shared state. Reading or mutating it directly
-// keeps the same source of truth used by every scoped storage view.
-export const storageData = getState().then((state) => deepProxy(state, routeUpdate));
+export const storageData = async () => deepProxy(await getState(), routeUpdate);

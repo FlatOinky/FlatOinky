@@ -136,24 +136,111 @@ export const ipcMainSetup = (): void => {
 
 	// #region storage
 
-	ipcMain.handle('loadStorage', async () => ({
-		global: (await storage.loadGlobalStorage()) ?? {},
-		profiles: (await storage.loadProfileStorage()) ?? {},
-		characters: (await storage.loadCharacterStorage()) ?? {},
-	}));
+	type StorageSession = { characterId: number; profileId: number; characterName: string };
+	const sessions = new Map<number, StorageSession>();
 
-	ipcMain.on('updateGlobalStorage', (_event, key: StorageKey, value: unknown) => {
-		if ((typeof key !== 'string' && !Array.isArray(key)) || key.length < 1) return;
-		storage.updateGlobalStorage(key, value);
+	const isValidKey = (key: unknown): key is StorageKey =>
+		(typeof key === 'string' || Array.isArray(key)) && (key as StorageKey).length > 0;
+
+	const isValidName = (value: unknown): value is string =>
+		typeof value === 'string' && value.length > 0;
+
+	const resolveScope = (
+		session: StorageSession,
+		kind: storage.ScopeKind,
+	): storage.Scope | undefined => {
+		switch (kind) {
+			case 'global':
+				return { kind: 'global' };
+			case 'profile':
+				return { kind: 'profile', profileId: session.profileId };
+			case 'character':
+				return { kind: 'character', characterId: session.characterId };
+			default:
+				return undefined;
+		}
+	};
+
+	ipcMain.handle('storage:init', (event, characterName: string) => {
+		if (typeof characterName !== 'string' || characterName.length < 1) return null;
+		const character = storage.upsertCharacter(characterName);
+		const profileId = storage.getCharacterProfileId(character.id);
+		const profiles = storage.listProfiles();
+		const profile = profiles.find((entry) => entry.id === profileId) ?? profiles[0];
+		sessions.set(event.sender.id, {
+			characterId: character.id,
+			profileId,
+			characterName: character.name,
+		});
+		event.sender.once('destroyed', () => {
+			sessions.delete(event.sender.id);
+		});
+		return {
+			character,
+			profile,
+			profiles,
+			settings: {
+				global: storage.loadSettings({ kind: 'global' }),
+				profile: storage.loadSettings({ kind: 'profile', profileId }),
+				character: storage.loadSettings({
+					kind: 'character',
+					characterId: character.id,
+				}),
+			},
+		};
 	});
 
-	ipcMain.on('updateProfileStorage', (_event, key: StorageKey, value: unknown) => {
-		if ((typeof key !== 'string' && !Array.isArray(key)) || key.length < 1) return;
-		storage.updateProfileStorage(key, value);
+	ipcMain.on(
+		'storage:updateSettings',
+		(
+			event,
+			kind: storage.ScopeKind,
+			context: string,
+			namespace: string,
+			key: StorageKey,
+			value: unknown,
+		) => {
+			if (!isValidName(context) || !isValidName(namespace) || !isValidKey(key)) return;
+			const session = sessions.get(event.sender.id);
+			if (!session) return;
+			const scope = resolveScope(session, kind);
+			if (!scope) return;
+			storage.updateSettings(scope, context, namespace, key, value);
+		},
+	);
+
+	ipcMain.handle('storage:listProfiles', () => storage.listProfiles());
+
+	ipcMain.handle('storage:createProfile', (_event, name: string) => {
+		if (typeof name !== 'string' || name.trim().length < 1) return null;
+		try {
+			return storage.createProfile(name);
+		} catch (error) {
+			console.warn(error);
+			return null;
+		}
 	});
 
-	ipcMain.on('updateCharacterStorage', (_event, key: StorageKey, value: unknown) => {
-		if ((typeof key !== 'string' && !Array.isArray(key)) || key.length < 1) return;
-		storage.updateCharacterStorage(key, value);
+	ipcMain.handle('storage:setCharacterProfile', (event, profileId: number) => {
+		if (typeof profileId !== 'number' || !Number.isInteger(profileId)) return null;
+		const session = sessions.get(event.sender.id);
+		if (!session) return null;
+		const profiles = storage.listProfiles();
+		const profile = profiles.find((entry) => entry.id === profileId);
+		if (!profile) return null;
+		storage.setCharacterProfileId(session.characterId, profileId);
+		sessions.set(event.sender.id, { ...session, profileId });
+		return {
+			profile,
+			profiles,
+			settings: {
+				global: storage.loadSettings({ kind: 'global' }),
+				profile: storage.loadSettings({ kind: 'profile', profileId }),
+				character: storage.loadSettings({
+					kind: 'character',
+					characterId: session.characterId,
+				}),
+			},
+		};
 	});
 };

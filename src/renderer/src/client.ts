@@ -3,10 +3,11 @@ import {
 	createGlobalStorage,
 	createPluginStorages,
 	createProfileStorage,
+	initClientStorage,
 } from './client/client_storage';
 import { getAppVersion, openDevTools, saveReferences } from './client/ipc_renderer';
 import { initNotifications, Notifications } from './client/notifications';
-import { getProfileKey } from './client/profiles';
+import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
 import { initUi } from './client/ui';
 import { initUpdater, Updater } from './client/updater';
@@ -79,11 +80,10 @@ const createPluginContext = async (
 	namespace: string,
 	title: string,
 ) => {
-	const profileKey = getProfileKey(context.character.username);
 	return {
 		...context,
 		settings: settings.setupPluginApi(namespace, title),
-		storages: await createPluginStorages(namespace, profileKey, context.character.username),
+		storages: await createPluginStorages(namespace),
 	};
 };
 
@@ -320,12 +320,15 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	const lifecycle = initLifecycle();
 	const ui = initUi(lifecycle, canvasContainer);
 	const ipc = initIpc(references);
-	const profileKey = getProfileKey(character.username);
-	const [clientStorage, updaterStorage, notificationsStorage, version] = await Promise.all([
-		createGlobalStorage('client'),
-		createGlobalStorage('updater'),
-		createProfileStorage(profileKey, 'notifications'),
+	const [storagePayload, version] = await Promise.all([
+		initClientStorage(character.username),
 		getAppVersion(),
+	]);
+	const profiles = initProfiles(storagePayload);
+	const [clientStorage, updaterStorage, notificationsStorage] = await Promise.all([
+		createProfileStorage('systems', 'client'),
+		createGlobalStorage('systems', 'updater'),
+		createProfileStorage('systems', 'notifications'),
 	]);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
 	const notifications = initNotifications(lifecycle, notificationsStorage);
@@ -357,6 +360,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	return {
 		hooks,
 		pluginsApi: plugins.api,
+		profiles,
 		handleBeforeConnect: () => {
 			plugins.api.onStartup();
 		},

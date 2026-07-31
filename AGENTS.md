@@ -39,6 +39,7 @@ client.
   - `updater.ts` — electron-updater wrapper: channel (`latest`/`beta`), check,
     download, install, and update events to the renderer.
   - `asset_cache.ts` — on-disk HTTP asset cache under userData, with ETag metadata.
+  - `database.ts` — `node:sqlite` DatabaseSync under userData/storage.
   - `flat_mmo.ts`, `asset_proxy.ts`, `storage.ts`, `client_window.ts`, `files.ts`.
 - `src/preload/index.ts` — context bridge exposing safe APIs to the renderer.
 - `src/renderer/src/` — renderer / UI.
@@ -51,8 +52,8 @@ client.
   - `client/settings.ts` — the 'Client settings' window and the registry plugins use
     to add their own sections.
   - `client/client_storage.ts` — reactive storage scoped to global, profile, or
-    character, persisted over IPC.
-  - `client/profiles.ts` — profile list and per-character profile mapping.
+    character, persisted over IPC into SQLite.
+  - `client/profiles.ts` — profile list and per-character profile mapping (SQLite).
   - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, devtools,
     notifications, updates).
   - `client/updater.ts` — update UI state machine wired to the main updater.
@@ -61,6 +62,12 @@ client.
   - `plugins/`, `templates/`, `assets/`, `styles/`.
 - `./refs/` — git-ignored Flat MMO reference source (read-only).
 - Config: `electron.vite.config.ts`, `tsconfig*.json`, `.oxlintrc.json`, `.oxfmtrc.json`.
+
+Storage lives in SQLite (`userData/storage/flat-oinky.db`, or
+`<NODE_ENV>.flat-oinky.db` outside production). Tables cover profiles, characters,
+character↔profile mappings, and per-scope `*_settings` / `*_data` documents keyed by
+`context` plus `namespace` (`plugins` + `core/<name>` for plugins, `systems` +
+`<name>` for client internals).
 
 ## 4. Safety and permission boundaries
 

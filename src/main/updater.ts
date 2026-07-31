@@ -4,13 +4,14 @@ import log from 'electron-log/main';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { is } from '@electron-toolkit/utils';
-import * as dot from 'dot-prop';
 import * as storage from './storage';
 
 export type UpdateChannel = 'latest' | 'beta';
 
-// Matches where the renderer's `createGlobalStorage('updater')` writes.
-const channelKey = ['updater', 'channel'] as const;
+// Matches where the renderer's `createGlobalStorage('systems', 'updater')` writes.
+const updaterContext = 'systems';
+const updaterNamespace = 'updater';
+const channelKey = 'channel';
 
 // electron-updater cannot resolve a feed from an unpackaged app, so in dev it
 // only runs when pointed at a config file. Opting in on the file's presence
@@ -30,9 +31,11 @@ const getDefaultChannel = (): UpdateChannel => (app.getVersion().includes('-') ?
 
 let cachedChannel: UpdateChannel | undefined;
 
-const loadChannelFromStorage = async (): Promise<UpdateChannel> => {
-	const globalStorage = (await storage.loadGlobalStorage()) ?? {};
-	const stored = dot.getProperty(globalStorage, channelKey);
+const loadChannelFromStorage = (): UpdateChannel => {
+	const updaterSettings = storage.loadSettings({ kind: 'global' })[updaterContext]?.[
+		updaterNamespace
+	] as { channel?: unknown } | undefined;
+	const stored = updaterSettings?.channel;
 	if (stored === 'latest' || stored === 'beta') return stored;
 	return getDefaultChannel();
 };
@@ -49,7 +52,7 @@ const applyChannel = (channel: UpdateChannel): void => {
 
 export const setChannel = async (channel: UpdateChannel): Promise<void> => {
 	cachedChannel = channel;
-	await storage.updateGlobalStorage(channelKey, channel);
+	storage.updateSettings({ kind: 'global' }, updaterContext, updaterNamespace, channelKey, channel);
 	await checkForUpdates();
 };
 
@@ -85,6 +88,6 @@ export const initUpdater = async (): Promise<void> => {
 	autoUpdater.on('update-downloaded', ({ version }) => broadcast('updateReady', version));
 	autoUpdater.on('error', (error) => broadcast('updateError', error.message));
 
-	cachedChannel = await loadChannelFromStorage();
+	cachedChannel = loadChannelFromStorage();
 	applyChannel(cachedChannel);
 };

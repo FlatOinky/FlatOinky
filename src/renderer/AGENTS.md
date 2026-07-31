@@ -73,8 +73,10 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    - `profile` — shared across characters on the same profile
    - `character` — one character only
 
-     Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC
-     automatically. Do not re-save manually.
+     Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC into
+     SQLite automatically. Do not re-save manually. Plugin storages use context
+     `plugins` with the plugin's `core/<name>` namespace; client internals use context
+     `systems` with bare namespaces (`client`, `updater`, `notifications`).
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
