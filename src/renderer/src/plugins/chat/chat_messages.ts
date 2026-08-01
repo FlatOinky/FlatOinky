@@ -29,7 +29,7 @@ let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
 const writeChatMessages = (): void => {
 	localStorage.setItem(
-		`oinky/${namespace}/chatMessages`,
+		`${namespace}/chatMessages`,
 		JSON.stringify(chatMessages.filter((message) => message.type !== 'welcome')),
 	);
 };

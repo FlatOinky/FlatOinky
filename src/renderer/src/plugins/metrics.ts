@@ -398,7 +398,7 @@ const initMetricsWindow = (
 // #region plugin
 
 export const MetricsPlugin: Plugin = {
-	namespace: 'core/metrics',
+	namespace: 'oinky/metrics',
 	name: 'Metrics',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);

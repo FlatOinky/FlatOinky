@@ -5,12 +5,13 @@ import {
 	createProfileStorage,
 	initClientStorage,
 } from './client/client_storage';
-import { getAppVersion, openDevTools, saveReferences } from './client/ipc_renderer';
+import { getAppVersion, saveFile } from './client/ipc_renderer';
 import { initNotifications, Notifications } from './client/notifications';
 import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
+import { initSystems } from './client/systems';
 import { initUi } from './client/ui';
-import { initUpdater, Updater } from './client/updater';
+import { initUpdater } from './client/updater';
 
 export type { ChatMessage };
 
@@ -47,10 +48,9 @@ export const initLifecycle = () => {
 
 export type ClientIpc = ReturnType<typeof initIpc>;
 
-const initIpc = (references: FMMO.Reference[]) => {
+const initIpc = () => {
 	return {
-		openDevTools: () => openDevTools(),
-		saveReferences: () => saveReferences(references),
+		saveFile: (filename: string, contents: string) => saveFile(filename, contents),
 	};
 };
 
@@ -66,10 +66,9 @@ const createContext = (
 	canvas: HTMLCanvasElement,
 	container: HTMLElement,
 	ipc: ClientIpc,
-	updater: Updater,
 	notifications: Notifications,
 ) => {
-	return { character, ui, canvas, container, ipc, updater, notifications };
+	return { character, ui, canvas, container, ipc, notifications };
 };
 
 export type PluginContext = Awaited<ReturnType<typeof createPluginContext>>;
@@ -319,7 +318,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	if (!canvas || !canvasContainer) return;
 	const lifecycle = initLifecycle();
 	const ui = initUi(lifecycle, canvasContainer);
-	const ipc = initIpc(references);
+	const ipc = initIpc();
 	const [storagePayload, version] = await Promise.all([
 		initClientStorage(character.username),
 		getAppVersion(),
@@ -330,19 +329,11 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		createGlobalStorage('systems', 'updater'),
 		createProfileStorage('systems', 'notifications'),
 	]);
+	const settings = initSettings(lifecycle, ui, clientStorage);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
 	const notifications = initNotifications(lifecycle, notificationsStorage);
-	const context = createContext(
-		character,
-		ui,
-		canvas,
-		canvasContainer,
-		ipc,
-		updater,
-		notifications,
-	);
-	const settings = initSettings(lifecycle, ui, clientStorage);
-
+	await initSystems(lifecycle, { ui, settings, updater, notifications, references });
+	const context = createContext(character, ui, canvas, canvasContainer, ipc, notifications);
 	const plugins = initPlugins(lifecycle, context, settings);
 
 	const hooks = createClientHooks(plugins);

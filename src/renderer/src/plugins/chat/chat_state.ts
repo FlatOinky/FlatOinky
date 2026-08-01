@@ -5,7 +5,7 @@ export const usernamesCache = new Set<string>();
 
 const loadChatMessages = (): ChatMessage[] => {
 	try {
-		const parsed = JSON.parse(localStorage.getItem(`oinky/${namespace}/chatMessages`) ?? '[]');
+		const parsed = JSON.parse(localStorage.getItem(`${namespace}/chatMessages`) ?? '[]');
 		if (!Array.isArray(parsed)) return [];
 		return parsed.filter((message: ChatMessage) => message.type !== 'welcome');
 	} catch {

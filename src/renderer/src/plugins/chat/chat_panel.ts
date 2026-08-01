@@ -218,7 +218,7 @@ export const initChat = (
 		handleAddTabClick(elements, channels, context);
 	};
 	updateChatTabs(tabsContainer, channels, inputLabel);
-	wireChatLog(elements, settings, filters);
+	wireChatLog(elements, settings, filters, context.ipc);
 
 	return elements;
 };

@@ -1,4 +1,4 @@
-export { SystemPlugin } from './plugins/system';
+export { TweaksPlugin } from './plugins/tweaks';
 export { ChatPlugin } from './plugins/chat';
 export { MonitorPlugin } from './plugins/monitor';
 export { MetricsPlugin } from './plugins/metrics';

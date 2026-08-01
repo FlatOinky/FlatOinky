@@ -79,7 +79,7 @@ const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, setting
 };
 
 export const ThemesPlugin: Plugin = {
-	namespace: 'core/themes',
+	namespace: 'oinky/themes',
 	name: 'Themes',
 	description: 'Themes for the Flat Oinky UI',
 	init: (lifecycle, context) => {

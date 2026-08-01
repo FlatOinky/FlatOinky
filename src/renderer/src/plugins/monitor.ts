@@ -118,7 +118,7 @@ const makeAlertNode = (
 // #region Plugin
 
 export const MonitorPlugin: Plugin = {
-	namespace: 'core/monitor',
+	namespace: 'oinky/monitor',
 	name: 'Monitor',
 	description: 'Desktop/sound alerts for audioCue events, plus a crafting progress indicator.',
 	init: (lifecycle, context) => {

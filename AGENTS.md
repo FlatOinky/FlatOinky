@@ -54,9 +54,11 @@ client.
   - `client/client_storage.ts` — reactive storage scoped to global, profile, or
     character, persisted over IPC into SQLite.
   - `client/profiles.ts` — profile list and per-character profile mapping (SQLite).
-  - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, devtools,
+  - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file, devtools,
     notifications, updates).
   - `client/updater.ts` — update UI state machine wired to the main updater.
+  - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
+    notifications tray/settings, updates UI, devtools); never toggleable.
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and
     the typed DOM builders in `elements.ts`.
   - `plugins/`, `templates/`, `assets/`, `styles/`.
@@ -66,8 +68,9 @@ client.
 Storage lives in SQLite (`userData/storage/flat-oinky.db`, or
 `<NODE_ENV>.flat-oinky.db` outside production). Tables cover profiles, characters,
 character↔profile mappings, and per-scope `*_settings` / `*_data` documents keyed by
-`context` plus `namespace` (`plugins` + `core/<name>` for plugins, `systems` +
-`<name>` for client internals).
+`context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
+`<name>` for client internals; settings sections for always-on systems use
+`core/systems`).
 
 ## 4. Safety and permission boundaries
 

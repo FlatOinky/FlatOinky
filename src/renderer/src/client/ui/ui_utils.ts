@@ -1,5 +1,54 @@
 import { Lifecycle } from '../../client';
 
+// Keep duplicate controls (e.g. tray + settings) pointing at the same value.
+// Changing either writes storage and mirrors the new value onto every peer input.
+export const bindCheckboxPeers = (
+	inputs: HTMLInputElement[],
+	read: () => boolean,
+	write: (value: boolean) => void,
+): void => {
+	const value = read();
+	for (const input of inputs) {
+		input.checked = value;
+		input.onchange = () => {
+			write(input.checked);
+			for (const peer of inputs) {
+				if (peer !== input) peer.checked = input.checked;
+			}
+		};
+	}
+};
+
+export const bindRangePeers = (
+	inputs: HTMLInputElement[],
+	read: () => number,
+	write: (value: number) => void,
+): void => {
+	let syncing = false;
+	const sync = (source: HTMLInputElement) => {
+		if (syncing) return;
+		syncing = true;
+		try {
+			write(parseFloat(source.value));
+			for (const peer of inputs) {
+				if (peer === source) continue;
+				peer.value = source.value;
+				// `makeAlertVolume` listens for these to refresh the % label.
+				peer.dispatchEvent(new Event('input'));
+				peer.dispatchEvent(new Event('change'));
+			}
+		} finally {
+			syncing = false;
+		}
+	};
+	const value = String(read());
+	for (const input of inputs) {
+		input.value = value;
+		input.oninput = () => sync(input);
+		input.onchange = () => sync(input);
+	}
+};
+
 export const fadeRemoveElement = (element: HTMLElement, delay = 0, duration = 200) => {
 	setTimeout(() => {
 		element.style.animationDuration = `${duration}ms`;

@@ -118,7 +118,7 @@ export const handleAddTabClick = (
 	channels: Channels,
 	context: PluginContext,
 ): void => {
-	const modalId = `oinky/${namespace}/add-tab`;
+	const modalId = `${namespace}/add-tab`;
 	const { addTabModal, addTabForm, addTabInput, addTabCancel } = elements;
 	addTabModal.onclose = () => {
 		opened_modals.delete(modalId);

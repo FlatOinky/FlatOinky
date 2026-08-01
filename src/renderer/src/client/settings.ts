@@ -860,5 +860,7 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		},
 		setupPluginApi: (namespace: string, title: string) =>
 			setupPluginApi(registry, updateVisuals, openSection, namespace, title),
+		setupSystemApi: () =>
+			setupPluginApi(registry, updateVisuals, openSection, 'core/systems', 'System'),
 	};
 };

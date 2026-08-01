@@ -1,4 +1,4 @@
-import { ipcRenderer } from '../../client/ipc_renderer';
+import type { ClientIpc } from '../../client';
 import * as el from '../../client/ui/elements';
 import { getMessageBg, renderMessageLi } from './chat_messages';
 import { isChatMessageMutedFromLog } from './chat_muted';
@@ -62,8 +62,9 @@ export const wireChatLog = (
 	elements: ChatElements,
 	settings: Settings,
 	filters: ChatFilters,
+	ipc: ClientIpc,
 ): void => {
-	const modalId = `oinky/${namespace}/`;
+	const modalId = `${namespace}/`;
 	const { logActivator, logModal, logContainer } = elements;
 	logActivator.onclick = () => {
 		opened_modals.add(modalId);
@@ -104,8 +105,6 @@ export const wireChatLog = (
 	};
 	elements.logExport.onclick = () => {
 		elements.logExport.blur();
-		const filename = `FlatMMO Chat ${new Date().toISOString()}.txt`;
-		const contents = logContainer.innerText;
-		ipcRenderer.send('requestFileSave', filename, contents);
+		ipc.saveFile(`FlatMMO Chat ${new Date().toISOString()}.txt`, logContainer.innerText);
 	};
 };

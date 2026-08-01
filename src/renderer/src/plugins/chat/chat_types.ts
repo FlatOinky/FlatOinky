@@ -1,7 +1,7 @@
 import { formatDate } from 'date-fns';
 import type { ChatMessage } from '../../client';
 
-export const namespace = 'core/chat';
+export const namespace = 'oinky/chat';
 
 export type ChatTab = {
 	type: 'custom' | 'pm';
