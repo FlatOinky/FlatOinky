@@ -58,7 +58,10 @@ client.
     notifications, updates).
   - `client/updater.ts` — update UI state machine wired to the main updater.
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
-    notifications tray/settings, updates UI, devtools); never toggleable.
+    notifications tray/settings, updates UI, devtools, profiles); never toggleable.
+    Systems other than profiles live on a restartable child lifecycle rebuilt on
+    profile swap. Profiles owns the Profiles & Plugins tray window (profile CRUD
+    plus per-profile plugin enable toggles).
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and
     the typed DOM builders in `elements.ts`.
   - `plugins/`, `templates/`, `assets/`, `styles/`.
@@ -69,8 +72,9 @@ Storage lives in SQLite (`userData/storage/flat-oinky.db`, or
 `<NODE_ENV>.flat-oinky.db` outside production). Tables cover profiles, characters,
 character↔profile mappings, and per-scope `*_settings` / `*_data` documents keyed by
 `context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
-`<name>` for client internals; settings sections for always-on systems use
-`core/systems`).
+`<name>` for client internals — including `client`, `updater`, `notifications`,
+`devtools`, and `plugins` for the per-profile enabled-plugin map; settings sections
+for always-on systems use `core/systems`).
 
 ## 4. Safety and permission boundaries
 

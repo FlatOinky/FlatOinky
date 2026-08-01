@@ -400,6 +400,7 @@ const initMetricsWindow = (
 export const MetricsPlugin: Plugin = {
 	namespace: 'oinky/metrics',
 	name: 'Metrics',
+	description: 'Track your XP gains and display them in a window.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const settingsMenu = context.settings.initMenu(lifecycle);
@@ -456,8 +457,18 @@ export const MetricsPlugin: Plugin = {
 		let toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 
 		let intervalId: ReturnType<typeof setInterval> | undefined;
+		// onStartup waits before starting the loop, so a teardown can land mid-wait;
+		// this flag stops a late start from orphaning an interval on a dead lifecycle.
+		let disposed = false;
+		lifecycle.onCleanup(() => {
+			disposed = true;
+			if (intervalId !== undefined) clearInterval(intervalId);
+			intervalId = undefined;
+		});
+
 		const restartUpdateLoop = () => {
 			if (intervalId !== undefined) clearInterval(intervalId);
+			if (disposed) return;
 			intervalId = setInterval(() => {
 				trimXpDrops(xpDrops, settings.timeSpan);
 				const metrics = xpTracker.runInterval();
@@ -654,9 +665,6 @@ export const MetricsPlugin: Plugin = {
 			onStartup: async () => {
 				await new Promise((resolve) => setTimeout(resolve, 1000));
 				restartUpdateLoop();
-				lifecycle.onCleanup(() => {
-					if (intervalId !== undefined) clearInterval(intervalId);
-				});
 			},
 			onXpDrop: ({ username, skill, xp }) => {
 				if (username !== context.character.username) return;

@@ -221,6 +221,41 @@ export const ipcMainSetup = (): void => {
 		}
 	});
 
+	ipcMain.handle('storage:renameProfile', (_event, profileId: number, name: string) => {
+		if (typeof profileId !== 'number' || !Number.isInteger(profileId)) return null;
+		if (typeof name !== 'string' || name.trim().length < 1) return null;
+		try {
+			return storage.renameProfile(profileId, name);
+		} catch (error) {
+			console.warn(error);
+			return null;
+		}
+	});
+
+	ipcMain.handle('storage:duplicateProfile', (_event, sourceId: number) => {
+		if (typeof sourceId !== 'number' || !Number.isInteger(sourceId)) return null;
+		try {
+			return storage.duplicateProfile(sourceId);
+		} catch (error) {
+			console.warn(error);
+			return null;
+		}
+	});
+
+	ipcMain.handle('storage:deleteProfile', (event, profileId: number) => {
+		if (typeof profileId !== 'number' || !Number.isInteger(profileId)) return false;
+		const session = sessions.get(event.sender.id);
+		if (!session) return false;
+		if (session.profileId === profileId) return false;
+		try {
+			storage.deleteProfile(profileId);
+			return true;
+		} catch (error) {
+			console.warn(error);
+			return false;
+		}
+	});
+
 	ipcMain.handle('storage:setCharacterProfile', (event, profileId: number) => {
 		if (typeof profileId !== 'number' || !Number.isInteger(profileId)) return null;
 		const session = sessions.get(event.sender.id);

@@ -63,9 +63,9 @@ const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, setting
 		el.icon.infoSmall`size-[1.5lh] m-[-0.25lh]`.mount(tooltip, 'icon');
 	});
 
-	const select = el.select`select cursor-pointer`.mount(container, 'select');
+	const select = el.select`select select-sm cursor-pointer`.mount(container, 'select');
 	themes.forEach(({ id, name }) => {
-		el.option`option`.mount(select, 'option', (option) => {
+		el.option``.mount(select, id, (option) => {
 			option.value = id;
 			option.textContent = name;
 		});

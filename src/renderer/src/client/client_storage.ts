@@ -26,6 +26,7 @@ export type ClientStorage = {
 
 // #region state
 
+let state: StorageData | undefined;
 let statePromise: Promise<StorageData> | undefined;
 let initPayload: StorageInitPayload | undefined;
 
@@ -37,22 +38,39 @@ export const getInitPayload = (): StorageInitPayload => {
 export const initClientStorage = async (characterName: string): Promise<StorageInitPayload> => {
 	const payload = await ipcStorage.initStorage(characterName);
 	initPayload = payload;
-	statePromise = Promise.resolve({
+	state = {
 		global: (payload.settings.global ?? {}) as StorageData['global'],
 		profile: (payload.settings.profile ?? {}) as StorageData['profile'],
 		character: (payload.settings.character ?? {}) as StorageData['character'],
-	});
+	};
+	statePromise = Promise.resolve(state);
 	return payload;
 };
 
 export const replaceClientStorageSettings = (settings: StorageInitPayload['settings']): void => {
 	if (!initPayload) return;
 	initPayload = { ...initPayload, settings };
-	statePromise = Promise.resolve({
-		global: (settings.global ?? {}) as StorageData['global'],
-		profile: (settings.profile ?? {}) as StorageData['profile'],
-		character: (settings.character ?? {}) as StorageData['character'],
-	});
+	// Mutate the existing state object so wrapStorageData views created during
+	// initClient keep resolving against live data. reactive() proxies still
+	// capture their nested targets and must be rebuilt by the systems/plugins
+	// restart. The settings-window geometry proxy (systems/client) stays bound
+	// to the old profile until the next reload because initSettings is not
+	// restartable.
+	if (!state) {
+		state = {
+			global: (settings.global ?? {}) as StorageData['global'],
+			profile: (settings.profile ?? {}) as StorageData['profile'],
+			character: (settings.character ?? {}) as StorageData['character'],
+		};
+		statePromise = Promise.resolve(state);
+		return;
+	}
+	for (const key of Object.keys(state.global)) delete state.global[key];
+	for (const key of Object.keys(state.profile)) delete state.profile[key];
+	for (const key of Object.keys(state.character)) delete state.character[key];
+	Object.assign(state.global, settings.global ?? {});
+	Object.assign(state.profile, settings.profile ?? {});
+	Object.assign(state.character, settings.character ?? {});
 };
 
 const getState = (): Promise<StorageData> => {

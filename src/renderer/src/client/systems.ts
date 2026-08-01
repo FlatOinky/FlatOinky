@@ -1,29 +1,71 @@
-import type { Lifecycle } from '../client';
-import type { ClientSettings, SettingsMenu } from './settings';
+import type { ClientPlugins, Lifecycle } from '../client';
+import type { ClientStorage } from './client_storage';
 import type { Notifications } from './notifications';
+import { initNotifications } from './notifications';
+import type { Profiles } from './profiles';
+import type { ClientSettings, SettingsMenu } from './settings';
 import type { ClientUI } from './ui';
 import type { Updater } from './updater';
 import { initAppSystem } from './systems/app';
 import { initDevtoolsSystem } from './systems/devtools';
 import { initNotificationsSystem } from './systems/notifications';
+import { initProfilesSystem } from './systems/profiles';
 import { initUpdatesSystem } from './systems/updates';
 
 export type SystemsContext = {
 	ui: ClientUI;
 	settings: ClientSettings;
 	updater: Updater;
-	notifications: Notifications;
+	notificationsStorage: ClientStorage;
+	clientStorage: ClientStorage;
+	setNotifications: (notifications: Notifications) => void;
+	profiles: Profiles;
+	plugins: ClientPlugins;
 	references: FMMO.Reference[];
 };
 
 export const initSystems = async (
 	lifecycle: Lifecycle,
-	{ ui, settings, updater, notifications, references }: SystemsContext,
+	{
+		ui,
+		settings,
+		updater,
+		notificationsStorage,
+		clientStorage,
+		setNotifications,
+		profiles,
+		plugins,
+		references,
+	}: SystemsContext,
 ): Promise<void> => {
 	const settingsMenu: SettingsMenu = settings.setupSystemApi().initMenu(lifecycle);
 
-	initAppSystem(lifecycle, ui);
-	initNotificationsSystem(lifecycle, ui, notifications, settingsMenu);
-	initUpdatesSystem(lifecycle, ui, updater, settingsMenu);
-	await initDevtoolsSystem(lifecycle, ui, settingsMenu, references);
+	let systemsLifecycle: Lifecycle | null = null;
+
+	const startSystems = async (): Promise<void> => {
+		systemsLifecycle = lifecycle.spawnLifecycle();
+		const systems = systemsLifecycle;
+
+		initAppSystem(systems, ui);
+
+		const notifications = initNotifications(systems, notificationsStorage);
+		setNotifications(notifications);
+		initNotificationsSystem(systems, ui, notifications, settingsMenu);
+
+		initUpdatesSystem(systems, ui, updater, settingsMenu);
+		await initDevtoolsSystem(systems, ui, settingsMenu, references);
+	};
+
+	const restartSystems = async (): Promise<void> => {
+		systemsLifecycle?.cleanup();
+		systemsLifecycle = null;
+		await startSystems();
+	};
+
+	initProfilesSystem(lifecycle, ui, profiles, plugins, clientStorage, {
+		restartSystems,
+		restartPlugins: () => plugins.restart(),
+	});
+
+	await startSystems();
 };

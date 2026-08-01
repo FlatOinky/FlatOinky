@@ -47,7 +47,7 @@ export const initDevtoolsSystem = async (
 
 	syncDevtoolsMenu();
 
-	settingsMenu.mountSection('Devtools', [
+	const devtoolsMenu = settingsMenu.mountSection('Devtools', [
 		{
 			label: 'Enable Devtools',
 			description: 'Show Open DevTools and Save References in the tray.',
@@ -61,4 +61,5 @@ export const initDevtoolsSystem = async (
 			}),
 		},
 	]);
+	lifecycle.onCleanup(devtoolsMenu.remove);
 };

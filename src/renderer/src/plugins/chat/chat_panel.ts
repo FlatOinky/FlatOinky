@@ -150,6 +150,9 @@ export const initChat = (
 	hideUpstreamChatNode(lifecycle, '#chat');
 
 	const root = context.ui.taskbar.elements.chatContainer;
+	// chatContainer lives on the root taskbar lifecycle; clear our mounts on
+	// plugin cleanup so a profile-swap restart does not stack duplicate UI.
+	lifecycle.onCleanup(() => root.replaceChildren());
 
 	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(root, settings);
 	const { inputLabel, chatInput } = mountChatInput(root, context.character.username);
@@ -182,11 +185,13 @@ export const initChat = (
 	};
 
 	// welcome messages: in-memory only, appended once on login at end of log (not persisted)
-	chatMessages.push(
-		...[...document.querySelectorAll<HTMLSpanElement>('#chat > span')].map(
-			createWelcomeChatMessage,
-		),
-	);
+	if (!chatMessages.some((message) => message.type === 'welcome')) {
+		chatMessages.push(
+			...[...document.querySelectorAll<HTMLSpanElement>('#chat > span')].map(
+				createWelcomeChatMessage,
+			),
+		);
+	}
 
 	getVisibleChatMessages(settings, filters).forEach((chatMessage) => {
 		messagesContainer.appendChild(

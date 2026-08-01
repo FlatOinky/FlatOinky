@@ -86,7 +86,7 @@ export const initNotificationsSystem = (
 		(value) => (notificationSettings.audioVolume = value),
 	);
 
-	settingsMenu.mountSection('Notifications', [
+	const notificationsMenu = settingsMenu.mountSection('Notifications', [
 		{
 			label: 'Global Controls',
 			description: 'Master switches that gate every alert.',
@@ -94,8 +94,7 @@ export const initNotificationsSystem = (
 			notificationInput: settingsNotificationInput,
 			audioInput: settingsAudioInput,
 			volumeInput: settingsVolumeInput,
-			onTest: () =>
-				notifications.send('Test', { message: 'This is a test notification' }),
+			onTest: () => notifications.send('Test', { message: 'This is a test notification' }),
 			reset: (
 				notification: HTMLInputElement,
 				audio: HTMLInputElement,
@@ -122,4 +121,6 @@ export const initNotificationsSystem = (
 			}),
 		},
 	]);
+
+	lifecycle.onCleanup(notificationsMenu.remove);
 };

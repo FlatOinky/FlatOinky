@@ -171,6 +171,62 @@ export const createProfile = (name: string): ProfileRow => {
 	return { id: Number(result.lastInsertRowid), name: trimmed };
 };
 
+export const renameProfile = (id: number, name: string): ProfileRow => {
+	const trimmed = name.trim();
+	if (trimmed.length < 1) throw new Error('Profile name is required');
+	const db = getDatabase();
+	const existing = db.prepare('SELECT id, name FROM profiles WHERE id = ?').get(id) as
+		| ProfileRow
+		| undefined;
+	if (!existing) throw new Error('Profile not found');
+	db.prepare('UPDATE profiles SET name = ? WHERE id = ?').run(trimmed, id);
+	return { id, name: trimmed };
+};
+
+const uniqueProfileName = (base: string): string => {
+	const existing = new Set(
+		getDatabase()
+			.prepare('SELECT name FROM profiles')
+			.all()
+			.map((row) => (row as { name: string }).name),
+	);
+	const candidate = `${base} copy`;
+	if (!existing.has(candidate)) return candidate;
+	let index = 2;
+	while (existing.has(`${base} copy ${index}`)) index += 1;
+	return `${base} copy ${index}`;
+};
+
+export const duplicateProfile = (sourceId: number): ProfileRow => {
+	const db = getDatabase();
+	const source = db.prepare('SELECT id, name FROM profiles WHERE id = ?').get(sourceId) as
+		| ProfileRow
+		| undefined;
+	if (!source) throw new Error('Profile not found');
+	return transaction((tx) => {
+		const name = uniqueProfileName(source.name);
+		const result = tx.prepare('INSERT INTO profiles (name) VALUES (?)').run(name);
+		const newId = Number(result.lastInsertRowid);
+		tx.prepare(
+			`INSERT INTO profile_settings (profile_id, context, namespace, value)
+			SELECT ?, context, namespace, value FROM profile_settings WHERE profile_id = ?`,
+		).run(newId, sourceId);
+		tx.prepare(
+			`INSERT INTO profile_data (profile_id, context, namespace, value)
+			SELECT ?, context, namespace, value FROM profile_data WHERE profile_id = ?`,
+		).run(newId, sourceId);
+		return { id: newId, name };
+	});
+};
+
+export const deleteProfile = (id: number): void => {
+	const profiles = listProfiles();
+	if (profiles.length <= 1) throw new Error('Cannot delete the last profile');
+	const target = profiles.find((entry) => entry.id === id);
+	if (!target) throw new Error('Profile not found');
+	getDatabase().prepare('DELETE FROM profiles WHERE id = ?').run(id);
+};
+
 // #region characters
 
 export type CharacterRow = { id: number; name: string };

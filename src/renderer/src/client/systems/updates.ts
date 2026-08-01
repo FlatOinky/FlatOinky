@@ -44,8 +44,7 @@ export const initUpdatesSystem = (
 			}
 		}),
 	);
-
-	settingsMenu.mountSection('Updates', [
+	const updatesMenu = settingsMenu.mountSection('Updates', [
 		el.div`flex items-center justify-between gap-2`.then((container) => {
 			el.span`text-sm`.mount(container, undefined, (label) => {
 				label.textContent = `Current version v${updater.version}`;
@@ -88,4 +87,6 @@ export const initUpdatesSystem = (
 			}),
 		},
 	]);
+
+	lifecycle.onCleanup(updatesMenu.remove);
 };

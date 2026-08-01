@@ -4,9 +4,10 @@ import {
 	createPluginStorages,
 	createProfileStorage,
 	initClientStorage,
+	type ClientStorage,
 } from './client/client_storage';
 import { getAppVersion, saveFile } from './client/ipc_renderer';
-import { initNotifications, Notifications } from './client/notifications';
+import type { Notifications } from './client/notifications';
 import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
 import { initSystems } from './client/systems';
@@ -21,8 +22,10 @@ export const initLifecycle = () => {
 	const registeredCleanups: (() => void)[] = [];
 	const onCleanup = (callback: () => void) => registeredCleanups.unshift(callback);
 	const cleanup = () => {
-		registeredCleanups.forEach((callback) => callback());
-		registeredCleanups.splice(0, registeredCleanups.length);
+		// Drain first: a child lifecycle's cleanup splices its own entry out of this
+		// list, which would make iterating in place skip the following callback.
+		const callbacks = registeredCleanups.splice(0, registeredCleanups.length);
+		callbacks.forEach((callback) => callback());
 	};
 	const spawnLifecycle = () => {
 		const childLifecycle = initLifecycle();
@@ -66,9 +69,20 @@ const createContext = (
 	canvas: HTMLCanvasElement,
 	container: HTMLElement,
 	ipc: ClientIpc,
-	notifications: Notifications,
+	getNotifications: () => Notifications | undefined,
 ) => {
-	return { character, ui, canvas, container, ipc, notifications };
+	return {
+		character,
+		ui,
+		canvas,
+		container,
+		ipc,
+		get notifications() {
+			const notifications = getNotifications();
+			if (!notifications) throw new Error('Notifications have not been initialized');
+			return notifications;
+		},
+	};
 };
 
 export type PluginContext = Awaited<ReturnType<typeof createPluginContext>>;
@@ -142,13 +156,27 @@ export type PluginInstances = Record<string, PluginInstance>;
 
 export type ClientPlugins = ReturnType<typeof initPlugins>;
 
-const initPlugins = (lifecycle: Lifecycle, context: ClientContext, settings: ClientSettings) => {
+const initPlugins = (
+	lifecycle: Lifecycle,
+	context: ClientContext,
+	settings: ClientSettings,
+	pluginsStorage: ClientStorage,
+) => {
 	const registry: PluginRegistry = {};
 	const instances: PluginInstances = {};
+	const listeners = new Set<() => void>();
+	let startedUp = false;
+
+	const notify = () => {
+		for (const listener of listeners) listener();
+	};
+
+	const isEnabled = (namespace: string) => pluginsStorage.get(['enabled', namespace]) !== false;
 
 	const registerPlugin = (plugin: Plugin) => {
 		if (plugin.namespace in registry) return;
 		registry[plugin.namespace] = plugin;
+		notify();
 	};
 
 	const startPlugin = async (namespace: string) => {
@@ -158,6 +186,7 @@ const initPlugins = (lifecycle: Lifecycle, context: ClientContext, settings: Cli
 		const pluginLifecycle = lifecycle.spawnLifecycle();
 		pluginLifecycle.onCleanup(() => {
 			delete instances[plugin.namespace];
+			notify();
 		});
 		const pluginContext = await createPluginContext(context, settings, namespace, plugin.name);
 		const hooks = plugin.init(pluginLifecycle, pluginContext);
@@ -166,7 +195,46 @@ const initPlugins = (lifecycle: Lifecycle, context: ClientContext, settings: Cli
 			lifecycle: pluginLifecycle,
 		} satisfies PluginInstance as PluginInstance;
 		instances[plugin.namespace] = instance;
+		notify();
 		return instance;
+	};
+
+	const stopPlugin = (namespace: string) => {
+		instances[namespace]?.lifecycle.cleanup();
+	};
+
+	const setEnabled = async (namespace: string, enabled: boolean) => {
+		if (!(namespace in registry)) return;
+		pluginsStorage.set(['enabled', namespace], enabled);
+		if (enabled) {
+			const instance = await startPlugin(namespace);
+			if (startedUp) instance?.callbacks.onStartup?.();
+		} else {
+			stopPlugin(namespace);
+		}
+		notify();
+	};
+
+	const startEnabled = async () => {
+		for (const namespace of Object.keys(registry)) {
+			if (!isEnabled(namespace)) continue;
+			await startPlugin(namespace);
+		}
+	};
+
+	const restart = async () => {
+		for (const instance of Object.values(instances)) {
+			instance.lifecycle.cleanup();
+		}
+		await startEnabled();
+		if (startedUp) api.onStartup();
+	};
+
+	const subscribe = (listener: () => void) => {
+		listeners.add(listener);
+		return () => {
+			listeners.delete(listener);
+		};
 	};
 
 	const api: PluginsApi = {
@@ -230,6 +298,15 @@ const initPlugins = (lifecycle: Lifecycle, context: ClientContext, settings: Cli
 		api,
 		registerPlugin,
 		startPlugin,
+		stopPlugin,
+		isEnabled,
+		setEnabled,
+		startEnabled,
+		restart,
+		subscribe,
+		markStartedUp: () => {
+			startedUp = true;
+		},
 	};
 };
 
@@ -324,27 +401,41 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		getAppVersion(),
 	]);
 	const profiles = initProfiles(storagePayload);
-	const [clientStorage, updaterStorage, notificationsStorage] = await Promise.all([
+	const [clientStorage, updaterStorage, notificationsStorage, pluginsStorage] = await Promise.all([
 		createProfileStorage('systems', 'client'),
 		createGlobalStorage('systems', 'updater'),
 		createProfileStorage('systems', 'notifications'),
+		createProfileStorage('systems', 'plugins'),
 	]);
 	const settings = initSettings(lifecycle, ui, clientStorage);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
-	const notifications = initNotifications(lifecycle, notificationsStorage);
-	await initSystems(lifecycle, { ui, settings, updater, notifications, references });
-	const context = createContext(character, ui, canvas, canvasContainer, ipc, notifications);
-	const plugins = initPlugins(lifecycle, context, settings);
 
+	let notifications: Notifications | undefined;
+	const context = createContext(character, ui, canvas, canvasContainer, ipc, () => notifications);
+	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage);
 	const hooks = createClientHooks(plugins);
+
+	await initSystems(lifecycle, {
+		ui,
+		settings,
+		updater,
+		notificationsStorage,
+		clientStorage,
+		setNotifications: (next) => {
+			notifications = next;
+		},
+		profiles,
+		plugins,
+		references,
+	});
 
 	// TODO: need to fix this
 
 	import('./plugins')
-		.then((pluginsImport) => {
+		.then(async (pluginsImport) => {
 			const corePlugins = Object.values(pluginsImport);
 			corePlugins.forEach((plugin) => plugins.registerPlugin(plugin));
-			corePlugins.forEach((plugin) => plugins.startPlugin(plugin.namespace));
+			await plugins.startEnabled();
 		})
 		.catch((error) => console.error(error));
 
@@ -353,6 +444,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		pluginsApi: plugins.api,
 		profiles,
 		handleBeforeConnect: () => {
+			plugins.markStartedUp();
 			plugins.api.onStartup();
 		},
 	};

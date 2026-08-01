@@ -7,6 +7,9 @@ export type Profiles = {
 	profile: ProfileRow;
 	setProfile: (profileId: number) => Promise<StorageInitPayload['settings'] | null>;
 	createProfile: (name: string) => Promise<ProfileRow | null>;
+	renameProfile: (id: number, name: string) => Promise<ProfileRow | null>;
+	duplicateProfile: (sourceId: number) => Promise<ProfileRow | null>;
+	deleteProfile: (id: number) => Promise<boolean>;
 	refresh: () => Promise<ProfileRow[]>;
 };
 
@@ -38,6 +41,31 @@ export const initProfiles = (payload: StorageInitPayload): Profiles => {
 			const current = getInitPayload();
 			Object.assign(current, { profiles });
 			return created;
+		},
+		async renameProfile(id, name) {
+			const renamed = await ipcStorage.renameProfile(id, name);
+			if (!renamed) return null;
+			profiles = await ipcStorage.listProfiles();
+			if (profile.id === renamed.id) profile = renamed;
+			const current = getInitPayload();
+			Object.assign(current, { profiles, profile });
+			return renamed;
+		},
+		async duplicateProfile(sourceId) {
+			const created = await ipcStorage.duplicateProfile(sourceId);
+			if (!created) return null;
+			profiles = await ipcStorage.listProfiles();
+			const current = getInitPayload();
+			Object.assign(current, { profiles });
+			return created;
+		},
+		async deleteProfile(id) {
+			const deleted = await ipcStorage.deleteProfile(id);
+			if (!deleted) return false;
+			profiles = await ipcStorage.listProfiles();
+			const current = getInitPayload();
+			Object.assign(current, { profiles });
+			return true;
 		},
 		async refresh() {
 			profiles = await ipcStorage.listProfiles();

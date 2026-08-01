@@ -73,7 +73,16 @@ const setupPluginApi = (
 				const section: SettingsSection = { title, nodes };
 				entry[2].push(section);
 				updateVisuals();
-				return { section, open: () => openSection(pluginNamespace, section) };
+				return {
+					section,
+					open: () => openSection(pluginNamespace, section),
+					remove: () => {
+						const index = entry[2].indexOf(section);
+						if (index < 0) return;
+						entry[2].splice(index, 1);
+						updateVisuals();
+					},
+				};
 			},
 			open: () => openSection(pluginNamespace),
 		};

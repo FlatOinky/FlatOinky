@@ -39,7 +39,10 @@ Layout under `src/`:
 - `transpilers.ts` — rewrite game HTML/JS and inject hooks
 - `styles.css` + `styles/` — Tailwind/DaisyUI entry and component CSS
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
-- `client/systems/` — always-on features (app menu, notifications, updates, devtools)
+- `client/systems/` — always-on features (app menu, notifications, updates, devtools,
+  profiles). Systems other than profiles live on a restartable child lifecycle
+  rebuilt on profile swap; the profiles system owns the Profiles & Plugins tray
+  window and drives that restart.
 - `plugins/` — toggleable plugins (`tweaks`, `chat`, `monitor`, `metrics`, `themes`, …)
 - `templates/`, `assets/`
 
@@ -79,8 +82,9 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
 1. Create `src/plugins/<name>.ts` exporting a `Plugin`:
    - `namespace: 'oinky/<name>'`, `name`, optional `description`
    - `init(lifecycle, context)` → `PluginCallbacks`
-2. Re-export it from [src/plugins.ts](src/plugins.ts). `client.ts` registers and starts
-   every export from that barrel.
+2. Re-export it from [src/plugins.ts](src/plugins.ts). `client.ts` registers and
+   starts every enabled export from that barrel (per-profile toggles live in the
+   Profiles & Plugins window).
 3. **Storage** — `context.storages.global | profile | character` from
    [src/client/client_storage.ts](src/client/client_storage.ts):
    - `global` — all characters / this install
@@ -90,7 +94,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC into
      SQLite automatically. Do not re-save manually. Plugin storages use context
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
-     `systems` with bare namespaces (`client`, `updater`, `notifications`, `devtools`).
+     `systems` with bare namespaces (`client`, `updater`, `notifications`, `devtools`,
+     `plugins` for the enabled-plugin map).
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is

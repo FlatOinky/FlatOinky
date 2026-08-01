@@ -41,6 +41,15 @@ export const listProfiles = async (): Promise<ProfileRow[]> =>
 export const createProfile = async (name: string): Promise<ProfileRow | null> =>
 	await ipcRenderer.invoke('storage:createProfile', name);
 
+export const renameProfile = async (id: number, name: string): Promise<ProfileRow | null> =>
+	await ipcRenderer.invoke('storage:renameProfile', id, name);
+
+export const duplicateProfile = async (sourceId: number): Promise<ProfileRow | null> =>
+	await ipcRenderer.invoke('storage:duplicateProfile', sourceId);
+
+export const deleteProfile = async (id: number): Promise<boolean> =>
+	await ipcRenderer.invoke('storage:deleteProfile', id);
+
 export const setCharacterProfile = async (
 	profileId: number,
 ): Promise<{
