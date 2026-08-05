@@ -7,6 +7,13 @@ type XPDrop = {
 	timestamp: number;
 };
 
+const MIN_UPDATE_INTERVAL = 0.1;
+const MAX_TIME_SPAN = 10;
+const SMOOTHING_LOOKBACK = 0.35;
+const MAX_XP_DROPS = Math.ceil(
+	(MAX_TIME_SPAN * 60 * 1000 * (1 + SMOOTHING_LOOKBACK)) / MIN_UPDATE_INTERVAL,
+);
+
 const daisyUiColors = {
 	primary: 'var(--color-primary)',
 	'primary-content': 'var(--color-primary-content)',
@@ -70,17 +77,44 @@ const findIntervalPreset = (timeSpan: number, updateInterval: number) =>
 		(preset) => preset.timeSpan === timeSpan && preset.updateInterval === updateInterval,
 	);
 
-type XpTracker = ReturnType<typeof startXpTracker>;
+type XpAccumulator = Awaited<ReturnType<typeof createXpAccumulator>>;
 
-const trimXpDrops = (xpDrops: XPDrop[], timeSpanMinutes: number) => {
-	const cutoff = performance.now() - timeSpanMinutes * 60 * 1000;
-	let removed = 0;
-	while (removed < xpDrops.length && xpDrops[removed].timestamp < cutoff) removed++;
-	if (removed > 0) xpDrops.splice(0, removed);
+const createXpAccumulator = async (context: PluginContext) => {
+	const collection = context.collections.character<XPDrop>('xpDrops');
+	const cache = await collection.fetch(MAX_XP_DROPS);
+
+	const trim = () => {
+		cache.splice(0, cache.length - MAX_XP_DROPS);
+	};
+
+	const append = (xpDrop: XPDrop) => {
+		cache.push(xpDrop);
+		collection.append(xpDrop, MAX_XP_DROPS);
+		trim();
+	};
+
+	const slice = (settings: Settings) => {
+		const cutoff = Date.now() - settings.timeSpan * (1 + SMOOTHING_LOOKBACK) * 60 * 1000;
+		let start = 0;
+		while (start < cache.length && cache[start].timestamp < cutoff) start++;
+		return cache.slice(start);
+	};
+
+	const forEach = (callback: Parameters<typeof cache.forEach>[0]) => cache.forEach(callback);
+
+	return {
+		cache,
+		append,
+		trim,
+		slice,
+		forEach,
+	};
 };
 
+type XpTracker = ReturnType<typeof startXpTracker>;
+
 const startXpTracker = (
-	xpDrops: XPDrop[],
+	xpAccumulator: XpAccumulator,
 	settings: Settings,
 	xpDropFilter: (xpDrop: XPDrop) => boolean = () => true,
 	initialSessionTotal?: number,
@@ -89,24 +123,24 @@ const startXpTracker = (
 	const updateInterval = 1000 * settings.updateInterval;
 	const updateIntervalSeconds = settings.updateInterval;
 	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
-	const recentWindow = Math.max(1, Math.ceil(nodeCount * 0.35));
-	let consumedUntil = performance.now();
-	let sessionTotalXp =
-		initialSessionTotal ??
-		xpDrops.filter(xpDropFilter).reduce((total, xpDrop) => total + xpDrop.xp, 0);
-	const intervalSums = new Array(nodeCount).fill(0);
-	const now = performance.now();
-	for (const xpDrop of xpDrops) {
-		if (!xpDropFilter(xpDrop)) continue;
+	const recentWindow = Math.max(1, Math.ceil(nodeCount * SMOOTHING_LOOKBACK));
+	let consumedUntil = Date.now();
+	let sessionTotalXp = initialSessionTotal ?? 0;
+	const intervalSums = new Array(nodeCount + recentWindow).fill(0);
+	const now = Date.now();
+	xpAccumulator.forEach((xpDrop) => {
+		if (!xpDropFilter(xpDrop)) return;
 		const age = now - xpDrop.timestamp;
-		if (age < 0) continue;
+		if (age < 0) return;
 		const bucketFromEnd = Math.floor(age / updateInterval);
-		if (bucketFromEnd >= nodeCount) continue;
-		intervalSums[nodeCount - 1 - bucketFromEnd] += xpDrop.xp;
-	}
-
+		if (bucketFromEnd >= intervalSums.length) return;
+		console.log({ bucketFromEnd, xpDrop });
+		intervalSums[nodeCount + recentWindow - 1 - bucketFromEnd] += xpDrop.xp;
+	});
 	const computeMetrics = (intervalSum: number) => {
-		const smoothedValues = intervalSums.map((_, index) => {
+		const smoothSliceStart = Math.max(0, intervalSums.length - nodeCount);
+		const smoothedValues = intervalSums.slice(smoothSliceStart).map((_, smoothedIndex) => {
+			const index = smoothedIndex + smoothSliceStart;
 			const start = Math.max(0, index - recentWindow + 1);
 			const window = intervalSums.slice(start, index + 1);
 			const weightTotal = window.reduce((total, _, i) => total + (i + 1), 0);
@@ -133,10 +167,10 @@ const startXpTracker = (
 	};
 
 	const runInterval = () => {
-		const intervalEnd = performance.now();
+		const intervalEnd = Date.now();
 		let intervalSum = 0;
-		for (let i = xpDrops.length - 1; i >= 0; i--) {
-			const xpDrop = xpDrops[i];
+		for (let i = xpAccumulator.cache.length - 1; i >= 0; i--) {
+			const xpDrop = xpAccumulator.cache[i];
 			if (xpDrop.timestamp <= consumedUntil) break;
 			if (!xpDropFilter(xpDrop)) continue;
 			intervalSum += xpDrop.xp;
@@ -153,7 +187,7 @@ const startXpTracker = (
 	return {
 		runInterval,
 		initialMetrics,
-		xpDrops,
+		xpAccumulator,
 		nodeCount,
 		updateInterval,
 		timeSpan,
@@ -208,7 +242,7 @@ const mountSkillChart = (
 const mountSkillBlock = (
 	context: PluginContext,
 	root: HTMLElement,
-	xpDrops: XPDrop[],
+	xpAccumulator: XpAccumulator,
 	settings: Settings,
 	skill: string,
 	activeSkillCharts: { [key: string]: boolean },
@@ -217,7 +251,7 @@ const mountSkillBlock = (
 	let showTotal = settings.metricsWindow.showTotal && skill === 'total';
 	const skillFilter = skill === 'total' ? () => true : (xpDrop: XPDrop) => xpDrop.skill === skill;
 	let xpTracker = startXpTracker(
-		xpDrops,
+		xpAccumulator,
 		settings,
 		skillFilter,
 		skill === 'total' ? sessionTotals.all : (sessionTotals.bySkill[skill] ?? 0),
@@ -249,7 +283,7 @@ const mountSkillBlock = (
 				button.onclick = () => {
 					activeSkillCharts[skill] = false;
 					xpTracker = startXpTracker(
-						xpDrops,
+						xpAccumulator,
 						settings,
 						skillFilter,
 						sessionTotals.bySkill[skill] ?? 0,
@@ -346,7 +380,7 @@ type SkillBlock = ReturnType<typeof mountSkillBlock>;
 const initMetricsWindow = (
 	parentLifecycle: Lifecycle,
 	context: PluginContext,
-	xpDrops: XPDrop[],
+	xpAccumulator: XpAccumulator,
 	settings: Settings,
 	activeSkillCharts: { [key: string]: boolean },
 	sessionTotals: { all: number; bySkill: { [key: string]: number } },
@@ -379,7 +413,7 @@ const initMetricsWindow = (
 			mountSkillBlock(
 				context,
 				window.body,
-				xpDrops,
+				xpAccumulator,
 				settings,
 				skill,
 				activeSkillCharts,
@@ -401,14 +435,18 @@ export const MetricsPlugin: Plugin = {
 	namespace: 'oinky/metrics',
 	name: 'Metrics',
 	description: 'Track your XP gains and display them in a window.',
-	init: (lifecycle, context) => {
+	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const settingsMenu = context.settings.initMenu(lifecycle);
-		const xpDrops: XPDrop[] = [];
+		const xpAccumulator = await createXpAccumulator(context);
 		const sessionTotals = { all: 0, bySkill: {} as { [key: string]: number } };
+		const recentXpDrops = xpAccumulator.slice(settings);
 		const activeSkillCharts: { [key: string]: boolean } = Object.fromEntries(
 			valid_skills.values().map((skill) => [skill, false]),
 		);
+		for (const drop of recentXpDrops) {
+			activeSkillCharts[drop.skill] = true;
+		}
 
 		let windowMetrics: ReturnType<typeof initMetricsWindow> | undefined;
 		const createWindowMetrics = () => {
@@ -416,7 +454,7 @@ export const MetricsPlugin: Plugin = {
 			const newWindow = initMetricsWindow(
 				lifecycle,
 				context,
-				xpDrops,
+				xpAccumulator,
 				settings,
 				activeSkillCharts,
 				sessionTotals,
@@ -453,7 +491,7 @@ export const MetricsPlugin: Plugin = {
 			}
 		};
 
-		let xpTracker = startXpTracker(xpDrops, settings, () => true, sessionTotals.all);
+		let xpTracker = startXpTracker(xpAccumulator, settings, () => true, sessionTotals.all);
 		let toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 
 		let intervalId: ReturnType<typeof setInterval> | undefined;
@@ -470,7 +508,7 @@ export const MetricsPlugin: Plugin = {
 			if (intervalId !== undefined) clearInterval(intervalId);
 			if (disposed) return;
 			intervalId = setInterval(() => {
-				trimXpDrops(xpDrops, settings.timeSpan);
+				xpAccumulator.trim();
 				const metrics = xpTracker.runInterval();
 				toggleChart.runInterval(metrics.smoothedValue);
 				if (windowMetrics && windowMetrics.window.state.minimized === false) {
@@ -481,7 +519,7 @@ export const MetricsPlugin: Plugin = {
 
 		const refreshMetrics = () => {
 			toggleChart.lineGraph.svg.remove();
-			xpTracker = startXpTracker(xpDrops, settings, () => true, sessionTotals.all);
+			xpTracker = startXpTracker(xpAccumulator, settings, () => true, sessionTotals.all);
 			toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 			refreshWindowMetrics();
 			restartUpdateLoop();
@@ -672,8 +710,7 @@ export const MetricsPlugin: Plugin = {
 				sessionTotals.all += xp;
 				sessionTotals.bySkill[skill] = (sessionTotals.bySkill[skill] ?? 0) + xp;
 				activeSkillCharts[skill] = true;
-				xpDrops.push({ skill, xp, timestamp: performance.now() });
-				trimXpDrops(xpDrops, settings.timeSpan);
+				xpAccumulator.append({ skill, xp, timestamp: Date.now() });
 				windowMetrics?.ensureSkillMounted(skill);
 			},
 		};

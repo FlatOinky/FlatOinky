@@ -3,6 +3,7 @@ import yellIconSrc from '../../assets/yell.png';
 import pmToIconSrc from '../../assets/pm_to.png';
 import pmFromIconSrc from '../../assets/pm_from.png';
 import { ChatMessage, PluginContext } from '../../client';
+import type { Collection } from '../../client/client_storage';
 import * as el from '../../client/ui/elements';
 import { chatMessages, usernamesCache } from './chat_state';
 import {
@@ -10,7 +11,6 @@ import {
 	ChatElements,
 	chatColorClassMap,
 	chatColorMeta,
-	namespace,
 	Settings,
 } from './chat_types';
 import { isChatMessageMuted } from './chat_muted';
@@ -24,32 +24,10 @@ import {
 
 // #region Utils
 
-const PERSIST_DEBOUNCE_MS = 300;
-let persistTimer: ReturnType<typeof setTimeout> | undefined;
+let messagesCollection: Collection<ChatMessage> | undefined;
 
-const writeChatMessages = (): void => {
-	localStorage.setItem(
-		`${namespace}/chatMessages`,
-		JSON.stringify(chatMessages.filter((message) => message.type !== 'welcome')),
-	);
-};
-
-/** Debounced persist — coalesces bursts of chat traffic. */
-export const persistChatMessages = (): void => {
-	if (persistTimer !== undefined) clearTimeout(persistTimer);
-	persistTimer = setTimeout(() => {
-		persistTimer = undefined;
-		writeChatMessages();
-	}, PERSIST_DEBOUNCE_MS);
-};
-
-/** Flush pending persist immediately (settings changes / teardown). */
-export const persistChatMessagesNow = (): void => {
-	if (persistTimer !== undefined) {
-		clearTimeout(persistTimer);
-		persistTimer = undefined;
-	}
-	writeChatMessages();
+export const setMessagesCollection = (collection: Collection<ChatMessage>): void => {
+	messagesCollection = collection;
 };
 
 export const trimChatMessages = (settings: Settings): void => {
@@ -69,7 +47,8 @@ export const trimChatMessages = (settings: Settings): void => {
 export const storeChatMessage = (chatMessage: ChatMessage, settings: Settings): void => {
 	chatMessages.push(chatMessage);
 	trimChatMessages(settings);
-	persistChatMessages();
+	if (chatMessage.type === 'welcome') return;
+	messagesCollection?.append(chatMessage, settings.maxChatLogLength);
 };
 
 const walkWelcomeChatMessageNodesModifier = (element: HTMLElement | null) => {
@@ -315,7 +294,6 @@ export const applyChatSettings = (
 	filters: ChatFilters,
 ): void => {
 	trimChatMessages(settings);
-	persistChatMessagesNow();
 
 	const { messagesContainer, stickiness } = elements;
 	const wasSticky = stickiness.isSticky;

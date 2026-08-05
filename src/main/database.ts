@@ -41,29 +41,32 @@ CREATE TABLE IF NOT EXISTS character_settings (
 	value TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(value)),
 	UNIQUE (character_id, context, namespace)
 );
-CREATE TABLE IF NOT EXISTS global_data (
+CREATE TABLE IF NOT EXISTS global_collections (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	context TEXT NOT NULL,
 	namespace TEXT NOT NULL,
-	value TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(value)),
-	UNIQUE (context, namespace)
+	value TEXT NOT NULL CHECK (json_valid(value))
 );
-CREATE TABLE IF NOT EXISTS profile_data (
+CREATE TABLE IF NOT EXISTS profile_collections (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
 	context TEXT NOT NULL,
 	namespace TEXT NOT NULL,
-	value TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(value)),
-	UNIQUE (profile_id, context, namespace)
+	value TEXT NOT NULL CHECK (json_valid(value))
 );
-CREATE TABLE IF NOT EXISTS character_data (
+CREATE TABLE IF NOT EXISTS character_collections (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
 	context TEXT NOT NULL,
 	namespace TEXT NOT NULL,
-	value TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(value)),
-	UNIQUE (character_id, context, namespace)
+	value TEXT NOT NULL CHECK (json_valid(value))
 );
+CREATE INDEX IF NOT EXISTS idx_global_collections_lookup
+	ON global_collections (context, namespace, id);
+CREATE INDEX IF NOT EXISTS idx_profile_collections_lookup
+	ON profile_collections (profile_id, context, namespace, id);
+CREATE INDEX IF NOT EXISTS idx_character_collections_lookup
+	ON character_collections (character_id, context, namespace, id);
 `;
 
 const getDatabasePath = (): string => {

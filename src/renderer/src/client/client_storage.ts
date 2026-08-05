@@ -205,4 +205,39 @@ export const createPluginStorages = async (
 	};
 };
 
+// #region collections
+
+export type Collection<T = unknown> = {
+	fetch: (quantity: number) => Promise<T[]>;
+	append: (value: T, max?: number) => void;
+};
+
+export type PluginCollections = {
+	global: <T = unknown>(name: string) => Collection<T>;
+	profile: <T = unknown>(name: string) => Collection<T>;
+	character: <T = unknown>(name: string) => Collection<T>;
+};
+
+const createCollection = <T>(
+	kind: ScopeKind,
+	context: StorageContext,
+	namespace: string,
+): Collection<T> => ({
+	fetch: async (quantity) =>
+		(await ipcStorage.fetchCollection(kind, context, namespace, quantity)) as T[],
+	append: (value, max) => ipcStorage.appendCollection(kind, context, namespace, value, max),
+});
+
+export const createPluginCollections = (namespace: string): PluginCollections => {
+	const context: StorageContext = 'plugins';
+	return {
+		global: <T = unknown>(name: string) =>
+			createCollection<T>('global', context, `${namespace}/${name}`),
+		profile: <T = unknown>(name: string) =>
+			createCollection<T>('profile', context, `${namespace}/${name}`),
+		character: <T = unknown>(name: string) =>
+			createCollection<T>('character', context, `${namespace}/${name}`),
+	};
+};
+
 export const storageData = async () => deepProxy(await getState(), routeUpdate);

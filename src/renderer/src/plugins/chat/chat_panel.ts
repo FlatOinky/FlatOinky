@@ -7,7 +7,6 @@ import {
 	createWelcomeChatMessage,
 	getMessageBg,
 	getVisibleChatMessages,
-	persistChatMessagesNow,
 	renderMessageLi,
 	updateToggleIndicator,
 } from './chat_messages';
@@ -214,7 +213,6 @@ export const initChat = (
 	const wheelHandler = (event: WheelEvent) => handleWheel(event, elements, settings);
 	document.addEventListener('wheel', wheelHandler);
 	lifecycle.onCleanup(() => document.removeEventListener('wheel', wheelHandler));
-	lifecycle.onCleanup(() => persistChatMessagesNow());
 
 	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels);
 	toggleCheckbox.onchange = () => handleToggleChange(elements, settings);

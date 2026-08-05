@@ -51,8 +51,9 @@ client.
   - `styles.css` — Tailwind/DaisyUI entry and scoped base styles.
   - `client/settings.ts` — the 'Client settings' window and the registry plugins use
     to add their own sections.
-  - `client/client_storage.ts` — reactive storage scoped to global, profile, or
-    character, persisted over IPC into SQLite.
+  - `client/client_storage.ts` — reactive settings storage scoped to global, profile,
+    or character, plus append-only collections (`fetch` / `append`), persisted over
+    IPC into SQLite.
   - `client/profiles.ts` — profile list and per-character profile mapping (SQLite).
   - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file, devtools,
     notifications, updates).
@@ -70,11 +71,13 @@ client.
 
 Storage lives in SQLite (`userData/storage/flat-oinky.db`, or
 `<NODE_ENV>.flat-oinky.db` outside production). Tables cover profiles, characters,
-character↔profile mappings, and per-scope `*_settings` / `*_data` documents keyed by
-`context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
-`<name>` for client internals — including `client`, `updater`, `notifications`,
-`devtools`, and `plugins` for the per-profile enabled-plugin map; settings sections
-for always-on systems use `core/systems`).
+character↔profile mappings, per-scope `*_settings` documents keyed by `context` plus
+`namespace` (`plugins` + `oinky/<name>` for plugins, `systems` + `<name>` for client
+internals — including `client`, `updater`, `notifications`, `devtools`, and `plugins`
+for the per-profile enabled-plugin map; settings sections for always-on systems use
+`core/systems`), and per-scope append-only `*_collections` rows keyed the same way
+(plugins fold a collection name into the namespace as `oinky/<name>/<collection>`).
+Collections are read with `fetch(quantity)` and written with `append(value, max?)`.
 
 ## 4. Safety and permission boundaries
 

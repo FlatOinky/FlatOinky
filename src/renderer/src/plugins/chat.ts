@@ -1,9 +1,11 @@
 import { Plugin } from '../client';
+import type { ChatMessage } from '../client';
 import * as el from '../client/ui/elements';
 import {
 	applyChatColors,
 	applyChatSettings,
 	mountChatMessage,
+	setMessagesCollection,
 	storeChatMessage,
 } from './chat/chat_messages';
 import {
@@ -12,6 +14,7 @@ import {
 	isChatMessageMuted,
 } from './chat/chat_muted';
 import { initChat } from './chat/chat_panel';
+import { hydrateChatMessages } from './chat/chat_state';
 import {
 	chatColorMeta,
 	initialChannels,
@@ -67,7 +70,7 @@ export const ChatPlugin: Plugin = {
 	namespace: 'oinky/chat',
 	name: 'Chat',
 	description: 'A custom chat implementation',
-	init: (lifecycle, context) => {
+	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const colors = context.storages.profile.reactive('colors', initialChatColors);
 		const channels = context.storages.character.reactive('channels', initialChannels);
@@ -78,6 +81,10 @@ export const ChatPlugin: Plugin = {
 			muted: mutedPlayers,
 		};
 		const settingsMenu = context.settings.initMenu(lifecycle);
+
+		const messages = context.collections.character<ChatMessage>('messages');
+		setMessagesCollection(messages);
+		await hydrateChatMessages(messages, settings.maxChatLogLength);
 
 		const elements = initChat(lifecycle, context, settings, channels, filters);
 

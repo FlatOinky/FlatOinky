@@ -1,10 +1,12 @@
 import { ChatMessage, parseChatMessage } from './client/chat_message';
 import {
 	createGlobalStorage,
+	createPluginCollections,
 	createPluginStorages,
 	createProfileStorage,
 	initClientStorage,
 	type ClientStorage,
+	type PluginCollections,
 } from './client/client_storage';
 import { getAppVersion, saveFile } from './client/ipc_renderer';
 import type { Notifications } from './client/notifications';
@@ -85,7 +87,9 @@ const createContext = (
 	};
 };
 
-export type PluginContext = Awaited<ReturnType<typeof createPluginContext>>;
+export type PluginContext = Awaited<ReturnType<typeof createPluginContext>> & {
+	collections: PluginCollections;
+};
 
 const createPluginContext = async (
 	context: ClientContext,
@@ -97,6 +101,7 @@ const createPluginContext = async (
 		...context,
 		settings: settings.setupPluginApi(namespace, title),
 		storages: await createPluginStorages(namespace),
+		collections: createPluginCollections(namespace) as PluginCollections,
 	};
 };
 
@@ -142,7 +147,7 @@ export type Plugin = {
 	namespace: string;
 	name: string;
 	description?: string;
-	init: (lifecycle: Lifecycle, context: PluginContext) => PluginCallbacks;
+	init: (lifecycle: Lifecycle, context: PluginContext) => PluginCallbacks | Promise<PluginCallbacks>;
 	settingsMenu?: () => HTMLElement;
 };
 
@@ -189,7 +194,7 @@ const initPlugins = (
 			notify();
 		});
 		const pluginContext = await createPluginContext(context, settings, namespace, plugin.name);
-		const hooks = plugin.init(pluginLifecycle, pluginContext);
+		const hooks = await plugin.init(pluginLifecycle, pluginContext);
 		const instance = {
 			callbacks: hooks,
 			lifecycle: pluginLifecycle,

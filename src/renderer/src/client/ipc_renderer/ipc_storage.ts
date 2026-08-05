@@ -35,6 +35,22 @@ export const updateSettings = (
 	value: unknown,
 ): void => ipcRenderer.send('storage:updateSettings', kind, context, namespace, key, value);
 
+export const appendCollection = (
+	kind: ScopeKind,
+	context: StorageContext | string,
+	namespace: string,
+	value: unknown,
+	max?: number,
+): void => ipcRenderer.send('storage:appendCollection', kind, context, namespace, value, max);
+
+export const fetchCollection = async (
+	kind: ScopeKind,
+	context: StorageContext | string,
+	namespace: string,
+	quantity: number,
+): Promise<unknown[]> =>
+	await ipcRenderer.invoke('storage:fetchCollection', kind, context, namespace, quantity);
+
 export const listProfiles = async (): Promise<ProfileRow[]> =>
 	await ipcRenderer.invoke('storage:listProfiles');
 

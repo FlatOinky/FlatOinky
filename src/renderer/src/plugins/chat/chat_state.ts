@@ -1,16 +1,34 @@
 import { ChatMessage } from '../../client';
-import { namespace } from './chat_types';
+import type { Collection } from '../../client/client_storage';
 
 export const usernamesCache = new Set<string>();
 
-const loadChatMessages = (): ChatMessage[] => {
-	try {
-		const parsed = JSON.parse(localStorage.getItem(`${namespace}/chatMessages`) ?? '[]');
-		if (!Array.isArray(parsed)) return [];
-		return parsed.filter((message: ChatMessage) => message.type !== 'welcome');
-	} catch {
-		return [];
-	}
+export const chatMessages: ChatMessage[] = [];
+
+const reviveChatMessage = (raw: unknown): ChatMessage | undefined => {
+	if (typeof raw !== 'object' || raw === null) return undefined;
+	const message = raw as ChatMessage;
+	if (message.type === 'welcome') return undefined;
+	if (typeof message.type !== 'string') return undefined;
+	const timestamp =
+		message.timestamp instanceof Date
+			? message.timestamp
+			: new Date(message.timestamp as unknown as string | number);
+	if (Number.isNaN(timestamp.getTime())) return undefined;
+	return { ...message, timestamp } as ChatMessage;
 };
 
-export const chatMessages: ChatMessage[] = loadChatMessages();
+export const hydrateChatMessages = async (
+	collection: Collection<ChatMessage>,
+	max: number,
+): Promise<void> => {
+	chatMessages.length = 0;
+	usernamesCache.clear();
+	const fetched = await collection.fetch(Math.max(1, max));
+	for (const raw of fetched) {
+		const message = reviveChatMessage(raw);
+		if (!message) continue;
+		chatMessages.push(message);
+		if (message.username) usernamesCache.add(message.username);
+	}
+};

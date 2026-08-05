@@ -54,8 +54,8 @@ Layout under `src/`:
   reaches the client only through `PluginContext`.
 - **`PluginContext` is the third-party contract.** Anything a plugin needs must be
   reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `notifications`,
-  `settings`, `storages`). System-only APIs (`updater`, openDevTools, saveReferences)
-  stay off the context.
+  `settings`, `storages`, `collections`). System-only APIs (`updater`, openDevTools,
+  saveReferences) stay off the context.
 
 ## Coexisting with the FlatMMO client
 
@@ -96,6 +96,14 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
      `systems` with bare namespaces (`client`, `updater`, `notifications`, `devtools`,
      `plugins` for the enabled-plugin map).
+
+     **Collections** — `context.collections.global | profile | character(name)` for
+     append-only histories (chat messages, XP drops, …). API:
+     - `fetch(quantity)` → `Promise<T[]>` (oldest→newest, up to `quantity` most recent)
+     - `append(value, max?)` — fire-and-forget insert; optional `max` trims oldest rows
+     Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
+     `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
+     rendering.
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is

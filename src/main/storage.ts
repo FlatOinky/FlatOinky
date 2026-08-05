@@ -10,24 +10,21 @@ export type Scope =
 
 export type ScopeKind = Scope['kind'];
 
-type StorageKind = 'settings' | 'data';
-
 type TableDescriptor = {
 	table: string;
 	idColumn: 'profile_id' | 'character_id' | null;
 };
 
-const TABLE_MAP: Record<StorageKind, Record<ScopeKind, TableDescriptor>> = {
-	settings: {
-		global: { table: 'global_settings', idColumn: null },
-		profile: { table: 'profile_settings', idColumn: 'profile_id' },
-		character: { table: 'character_settings', idColumn: 'character_id' },
-	},
-	data: {
-		global: { table: 'global_data', idColumn: null },
-		profile: { table: 'profile_data', idColumn: 'profile_id' },
-		character: { table: 'character_data', idColumn: 'character_id' },
-	},
+const SETTINGS_TABLE_MAP: Record<ScopeKind, TableDescriptor> = {
+	global: { table: 'global_settings', idColumn: null },
+	profile: { table: 'profile_settings', idColumn: 'profile_id' },
+	character: { table: 'character_settings', idColumn: 'character_id' },
+};
+
+const COLLECTION_TABLE_MAP: Record<ScopeKind, TableDescriptor> = {
+	global: { table: 'global_collections', idColumn: null },
+	profile: { table: 'profile_collections', idColumn: 'profile_id' },
+	character: { table: 'character_collections', idColumn: 'character_id' },
 };
 
 const getScopeId = (scope: Scope): number | null => {
@@ -51,10 +48,19 @@ const parseValue = (raw: unknown): object => {
 	}
 };
 
+const parseCollectionValue = (raw: unknown): unknown => {
+	if (typeof raw !== 'string') return null;
+	try {
+		return JSON.parse(raw);
+	} catch {
+		return null;
+	}
+};
+
 type DocumentRows = Record<string, Record<string, object>>;
 
-const loadDocuments = (kind: StorageKind, scope: Scope): DocumentRows => {
-	const { table, idColumn } = TABLE_MAP[kind][scope.kind];
+const loadDocuments = (scope: Scope): DocumentRows => {
+	const { table, idColumn } = SETTINGS_TABLE_MAP[scope.kind];
 	const db = getDatabase();
 	const rows = idColumn
 		? (db
@@ -78,14 +84,13 @@ const loadDocuments = (kind: StorageKind, scope: Scope): DocumentRows => {
 };
 
 const updateDocument = (
-	kind: StorageKind,
 	scope: Scope,
 	context: string,
 	namespace: string,
 	key: StorageKey,
 	value: unknown,
 ): void => {
-	const { table, idColumn } = TABLE_MAP[kind][scope.kind];
+	const { table, idColumn } = SETTINGS_TABLE_MAP[scope.kind];
 	const scopeId = getScopeId(scope);
 	transaction((db) => {
 		const existing = idColumn
@@ -120,7 +125,7 @@ const updateDocument = (
 
 // #region settings
 
-export const loadSettings = (scope: Scope): DocumentRows => loadDocuments('settings', scope);
+export const loadSettings = (scope: Scope): DocumentRows => loadDocuments(scope);
 
 export const updateSettings = (
 	scope: Scope,
@@ -128,19 +133,82 @@ export const updateSettings = (
 	namespace: string,
 	key: StorageKey,
 	value: unknown,
-): void => updateDocument('settings', scope, context, namespace, key, value);
+): void => updateDocument(scope, context, namespace, key, value);
 
-// #region data
+// #region collections
 
-export const loadData = (scope: Scope): DocumentRows => loadDocuments('data', scope);
-
-export const updateData = (
+export const appendCollection = (
 	scope: Scope,
 	context: string,
 	namespace: string,
-	key: StorageKey,
 	value: unknown,
-): void => updateDocument('data', scope, context, namespace, key, value);
+	max?: number,
+): void => {
+	const { table, idColumn } = COLLECTION_TABLE_MAP[scope.kind];
+	const scopeId = getScopeId(scope);
+	const serialized = JSON.stringify(value);
+	transaction((db) => {
+		if (idColumn) {
+			db.prepare(
+				`INSERT INTO ${table} (${idColumn}, context, namespace, value) VALUES (?, ?, ?, ?)`,
+			).run(scopeId as number, context, namespace, serialized);
+		} else {
+			db.prepare(`INSERT INTO ${table} (context, namespace, value) VALUES (?, ?, ?)`).run(
+				context,
+				namespace,
+				serialized,
+			);
+		}
+		if (typeof max !== 'number' || !Number.isFinite(max) || max < 1) return;
+		const keep = Math.floor(max);
+		if (idColumn) {
+			db.prepare(
+				`DELETE FROM ${table} WHERE id IN (
+					SELECT id FROM ${table}
+					WHERE ${idColumn} = ? AND context = ? AND namespace = ?
+					ORDER BY id DESC LIMIT -1 OFFSET ?
+				)`,
+			).run(scopeId as number, context, namespace, keep);
+		} else {
+			db.prepare(
+				`DELETE FROM ${table} WHERE id IN (
+					SELECT id FROM ${table}
+					WHERE context = ? AND namespace = ?
+					ORDER BY id DESC LIMIT -1 OFFSET ?
+				)`,
+			).run(context, namespace, keep);
+		}
+	});
+};
+
+export const fetchCollection = (
+	scope: Scope,
+	context: string,
+	namespace: string,
+	quantity: number,
+): unknown[] => {
+	if (!Number.isFinite(quantity) || quantity < 1) return [];
+	const limit = Math.floor(quantity);
+	const { table, idColumn } = COLLECTION_TABLE_MAP[scope.kind];
+	const scopeId = getScopeId(scope);
+	const db = getDatabase();
+	const rows = idColumn
+		? (db
+				.prepare(
+					`SELECT value FROM ${table}
+					WHERE ${idColumn} = ? AND context = ? AND namespace = ?
+					ORDER BY id DESC LIMIT ?`,
+				)
+				.all(scopeId as number, context, namespace, limit) as { value: string }[])
+		: (db
+				.prepare(
+					`SELECT value FROM ${table}
+					WHERE context = ? AND namespace = ?
+					ORDER BY id DESC LIMIT ?`,
+				)
+				.all(context, namespace, limit) as { value: string }[]);
+	return rows.map((row) => parseCollectionValue(row.value)).reverse();
+};
 
 // #region profiles
 
@@ -212,8 +280,8 @@ export const duplicateProfile = (sourceId: number): ProfileRow => {
 			SELECT ?, context, namespace, value FROM profile_settings WHERE profile_id = ?`,
 		).run(newId, sourceId);
 		tx.prepare(
-			`INSERT INTO profile_data (profile_id, context, namespace, value)
-			SELECT ?, context, namespace, value FROM profile_data WHERE profile_id = ?`,
+			`INSERT INTO profile_collections (profile_id, context, namespace, value)
+			SELECT ?, context, namespace, value FROM profile_collections WHERE profile_id = ?`,
 		).run(newId, sourceId);
 		return { id: newId, name };
 	});

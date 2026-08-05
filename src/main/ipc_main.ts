@@ -209,6 +209,46 @@ export const ipcMainSetup = (): void => {
 		},
 	);
 
+	ipcMain.on(
+		'storage:appendCollection',
+		(
+			event,
+			kind: storage.ScopeKind,
+			context: string,
+			namespace: string,
+			value: unknown,
+			max?: number,
+		) => {
+			if (!isValidName(context) || !isValidName(namespace)) return;
+			const session = sessions.get(event.sender.id);
+			if (!session) return;
+			const scope = resolveScope(session, kind);
+			if (!scope) return;
+			const cappedMax =
+				typeof max === 'number' && Number.isFinite(max) && max >= 1 ? Math.floor(max) : undefined;
+			storage.appendCollection(scope, context, namespace, value, cappedMax);
+		},
+	);
+
+	ipcMain.handle(
+		'storage:fetchCollection',
+		(
+			event,
+			kind: storage.ScopeKind,
+			context: string,
+			namespace: string,
+			quantity: number,
+		) => {
+			if (!isValidName(context) || !isValidName(namespace)) return [];
+			if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity < 1) return [];
+			const session = sessions.get(event.sender.id);
+			if (!session) return [];
+			const scope = resolveScope(session, kind);
+			if (!scope) return [];
+			return storage.fetchCollection(scope, context, namespace, Math.floor(quantity));
+		},
+	);
+
 	ipcMain.handle('storage:listProfiles', () => storage.listProfiles());
 
 	ipcMain.handle('storage:createProfile', (_event, name: string) => {
