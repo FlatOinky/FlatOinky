@@ -134,7 +134,6 @@ const startXpTracker = (
 		if (age < 0) return;
 		const bucketFromEnd = Math.floor(age / updateInterval);
 		if (bucketFromEnd >= intervalSums.length) return;
-		console.log({ bucketFromEnd, xpDrop });
 		intervalSums[nodeCount + recentWindow - 1 - bucketFromEnd] += xpDrop.xp;
 	});
 	const computeMetrics = (intervalSum: number) => {
