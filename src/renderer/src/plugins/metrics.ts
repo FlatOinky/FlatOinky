@@ -9,9 +9,9 @@ type XPDrop = {
 
 const MIN_UPDATE_INTERVAL = 0.1;
 const MAX_TIME_SPAN = 10;
-const SMOOTHING_LOOKBACK = 0.35;
+const RECENT_WINDOW_PERCENTAGE = 0.35;
 const MAX_XP_DROPS = Math.ceil(
-	(MAX_TIME_SPAN * 60 * 1000 * (1 + SMOOTHING_LOOKBACK)) / MIN_UPDATE_INTERVAL,
+	(MAX_TIME_SPAN * 60 * 1000 * (1 + RECENT_WINDOW_PERCENTAGE)) / MIN_UPDATE_INTERVAL,
 );
 
 const daisyUiColors = {
@@ -94,7 +94,7 @@ const createXpAccumulator = async (context: PluginContext) => {
 	};
 
 	const slice = (settings: Settings) => {
-		const cutoff = Date.now() - settings.timeSpan * (1 + SMOOTHING_LOOKBACK) * 60 * 1000;
+		const cutoff = Date.now() - settings.timeSpan * (1 + RECENT_WINDOW_PERCENTAGE) * 60 * 1000;
 		let start = 0;
 		while (start < cache.length && cache[start].timestamp < cutoff) start++;
 		return cache.slice(start);
@@ -123,7 +123,7 @@ const startXpTracker = (
 	const updateInterval = 1000 * settings.updateInterval;
 	const updateIntervalSeconds = settings.updateInterval;
 	const nodeCount = Math.max(1, Math.ceil(timeSpan / updateInterval));
-	const recentWindow = Math.max(1, Math.ceil(nodeCount * SMOOTHING_LOOKBACK));
+	const recentWindow = Math.max(1, Math.ceil(nodeCount * RECENT_WINDOW_PERCENTAGE));
 	let consumedUntil = Date.now();
 	let sessionTotalXp = initialSessionTotal ?? 0;
 	const intervalSums = new Array(nodeCount + recentWindow).fill(0);
