@@ -133,6 +133,8 @@ export const initialSettings = {
 	enableTimestamp: true,
 	timestampFormat: 'h:mmaaa',
 	yellIndicator: 'guy' as 'guy' | 'icon' | 'text',
+	enableCommands: true,
+	commandPrefix: '/',
 };
 export type Settings = typeof initialSettings;
 
@@ -165,6 +167,8 @@ export type ChatElements = {
 	toggleIndicator: HTMLDivElement;
 	inputLabel: HTMLSpanElement;
 	chatInput: HTMLInputElement;
+	commandsButton: HTMLButtonElement;
+	commandsMenu: HTMLUListElement;
 	messagesContainer: HTMLUListElement;
 	popupsContainer: HTMLUListElement;
 	stickiness: ChatStickiness;

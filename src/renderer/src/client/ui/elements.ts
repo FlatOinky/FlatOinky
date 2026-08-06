@@ -273,6 +273,7 @@ export const icon = {
 	restore: setupIconElement('icon-[tabler--restore]'),
 	settings: setupIconElement('icon-[tabler--settings]'),
 	speakerphone: setupIconElement('icon-[tabler--speakerphone]'),
+	terminal: setupIconElement('icon-[tabler--terminal]'),
 	testPipe2Filled: setupIconElement('icon-[tabler--test-pipe-2-filled]'),
 	tools: setupIconElement('icon-[tabler--tools]'),
 	users: setupIconElement('icon-[tabler--users]'),

@@ -5,6 +5,7 @@ import pmFromIconSrc from '../../assets/pm_from.png';
 import { ChatMessage, PluginContext } from '../../client';
 import type { Collection } from '../../client/client_storage';
 import * as el from '../../client/ui/elements';
+import { closeCommandMenu } from './chat_commands';
 import { chatMessages, usernamesCache } from './chat_state';
 import {
 	ChatColors,
@@ -294,6 +295,11 @@ export const applyChatSettings = (
 	filters: ChatFilters,
 ): void => {
 	trimChatMessages(settings);
+
+	elements.commandsButton.classList.toggle('hidden', !settings.enableCommands);
+	if (!settings.enableCommands) {
+		closeCommandMenu(elements.commandsMenu);
+	}
 
 	const { messagesContainer, stickiness } = elements;
 	const wasSticky = stickiness.isSticky;

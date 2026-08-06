@@ -14,7 +14,7 @@ import {
 	isChatMessageMuted,
 } from './chat/chat_muted';
 import { initChat } from './chat/chat_panel';
-import { hydrateChatMessages } from './chat/chat_state';
+import { hydrateChatMessages, pmState } from './chat/chat_state';
 import {
 	chatColorMeta,
 	initialChannels,
@@ -248,6 +248,32 @@ export const ChatPlugin: Plugin = {
 			),
 		]);
 
+		settingsMenu.mountSection('Commands', [
+			{
+				label: 'Enable commands',
+				description: 'Allow Oinky chat commands and show the commands menu.',
+				specialType: 'toggle' as const,
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.enableCommands;
+					input.onchange = () => {
+						settings.enableCommands = input.checked;
+						onSettingsChange();
+					};
+				}),
+			},
+			{
+				label: 'Command prefix',
+				description: 'Prefix that opens the chat commands menu.',
+				reset: (input) => (input.value = initialSettings.commandPrefix),
+				input: el.input.text``.then((input) => {
+					input.value = settings.commandPrefix;
+					input.onchange = () => {
+						settings.commandPrefix = input.value.trim();
+					};
+				}),
+			},
+		]);
+
 		const keyWordsSection = settingsMenu.mountSection('Key Words', [
 			createKeyWordsVolumeSettingsNode(keyWords, context.notifications),
 			createKeyWordsSettingsNode(keyWords, onSettingsChange, context.settings.helpers.swapToggle),
@@ -289,6 +315,9 @@ export const ChatPlugin: Plugin = {
 					if (mutedPlayers.discardMessages) return;
 					storeChatMessage(chatMessage, settings);
 					return;
+				}
+				if (chatMessage.type === 'pm_from' && chatMessage.username) {
+					pmState.latestPmUsername = chatMessage.username;
 				}
 				notifyKeyWordMatches(
 					chatMessage,

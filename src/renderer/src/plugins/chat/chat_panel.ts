@@ -1,6 +1,18 @@
 import { Lifecycle, PluginContext } from '../../client';
 import * as el from '../../client/ui/elements';
-import { handleChatInputKeydown, mountChatInput } from './chat_input';
+import {
+	ChatCommandContext,
+	closeCommandMenu,
+	mountCommandsMenu,
+	renderCommandMenu,
+} from './chat_commands';
+import {
+	handleChatInputBlur,
+	handleChatInputInput,
+	handleChatInputKeydown,
+	mountChatInput,
+	sendChatLine,
+} from './chat_input';
 import { mountChatLog, wireChatLog } from './chat_log';
 import {
 	checkIsAtBottom,
@@ -154,7 +166,11 @@ export const initChat = (
 	lifecycle.onCleanup(() => root.replaceChildren());
 
 	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(root, settings);
-	const { inputLabel, chatInput } = mountChatInput(root, context.character.username);
+	const { inputLabel, chatInput, commandsButton } = mountChatInput(
+		root,
+		context.character.username,
+	);
+	const commandsMenu = mountCommandsMenu(root, '--oinky-chat-commands-toggle');
 	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
 	const { tabsContainer, addTabButton } = mountChatTabs(root);
 	const addTabRefs = mountAddTabModal(root);
@@ -170,6 +186,8 @@ export const initChat = (
 		toggleIndicator,
 		inputLabel,
 		chatInput,
+		commandsButton,
+		commandsMenu,
 		messagesContainer,
 		popupsContainer,
 		stickiness,
@@ -181,6 +199,24 @@ export const initChat = (
 		mutedPlayersActivator,
 		...addTabRefs,
 		...logRefs,
+	};
+
+	const commandContext: ChatCommandContext = {
+		settings,
+		channels,
+		elements,
+		send: sendChatLine,
+		notify: (message) => {
+			window.flatOinky.client?.pluginsApi.onChatMessage({
+				timestamp: new Date(),
+				color: 'none',
+				message: `Oinky: ${message}`,
+				type: 'warning',
+				username: undefined,
+				icon: undefined,
+				tag: undefined,
+			});
+		},
 	};
 
 	// welcome messages: in-memory only, appended once on login at end of log (not persisted)
@@ -214,7 +250,28 @@ export const initChat = (
 	document.addEventListener('wheel', wheelHandler);
 	lifecycle.onCleanup(() => document.removeEventListener('wheel', wheelHandler));
 
-	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels);
+	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels, commandsMenu, commandContext);
+	chatInput.oninput = handleChatInputInput(chatInput, commandsMenu, commandContext);
+	chatInput.onblur = handleChatInputBlur(chatInput, commandsMenu, commandsButton, commandContext);
+	commandsButton.onclick = () => {
+		commandsButton.blur();
+		if (!settings.enableCommands) {
+			closeCommandMenu(commandsMenu);
+			chatInput.focus();
+			return;
+		}
+		if (commandsMenu.matches(':popover-open')) {
+			closeCommandMenu(commandsMenu);
+		} else {
+			renderCommandMenu(
+				commandsMenu,
+				chatInput.value || settings.commandPrefix,
+				commandContext,
+				chatInput,
+			);
+		}
+		chatInput.focus();
+	};
 	toggleCheckbox.onchange = () => handleToggleChange(elements, settings);
 	addTabButton.onclick = () => {
 		addTabButton.blur();
@@ -222,6 +279,7 @@ export const initChat = (
 	};
 	updateChatTabs(tabsContainer, channels, inputLabel);
 	wireChatLog(elements, settings, filters, context.ipc);
+	elements.commandsButton.classList.toggle('hidden', !settings.enableCommands);
 
 	return elements;
 };

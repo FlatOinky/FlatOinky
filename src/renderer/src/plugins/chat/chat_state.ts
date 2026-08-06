@@ -5,6 +5,10 @@ export const usernamesCache = new Set<string>();
 
 export const chatMessages: ChatMessage[] = [];
 
+export const pmState = {
+	latestPmUsername: undefined as string | undefined,
+};
+
 const reviveChatMessage = (raw: unknown): ChatMessage | undefined => {
 	if (typeof raw !== 'object' || raw === null) return undefined;
 	const message = raw as ChatMessage;
