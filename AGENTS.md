@@ -35,7 +35,9 @@ client.
 
 - `src/main/` — Electron main process.
   - `index.ts` — app entry / window bootstrap.
-  - `ipc_main.ts` — IPC handlers (login, worlds, client HTML, assets, storage).
+  - `ipc_main.ts` — IPC handlers (login, worlds, client HTML/assets, storage/profiles,
+    file save, notifications, saveReferences, window reload, asset-cache clear,
+    openDevTools, and updater check/download/install/channel).
   - `updater.ts` — electron-updater wrapper: channel (`latest`/`beta`), check,
     download, install, and update events to the renderer.
   - `asset_cache.ts` — on-disk HTTP asset cache under userData, with ETag metadata.
@@ -49,14 +51,22 @@ client.
   - `plugins.ts` — barrel that re-exports the core plugins; contains no logic.
   - `transpilers.ts` — rewrites FlatMMO scripts/HTML/URLs and injects hooks.
   - `styles.css` — Tailwind/DaisyUI entry and scoped base styles.
+  - `fmmo.d.ts` — `FMMO` namespace types (`World`, `Character`, `Reference`, …).
+  - `env.d.ts` — Vite client type reference.
+  - `index.d.ts` — `Window` / `Globals` and game global declarations.
   - `client/settings.ts` — the 'Client settings' window and the registry plugins use
     to add their own sections.
   - `client/client_storage.ts` — reactive settings storage scoped to global, profile,
     or character, plus append-only collections (`fetch` / `append`), persisted over
     IPC into SQLite.
   - `client/profiles.ts` — profile list and per-character profile mapping (SQLite).
-  - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file, devtools,
-    notifications, updates).
+  - `client/chat_message.ts` — `ChatMessage` types and parse/create helpers
+    (re-exported from `client.ts`).
+  - `client/notifications.ts` — `initNotifications` factory backing
+    `PluginContext.notifications`.
+  - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file,
+    clearAssetCache, saveReferences, openDevTools, notifications, updates) plus
+    re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`.
   - `client/updater.ts` — update UI state machine wired to the main updater.
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
     notifications tray/settings, updates UI, devtools, profiles); never toggleable.
@@ -77,7 +87,9 @@ internals — including `client`, `updater`, `notifications`, `devtools`, and `p
 for the per-profile enabled-plugin map; settings sections for always-on systems use
 `core/systems`), and per-scope append-only `*_collections` rows keyed the same way
 (plugins fold a collection name into the namespace as `oinky/<name>/<collection>`).
-Collections are read with `fetch(quantity)` and written with `append(value, max?)`.
+`client`, `notifications`, and `plugins` use profile storage; `updater` and
+`devtools` use global storage. Collections are read with `fetch(quantity)` and
+written with `append(value, max?)`.
 
 ## 4. Safety and permission boundaries
 
@@ -94,5 +106,6 @@ Collections are read with `fetch(quantity)` and written with `append(value, max?
 - Package installations (`pnpm`, `pnpm install`, `pnpm run`)
 - Git operations (`git push`, `git commit`)
 - File deletion
-- Running a full build (`pnpm build`, `pnpm build:win`, `pnpm build:linux`)
+- Running a full build (`pnpm build`, `pnpm build:win`, `pnpm build:mac`,
+  `pnpm build:linux`)
 - Read files, list directories, outside project folder

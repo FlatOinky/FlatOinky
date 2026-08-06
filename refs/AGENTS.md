@@ -17,8 +17,10 @@ developers can understand game behavior without hitting the live server. **THE C
 These files are the extracted contents of `flat-mmo-references.tar.gz`, which is generated
 by Flat Oinky's Devtools **"Save References"** action:
 
-`Devtools plugin` -> `context.ipc.saveReferences()` -> `saveReferences` IPC ->
+`Devtools system` -> `saveReferences()` from `ipc_renderer` -> `saveReferences` IPC ->
 `saveReferencesArchive` ([src/main/files.ts](../src/main/files.ts)).
+
+(`PluginContext.ipc` only exposes `saveFile`; saveReferences is system-only.)
 
 The references themselves are assembled in `mountClientPage`
 ([src/renderer/src/main.ts](../src/renderer/src/main.ts)):

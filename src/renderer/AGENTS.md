@@ -55,7 +55,8 @@ Layout under `src/`:
 - **`PluginContext` is the third-party contract.** Anything a plugin needs must be
   reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `notifications`,
   `settings`, `storages`, `collections`). System-only APIs (`updater`, openDevTools,
-  saveReferences) stay off the context.
+  saveReferences) stay off the context. `notifications` is a getter that throws if
+  accessed before notifications are initialized.
 
 ## Coexisting with the FlatMMO client
 
@@ -71,8 +72,11 @@ Layout under `src/`:
 - **Anchors** — `main.ts` tags game `<td>` cells with
   `fmmo-container="canvas|ui|topbar|misc<n>"`. Prefer those attributes when attaching
   UI to game regions.
-- **Globals** — FlatMMO types and `Window`/`Globals` declarations live in
-  [src/index.d.ts](src/index.d.ts). Extend that file; do not cast with `any`.
+- **Globals** — type declarations are split across three files:
+  - [src/index.d.ts](src/index.d.ts) — `Window` / `Globals` and game global functions
+  - [src/fmmo.d.ts](src/fmmo.d.ts) — `FMMO` namespace types (`World`, `Character`, …)
+  - [src/env.d.ts](src/env.d.ts) — Vite client types
+  Extend the matching file; do not cast with `any`.
 
 ## Adding a plugin
 
@@ -81,7 +85,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
 
 1. Create `src/plugins/<name>.ts` exporting a `Plugin`:
    - `namespace: 'oinky/<name>'`, `name`, optional `description`
-   - `init(lifecycle, context)` → `PluginCallbacks`
+   - `init(lifecycle, context)` → `PluginCallbacks` (may be async)
+   - optional `settingsMenu?: () => HTMLElement`
 2. Re-export it from [src/plugins.ts](src/plugins.ts). `client.ts` registers and
    starts every enabled export from that barrel (per-profile toggles live in the
    Profiles & Plugins window).
@@ -107,13 +112,14 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
-   one of `toggle`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
+   one of `toggle`, `swap`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
    `alertVolume`, `alertCombo`, or `alertToggles`
    (see [src/client/settings.ts](src/client/settings.ts)). Always-on systems share a
    single `core/systems` settings entry titled System via `setupSystemApi()`.
 5. **UI** — on `context.ui`:
-   - Taskbar: `initMenuItem`, `initTrayButton`, `initTrayButtonMenu`, `initWidget`,
-     `initActivity`, `initMenuAction`
+   - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
+     `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,
+     `initWindowButton`, plus `elements` (e.g. `chatContainer`)
    - Windows: `windows.initWindow(lifecycle, { id, title, storage, ... })`
    - `graphs.mountLineGraph` and helpers from `ui_utils`
 6. **IPC** — `context.ipc.saveFile(filename, contents)` for save-as dialogs. Do not
@@ -187,5 +193,6 @@ AGENTS.md).
 
 - Do not launch the app or hit the live server (root AGENTS.md).
 - Vite HMR sends a `reload-window` custom event; the renderer does a full reload.
-- Dev-only behavior is gated on `process.env.NODE_ENV === 'development'` (auto-selects
-  the last character, shows the Devtools button).
+- Dev-only behavior: `process.env.NODE_ENV === 'development'` auto-selects the last
+  character and shows the pre-client Devtools button. The in-game Devtools tray is
+  gated on the `enabledDevtools` setting (default false), not on `NODE_ENV`.
