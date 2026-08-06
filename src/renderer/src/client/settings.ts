@@ -22,6 +22,7 @@ type SettingsInputNode =
 	| (SettingsInputBase & { specialType?: 'toggle' | 'textarea' | 'select' })
 	| (SettingsInputBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] })
 	| (SettingsInputBase & { specialType: 'selectColorCombo'; options: SettingsNodeOption[] })
+	| (SettingsInputBase & { specialType: 'numberSliderCombo' })
 	| (SettingsInputBase & { specialType: 'swap'; onIcon: Element; offIcon: Element })
 	| (SettingsInputBase & { specialType: 'alertVolume'; onTest: () => void });
 export type SettingsAlertComboNode = SettingsNodeBase<
@@ -293,6 +294,43 @@ const makeSelectColorComboChild = (
 	return container;
 };
 
+const boundNumberSliderComboInputs = new WeakSet<SettingsInput>();
+const numberSliderComboSliders = new WeakMap<SettingsInput, HTMLInputElement>();
+
+const makeNumberSliderComboChild = (
+	node: SettingsInputBase & { specialType: 'numberSliderCombo' },
+): Element => {
+	const container = el.div`flex gap-2 items-center w-full`.element;
+	const slider = el.input.range`range range-sm flex-1 min-w-0`.mount(container);
+	slider.min = node.input.getAttribute('min') || '0';
+	slider.max = node.input.getAttribute('max') || '100';
+	slider.step = node.input.getAttribute('step') || '1';
+
+	const syncSliderFromInput = () => {
+		const activeSlider = numberSliderComboSliders.get(node.input) ?? slider;
+		activeSlider.min = node.input.getAttribute('min') || '0';
+		activeSlider.max = node.input.getAttribute('max') || '100';
+		activeSlider.step = node.input.getAttribute('step') || '1';
+		if (activeSlider.value !== node.input.value) activeSlider.value = node.input.value;
+	};
+	slider.oninput = () => {
+		node.input.value = slider.value;
+		node.input.dispatchEvent(new Event('input'));
+		node.input.dispatchEvent(new Event('change'));
+	};
+	numberSliderComboSliders.set(node.input, slider);
+	if (!boundNumberSliderComboInputs.has(node.input)) {
+		boundNumberSliderComboInputs.add(node.input);
+		node.input.addEventListener('input', syncSliderFromInput);
+		node.input.addEventListener('change', syncSliderFromInput);
+	}
+
+	node.input.classList = 'input input-sm w-20 tabular-nums shrink-0';
+	syncSliderFromInput();
+	container.appendChild(node.input);
+	return container;
+};
+
 // #region swap + alert controls
 
 const makeSwapToggle = (
@@ -381,6 +419,9 @@ const makeNodeChild = (node: SettingsInputNode): Element => {
 	}
 	if (node.specialType === 'selectColorCombo') {
 		return makeSelectColorComboChild(node);
+	}
+	if (node.specialType === 'numberSliderCombo') {
+		return makeNumberSliderComboChild(node);
 	}
 	if (node.specialType === 'swap') {
 		return makeSwapToggle(node.input, node.onIcon, node.offIcon, node.tooltip ?? '', 'tooltip-end');
@@ -667,6 +708,7 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 		case 'select':
 		case 'selectTextCombo':
 		case 'selectColorCombo':
+		case 'numberSliderCombo':
 		case 'alertVolume':
 		case 'file':
 		case 'color':

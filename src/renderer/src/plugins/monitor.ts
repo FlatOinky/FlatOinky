@@ -31,12 +31,19 @@ const soundFileName = (source: string): string =>
 	source.split('?')[0]?.split('#')[0]?.split('/').pop()?.toLowerCase() ?? '';
 
 const initialSettings = {
+	afkDetection: {
+		...initialAlertSettings,
+		ignoreCrafting: false,
+		afkThreshold: 60,
+	},
+	enableAudioCues: true,
 	audioCues: {
 		gemDrop: { ...initialAlertSettings },
 		fallingTree: { ...initialAlertSettings },
 		birdNest: { ...initialAlertSettings },
 		alienEncounter: { ...initialAlertSettings },
 	} satisfies Record<AudioCueKey, typeof initialAlertSettings>,
+	enableStateCues: true,
 	stateCues: {
 		sleep: { ...initialAlertSettings, threshold: 0 },
 		health: { ...initialAlertSettings, threshold: 5 },
@@ -101,6 +108,21 @@ const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => 
 };
 
 // #region cue cards
+
+const makeToggleNode = (
+	label: string,
+	description: string,
+	get: () => boolean,
+	set: (value: boolean) => void,
+): SettingsNode => ({
+	label,
+	description,
+	specialType: 'toggle',
+	input: el.input.checkbox``.then((input) => {
+		input.checked = get();
+		input.onchange = () => set(input.checked);
+	}),
+});
 
 const mountCueAlertControls = (
 	container: HTMLElement,
@@ -263,6 +285,7 @@ const initStateCues = (
 	context: PluginContext,
 	scopes: (typeof initialSettings)['stateCues'],
 	helpers: SettingsHelpers,
+	isEnabled: () => boolean,
 ) => {
 	const latched = new Set<StateCueKey>();
 
@@ -278,6 +301,7 @@ const initStateCues = (
 	};
 
 	const evaluate = (key: StateCueKey, value: number) => {
+		if (!isEnabled()) return;
 		if (!Number.isFinite(value)) return;
 		const scoped = scopes[key];
 		if (value > scoped.threshold) {
@@ -304,27 +328,149 @@ const initStateCues = (
 	return { evaluate, nodes };
 };
 
+// #region afk detection
+
+const initAfkDetection = (
+	context: PluginContext,
+	scoped: (typeof initialSettings)['afkDetection'],
+	helpers: SettingsHelpers,
+	lifecycle: Lifecycle,
+) => {
+	const defaults = initialSettings.afkDetection;
+	let lastActivityAt = Date.now();
+	let alerted = false;
+
+	const isLocal = (username: string | undefined) =>
+		!!username && username.toLowerCase() === context.character.username.toLowerCase();
+
+	const sendAlert = () => {
+		context.notifications.send('AFK', {
+			message: `No activity for ${scoped.afkThreshold}s`,
+			volume: scoped.audioVolume,
+			notification: scoped.enableNotification,
+			audio: scoped.enableAudio,
+		});
+	};
+
+	const markActive = () => {
+		lastActivityAt = Date.now();
+		alerted = false;
+	};
+
+	const handleServerCommand = (command: string, values: string[]) => {
+		switch (command) {
+			case 'XP_DROP': {
+				if (!isLocal(values[0])) return;
+				if (scoped.ignoreCrafting && values[1] === 'crafting') return;
+				return markActive();
+			}
+			case 'START_CLIENTSIDE_MOVEMENT':
+				if (!isLocal(values[0])) return;
+				return markActive();
+			case 'PROGRESS_BAR':
+			case 'SET_PROGRESS_BAR':
+				return markActive();
+		}
+	};
+
+	const intervalId = setInterval(() => {
+		if (!scoped.enabled || alerted) return;
+		if (Date.now() - lastActivityAt < scoped.afkThreshold * 1000) return;
+		alerted = true;
+		sendAlert();
+	}, 1000);
+	lifecycle.onCleanup(() => clearInterval(intervalId));
+
+	const nodes: SettingsNode[] = [
+		makeCueCard('afk-detection', 'Afk Detection', scoped, helpers, sendAlert, () => {
+			alerted = false;
+		}),
+		{
+			label: 'AFK threshold',
+			description: 'Seconds without activity before an AFK alert fires.',
+			specialType: 'numberSliderCombo',
+			reset: (input) => {
+				input.value = String(defaults.afkThreshold);
+			},
+			input: el.input.number``.then((input) => {
+				input.min = '5';
+				input.max = '600';
+				input.step = '5';
+				input.value = String(scoped.afkThreshold);
+				input.onchange = () => {
+					const min = 5;
+					const max = 600;
+					const next = Math.trunc(Number(input.value));
+					scoped.afkThreshold = Number.isFinite(next)
+						? Math.min(max, Math.max(min, next))
+						: defaults.afkThreshold;
+					input.value = String(scoped.afkThreshold);
+					alerted = false;
+				};
+			}),
+		},
+		makeToggleNode(
+			'Ignore crafting XP',
+			'Exclude crafting XP drops from counting as activity.',
+			() => scoped.ignoreCrafting,
+			(value) => {
+				scoped.ignoreCrafting = value;
+			},
+		),
+	];
+
+	return { handleServerCommand, nodes };
+};
+
 // #region Plugin
 
 export const MonitorPlugin: Plugin = {
 	namespace: 'oinky/monitor',
 	name: 'Monitor',
 	description:
-		'Desktop/sound alerts for audio cues and low sleep/health/worship/run, plus a crafting progress indicator.',
+		'Desktop/sound alerts for audio cues, low sleep/health/worship/run, AFK detection, plus a crafting progress indicator.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('alertSettings', initialSettings);
 		const helpers = context.settings.helpers;
 
 		const craftingActivity = mountCraftingActivity(lifecycle, context);
 		const audioCuesApi = initAudioCues(context, settings.audioCues, helpers);
-		const stateCuesApi = initStateCues(context, settings.stateCues, helpers);
+		const stateCuesApi = initStateCues(
+			context,
+			settings.stateCues,
+			helpers,
+			() => settings.enableStateCues,
+		);
+		const afkApi = initAfkDetection(context, settings.afkDetection, helpers, lifecycle);
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
-		settingsMenu.mountSection('Audio Cues', audioCuesApi.nodes);
-		settingsMenu.mountSection('State Cues', stateCuesApi.nodes);
+		settingsMenu.mountSection('Afk Detection', afkApi.nodes);
+		settingsMenu.mountSection('Audio Cues', [
+			makeToggleNode(
+				'Enable audio cues',
+				'Master switch for all audio cue alerts.',
+				() => settings.enableAudioCues,
+				(value) => {
+					settings.enableAudioCues = value;
+				},
+			),
+			...audioCuesApi.nodes,
+		]);
+		settingsMenu.mountSection('State Cues', [
+			makeToggleNode(
+				'Enable state cues',
+				'Master switch for all state cue alerts.',
+				() => settings.enableStateCues,
+				(value) => {
+					settings.enableStateCues = value;
+				},
+			),
+			...stateCuesApi.nodes,
+		]);
 
 		return {
 			hookPlaySound: (url) => {
+				if (!settings.enableAudioCues) return;
 				const file = soundFileName(url);
 				const cue = Object.entries(audioCues).find(([, audioCue]) => audioCue.file === file);
 				if (!cue) return;
@@ -342,7 +488,10 @@ export const MonitorPlugin: Plugin = {
 				stateCuesApi.evaluate('health', current);
 			},
 			onUpdateRun: (_enabled, current) => stateCuesApi.evaluate('run', current),
-			hookServerCommand: (command) => command !== 'MAKE_ITEM_UI',
+			hookServerCommand: (command, values) => {
+				afkApi.handleServerCommand(command, values);
+				return command !== 'MAKE_ITEM_UI';
+			},
 		};
 	},
 };

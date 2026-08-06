@@ -113,7 +113,7 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
    one of `toggle`, `swap`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
-   `alertVolume`, `alertCombo`, or `alertToggles`
+   `numberSliderCombo`, `alertVolume`, `alertCombo`, or `alertToggles`
    (see [src/client/settings.ts](src/client/settings.ts)). Always-on systems share a
    single `core/systems` settings entry titled System via `setupSystemApi()`.
 5. **UI** — on `context.ui`:
