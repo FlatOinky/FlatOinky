@@ -4,8 +4,8 @@ import type { ClientStorage } from './client_storage';
 import { createNotification as ipcCreateNotification } from './ipc_renderer';
 
 export const initialNotificationSettings = {
-	enableNotification: true,
-	enableAudio: true,
+	enableNotification: false,
+	enableAudio: false,
 	audioVolume: 0.35,
 	customSound: undefined as string | undefined,
 };
