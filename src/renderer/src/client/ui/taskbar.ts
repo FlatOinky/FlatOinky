@@ -215,7 +215,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			menu.style.setProperty('position-anchor', anchorName);
 		});
 
-		mountElement(menu, 'list', 'ul', (list) => {
+		const list = mountElement(menu, 'list', 'ul', (list) => {
 			list.className = 'menu w-full';
 		});
 
@@ -240,7 +240,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			setTimeout(removeButton, WINDOW_BUTTON_COLLAPSE_MS);
 		});
 
-		return { button, menu };
+		return { button, menu, list };
 	};
 
 	const initMenuAction = (
