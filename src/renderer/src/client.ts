@@ -128,6 +128,10 @@ export type PluginCallbacks = {
 		sessionXp: number,
 	) => void;
 	onSetMap?: (map: string) => void;
+	onUpdateSleep?: (value: number) => void;
+	onUpdateWorship?: (value: number) => void;
+	onUpdateHealth?: (username: string, current: number, max: number, showBar: boolean) => void;
+	onUpdateRun?: (enabled: boolean, current: number, max: number) => void;
 	hookServerCommand?: (command: string, values: string[], rawCommand: string) => PluginHookResult;
 	hookAddToChat?: (
 		username: string,
@@ -147,7 +151,10 @@ export type Plugin = {
 	namespace: string;
 	name: string;
 	description?: string;
-	init: (lifecycle: Lifecycle, context: PluginContext) => PluginCallbacks | Promise<PluginCallbacks>;
+	init: (
+		lifecycle: Lifecycle,
+		context: PluginContext,
+	) => PluginCallbacks | Promise<PluginCallbacks>;
 	settingsMenu?: () => HTMLElement;
 };
 
@@ -270,6 +277,26 @@ const initPlugins = (
 		onSetMap: (map) => {
 			Object.values(instances).forEach(async (instance) => instance.callbacks?.onSetMap?.(map));
 		},
+		onUpdateSleep: (value) => {
+			Object.values(instances).forEach(async (instance) =>
+				instance.callbacks?.onUpdateSleep?.(value),
+			);
+		},
+		onUpdateWorship: (value) => {
+			Object.values(instances).forEach(async (instance) =>
+				instance.callbacks?.onUpdateWorship?.(value),
+			);
+		},
+		onUpdateHealth: (username, current, max, showBar) => {
+			Object.values(instances).forEach(async (instance) =>
+				instance.callbacks?.onUpdateHealth?.(username, current, max, showBar),
+			);
+		},
+		onUpdateRun: (enabled, current, max) => {
+			Object.values(instances).forEach(async (instance) =>
+				instance.callbacks?.onUpdateRun?.(enabled, current, max),
+			);
+		},
 		hookServerCommand: (command, values, rawData) => {
 			return Object.values(instances).every((instance) => {
 				return instance.callbacks.hookServerCommand?.(command, values, rawData) ?? true;
@@ -364,6 +391,31 @@ const createClientHooks = (plugins: ClientPlugins) => {
 				const map = values[0];
 				if (!map) return;
 				return plugins.api.onSetMap(map);
+			}
+			case 'INNER_HTML_TAGS': {
+				// Some tag ids arrive with trailing whitespace (e.g. `sleep-value `).
+				const tag = values[0]?.trim();
+				const value = parseFloat(values[1]);
+				if (isNaN(value)) return;
+				if (tag === 'sleep-value') return plugins.api.onUpdateSleep(value);
+				if (tag === 'warship-points') return plugins.api.onUpdateWorship(value);
+				return;
+			}
+			case 'REFRESH_PLAYER_HP_BAR': {
+				const username = values[0];
+				const current = parseFloat(values[1]);
+				if (!username || isNaN(current)) return;
+				return plugins.api.onUpdateHealth(
+					username,
+					current,
+					parseFloat(values[2]),
+					values[3] === 'true',
+				);
+			}
+			case 'RUN': {
+				const current = parseFloat(values[1]);
+				if (isNaN(current)) return;
+				return plugins.api.onUpdateRun(values[0] === 'true', current, parseFloat(values[2]));
 			}
 			default:
 				return;
