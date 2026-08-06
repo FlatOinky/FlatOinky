@@ -7,13 +7,7 @@ import type { Collection } from '../../client/client_storage';
 import * as el from '../../client/ui/elements';
 import { closeCommandMenu } from './chat_commands';
 import { chatMessages, usernamesCache } from './chat_state';
-import {
-	ChatColors,
-	ChatElements,
-	chatColorClassMap,
-	chatColorMeta,
-	Settings,
-} from './chat_types';
+import { ChatColors, ChatElements, chatColorClassMap, chatColorMeta, Settings } from './chat_types';
 import { isChatMessageMuted } from './chat_muted';
 import {
 	ChatFilters,

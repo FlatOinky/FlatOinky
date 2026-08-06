@@ -76,7 +76,7 @@ Layout under `src/`:
   - [src/index.d.ts](src/index.d.ts) — `Window` / `Globals` and game global functions
   - [src/fmmo.d.ts](src/fmmo.d.ts) — `FMMO` namespace types (`World`, `Character`, …)
   - [src/env.d.ts](src/env.d.ts) — Vite client types
-  Extend the matching file; do not cast with `any`.
+    Extend the matching file; do not cast with `any`.
 
 ## Adding a plugin
 
@@ -106,9 +106,9 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      append-only histories (chat messages, XP drops, …). API:
      - `fetch(quantity)` → `Promise<T[]>` (oldest→newest, up to `quantity` most recent)
      - `append(value, max?)` — fire-and-forget insert; optional `max` trims oldest rows
-     Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
-     `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
-     rendering.
+       Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
+       `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
+       rendering.
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is

@@ -232,13 +232,7 @@ export const ipcMainSetup = (): void => {
 
 	ipcMain.handle(
 		'storage:fetchCollection',
-		(
-			event,
-			kind: storage.ScopeKind,
-			context: string,
-			namespace: string,
-			quantity: number,
-		) => {
+		(event, kind: storage.ScopeKind, context: string, namespace: string, quantity: number) => {
 			if (!isValidName(context) || !isValidName(namespace)) return [];
 			if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity < 1) return [];
 			const session = sessions.get(event.sender.id);
