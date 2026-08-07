@@ -11,7 +11,7 @@ import bannerMinerSrc from './assets/fmmo_miner.gif';
 import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
-import { hookedFunctions, initClient } from './client';
+import { hookedFunctions, initClient, mutatedFunctions } from './client';
 import './styles.css';
 import { ipcRenderer, reloadWindow, openDevTools } from './client/ipc_renderer';
 
@@ -358,7 +358,11 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	);
 	const scriptElement = document.createElement('script');
 	scriptElement.setAttribute('fmmo-asset', 'script');
-	scriptElement.innerHTML = transpileScript(scriptContents.join('\n'), hookedFunctions);
+	scriptElement.innerHTML = transpileScript(
+		scriptContents.join('\n'),
+		hookedFunctions,
+		mutatedFunctions,
+	);
 	document.body.appendChild(htmlElement);
 	document.body.appendChild(styleElement);
 	document.body.appendChild(scriptElement);

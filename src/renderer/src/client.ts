@@ -107,12 +107,22 @@ const createPluginContext = async (
 
 export type PluginHookResult = boolean | undefined | null;
 
-export type PluginCallbacks = {
-	onStartup?: () => void;
-	onChatMessage?: (chatMessage: ChatMessage) => void;
-	onLogin?: () => void;
-	onLevelUp?: (skill: string, level: number) => void;
-	onXpDrop?: (drop: {
+/**
+ * Wraps a game function. `next` runs the remaining mutators and, innermost, the
+ * original. Implementations must take explicit positional parameters rather than
+ * a rest param: paint-path mutators run per sprite slot per frame.
+ */
+export type PluginMutator<Args extends unknown[], Value> = (
+	next: (...args: Args) => Value,
+	...args: Args
+) => Value;
+
+export type PluginEvents = {
+	startup?: () => void;
+	chatMessage?: (chatMessage: ChatMessage) => void;
+	login?: () => void;
+	levelUp?: (skill: string, level: number) => void;
+	xpDrop?: (drop: {
 		username: string;
 		skill: string;
 		xp: number;
@@ -121,31 +131,50 @@ export type PluginCallbacks = {
 		showXpDrop: boolean;
 		showXpBar: boolean;
 	}) => void;
-	onMakeUiChange?: (
-		item: null | string,
-		completed: number,
-		total: number,
-		sessionXp: number,
-	) => void;
-	onSetMap?: (map: string) => void;
-	onUpdateSleep?: (value: number) => void;
-	onUpdateWorship?: (value: number) => void;
-	onUpdateHealth?: (username: string, current: number, max: number, showBar: boolean) => void;
-	onUpdateRun?: (enabled: boolean, current: number, max: number) => void;
-	hookServerCommand?: (command: string, values: string[], rawCommand: string) => PluginHookResult;
-	hookAddToChat?: (
+	makeUiChange?: (item: null | string, completed: number, total: number, sessionXp: number) => void;
+	setMap?: (map: string) => void;
+	updateSleep?: (value: number) => void;
+	updateWorship?: (value: number) => void;
+	updateHealth?: (username: string, current: number, max: number, showBar: boolean) => void;
+	updateRun?: (enabled: boolean, current: number, max: number) => void;
+};
+
+export type PluginHooks = {
+	serverCommand?: (command: string, values: string[], rawCommand: string) => PluginHookResult;
+	addToChat?: (
 		username: string,
 		tag: string,
 		icon: string,
 		color: string,
 		message: string,
 	) => PluginHookResult;
-	hookPlaySound?: (url: string, volume: number) => PluginHookResult;
-	hookPlayTrack?: (url: string) => PluginHookResult;
-	hookPauseTrack?: () => PluginHookResult;
+	playSound?: (url: string, volume: number) => PluginHookResult;
+	playTrack?: (url: string) => PluginHookResult;
+	pauseTrack?: () => PluginHookResult;
 };
 
-export type PluginsApi = Required<PluginCallbacks>;
+export type PluginMutators = {
+	playerAnimation?: PluginMutator<[username: string, slot?: string], FMMO.AnimationSheet | null>;
+};
+
+export type PluginCallbacks = {
+	events?: PluginEvents;
+	hooks?: PluginHooks;
+	mutators?: PluginMutators;
+};
+
+/** A mutator dispatcher is absent while no plugin registers that mutator. */
+type MutatorDispatchers<M> = {
+	[K in keyof M]?: NonNullable<M[K]> extends PluginMutator<infer Args, infer Value>
+		? (original: (...args: Args) => Value, ...args: Args) => Value
+		: never;
+};
+
+export type PluginsApi = {
+	events: Required<PluginEvents>;
+	hooks: Required<PluginHooks>;
+	mutators: MutatorDispatchers<PluginMutators>;
+};
 
 export type Plugin = {
 	namespace: string;
@@ -168,6 +197,48 @@ export type PluginInstances = Record<string, PluginInstance>;
 
 export type ClientPlugins = ReturnType<typeof initPlugins>;
 
+/**
+ * Collects registered mutators for one name into a reused array, folds them
+ * back-to-front (first-registered outermost), and memoizes the chain on the
+ * original identity. Paint-path mutators must use fixed-arity wrappers — no
+ * rest params or spread calls.
+ */
+const createMutatorSlot = <Args extends unknown[], Value>(
+	name: keyof PluginMutators,
+	wrap: (
+		mutator: PluginMutator<Args, Value>,
+		next: (...args: Args) => Value,
+	) => (...args: Args) => Value,
+) => {
+	const collected: PluginMutator<Args, Value>[] = [];
+	let cachedOriginal: ((...args: Args) => Value) | null = null;
+	let cachedChain: ((...args: Args) => Value) | null = null;
+
+	const refresh = (instanceList: PluginInstance[]) => {
+		collected.length = 0;
+		for (const instance of instanceList) {
+			const mutator = instance.callbacks.mutators?.[name] as PluginMutator<Args, Value> | undefined;
+			if (mutator) collected.push(mutator);
+		}
+		cachedOriginal = null;
+		cachedChain = null;
+	};
+
+	const isEmpty = () => collected.length === 0;
+
+	const chain = (original: (...args: Args) => Value) => {
+		if (cachedOriginal === original && cachedChain) return cachedChain;
+		cachedOriginal = original;
+		cachedChain = collected.reduceRight<(...args: Args) => Value>(
+			(next, mutator) => wrap(mutator, next),
+			original,
+		);
+		return cachedChain;
+	};
+
+	return { refresh, isEmpty, chain };
+};
+
 const initPlugins = (
 	lifecycle: Lifecycle,
 	context: ClientContext,
@@ -176,10 +247,31 @@ const initPlugins = (
 ) => {
 	const registry: PluginRegistry = {};
 	const instances: PluginInstances = {};
+	let instanceList: PluginInstance[] = [];
 	const listeners = new Set<() => void>();
 	let startedUp = false;
 
+	const playerAnimationSlot = createMutatorSlot<
+		[username: string, slot?: string],
+		FMMO.AnimationSheet | null
+	>(
+		'playerAnimation',
+		// The only arity-specific line: no rest param, no spread.
+		(mutator, next) => (username, slot) => mutator(next, username, slot),
+	);
+
+	const mutators: MutatorDispatchers<PluginMutators> = {};
+
+	const refreshMutators = () => {
+		playerAnimationSlot.refresh(instanceList);
+		mutators.playerAnimation = playerAnimationSlot.isEmpty()
+			? undefined
+			: (original, username, slot) => playerAnimationSlot.chain(original)(username, slot);
+	};
+
 	const notify = () => {
+		instanceList = Object.values(instances);
+		refreshMutators();
 		for (const listener of listeners) listener();
 	};
 
@@ -201,9 +293,9 @@ const initPlugins = (
 			notify();
 		});
 		const pluginContext = await createPluginContext(context, settings, namespace, plugin.name);
-		const hooks = await plugin.init(pluginLifecycle, pluginContext);
+		const callbacks = await plugin.init(pluginLifecycle, pluginContext);
 		const instance = {
-			callbacks: hooks,
+			callbacks,
 			lifecycle: pluginLifecycle,
 		} satisfies PluginInstance as PluginInstance;
 		instances[plugin.namespace] = instance;
@@ -220,7 +312,7 @@ const initPlugins = (
 		pluginsStorage.set(['enabled', namespace], enabled);
 		if (enabled) {
 			const instance = await startPlugin(namespace);
-			if (startedUp) instance?.callbacks.onStartup?.();
+			if (startedUp) instance?.callbacks.events?.startup?.();
 		} else {
 			stopPlugin(namespace);
 		}
@@ -239,7 +331,7 @@ const initPlugins = (
 			instance.lifecycle.cleanup();
 		}
 		await startEnabled();
-		if (startedUp) api.onStartup();
+		if (startedUp) api.events.startup();
 	};
 
 	const subscribe = (listener: () => void) => {
@@ -249,79 +341,84 @@ const initPlugins = (
 		};
 	};
 
+	const dispatchEvent = (callback: (instance: PluginInstance) => void) => {
+		for (const instance of instanceList) {
+			try {
+				callback(instance);
+			} catch (error) {
+				console.error(error);
+			}
+		}
+	};
+
 	const api: PluginsApi = {
-		onChatMessage: (chatMessage) => {
-			Object.values(instances).forEach(async (instance) =>
-				instance.callbacks?.onChatMessage?.(chatMessage),
-			);
+		events: {
+			chatMessage: (chatMessage) => {
+				dispatchEvent((instance) => instance.callbacks.events?.chatMessage?.(chatMessage));
+			},
+			login: () => {
+				dispatchEvent((instance) => instance.callbacks.events?.login?.());
+			},
+			levelUp: (skill, level) => {
+				dispatchEvent((instance) => instance.callbacks.events?.levelUp?.(skill, level));
+			},
+			startup: () => {
+				dispatchEvent((instance) => instance.callbacks.events?.startup?.());
+			},
+			xpDrop: (drop) => {
+				dispatchEvent((instance) => instance.callbacks.events?.xpDrop?.(drop));
+			},
+			makeUiChange: (item, completed, total, sessionXp) => {
+				dispatchEvent((instance) =>
+					instance.callbacks.events?.makeUiChange?.(item, completed, total, sessionXp),
+				);
+			},
+			setMap: (map) => {
+				dispatchEvent((instance) => instance.callbacks.events?.setMap?.(map));
+			},
+			updateSleep: (value) => {
+				dispatchEvent((instance) => instance.callbacks.events?.updateSleep?.(value));
+			},
+			updateWorship: (value) => {
+				dispatchEvent((instance) => instance.callbacks.events?.updateWorship?.(value));
+			},
+			updateHealth: (username, current, max, showBar) => {
+				dispatchEvent((instance) =>
+					instance.callbacks.events?.updateHealth?.(username, current, max, showBar),
+				);
+			},
+			updateRun: (enabled, current, max) => {
+				dispatchEvent((instance) => instance.callbacks.events?.updateRun?.(enabled, current, max));
+			},
 		},
-		onLogin: () => {
-			Object.values(instances).forEach(async (instance) => instance.callbacks?.onLogin?.());
+		hooks: {
+			serverCommand: (command, values, rawData) => {
+				return instanceList.every((instance) => {
+					return instance.callbacks.hooks?.serverCommand?.(command, values, rawData) ?? true;
+				});
+			},
+			addToChat: (username, tag, icon, color, message) => {
+				return instanceList.every((instance) => {
+					return instance.callbacks.hooks?.addToChat?.(username, tag, icon, color, message) ?? true;
+				});
+			},
+			playSound: (url, volume) => {
+				return instanceList.every((instance) => {
+					return instance.callbacks.hooks?.playSound?.(url, volume) ?? true;
+				});
+			},
+			playTrack: (url) => {
+				return instanceList.every((instance) => {
+					return instance.callbacks.hooks?.playTrack?.(url) ?? true;
+				});
+			},
+			pauseTrack: () => {
+				return instanceList.every((instance) => {
+					return instance.callbacks.hooks?.pauseTrack?.() ?? true;
+				});
+			},
 		},
-		onLevelUp: (skill, level) => {
-			Object.values(instances).forEach(async (instance) =>
-				instance.callbacks?.onLevelUp?.(skill, level),
-			);
-		},
-		onStartup: () => {
-			Object.values(instances).forEach(async (instance) => instance.callbacks?.onStartup?.());
-		},
-		onXpDrop: (drop) => {
-			Object.values(instances).forEach(async (instance) => instance.callbacks?.onXpDrop?.(drop));
-		},
-		onMakeUiChange: (item, completed, total, sessionXp) => {
-			Object.values(instances).forEach(async (instance) =>
-				instance.callbacks?.onMakeUiChange?.(item, completed, total, sessionXp),
-			);
-		},
-		onSetMap: (map) => {
-			Object.values(instances).forEach(async (instance) => instance.callbacks?.onSetMap?.(map));
-		},
-		onUpdateSleep: (value) => {
-			Object.values(instances).forEach(async (instance) =>
-				instance.callbacks?.onUpdateSleep?.(value),
-			);
-		},
-		onUpdateWorship: (value) => {
-			Object.values(instances).forEach(async (instance) =>
-				instance.callbacks?.onUpdateWorship?.(value),
-			);
-		},
-		onUpdateHealth: (username, current, max, showBar) => {
-			Object.values(instances).forEach(async (instance) =>
-				instance.callbacks?.onUpdateHealth?.(username, current, max, showBar),
-			);
-		},
-		onUpdateRun: (enabled, current, max) => {
-			Object.values(instances).forEach(async (instance) =>
-				instance.callbacks?.onUpdateRun?.(enabled, current, max),
-			);
-		},
-		hookServerCommand: (command, values, rawData) => {
-			return Object.values(instances).every((instance) => {
-				return instance.callbacks.hookServerCommand?.(command, values, rawData) ?? true;
-			});
-		},
-		hookAddToChat: (username, tag, icon, color, message) => {
-			return Object.values(instances).every((instance) => {
-				return instance.callbacks.hookAddToChat?.(username, tag, icon, color, message) ?? true;
-			});
-		},
-		hookPlaySound: (url, volume) => {
-			return Object.values(instances).every((instance) => {
-				return instance.callbacks.hookPlaySound?.(url, volume) ?? true;
-			});
-		},
-		hookPlayTrack: (url) => {
-			return Object.values(instances).every((instance) => {
-				return instance.callbacks.hookPlayTrack?.(url) ?? true;
-			});
-		},
-		hookPauseTrack: () => {
-			return Object.values(instances).every((instance) => {
-				return instance.callbacks.hookPauseTrack?.() ?? true;
-			});
-		},
+		mutators,
 	};
 
 	return {
@@ -344,6 +441,16 @@ const initPlugins = (
 
 // #region ClientHooks
 
+export const hookedFunctions = [
+	'server_command',
+	'add_to_chat',
+	'play_sound',
+	'play_track',
+	'pause_track',
+] as const;
+
+export const mutatedFunctions = ['get_player_animation'] as const;
+
 export type ClientHooks = ReturnType<typeof createClientHooks>;
 
 const createClientHooks = (plugins: ClientPlugins) => {
@@ -354,13 +461,13 @@ const createClientHooks = (plugins: ClientPlugins) => {
 	) => {
 		switch (command) {
 			case 'LOGGED_IN':
-				return plugins.api.onLogin();
+				return plugins.api.events.login();
 			case 'CHAT':
 			case 'YELL':
 			case 'CHAT_LOCAL_MESSAGE': {
 				const chatMessage = parseChatMessage(rawCommand);
 				if (!chatMessage) return;
-				return plugins.api.onChatMessage(chatMessage);
+				return plugins.api.events.chatMessage(chatMessage);
 			}
 			case 'XP_DROP': {
 				const args = {
@@ -375,37 +482,37 @@ const createClientHooks = (plugins: ClientPlugins) => {
 				if (isNaN(args.xp)) return;
 				// NOTE: turns out, if this isn't true smitty is probably using xp drops for something else.
 				if (!args.showXpBar) return;
-				return plugins.api.onXpDrop(args);
+				return plugins.api.events.xpDrop(args);
 			}
 			case 'MAKE_ITEM_UI': {
 				const item = values[0] ?? 'none';
 				if (item === 'none') {
-					return plugins.api.onMakeUiChange(null, NaN, NaN, NaN);
+					return plugins.api.events.makeUiChange(null, NaN, NaN, NaN);
 				}
 				const completed = parseInt(values[1]);
 				const total = parseInt(values[2]);
 				const sessionXp = parseInt(values[3]);
-				return plugins.api.onMakeUiChange(item, completed, total, sessionXp);
+				return plugins.api.events.makeUiChange(item, completed, total, sessionXp);
 			}
 			case 'SET_MAP': {
 				const map = values[0];
 				if (!map) return;
-				return plugins.api.onSetMap(map);
+				return plugins.api.events.setMap(map);
 			}
 			case 'INNER_HTML_TAGS': {
 				// Some tag ids arrive with trailing whitespace (e.g. `sleep-value `).
 				const tag = values[0]?.trim();
 				const value = parseFloat(values[1]);
 				if (isNaN(value)) return;
-				if (tag === 'sleep-value') return plugins.api.onUpdateSleep(value);
-				if (tag === 'warship-points') return plugins.api.onUpdateWorship(value);
+				if (tag === 'sleep-value') return plugins.api.events.updateSleep(value);
+				if (tag === 'warship-points') return plugins.api.events.updateWorship(value);
 				return;
 			}
 			case 'REFRESH_PLAYER_HP_BAR': {
 				const username = values[0];
 				const current = parseFloat(values[1]);
 				if (!username || isNaN(current)) return;
-				return plugins.api.onUpdateHealth(
+				return plugins.api.events.updateHealth(
 					username,
 					current,
 					parseFloat(values[2]),
@@ -415,7 +522,7 @@ const createClientHooks = (plugins: ClientPlugins) => {
 			case 'RUN': {
 				const current = parseFloat(values[1]);
 				if (isNaN(current)) return;
-				return plugins.api.onUpdateRun(values[0] === 'true', current, parseFloat(values[2]));
+				return plugins.api.events.updateRun(values[0] === 'true', current, parseFloat(values[2]));
 			}
 			default:
 				return;
@@ -424,27 +531,28 @@ const createClientHooks = (plugins: ClientPlugins) => {
 	return {
 		server_command: (command: string, values: string[], rawCommand: string) => {
 			handleServerCommandAsync(command, values, rawCommand);
-			return plugins.api.hookServerCommand(command, values, rawCommand);
+			return plugins.api.hooks.serverCommand(command, values, rawCommand);
 		},
 		add_to_chat: (username: string, tag: string, icon: string, color: string, message: string) =>
-			plugins.api.hookAddToChat(username, tag, icon, color, message),
-		play_sound: (url: string, volume: number) => plugins.api.hookPlaySound(url, volume),
-		play_track: (url: string) => plugins.api.hookPlayTrack(url),
-		pause_track: () => plugins.api.hookPauseTrack(),
-	};
+			plugins.api.hooks.addToChat(username, tag, icon, color, message),
+		play_sound: (url: string, volume: number) => plugins.api.hooks.playSound(url, volume),
+		play_track: (url: string) => plugins.api.hooks.playTrack(url),
+		pause_track: () => plugins.api.hooks.pauseTrack(),
+	} satisfies Record<(typeof hookedFunctions)[number], unknown>;
 };
+
+export type ClientMutators = ReturnType<typeof createClientMutators>;
+
+const createClientMutators = (plugins: ClientPlugins) =>
+	({
+		get get_player_animation() {
+			return plugins.api.mutators.playerAnimation;
+		},
+	}) satisfies Record<(typeof mutatedFunctions)[number], unknown>;
 
 // #region Client
 
 export type Client = Awaited<ReturnType<typeof initClient>>;
-
-export const hookedFunctions = [
-	'server_command',
-	'add_to_chat',
-	'play_sound',
-	'play_track',
-	'pause_track',
-];
 
 export const initClient = async (character: FMMO.Character, references: FMMO.Reference[]) => {
 	const canvas = document.querySelector<HTMLCanvasElement>('canvas#canvas');
@@ -471,6 +579,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	const context = createContext(character, ui, canvas, canvasContainer, ipc, () => notifications);
 	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage);
 	const hooks = createClientHooks(plugins);
+	const mutators = createClientMutators(plugins);
 
 	await initSystems(lifecycle, {
 		ui,
@@ -498,11 +607,12 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 
 	return {
 		hooks,
+		mutators,
 		pluginsApi: plugins.api,
 		profiles,
 		handleBeforeConnect: () => {
 			plugins.markStartedUp();
-			plugins.api.onStartup();
+			plugins.api.events.startup();
 		},
 	};
 };

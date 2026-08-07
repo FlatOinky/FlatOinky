@@ -182,39 +182,43 @@
 // 		musicSettings = context.characterStorage.reactive('musicSettings', defaultAudioSettings);
 // 		soundSettings = context.characterStorage.reactive('soundSettings', defaultAudioSettings);
 // 		return {
-// 			onStartup: () => {
-// 				hideDefaultButtons();
-// 				mountTrayItems();
-// 				ensureAudioEnabled();
+// 			events: {
+// 				startup: () => {
+// 					hideDefaultButtons();
+// 					mountTrayItems();
+// 					ensureAudioEnabled();
+// 				},
+// 				login: () => ensureAudioEnabled(),
 // 			},
-
+//
 // 			onCleanup: () => {
 // 				dismountTrayItems();
 // 				showDefaultButtons();
 // 			},
-// 			onLogin: () => ensureAudioEnabled(),
-
-// 			hookServerCommand: (key: string, values: string[]) => {
-// 				if (key !== 'AUDIO_SETTINGS') return;
-// 				const isMusicEnabled = values[0] === '0';
-// 				if (!isMusicEnabled) window.toggle_music();
-// 				const isSoundEnabled = values[1] === '0';
-// 				if (!isSoundEnabled) window.toggle_sound();
-// 			},
-
-// 			hookPlaySound: (file: string, volume: number) => {
-// 				playSound(file.startsWith('http') ? file : `sounds/${file}`, volume);
-// 				return false;
-// 			},
-
-// 			hookPlayTrack: (file: string) => {
-// 				playMusicTrack(file.startsWith('http') ? file : `sounds/tracks/${file}`);
-// 				return false;
-// 			},
-
-// 			hookPauseTrack: () => {
-// 				stopMusicTrack();
-// 				return false;
+//
+// 			hooks: {
+// 				serverCommand: (key: string, values: string[]) => {
+// 					if (key !== 'AUDIO_SETTINGS') return;
+// 					const isMusicEnabled = values[0] === '0';
+// 					if (!isMusicEnabled) window.toggle_music();
+// 					const isSoundEnabled = values[1] === '0';
+// 					if (!isSoundEnabled) window.toggle_sound();
+// 				},
+//
+// 				playSound: (file: string, volume: number) => {
+// 					playSound(file.startsWith('http') ? file : `sounds/${file}`, volume);
+// 					return false;
+// 				},
+//
+// 				playTrack: (file: string) => {
+// 					playMusicTrack(file.startsWith('http') ? file : `sounds/tracks/${file}`);
+// 					return false;
+// 				},
+//
+// 				pauseTrack: () => {
+// 					stopMusicTrack();
+// 					return false;
+// 				},
 // 			},
 // 		};
 // 	},

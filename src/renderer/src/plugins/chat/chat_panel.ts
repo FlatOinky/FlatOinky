@@ -207,7 +207,7 @@ export const initChat = (
 		elements,
 		send: sendChatLine,
 		notify: (message) => {
-			window.flatOinky.client?.pluginsApi.onChatMessage({
+			window.flatOinky.client?.pluginsApi.events.chatMessage({
 				timestamp: new Date(),
 				color: 'none',
 				message: `Oinky: ${message}`,

@@ -1,4 +1,4 @@
-import { Lifecycle, Plugin } from '../client';
+import { Lifecycle, Plugin, PluginMutator } from '../client';
 import * as el from '../client/ui/elements';
 
 const FPS = 60;
@@ -166,6 +166,7 @@ type KickPredicate = () => boolean;
 
 const createKickPredicate = (settings: Settings, getChaosUntil: () => number): KickPredicate => {
 	return () => {
+		if (!settings.enabled) return false;
 		if (performance.now() < getChaosUntil()) return true;
 
 		const username = Globals.local_username;
@@ -181,7 +182,7 @@ const createKickPredicate = (settings: Settings, getChaosUntil: () => number): K
 
 // #endregion
 
-// #region hook
+// #region mutator
 
 type AnimationShim = {
 	get_frame: () => FrameSource;
@@ -190,11 +191,10 @@ type AnimationShim = {
 const isKickSlot = (slot: string | undefined): slot is 'legs' | 'boots' =>
 	slot === 'legs' || slot === 'boots';
 
-const createAnimationHook = (
-	original: typeof get_player_animation,
+const createAnimationMutator = (
 	compositor: Compositor,
 	shouldKick: KickPredicate,
-) => {
+): PluginMutator<[username: string, slot?: string], FMMO.AnimationSheet | null> => {
 	// Only the local player ever reaches the shim, so the slot name is enough of
 	// a key; the entry is rebuilt whenever the game swaps in a new sheet.
 	const shims: Record<string, { sheet: FMMO.AnimationSheet; shim: AnimationShim }> = {};
@@ -219,16 +219,14 @@ const createAnimationHook = (
 		return shim;
 	};
 
-	const override: typeof get_player_animation = (username, slot) => {
-		const sheet = original(username, slot);
+	return (next, username, slot) => {
+		const sheet = next(username, slot);
 		if (!sheet) return sheet;
 		if (!isKickSlot(slot)) return sheet;
 		if (username !== Globals.local_username) return sheet;
 		if (!shouldKick()) return sheet;
 		return getShim(slot, sheet);
 	};
-
-	return override;
 };
 
 // #endregion
@@ -284,34 +282,7 @@ export const TileKickersPlugin: Plugin = {
 		});
 
 		const shouldKick = createKickPredicate(settings, () => chaosUntil);
-
-		let originalGetPlayerAnimation: typeof get_player_animation | null = null;
-		let installedOverride: typeof get_player_animation | null = null;
-
-		const uninstallHook = () => {
-			if (!originalGetPlayerAnimation || !installedOverride) return;
-			if (get_player_animation === installedOverride) {
-				get_player_animation = originalGetPlayerAnimation;
-			} else {
-				console.warn(
-					'[Tile Kickers] get_player_animation was replaced by something else; leaving it alone',
-				);
-			}
-			originalGetPlayerAnimation = null;
-			installedOverride = null;
-		};
-
-		const installHook = () => {
-			if (installedOverride) return;
-			originalGetPlayerAnimation = get_player_animation;
-			installedOverride = createAnimationHook(originalGetPlayerAnimation, compositor, shouldKick);
-			get_player_animation = installedOverride;
-		};
-
-		const syncHook = () => {
-			if (settings.enabled) installHook();
-			else uninstallHook();
-		};
+		const playerAnimation = createAnimationMutator(compositor, shouldKick);
 
 		const syncChaos = () => {
 			if (settings.enabled && settings.chaosMode) scheduleNextChaos();
@@ -321,8 +292,6 @@ export const TileKickersPlugin: Plugin = {
 			}
 		};
 
-		lifecycle.onCleanup(uninstallHook);
-		syncHook();
 		syncChaos();
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
@@ -335,7 +304,6 @@ export const TileKickersPlugin: Plugin = {
 					input.checked = settings.enabled;
 					input.onchange = () => {
 						settings.enabled = input.checked;
-						syncHook();
 						syncChaos();
 					};
 				}),
@@ -381,6 +349,10 @@ export const TileKickersPlugin: Plugin = {
 			},
 		]);
 
-		return {};
+		return {
+			mutators: {
+				playerAnimation,
+			},
+		};
 	},
 };

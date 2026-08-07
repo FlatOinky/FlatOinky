@@ -186,27 +186,31 @@ export const TweaksPlugin: Plugin = {
 		syncDynamicCanvas();
 
 		return {
-			onSetMap: (map) => {
-				if (darkenSkyLifecycle) darkenSkyLifecycle.cleanup();
-				if (map !== 'm1000_999_sky') return;
-				if (!settings.enableDarkenSky) return;
-				darkenSkyLifecycle = lifecycle.spawnLifecycle();
-				context.canvas.style.filter = 'brightness(0.5)';
-				darkenSkyLifecycle.onCleanup(() => {
-					context.canvas.style.filter = '';
-					darkenSkyLifecycle = null;
-				});
+			events: {
+				setMap: (map) => {
+					if (darkenSkyLifecycle) darkenSkyLifecycle.cleanup();
+					if (map !== 'm1000_999_sky') return;
+					if (!settings.enableDarkenSky) return;
+					darkenSkyLifecycle = lifecycle.spawnLifecycle();
+					context.canvas.style.filter = 'brightness(0.5)';
+					darkenSkyLifecycle.onCleanup(() => {
+						context.canvas.style.filter = '';
+						darkenSkyLifecycle = null;
+					});
+				},
 			},
-			hookServerCommand: (command) => {
-				if (!settings.enableProjectileCleanup) return true;
-				switch (command) {
-					case 'SET_MAP':
-					case 'CLIENT_REMOVE_PLAYER':
-					case 'CLEAR_CLIENT_NPC':
-					case 'CLEAR_CLIENT_NPCS':
-						scheduleSweep();
-				}
-				return true;
+			hooks: {
+				serverCommand: (command) => {
+					if (!settings.enableProjectileCleanup) return true;
+					switch (command) {
+						case 'SET_MAP':
+						case 'CLIENT_REMOVE_PLAYER':
+						case 'CLEAR_CLIENT_NPC':
+						case 'CLEAR_CLIENT_NPCS':
+							scheduleSweep();
+					}
+					return true;
+				},
 			},
 		};
 	},

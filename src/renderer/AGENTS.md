@@ -60,11 +60,18 @@ Layout under `src/`:
 
 ## Coexisting with the FlatMMO client
 
-- **Script hooks** — `transpileScript` wraps each name in `hookedFunctions`
-  (`server_command`, `add_to_chat`, `play_sound`, `play_track`, `pause_track`) so the
-  game calls `window.flatOinky.client.hooks.<fn>` first. Returning `false` suppresses
-  the original. Adding a hook requires updating `hookedFunctions` and
-  `PluginCallbacks` in [src/client.ts](src/client.ts).
+- **Script hooks and mutators** — `transpileScript` applies two independent passes over
+  the game sources. `mutatedFunctions` (currently `get_player_animation`) wraps each
+  match so the game calls `window.flatOinky.client.mutators.<fn>(original, …args)` when
+  a plugin has registered a mutator, otherwise the original. `hookedFunctions`
+  (`server_command`, `add_to_chat`, `play_sound`, `play_track`, `pause_track`) then wraps
+  each match so the game calls `window.flatOinky.client.hooks.<fn>` first; returning
+  `false` suppresses the inner call. A name may appear in either list or both — when
+  both, the mutator pass runs first and the hook pass nests around it (veto, then
+  mutate). Plugins return `{ events?, hooks?, mutators? }` from `init`; add a new hook
+  or mutator by updating the matching list and the nested types in
+  [src/client.ts](src/client.ts). Paint-path mutators must use fixed-arity dispatchers
+  (no rest/spread) so they stay allocation-free.
 - **CSS isolation** — game styles are injected as
   `@layer fmmo { @scope (html) to (.flat-oinky) { ... } }`, so they stop at the Oinky
   root. Oinky UI lives under `.flat-oinky`; Tailwind preflight is scoped there in
@@ -161,7 +168,9 @@ export const ExamplePlugin: Plugin = {
 			/* undo listeners / DOM */
 		});
 		return {
-			onStartup: () => {},
+			events: {
+				startup: () => {},
+			},
 		};
 	},
 };

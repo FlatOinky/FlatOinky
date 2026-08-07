@@ -469,28 +469,32 @@ export const MonitorPlugin: Plugin = {
 		]);
 
 		return {
-			hookPlaySound: (url) => {
-				if (!settings.enableAudioCues) return;
-				const file = soundFileName(url);
-				const cue = Object.entries(audioCues).find(([, audioCue]) => audioCue.file === file);
-				if (!cue) return;
-				const audioCueKey = cue[0] as AudioCueKey;
-				const scoped = settings.audioCues[audioCueKey];
-				if (!scoped.enabled) return;
-				audioCuesApi.sendAlert(audioCueKey);
+			events: {
+				makeUiChange: (item, completed, total, sessionXp) =>
+					craftingActivity.update(item, completed, total, sessionXp),
+				updateSleep: (value) => stateCuesApi.evaluate('sleep', value),
+				updateWorship: (value) => stateCuesApi.evaluate('worship', value),
+				updateHealth: (username, current) => {
+					if (username.toLowerCase() !== context.character.username.toLowerCase()) return;
+					stateCuesApi.evaluate('health', current);
+				},
+				updateRun: (_enabled, current) => stateCuesApi.evaluate('run', current),
 			},
-			onMakeUiChange: (item, completed, total, sessionXp) =>
-				craftingActivity.update(item, completed, total, sessionXp),
-			onUpdateSleep: (value) => stateCuesApi.evaluate('sleep', value),
-			onUpdateWorship: (value) => stateCuesApi.evaluate('worship', value),
-			onUpdateHealth: (username, current) => {
-				if (username.toLowerCase() !== context.character.username.toLowerCase()) return;
-				stateCuesApi.evaluate('health', current);
-			},
-			onUpdateRun: (_enabled, current) => stateCuesApi.evaluate('run', current),
-			hookServerCommand: (command, values) => {
-				afkApi.handleServerCommand(command, values);
-				return command !== 'MAKE_ITEM_UI';
+			hooks: {
+				playSound: (url) => {
+					if (!settings.enableAudioCues) return;
+					const file = soundFileName(url);
+					const cue = Object.entries(audioCues).find(([, audioCue]) => audioCue.file === file);
+					if (!cue) return;
+					const audioCueKey = cue[0] as AudioCueKey;
+					const scoped = settings.audioCues[audioCueKey];
+					if (!scoped.enabled) return;
+					audioCuesApi.sendAlert(audioCueKey);
+				},
+				serverCommand: (command, values) => {
+					afkApi.handleServerCommand(command, values);
+					return command !== 'MAKE_ITEM_UI';
+				},
 			},
 		};
 	},

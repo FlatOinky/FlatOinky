@@ -494,7 +494,7 @@ export const MetricsPlugin: Plugin = {
 		let toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 
 		let intervalId: ReturnType<typeof setInterval> | undefined;
-		// onStartup waits before starting the loop, so a teardown can land mid-wait;
+		// events.startup waits before starting the loop, so a teardown can land mid-wait;
 		// this flag stops a late start from orphaning an interval on a dead lifecycle.
 		let disposed = false;
 		lifecycle.onCleanup(() => {
@@ -699,18 +699,20 @@ export const MetricsPlugin: Plugin = {
 		]);
 
 		return {
-			onStartup: async () => {
-				await new Promise((resolve) => setTimeout(resolve, 1000));
-				restartUpdateLoop();
-			},
-			onXpDrop: ({ username, skill, xp }) => {
-				if (username !== context.character.username) return;
-				if (typeof xp !== 'number' || xp <= 0 || isNaN(xp)) return;
-				sessionTotals.all += xp;
-				sessionTotals.bySkill[skill] = (sessionTotals.bySkill[skill] ?? 0) + xp;
-				activeSkillCharts[skill] = true;
-				xpAccumulator.append({ skill, xp, timestamp: Date.now() });
-				windowMetrics?.ensureSkillMounted(skill);
+			events: {
+				startup: async () => {
+					await new Promise((resolve) => setTimeout(resolve, 1000));
+					restartUpdateLoop();
+				},
+				xpDrop: ({ username, skill, xp }) => {
+					if (username !== context.character.username) return;
+					if (typeof xp !== 'number' || xp <= 0 || isNaN(xp)) return;
+					sessionTotals.all += xp;
+					sessionTotals.bySkill[skill] = (sessionTotals.bySkill[skill] ?? 0) + xp;
+					activeSkillCharts[skill] = true;
+					xpAccumulator.append({ skill, xp, timestamp: Date.now() });
+					windowMetrics?.ensureSkillMounted(skill);
+				},
 			},
 		};
 	},

@@ -19,23 +19,48 @@ const removeObstructingScripts = (input: string): string => {
 		);
 };
 
-const makeFunctionHooksRegex = (hookedFunctions: string[]): RegExp => {
-	return new RegExp(`\\nfunction (${hookedFunctions.join('|')})\\(([\\S, ]*)\\)[ \n]*\\{`, 'g');
+const makeFunctionRegex = (names: readonly string[]): RegExp => {
+	return new RegExp(`\\nfunction (${names.join('|')})\\(([\\S, ]*)\\)[ \n]*\\{`, 'g');
 };
 
-const createScriptHooks =
-	(hookedFunctions: string[]) =>
+const wrapFunctions =
+	(
+		names: readonly string[],
+		prefix: string,
+		preamble: (name: string, inner: string, params: string) => string,
+	) =>
 	(input: string): string => {
-		return input
-			.replace(
-				/(\w*)(Globals.websocket.send\(['"]CONNECT=['"])/,
-				`$1window?.flatOinky?.client?.handleBeforeConnect();\n$1$2`,
-			)
-			.replaceAll(
-				makeFunctionHooksRegex(hookedFunctions),
-				`\nfunction $1($2) {\n    const resume = window.flatOinky.client?.hooks?.$1?.($2) ?? true;\n    if (!resume) return;\n    hookedFn_$1($2);\n}\nfunction hookedFn_$1($2) {`,
-			);
+		if (names.length === 0) return input;
+		return input.replaceAll(makeFunctionRegex(names), (_match, name: string, params: string) => {
+			const inner = `${prefix}${name}`;
+			return `\nfunction ${name}(${params}) {\n${preamble(name, inner, params)}\n}\nfunction ${inner}(${params}) {`;
+		});
 	};
+
+const injectBeforeConnect = (input: string): string => {
+	return input.replace(
+		/(\w*)(Globals.websocket.send\(['"]CONNECT=['"])/,
+		`$1window?.flatOinky?.client?.handleBeforeConnect();\n$1$2`,
+	);
+};
+
+const createScriptMutators = (mutatedFunctions: readonly string[]) =>
+	wrapFunctions(mutatedFunctions, 'fnMutated_', (name, inner, params) => {
+		const callArgs = params.trim() ? `, ${params}` : '';
+		return (
+			`\tconst oinkyMutate = window.flatOinky.client?.mutators?.${name};\n` +
+			`\treturn oinkyMutate ? oinkyMutate(${inner}${callArgs}) : ${inner}(${params});`
+		);
+	});
+
+const createScriptHooks = (hookedFunctions: readonly string[]) =>
+	wrapFunctions(hookedFunctions, 'fnHooked_', (name, inner, params) => {
+		return (
+			`\tconst oinkyResume = window.flatOinky.client?.hooks?.${name}?.(${params}) ?? true;\n` +
+			`\tif (!oinkyResume) return;\n` +
+			`\treturn ${inner}(${params});`
+		);
+	});
 
 // Asset URLs (images, sounds, CSS url(...)) are no longer rewritten here: the
 // game requests them with root-relative paths that resolve against the app
@@ -59,10 +84,16 @@ const transpileReducer = (input: string, transpilers: ((input: string) => string
 	return transpilers.reduce((input, transpiler) => transpiler(input), input);
 };
 
-export const transpileScript = (script: string, hookedFunctions: string[]): string =>
+export const transpileScript = (
+	script: string,
+	hookedFunctions: readonly string[],
+	mutatedFunctions: readonly string[],
+): string =>
 	transpileReducer(script, [
 		removeSmittysDevScripts,
 		convertScriptNavigationUrls,
+		injectBeforeConnect,
+		createScriptMutators(mutatedFunctions),
 		createScriptHooks(hookedFunctions),
 	]);
 

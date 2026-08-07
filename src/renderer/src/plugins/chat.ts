@@ -310,29 +310,33 @@ export const ChatPlugin: Plugin = {
 		};
 
 		return {
-			onChatMessage: (chatMessage) => {
-				if (isChatMessageMuted(chatMessage, mutedPlayers)) {
-					if (mutedPlayers.discardMessages) return;
-					storeChatMessage(chatMessage, settings);
-					return;
-				}
-				if (chatMessage.type === 'pm_from' && chatMessage.username) {
-					pmState.latestPmUsername = chatMessage.username;
-				}
-				notifyKeyWordMatches(
-					chatMessage,
-					keyWords,
-					context.notifications,
-					context.character.username,
-				);
-				if (isChatMessageFiltered(chatMessage, keyWords)) {
-					if (isChatMessageFilteredFromLog(chatMessage, keyWords)) return;
-					storeChatMessage(chatMessage, settings);
-					return;
-				}
-				mountChatMessage(chatMessage, context, settings, elements, filters);
+			events: {
+				chatMessage: (chatMessage) => {
+					if (isChatMessageMuted(chatMessage, mutedPlayers)) {
+						if (mutedPlayers.discardMessages) return;
+						storeChatMessage(chatMessage, settings);
+						return;
+					}
+					if (chatMessage.type === 'pm_from' && chatMessage.username) {
+						pmState.latestPmUsername = chatMessage.username;
+					}
+					notifyKeyWordMatches(
+						chatMessage,
+						keyWords,
+						context.notifications,
+						context.character.username,
+					);
+					if (isChatMessageFiltered(chatMessage, keyWords)) {
+						if (isChatMessageFilteredFromLog(chatMessage, keyWords)) return;
+						storeChatMessage(chatMessage, settings);
+						return;
+					}
+					mountChatMessage(chatMessage, context, settings, elements, filters);
+				},
 			},
-			hookAddToChat: () => false,
+			hooks: {
+				addToChat: () => false,
+			},
 		};
 	},
 };
