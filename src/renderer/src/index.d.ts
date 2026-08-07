@@ -59,4 +59,8 @@ declare global {
 	var projectile_environment_objects: { [uuid: string]: FMMO.EnvironmentProjectile };
 	var valid_skills: Set<string>;
 	let canvas_scale: number;
+	let TILE_SIZE: number;
+	let teleport_tiles: { x: number; y: number }[];
+	var active_animations: Record<string, Record<string, FMMO.AnimationSheet>>;
+	var get_player_animation: (username: string, slot?: string) => FMMO.AnimationSheet | null;
 }

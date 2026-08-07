@@ -72,6 +72,13 @@ Layout under `src/`:
 - **Anchors** — `main.ts` tags game `<td>` cells with
   `fmmo-container="canvas|ui|topbar|misc<n>"`. Prefer those attributes when attaching
   UI to game regions.
+- **Shadowed builtins** — the game declares `class Map` at the top level of
+  `refs/js/maps.js`. Top-level `class`/`let`/`const` in the injected scripts land in
+  the global lexical scope, which renderer modules also resolve through, so
+  `new Map()` silently constructs a FlatMMO map object instead of a real `Map`.
+  Prefer plain objects (and arrays) for keyed lookups; only reach for `Set` /
+  `WeakMap` / `WeakSet`, which are not currently shadowed, when object identity
+  keys are genuinely required.
 - **Globals** — type declarations are split across three files:
   - [src/index.d.ts](src/index.d.ts) — `Window` / `Globals` and game global functions
   - [src/fmmo.d.ts](src/fmmo.d.ts) — `FMMO` namespace types (`World`, `Character`, …)

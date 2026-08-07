@@ -16,12 +16,16 @@ declare namespace FMMO {
 
 	export type Reference = { name: string; content: string };
 
+	export type AnimationSheet = {
+		get_frame: () => HTMLImageElement | HTMLCanvasElement;
+	};
+
 	export type Player = {
-		client_pathing: unknown[];
+		client_pathing: { x: number; y: number }[] | null;
 		client_x: number;
 		client_y: number;
 		face_left: boolean;
-		is_running: true;
+		is_running: boolean;
 		has_all_ach: boolean;
 		has_all_quests: boolean;
 		hp: string;
