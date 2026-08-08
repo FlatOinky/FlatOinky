@@ -236,8 +236,7 @@ export const TweaksPlugin: Plugin = {
 		settingsMenu.mountSection('Performance', [
 			{
 				label: 'Cache Player Renders',
-				description:
-					'Reuse one composited sprite for other players wearing the same gear and animation frame.',
+				description: 'Caches player renders based on gear and animation frame.',
 				specialType: 'toggle',
 				input: el.input.checkbox``.then((input) => {
 					input.checked = settings.enablePlayerRenderCache;
