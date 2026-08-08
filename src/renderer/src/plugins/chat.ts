@@ -75,7 +75,7 @@ export const ChatPlugin: Plugin = {
 		const colors = context.storages.profile.reactive('colors', initialChatColors);
 		const channels = context.storages.character.reactive('channels', initialChannels);
 		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
-		const keyWords = context.storages.global.reactive('keyWords', initialKeyWords);
+		const keyWords = context.storages.profile.reactive('keyWords', initialKeyWords);
 		const filters = {
 			keyWords,
 			muted: mutedPlayers,
@@ -279,7 +279,19 @@ export const ChatPlugin: Plugin = {
 			createKeyWordsSettingsNode(keyWords, onSettingsChange, context.settings.helpers.swapToggle),
 		]);
 
-		const mutedPlayersSection = settingsMenu.mountSection('Muted Players', [
+		const mutedPlayersSectionTitle =
+			el.div`flex gap-1 items-center tooltip tooltip-info tooltip-start tooltip-bottom`.then(
+				(div) => {
+					div.setAttribute(
+						'data-tip',
+						'Muted players are stored globally, not per character or profile.',
+					);
+					el.icon.world`text-info`.mount(div);
+					div.append(document.createTextNode('Muted Players'));
+				},
+			);
+
+		const mutedPlayersSection = settingsMenu.mountSection(mutedPlayersSectionTitle, [
 			{
 				label: 'Discard muted messages',
 				description:

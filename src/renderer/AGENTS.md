@@ -126,7 +126,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
        `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
        rendering.
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
-   `mountSection(title, nodes)`. Nodes are plain `Element`s or
+   `mountSection(title, nodes)`. `title` is a string or an `Element` (the sidebar nav
+   falls back to that element's text). Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
    one of `toggle`, `swap`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
    `numberSliderCombo`, `labelSteppedRange`, `alertVolume`, `alertCombo`, or

@@ -279,6 +279,7 @@ export const icon = {
 	testPipe2Filled: setupIconElement('icon-[tabler--test-pipe-2-filled]'),
 	tools: setupIconElement('icon-[tabler--tools]'),
 	users: setupIconElement('icon-[tabler--users]'),
+	world: setupIconElement('icon-[tabler--world]'),
 	volume: setupIconElement('icon-[tabler--volume]'),
 	volumeOff: setupIconElement('icon-[tabler--volume-off]'),
 	x: setupIconElement('icon-[tabler--x]'),

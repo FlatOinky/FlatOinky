@@ -5,7 +5,7 @@ import * as el from './ui/elements';
 // #region types
 
 type SettingsRegistry = [namespace: string, title: string, sections: SettingsSection[]][];
-type SettingsSection = { title: string; nodes: SettingsNode[] };
+type SettingsSection = { title: string | Element; nodes: SettingsNode[] };
 type SettingsInput = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 type SettingsNodeOption = { label: string; value: string };
 type SettingsNodeBase<TResetInputs extends SettingsInput[] = SettingsInput[]> = {
@@ -71,7 +71,7 @@ const setupPluginApi = (
 			updateVisuals();
 		});
 		return {
-			mountSection: (title: string, nodes: SettingsNode[]) => {
+			mountSection: (title: SettingsSection['title'], nodes: SettingsNode[]) => {
 				const section: SettingsSection = { title, nodes };
 				entry[2].push(section);
 				updateVisuals();
@@ -822,6 +822,10 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 
 // #region initSettingsMenu
 
+/** Nav entries stay plain text, so an element title contributes only its text. */
+const sectionTitleText = (title: SettingsSection['title']) =>
+	typeof title === 'string' ? title : (title.textContent ?? '');
+
 const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 	const container = el.div`grid grid-cols-[auto_1fr] gap-2 h-full`.init(
 		lifecycle,
@@ -867,13 +871,19 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 					el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
 						sectionContainer,
 						undefined,
-						(divider) => (divider.textContent = section.title),
+						(divider) => {
+							if (typeof section.title === 'string') {
+								divider.textContent = section.title;
+							} else {
+								divider.replaceChildren(section.title);
+							}
+						},
 					);
 					el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
 						navContainer,
 						undefined,
 						(header) => {
-							header.innerHTML = section.title;
+							header.textContent = sectionTitleText(section.title);
 							header.onclick = () => sectionContainer.scrollIntoView({ behavior: 'smooth' });
 						},
 					);
