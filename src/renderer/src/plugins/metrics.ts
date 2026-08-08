@@ -393,7 +393,7 @@ const initMetricsWindow = (
 		icon: el.icon.chartLine``.element,
 		initialState: {
 			width: 172,
-			height: 252,
+			height: 264,
 			top: 76,
 			left: 8,
 		},
