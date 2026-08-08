@@ -9,6 +9,7 @@ import {
 	type PluginCollections,
 } from './client/client_storage';
 import { getAppVersion, saveFile } from './client/ipc_renderer';
+import { initLogging, type Logger, type LogLevel, type LogMethod } from './client/logging';
 import type { Notifications } from './client/notifications';
 import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
@@ -16,7 +17,7 @@ import { initSystems } from './client/systems';
 import { initUi } from './client/ui';
 import { initUpdater } from './client/updater';
 
-export type { ChatMessage };
+export type { ChatMessage, Logger, LogLevel, LogMethod };
 
 export type Lifecycle = ReturnType<typeof initLifecycle>;
 
@@ -71,6 +72,7 @@ const createContext = (
 	canvas: HTMLCanvasElement,
 	container: HTMLElement,
 	ipc: ClientIpc,
+	log: Logger,
 	getNotifications: () => Notifications | undefined,
 ) => {
 	return {
@@ -79,6 +81,7 @@ const createContext = (
 		canvas,
 		container,
 		ipc,
+		log,
 		get notifications() {
 			const notifications = getNotifications();
 			if (!notifications) throw new Error('Notifications have not been initialized');
@@ -96,9 +99,11 @@ const createPluginContext = async (
 	settings: ClientSettings,
 	namespace: string,
 	title: string,
+	createLogger: (prefix?: string) => Logger,
 ) => {
 	return {
 		...context,
+		log: createLogger(title),
 		settings: settings.setupPluginApi(namespace, title),
 		storages: await createPluginStorages(namespace),
 		collections: createPluginCollections(namespace) as PluginCollections,
@@ -244,6 +249,7 @@ const initPlugins = (
 	context: ClientContext,
 	settings: ClientSettings,
 	pluginsStorage: ClientStorage,
+	createLogger: (prefix?: string) => Logger,
 ) => {
 	const registry: PluginRegistry = {};
 	const instances: PluginInstances = {};
@@ -292,7 +298,13 @@ const initPlugins = (
 			delete instances[plugin.namespace];
 			notify();
 		});
-		const pluginContext = await createPluginContext(context, settings, namespace, plugin.name);
+		const pluginContext = await createPluginContext(
+			context,
+			settings,
+			namespace,
+			plugin.name,
+			createLogger,
+		);
 		const callbacks = await plugin.init(pluginLifecycle, pluginContext);
 		const instance = {
 			callbacks,
@@ -566,18 +578,29 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		getAppVersion(),
 	]);
 	const profiles = initProfiles(storagePayload);
-	const [clientStorage, updaterStorage, notificationsStorage, pluginsStorage] = await Promise.all([
-		createProfileStorage('systems', 'client'),
-		createGlobalStorage('systems', 'updater'),
-		createProfileStorage('systems', 'notifications'),
-		createProfileStorage('systems', 'plugins'),
-	]);
+	const [clientStorage, updaterStorage, notificationsStorage, pluginsStorage, loggingStorage] =
+		await Promise.all([
+			createProfileStorage('systems', 'client'),
+			createGlobalStorage('systems', 'updater'),
+			createProfileStorage('systems', 'notifications'),
+			createProfileStorage('systems', 'plugins'),
+			createProfileStorage('systems', 'logging'),
+		]);
 	const settings = initSettings(lifecycle, ui, clientStorage);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
 
 	let notifications: Notifications | undefined;
-	const context = createContext(character, ui, canvas, canvasContainer, ipc, () => notifications);
-	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage);
+	const logging = initLogging(loggingStorage, () => plugins.api.events.chatMessage);
+	const context = createContext(
+		character,
+		ui,
+		canvas,
+		canvasContainer,
+		ipc,
+		logging.logger,
+		() => notifications,
+	);
+	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage, logging.createLogger);
 	const hooks = createClientHooks(plugins);
 	const mutators = createClientMutators(plugins);
 
@@ -592,6 +615,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		},
 		profiles,
 		plugins,
+		logging,
 		references,
 	});
 

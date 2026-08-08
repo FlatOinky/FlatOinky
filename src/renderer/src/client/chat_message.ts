@@ -1,3 +1,5 @@
+import type { LogMethod } from './logging';
+
 type ChatMessageBase = {
 	timestamp: Date;
 	color: string;
@@ -26,6 +28,14 @@ type ChatMessageOther = ChatMessageBase & {
 	tag: undefined;
 };
 
+type ChatMessageLog = ChatMessageBase & {
+	type: 'log';
+	level: LogMethod;
+	username: undefined;
+	icon: undefined;
+	tag: undefined;
+};
+
 type ChatMessageWelcome = {
 	type: 'welcome';
 	username: undefined;
@@ -37,9 +47,10 @@ export type ChatMessage =
 	| ChatMessageChatter
 	| ChatMessageLevelUp
 	| ChatMessageOther
+	| ChatMessageLog
 	| ChatMessageWelcome;
 
-const sanitizeMessage = (message: string): string =>
+export const sanitizeMessage = (message: string): string =>
 	message
 		.replaceAll('&', '&amp;')
 		.replaceAll('<', '&lt;')

@@ -39,10 +39,10 @@ Layout under `src/`:
 - `transpilers.ts` — rewrite game HTML/JS and inject hooks
 - `styles.css` + `styles/` — Tailwind/DaisyUI entry and component CSS
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
-- `client/systems/` — always-on features (app menu, notifications, updates, devtools,
-  profiles). Systems other than profiles live on a restartable child lifecycle
-  rebuilt on profile swap; the profiles system owns the Profiles & Plugins tray
-  window and drives that restart.
+- `client/systems/` — always-on features (app menu, notifications, logging, updates,
+  devtools, profiles). Systems other than profiles live on a restartable child
+  lifecycle rebuilt on profile swap; the profiles system owns the Profiles & Plugins
+  tray window and drives that restart.
 - `plugins/` — toggleable plugins (`tweaks`, `chat`, `monitor`, `metrics`, `themes`, …)
 - `templates/`, `assets/`
 
@@ -54,9 +54,11 @@ Layout under `src/`:
   reaches the client only through `PluginContext`.
 - **`PluginContext` is the third-party contract.** Anything a plugin needs must be
   reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `notifications`,
-  `settings`, `storages`, `collections`). System-only APIs (`updater`, openDevTools,
-  saveReferences) stay off the context. `notifications` is a getter that throws if
-  accessed before notifications are initialized.
+  `log`, `settings`, `storages`, `collections`). System-only APIs (`updater`,
+  openDevTools, saveReferences) stay off the context. `notifications` is a getter that
+  throws if accessed before notifications are initialized. `log` is a
+  `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace); plugin
+  contexts prefix messages with `[plugin.name]`.
 
 ## Coexisting with the FlatMMO client
 
@@ -113,8 +115,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC into
      SQLite automatically. Do not re-save manually. Plugin storages use context
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
-     `systems` with bare namespaces (`client`, `updater`, `notifications`, `devtools`,
-     `plugins` for the enabled-plugin map).
+     `systems` with bare namespaces (`client`, `updater`, `notifications`, `logging`,
+     `devtools`, `plugins` for the enabled-plugin map).
 
      **Collections** — `context.collections.global | profile | character(name)` for
      append-only histories (chat messages, XP drops, …). API:
@@ -127,9 +129,10 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    `mountSection(title, nodes)`. Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
    one of `toggle`, `swap`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
-   `numberSliderCombo`, `alertVolume`, `alertCombo`, or `alertToggles`
-   (see [src/client/settings.ts](src/client/settings.ts)). Always-on systems share a
-   single `core/systems` settings entry titled System via `setupSystemApi()`.
+   `numberSliderCombo`, `labelSteppedRange`, `alertVolume`, `alertCombo`, or
+   `alertToggles` (see [src/client/settings.ts](src/client/settings.ts)). Always-on
+   systems share a single `core/systems` settings entry titled System via
+   `setupSystemApi()`.
 5. **UI** — on `context.ui`:
    - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
      `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,

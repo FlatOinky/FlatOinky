@@ -1,5 +1,6 @@
 import type { ClientPlugins, Lifecycle } from '../client';
 import type { ClientStorage } from './client_storage';
+import type { Logging } from './logging';
 import type { Notifications } from './notifications';
 import { initNotifications } from './notifications';
 import type { Profiles } from './profiles';
@@ -8,6 +9,7 @@ import type { ClientUI } from './ui';
 import type { Updater } from './updater';
 import { initAppSystem } from './systems/app';
 import { initDevtoolsSystem } from './systems/devtools';
+import { initLoggingSystem } from './systems/logging';
 import { initNotificationsSystem } from './systems/notifications';
 import { initProfilesSystem } from './systems/profiles';
 import { initUpdatesSystem } from './systems/updates';
@@ -21,6 +23,7 @@ export type SystemsContext = {
 	setNotifications: (notifications: Notifications) => void;
 	profiles: Profiles;
 	plugins: ClientPlugins;
+	logging: Logging;
 	references: FMMO.Reference[];
 };
 
@@ -35,6 +38,7 @@ export const initSystems = async (
 		setNotifications,
 		profiles,
 		plugins,
+		logging,
 		references,
 	}: SystemsContext,
 ): Promise<void> => {
@@ -51,6 +55,7 @@ export const initSystems = async (
 		const notifications = initNotifications(systems, notificationsStorage);
 		setNotifications(notifications);
 		initNotificationsSystem(systems, ui, notifications, settingsMenu);
+		initLoggingSystem(systems, logging, settingsMenu);
 
 		initUpdatesSystem(systems, ui, updater, settingsMenu);
 		await initDevtoolsSystem(systems, ui, settingsMenu, references);

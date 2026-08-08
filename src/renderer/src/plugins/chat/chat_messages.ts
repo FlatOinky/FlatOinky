@@ -7,7 +7,14 @@ import type { Collection } from '../../client/client_storage';
 import * as el from '../../client/ui/elements';
 import { closeCommandMenu } from './chat_commands';
 import { chatMessages, usernamesCache } from './chat_state';
-import { ChatColors, ChatElements, chatColorClassMap, chatColorMeta, Settings } from './chat_types';
+import {
+	ChatColors,
+	ChatElements,
+	chatColorClassMap,
+	chatColorMeta,
+	chatLogLevelColorClassMap,
+	Settings,
+} from './chat_types';
 import { isChatMessageMuted } from './chat_muted';
 import {
 	ChatFilters,
@@ -162,7 +169,10 @@ export const createChatMessageContent = (
 	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat' | 'yellIndicator'>,
 	filters: ChatFilters,
 ): HTMLDivElement => {
-	const colorClassName = chatColorClassMap[chatMessage.type] ?? chatColorClassMap.info;
+	const colorClassName =
+		chatMessage.type === 'log'
+			? chatLogLevelColorClassMap[chatMessage.level]
+			: (chatColorClassMap[chatMessage.type] ?? chatColorClassMap.info);
 	const content = el.div`contents ${colorClassName}`.element;
 
 	const parts: Node[] = [];

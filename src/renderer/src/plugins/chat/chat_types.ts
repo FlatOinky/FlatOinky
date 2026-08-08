@@ -1,5 +1,5 @@
 import { formatDate } from 'date-fns';
-import type { ChatMessage } from '../../client';
+import type { ChatMessage, LogMethod } from '../../client';
 
 export const namespace = 'oinky/chat';
 
@@ -22,7 +22,18 @@ export const chatColorClassMap: Record<ChatMessage['type'], string> = {
 	warning: 'text-(--oinky-chat-warning)',
 	achievement: 'text-(--oinky-chat-achievement)',
 	info: 'text-(--oinky-chat-info)',
+	log: 'text-(--oinky-chat-info)',
 	welcome: 'text-(--oinky-chat-welcome)',
+};
+
+/** Colors for `type: 'log'` messages, keyed by severity. */
+export const chatLogLevelColorClassMap: Record<LogMethod, string> = {
+	fatal: 'text-(--oinky-chat-error)',
+	error: 'text-(--oinky-chat-error)',
+	warn: 'text-(--oinky-chat-warning)',
+	info: 'text-(--oinky-chat-info)',
+	debug: 'text-(--oinky-chat-info) opacity-60',
+	trace: 'text-(--oinky-chat-info) opacity-60',
 };
 
 export const initialChatColors = {

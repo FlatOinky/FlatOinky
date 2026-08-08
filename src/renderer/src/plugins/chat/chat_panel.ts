@@ -207,15 +207,7 @@ export const initChat = (
 		elements,
 		send: sendChatLine,
 		notify: (message) => {
-			window.flatOinky.client?.pluginsApi.events.chatMessage({
-				timestamp: new Date(),
-				color: 'none',
-				message: `Oinky: ${message}`,
-				type: 'warning',
-				username: undefined,
-				icon: undefined,
-				tag: undefined,
-			});
+			context.log.warn(message);
 		},
 	};
 

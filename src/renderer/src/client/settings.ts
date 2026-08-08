@@ -23,6 +23,7 @@ type SettingsInputNode =
 	| (SettingsInputBase & { specialType: 'selectTextCombo'; options: SettingsNodeOption[] })
 	| (SettingsInputBase & { specialType: 'selectColorCombo'; options: SettingsNodeOption[] })
 	| (SettingsInputBase & { specialType: 'numberSliderCombo' })
+	| (SettingsInputBase & { specialType: 'labelSteppedRange'; steps: string[] })
 	| (SettingsInputBase & { specialType: 'swap'; onIcon: Element; offIcon: Element })
 	| (SettingsInputBase & { specialType: 'alertVolume'; onTest: () => void });
 export type SettingsAlertComboNode = SettingsNodeBase<
@@ -331,6 +332,64 @@ const makeNumberSliderComboChild = (
 	return container;
 };
 
+const boundLabelSteppedRangeInputs = new WeakSet<SettingsInput>();
+const labelSteppedRangeLabels = new WeakMap<SettingsInput, HTMLSpanElement[]>();
+
+const makeLabelSteppedRangeChild = (
+	node: SettingsInputBase & { specialType: 'labelSteppedRange'; steps: string[] },
+): Element => {
+	const { steps } = node;
+	const lastIndex = Math.max(1, steps.length - 1);
+	const container = el.div`w-full`.element;
+	node.input.classList = 'range range-sm w-full';
+	node.input.setAttribute('min', '0');
+	node.input.setAttribute('max', String(steps.length - 1));
+	node.input.setAttribute('step', '1');
+	container.appendChild(node.input);
+
+	// The thumb's travel is inset by half a thumb width at each end, so the marks
+	// sit inside a matching `mx-2.5` box and each tick shares one absolutely
+	// positioned column with its label. The end columns hug their own tick so a
+	// wide first/last label cannot overflow the row and get clipped.
+	const marks = el.div`relative mx-2.5 mt-1 h-7 text-xs`.mount(container);
+	const labels: HTMLSpanElement[] = [];
+	steps.forEach((step, index) => {
+		const isFirst = index === 0;
+		const isLast = index === steps.length - 1;
+		const alignment = isFirst ? 'items-start' : isLast ? 'items-end' : 'items-center';
+		const offset = isFirst ? '' : isLast ? ' -translate-x-full' : ' -translate-x-1/2';
+		el.div`absolute top-0 flex flex-col ${alignment}${offset}`.mount(marks, undefined, (mark) => {
+			mark.style.left = `${(index / lastIndex) * 100}%`;
+			el.span`leading-none text-base-content/40`.mount(mark, undefined, (tick) => {
+				tick.textContent = '|';
+			});
+			el.span`mt-1 leading-none whitespace-nowrap`.mount(mark, undefined, (label) => {
+				label.textContent = step;
+				labels.push(label);
+			});
+		});
+	});
+
+	labelSteppedRangeLabels.set(node.input, labels);
+	const highlightActive = () => {
+		const activeLabels = labelSteppedRangeLabels.get(node.input) ?? labels;
+		const activeIndex = Number(node.input.value);
+		activeLabels.forEach((label, index) => {
+			label.classList.toggle('font-semibold', index === activeIndex);
+			label.classList.toggle('text-base-content', index === activeIndex);
+			label.classList.toggle('text-base-content/50', index !== activeIndex);
+		});
+	};
+	highlightActive();
+	if (!boundLabelSteppedRangeInputs.has(node.input)) {
+		boundLabelSteppedRangeInputs.add(node.input);
+		node.input.addEventListener('input', highlightActive);
+		node.input.addEventListener('change', highlightActive);
+	}
+
+	return container;
+};
+
 // #region swap + alert controls
 
 const makeSwapToggle = (
@@ -422,6 +481,9 @@ const makeNodeChild = (node: SettingsInputNode): Element => {
 	}
 	if (node.specialType === 'numberSliderCombo') {
 		return makeNumberSliderComboChild(node);
+	}
+	if (node.specialType === 'labelSteppedRange') {
+		return makeLabelSteppedRangeChild(node);
 	}
 	if (node.specialType === 'swap') {
 		return makeSwapToggle(node.input, node.onIcon, node.offIcon, node.tooltip ?? '', 'tooltip-end');
@@ -709,6 +771,7 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 		case 'selectTextCombo':
 		case 'selectColorCombo':
 		case 'numberSliderCombo':
+		case 'labelSteppedRange':
 		case 'alertVolume':
 		case 'file':
 		case 'color':

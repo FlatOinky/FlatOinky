@@ -64,15 +64,17 @@ client.
     (re-exported from `client.ts`).
   - `client/notifications.ts` — `initNotifications` factory backing
     `PluginContext.notifications`.
+  - `client/logging.ts` — `initLogging` factory backing `PluginContext.log` and the
+    System Logging settings section.
   - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file,
     clearAssetCache, saveReferences, openDevTools, notifications, updates) plus
     re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`.
   - `client/updater.ts` — update UI state machine wired to the main updater.
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
-    notifications tray/settings, updates UI, devtools, profiles); never toggleable.
-    Systems other than profiles live on a restartable child lifecycle rebuilt on
-    profile swap. Profiles owns the Profiles & Plugins tray window (profile CRUD
-    plus per-profile plugin enable toggles).
+    notifications tray/settings, logging settings, updates UI, devtools, profiles);
+    never toggleable. Systems other than profiles live on a restartable child
+    lifecycle rebuilt on profile swap. Profiles owns the Profiles & Plugins tray
+    window (profile CRUD plus per-profile plugin enable toggles).
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and
     the typed DOM builders in `elements.ts`.
   - `plugins/`, `templates/`, `assets/`, `styles/`.
@@ -83,13 +85,13 @@ Storage lives in SQLite (`userData/storage/flat-oinky.db`, or
 `<NODE_ENV>.flat-oinky.db` outside production). Tables cover profiles, characters,
 character↔profile mappings, per-scope `*_settings` documents keyed by `context` plus
 `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` + `<name>` for client
-internals — including `client`, `updater`, `notifications`, `devtools`, and `plugins`
-for the per-profile enabled-plugin map; settings sections for always-on systems use
-`core/systems`), and per-scope append-only `*_collections` rows keyed the same way
-(plugins fold a collection name into the namespace as `oinky/<name>/<collection>`).
-`client`, `notifications`, and `plugins` use profile storage; `updater` and
-`devtools` use global storage. Collections are read with `fetch(quantity)` and
-written with `append(value, max?)`.
+internals — including `client`, `updater`, `notifications`, `logging`, `devtools`, and
+`plugins` for the per-profile enabled-plugin map; settings sections for always-on
+systems use `core/systems`), and per-scope append-only `*_collections` rows keyed the
+same way (plugins fold a collection name into the namespace as
+`oinky/<name>/<collection>`). `client`, `notifications`, `logging`, and `plugins` use
+profile storage; `updater` and `devtools` use global storage. Collections are read
+with `fetch(quantity)` and written with `append(value, max?)`.
 
 ## 4. Safety and permission boundaries
 
