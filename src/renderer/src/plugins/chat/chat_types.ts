@@ -136,10 +136,10 @@ export type Channels = typeof initialChannels;
 
 export const initialSettings = {
 	isExpanded: true,
-	enableZebra: true,
+	enableZebra: false,
 	enableSmoothScroll: true,
 	maxChatLength: 100,
-	maxChatLogLength: 1000,
+	maxChatLogLength: 500,
 	popupDuration: 8,
 	enableTimestamp: true,
 	timestampFormat: 'h:mmaaa',

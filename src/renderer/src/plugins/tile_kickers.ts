@@ -12,7 +12,7 @@ const CHAOS_MIN_INTERVAL_MS = 5000;
 const CHAOS_MAX_INTERVAL_MS = 20000;
 
 const initialSettings = {
-	enabled: true,
+	enabled: false,
 	leadTime: 1,
 	chaosMode: false,
 };

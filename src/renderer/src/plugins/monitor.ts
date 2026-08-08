@@ -33,17 +33,18 @@ const soundFileName = (source: string): string =>
 const initialSettings = {
 	afkDetection: {
 		...initialAlertSettings,
+		enabled: false,
 		ignoreCrafting: false,
 		afkThreshold: 60,
 	},
-	enableAudioCues: true,
+	enableAudioCues: false,
 	audioCues: {
 		gemDrop: { ...initialAlertSettings },
 		fallingTree: { ...initialAlertSettings },
 		birdNest: { ...initialAlertSettings },
 		alienEncounter: { ...initialAlertSettings },
 	} satisfies Record<AudioCueKey, typeof initialAlertSettings>,
-	enableStateCues: true,
+	enableStateCues: false,
 	stateCues: {
 		sleep: { ...initialAlertSettings, threshold: 0 },
 		health: { ...initialAlertSettings, threshold: 5 },
