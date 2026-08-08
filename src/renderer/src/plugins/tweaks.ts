@@ -1,10 +1,20 @@
 import { Lifecycle, Plugin } from '../client';
 import * as el from '../client/ui/elements';
 
+const particleLevels = ['none', 'low', 'high', 'full'] as const;
+type ParticleLevel = (typeof particleLevels)[number];
+const particleLevelSteps = ['None', 'Low', 'High', 'Full'];
+
+// Fraction of the game's snow pool kept, and max concurrent PLAY_PARTICLES effects.
+const snowFractions: Record<ParticleLevel, number> = { none: 1, low: 0.6, high: 0.25, full: 0 };
+const particleCaps: Record<ParticleLevel, number> = { none: Infinity, low: 32, high: 10, full: 0 };
+
 const initialSettings = {
 	enableDarkenSky: true,
 	enableDynamicCanvas_beta: false,
 	enableProjectileCleanup: true,
+	hideOtherPlayerDrops: false,
+	particleReduction: 'none' as ParticleLevel,
 };
 
 // The FlatMMO canvas renders at a fixed internal resolution; everything else is
@@ -114,6 +124,35 @@ const scheduleSweep = (): void => {
 
 // #endregion
 
+// #region performance
+
+const sweepParticles = (): void => {
+	for (const [uuid, particle] of Object.entries(particle_objects)) {
+		clearInterval(particle.interval_func);
+		delete particle_objects[uuid];
+	}
+};
+
+// The game's snow pool is a top-level `const balls`, so we can only splice its
+// contents. Stash removed flakes so relaxing the reduction level can put them
+// back without regenerating positions/velocities.
+const removedSnow: FMMO.Snowflake[] = [];
+const snowPoolSize = (): number => balls.length + removedSnow.length;
+
+const applySnowReduction = (level: ParticleLevel): void => {
+	const target = Math.round(snowPoolSize() * snowFractions[level]);
+	while (balls.length > target) {
+		const flake = balls.pop();
+		if (flake) removedSnow.push(flake);
+	}
+	while (balls.length < target && removedSnow.length > 0) {
+		const flake = removedSnow.pop();
+		if (flake) balls.push(flake);
+	}
+};
+
+// #endregion
+
 export const TweaksPlugin: Plugin = {
 	namespace: 'oinky/tweaks',
 	name: 'Tweaks',
@@ -131,7 +170,12 @@ export const TweaksPlugin: Plugin = {
 			dynamicCanvasLifecycle = initDynamicCanvas(lifecycle, context.canvas);
 		};
 
-		settingsMenu.mountSection('Tweaks', [
+		const syncParticleReduction = () => {
+			applySnowReduction(settings.particleReduction);
+			if (settings.particleReduction === 'full') sweepParticles();
+		};
+
+		settingsMenu.mountSection('Cosmetic', [
 			{
 				label: 'Darken Sky',
 				description: 'Dim the sky map for easier viewing.',
@@ -155,10 +199,12 @@ export const TweaksPlugin: Plugin = {
 					};
 				}),
 			},
+		]);
+
+		settingsMenu.mountSection('Bug Fixes', [
 			{
 				label: 'Clear Stuck Projectiles',
-				description:
-					'Automatically remove projectiles whose target left the map, so they stop drawing on the canvas.',
+				description: 'Automatically remove projectiles after leaving an area.',
 				specialType: 'toggle',
 				input: el.input.checkbox``.then((input) => {
 					input.checked = settings.enableProjectileCleanup;
@@ -183,7 +229,40 @@ export const TweaksPlugin: Plugin = {
 			}),
 		]);
 
+		settingsMenu.mountSection('Performance', [
+			{
+				label: "Hide Other Players' XP Drops",
+				description: 'Skip rendering XP and level-up drops from other players.',
+				specialType: 'toggle',
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.hideOtherPlayerDrops;
+					input.onchange = () => {
+						settings.hideOtherPlayerDrops = input.checked;
+					};
+				}),
+			},
+			{
+				label: 'Particle Reduction',
+				description: 'Reduce snow overlay density and cap concurrent particle effects.',
+				specialType: 'labelSteppedRange' as const,
+				steps: particleLevelSteps,
+				reset: (input) => {
+					input.value = String(particleLevels.indexOf(initialSettings.particleReduction));
+				},
+				input: el.input.range``.then((input) => {
+					input.value = String(particleLevels.indexOf(settings.particleReduction));
+					input.onchange = () => {
+						settings.particleReduction =
+							particleLevels[Number(input.value)] ?? initialSettings.particleReduction;
+						syncParticleReduction();
+					};
+				}),
+			},
+		]);
+
 		syncDynamicCanvas();
+		syncParticleReduction();
+		lifecycle.onCleanup(() => applySnowReduction('none'));
 
 		return {
 			events: {
@@ -200,14 +279,32 @@ export const TweaksPlugin: Plugin = {
 				},
 			},
 			hooks: {
-				serverCommand: (command) => {
-					if (!settings.enableProjectileCleanup) return true;
-					switch (command) {
-						case 'SET_MAP':
-						case 'CLIENT_REMOVE_PLAYER':
-						case 'CLEAR_CLIENT_NPC':
-						case 'CLEAR_CLIENT_NPCS':
-							scheduleSweep();
+				// Vetoing XP_DROP / LEVEL_UP_DROP / PLAY_PARTICLES here is lossless for
+				// those commands (the game's XP bar/tracker already gate on local username;
+				// PLAY_PARTICLES only creates a Particles instance). The hook chain uses
+				// .every(...), so a false return short-circuits later plugins.
+				serverCommand: (command, values) => {
+					if (settings.hideOtherPlayerDrops) {
+						switch (command) {
+							case 'XP_DROP':
+							case 'LEVEL_UP_DROP':
+								if (values[0] !== Globals.local_username) return false;
+						}
+					}
+					if (command === 'PLAY_PARTICLES') {
+						const cap = particleCaps[settings.particleReduction];
+						if (cap === Infinity) return true;
+						if (cap < 1) return false;
+						if (Object.keys(particle_objects).length >= cap) return false;
+					}
+					if (settings.enableProjectileCleanup) {
+						switch (command) {
+							case 'SET_MAP':
+							case 'CLIENT_REMOVE_PLAYER':
+							case 'CLEAR_CLIENT_NPC':
+							case 'CLEAR_CLIENT_NPCS':
+								scheduleSweep();
+						}
 					}
 					return true;
 				},

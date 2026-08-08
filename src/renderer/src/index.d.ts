@@ -57,6 +57,8 @@ declare global {
 	var projectile_objects: { [uuid: string]: FMMO.NpcProjectile };
 	var projectile_to_player_objects: { [uuid: string]: FMMO.PlayerProjectile };
 	var projectile_environment_objects: { [uuid: string]: FMMO.EnvironmentProjectile };
+	var particle_objects: { [uuid: string]: FMMO.Particle };
+	const balls: FMMO.Snowflake[];
 	var valid_skills: Set<string>;
 	let canvas_scale: number;
 	let TILE_SIZE: number;

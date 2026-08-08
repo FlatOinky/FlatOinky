@@ -48,4 +48,8 @@ declare namespace FMMO {
 	export type EnvironmentProjectile = {
 		frames_interval_1: ReturnType<typeof setInterval>;
 	};
+
+	export type Snowflake = { x: number; y: number; r: number; vy: number };
+
+	export type Particle = { interval_func: ReturnType<typeof setInterval> };
 }
