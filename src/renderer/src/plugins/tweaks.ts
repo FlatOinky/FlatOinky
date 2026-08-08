@@ -1,5 +1,6 @@
 import { Lifecycle, Plugin } from '../client';
 import * as el from '../client/ui/elements';
+import { initPlayerCache } from './tweaks/player_cache';
 
 const particleLevels = ['none', 'low', 'high', 'full'] as const;
 type ParticleLevel = (typeof particleLevels)[number];
@@ -15,6 +16,7 @@ const initialSettings = {
 	enableProjectileCleanup: true,
 	hideOtherPlayerDrops: false,
 	particleReduction: 'none' as ParticleLevel,
+	enablePlayerRenderCache: true,
 };
 
 // The FlatMMO canvas renders at a fixed internal resolution; everything else is
@@ -158,10 +160,12 @@ export const TweaksPlugin: Plugin = {
 	name: 'Tweaks',
 	description: 'Optional visual and gameplay tweaks for Flat Oinky',
 	init: (lifecycle, context) => {
-		const settings = context.storages.global.reactive('settings', initialSettings);
+		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		let dynamicCanvasLifecycle: Lifecycle | null = null;
 		let darkenSkyLifecycle: Lifecycle | null = null;
+
+		const playerCache = initPlayerCache(lifecycle, () => settings.enablePlayerRenderCache);
 
 		const syncDynamicCanvas = () => {
 			dynamicCanvasLifecycle?.cleanup();
@@ -230,6 +234,19 @@ export const TweaksPlugin: Plugin = {
 		]);
 
 		settingsMenu.mountSection('Performance', [
+			{
+				label: 'Cache Player Renders',
+				description:
+					'Reuse one composited sprite for other players wearing the same gear and animation frame.',
+				specialType: 'toggle',
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.enablePlayerRenderCache;
+					input.onchange = () => {
+						settings.enablePlayerRenderCache = input.checked;
+						if (!input.checked) playerCache.clear();
+					};
+				}),
+			},
 			{
 				label: "Hide Other Players' XP Drops",
 				description: 'Skip rendering XP and level-up drops from other players.',
@@ -308,6 +325,9 @@ export const TweaksPlugin: Plugin = {
 					}
 					return true;
 				},
+			},
+			mutators: {
+				playerAnimation: playerCache.playerAnimation,
 			},
 		};
 	},

@@ -65,4 +65,5 @@ declare global {
 	let teleport_tiles: { x: number; y: number }[];
 	var active_animations: Record<string, Record<string, FMMO.AnimationSheet>>;
 	function get_player_animation(username: string, slot?: string): FMMO.AnimationSheet | null;
+	function get_equipment(username: string, slot: string): string;
 }

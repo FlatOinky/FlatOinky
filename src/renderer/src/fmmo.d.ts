@@ -18,6 +18,8 @@ declare namespace FMMO {
 
 	export type AnimationSheet = {
 		get_frame: () => HTMLImageElement | HTMLCanvasElement;
+		filename?: string;
+		frame_at?: number;
 	};
 
 	export type Player = {
