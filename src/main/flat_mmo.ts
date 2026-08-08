@@ -2,6 +2,10 @@ import { session } from 'electron';
 
 const flatUrl = 'https://flatmmo.com';
 
+let lastClientHtmlText: string | null = null;
+
+export const getLastClientHtmlText = (): string | null => lastClientHtmlText;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getWorlds = async (): Promise<any[]> => {
 	const response = await session.defaultSession.fetch(`https://flatmmo.com/api/worlds.php`, {
@@ -35,6 +39,7 @@ export const getClientHtmlText = async (characterId: string, worldId: string): P
 	const text = await response.text();
 	if (!text.includes('<html ')) throw new Error('getClientHtmlText: no html tag');
 	if (!text.includes('game-wrapper')) throw new Error('getClientHtmlText: no game-wrapper');
+	lastClientHtmlText = text;
 	return text;
 };
 
@@ -74,4 +79,41 @@ export const getClientAsset = async (url: string): Promise<string> => {
 	const response = await session.defaultSession.fetch(assetUrl);
 	if (!response.ok) throw new Error('getAsset: response not ok');
 	return await response.text();
+};
+
+export const scrubConnectString = (content: string): string =>
+	content.replace(/(Globals\.connect_str\s*=\s*)(['"]).*?\2/g, '$1"<scrubbed>"');
+
+export type ReferenceManifest = {
+	inline: { name: string; content: string }[];
+	remote: { name: string; url: string }[];
+};
+
+/** Resolve a Save References manifest into scrubbed archive entries. */
+export const resolveReferenceManifest = async (
+	manifest: ReferenceManifest,
+): Promise<{ name: string; content: string }[]> => {
+	const playHtml = lastClientHtmlText ?? '';
+	const remoteEntries = await Promise.all(
+		manifest.remote.map(async ({ name, url }) => {
+			try {
+				const content = await getClientAsset(url);
+				return { name, content: scrubConnectString(content) };
+			} catch (error) {
+				console.warn('resolveReferenceManifest: failed to fetch', url, error);
+				return {
+					name,
+					content: `/* failed to fetch ${url}: ${error instanceof Error ? error.message : String(error)} */\n`,
+				};
+			}
+		}),
+	);
+	return [
+		{ name: 'play.html', content: scrubConnectString(playHtml) },
+		...manifest.inline.map((reference) => ({
+			...reference,
+			content: scrubConnectString(reference.content),
+		})),
+		...remoteEntries,
+	];
 };

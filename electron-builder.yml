@@ -5,10 +5,15 @@ directories:
 files:
   - '!**/.vscode/*'
   - '!src/*'
+  - '!refs'
+  - '!**/*.map'
+  - '!AGENTS.md'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{.oxlintrc.json,.oxfmtrc.json,mise.toml}'
+  - '!node_modules/{tailwindcss,@tailwindcss,date-fns,numeral,mustache}'
 asarUnpack:
   - resources/**
 win:

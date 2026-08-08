@@ -16,6 +16,13 @@ declare namespace FMMO {
 
 	export type Reference = { name: string; content: string };
 
+	export type ReferenceRemote = { name: string; url: string };
+
+	export type ReferenceManifest = {
+		inline: Reference[];
+		remote: ReferenceRemote[];
+	};
+
 	export type AnimationSheet = {
 		get_frame: () => HTMLImageElement | HTMLCanvasElement;
 		filename?: string;

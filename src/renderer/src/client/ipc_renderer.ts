@@ -17,7 +17,7 @@ export const createNotification = (title: string, message?: string): void => {
 export const saveFile = (filename: string, contents: string): void =>
 	ipcRenderer.send('requestFileSave', filename, contents);
 
-export const saveReferences = (references: FMMO.Reference[]): void =>
+export const saveReferences = (references: FMMO.ReferenceManifest): void =>
 	ipcRenderer.send('saveReferences', references);
 
 // #region updates

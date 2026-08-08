@@ -566,7 +566,7 @@ const createClientMutators = (plugins: ClientPlugins) =>
 
 export type Client = Awaited<ReturnType<typeof initClient>>;
 
-export const initClient = async (character: FMMO.Character, references: FMMO.Reference[]) => {
+export const initClient = async (character: FMMO.Character, references: FMMO.ReferenceManifest) => {
 	const canvas = document.querySelector<HTMLCanvasElement>('canvas#canvas');
 	const canvasContainer = canvas?.parentElement;
 	if (!canvas || !canvasContainer) return;

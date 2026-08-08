@@ -27,11 +27,21 @@ export const ipcMainSetup = (): void => {
 		});
 	});
 
-	ipcMain.on('saveReferences', (_event, references: { name: string; content: string }[]) => {
-		if (!Array.isArray(references) || references.length < 1) return;
+	ipcMain.on('saveReferences', (_event, manifest: flatMmo.ReferenceManifest) => {
+		if (
+			!manifest ||
+			!Array.isArray(manifest.inline) ||
+			!Array.isArray(manifest.remote) ||
+			(manifest.inline.length < 1 && manifest.remote.length < 1 && !flatMmo.getLastClientHtmlText())
+		) {
+			return;
+		}
 		dialog.showSaveDialog({ defaultPath: 'flat-mmo-references.tar.gz' }).then((result) => {
 			if (result.canceled || !result.filePath) return;
-			saveReferencesArchive(result.filePath, references).catch((error) => console.warn(error));
+			flatMmo
+				.resolveReferenceManifest(manifest)
+				.then((references) => saveReferencesArchive(result.filePath!, references))
+				.catch((error) => console.warn(error));
 		});
 	});
 
@@ -119,17 +129,6 @@ export const ipcMainSetup = (): void => {
 				.catch((error) => {
 					console.warn(error);
 					resolve('');
-				});
-		});
-	});
-
-	ipcMain.handle('getClientAssets', (_event, ...assetUrls: string[]) => {
-		return new Promise((resolve) => {
-			Promise.all(assetUrls.map(flatMmo.getClientAsset))
-				.then(resolve)
-				.catch((error) => {
-					console.warn(error);
-					resolve([]);
 				});
 		});
 	});

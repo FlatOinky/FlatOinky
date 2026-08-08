@@ -17,20 +17,37 @@ developers can understand game behavior without hitting the live server. **THE C
 These files are the extracted contents of `flat-mmo-references.tar.gz`, which is generated
 by Flat Oinky's Devtools **"Save References"** action:
 
-`Devtools system` -> `saveReferences()` from `ipc_renderer` -> `saveReferences` IPC ->
+`Devtools system` -> `saveReferences(manifest)` from `ipc_renderer` -> `saveReferences` IPC
+-> `resolveReferenceManifest` ([src/main/flat_mmo.ts](../src/main/flat_mmo.ts)) ->
 `saveReferencesArchive` ([src/main/files.ts](../src/main/files.ts)).
 
 (`PluginContext.ipc` only exposes `saveFile`; saveReferences is system-only.)
 
-The references themselves are assembled in `mountClientPage`
-([src/renderer/src/main.ts](../src/renderer/src/main.ts)):
+The renderer builds a lightweight **ReferenceManifest** in `mountClientPage`
+([src/renderer/src/main.ts](../src/renderer/src/main.ts)) and keeps it for the session:
+
+- `inline` — raw inline `<script>` / `<style>` text that cannot be re-fetched.
+- `remote` — `{ name, url }` for first-party external JS/CSS (no content retained).
+
+On click, the main process assembles the archive from:
+
+- the last `play.html` retained when `getClientHtmlText` ran (avoids re-POSTing `play.php`),
+- the inline entries from the manifest,
+- a fresh `getClientAsset` fetch for each remote URL (with a per-asset error placeholder).
+
+`Globals.connect_str` is scrubbed in main before packing.
+
+Notes:
 
 - Contents are the **raw, untranspiled first-party** sources (as served by
-  `flatmmo.com`).
+  `flatmmo.com`). Inline script text is the genuine raw source, not post-transpile.
 - **Third-party assets are excluded** (e.g. Google Fonts), so this folder is not a
   complete byte-for-byte mirror of the running page.
+- Remote JS/CSS may drift from what the session actually ran if the server updated
+  between load and save.
 - Files may contain **session-specific data** — for example `inline-23.js` embeds a live
-  `Globals.connect_str` token. Regenerate rather than rely on stale values.
+  `Globals.connect_str` token (scrubbed in the archive). Regenerate rather than rely on
+  stale values.
 
 ## Contents guide
 

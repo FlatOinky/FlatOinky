@@ -13,7 +13,7 @@ export const initDevtoolsSystem = async (
 	lifecycle: Lifecycle,
 	ui: ClientUI,
 	settingsMenu: SettingsMenu,
-	references: FMMO.Reference[],
+	references: FMMO.ReferenceManifest,
 ): Promise<void> => {
 	const storage = await createGlobalStorage('systems', 'devtools');
 	const settings = storage.reactive('settings', initialSettings);

@@ -24,7 +24,7 @@ export type SystemsContext = {
 	profiles: Profiles;
 	plugins: ClientPlugins;
 	logging: Logging;
-	references: FMMO.Reference[];
+	references: FMMO.ReferenceManifest;
 };
 
 export const initSystems = async (

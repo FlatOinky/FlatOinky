@@ -36,8 +36,8 @@ client.
 - `src/main/` — Electron main process.
   - `index.ts` — app entry / window bootstrap.
   - `ipc_main.ts` — IPC handlers (login, worlds, client HTML/assets, storage/profiles,
-    file save, notifications, saveReferences, window reload, asset-cache clear,
-    openDevTools, and updater check/download/install/channel).
+    file save, notifications, saveReferences from a ReferenceManifest, window reload,
+    asset-cache clear, openDevTools, and updater check/download/install/channel).
   - `updater.ts` — electron-updater wrapper: channel (`latest`/`beta`), check,
     download, install, and update events to the renderer.
   - `asset_cache.ts` — on-disk HTTP asset cache under userData, with ETag metadata.
