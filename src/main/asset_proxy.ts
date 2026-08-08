@@ -72,7 +72,7 @@ const storeUpstreamAsset = async (relativePath: string, response: Response): Pro
 	const etag = response.headers.get('etag') ?? undefined;
 	const lastModified = response.headers.get('last-modified') ?? undefined;
 	try {
-		await writeCachedAsset(relativePath, { body, contentType, etag, lastModified });
+		writeCachedAsset(relativePath, { body, contentType, etag, lastModified });
 	} catch (error) {
 		console.error('asset_proxy: failed to write cache entry', relativePath, error);
 	}
@@ -90,7 +90,7 @@ const revalidateCachedAsset = async (
 	try {
 		const response = await proxyToFlat(relativePath, search, undefined, headers);
 		if (response.status === 304) {
-			await touchCachedAsset(relativePath);
+			touchCachedAsset(relativePath);
 			return;
 		}
 		if (response.ok) {
@@ -138,7 +138,7 @@ const proxyStaticAsset = async (
 	}
 
 	try {
-		const cached = await readCachedAsset(relativePath);
+		const cached = readCachedAsset(relativePath);
 		if (cached) {
 			if (isStale(cached)) {
 				void revalidateCachedAsset(relativePath, search, cached);

@@ -40,8 +40,10 @@ client.
     asset-cache clear, openDevTools, and updater check/download/install/channel).
   - `updater.ts` — electron-updater wrapper: channel (`latest`/`beta`), check,
     download, install, and update events to the renderer.
-  - `asset_cache.ts` — on-disk HTTP asset cache under userData, with ETag metadata.
-  - `database.ts` — `node:sqlite` DatabaseSync under userData/storage.
+  - `asset_cache.ts` — SQLite-backed HTTP asset cache with BLOB bodies and ETag
+    metadata (`userData/storage/asset-cache.db`, shared across environments).
+  - `database.ts` — `initDatabase` factory for `node:sqlite` DatabaseSync instances
+    under userData/storage (storage + asset cache).
   - `flat_mmo.ts`, `asset_proxy.ts`, `storage.ts`, `client_window.ts`, `files.ts`.
 - `src/preload/index.ts` — context bridge exposing safe APIs to the renderer.
 - `src/renderer/src/` — renderer / UI.
@@ -82,16 +84,18 @@ client.
 - Config: `electron.vite.config.ts`, `tsconfig*.json`, `.oxlintrc.json`, `.oxfmtrc.json`.
 
 Storage lives in SQLite (`userData/storage/flat-oinky.db`, or
-`<NODE_ENV>.flat-oinky.db` outside production). Tables cover profiles, characters,
-character↔profile mappings, per-scope `*_settings` documents keyed by `context` plus
-`namespace` (`plugins` + `oinky/<name>` for plugins, `systems` + `<name>` for client
-internals — including `client`, `updater`, `notifications`, `logging`, `devtools`, and
-`plugins` for the per-profile enabled-plugin map; settings sections for always-on
-systems use `core/systems`), and per-scope append-only `*_collections` rows keyed the
-same way (plugins fold a collection name into the namespace as
-`oinky/<name>/<collection>`). `client`, `notifications`, `logging`, and `plugins` use
-profile storage; `updater` and `devtools` use global storage. Collections are read
-with `fetch(quantity)` and written with `append(value, max?)`.
+`<NODE_ENV>.flat-oinky.db` outside production). The HTTP asset cache uses a separate
+SQLite database at `userData/storage/asset-cache.db` (fixed filename, shared between
+development and production) with BLOB bodies and ETag metadata. Tables cover profiles,
+characters, character↔profile mappings, per-scope `*_settings` documents keyed by
+`context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
+`<name>` for client internals — including `client`, `updater`, `notifications`,
+`logging`, `devtools`, and `plugins` for the per-profile enabled-plugin map; settings
+sections for always-on systems use `core/systems`), and per-scope append-only
+`*_collections` rows keyed the same way (plugins fold a collection name into the
+namespace as `oinky/<name>/<collection>`). `client`, `notifications`, `logging`, and
+`plugins` use profile storage; `updater` and `devtools` use global storage. Collections
+are read with `fetch(quantity)` and written with `append(value, max?)`.
 
 ## 4. Safety and permission boundaries
 

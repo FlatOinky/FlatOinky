@@ -2,7 +2,7 @@ import { app, ipcMain, Notification, dialog } from 'electron';
 import * as storage from './storage';
 import * as flatMmo from './flat_mmo';
 import * as updater from './updater';
-import { clearAssetCache } from './asset_cache';
+import { clearAssetCache, getAssetCacheSizeBytes } from './asset_cache';
 import { saveFile, saveReferencesArchive } from './files';
 import type { StorageKey } from './storage';
 
@@ -14,6 +14,7 @@ export const ipcMainSetup = (): void => {
 	});
 
 	ipcMain.handle('clearAssetCache', () => clearAssetCache());
+	ipcMain.handle('getAssetCacheSize', () => getAssetCacheSizeBytes());
 
 	let lastRequestFileSaveTimestamp = 0;
 	ipcMain.on('requestFileSave', (_event, filename: string, contents: string) => {

@@ -69,59 +69,96 @@ CREATE INDEX IF NOT EXISTS idx_character_collections_lookup
 	ON character_collections (character_id, context, namespace, id);
 `;
 
-const getDatabasePath = (): string => {
-	const filename =
-		process.env.NODE_ENV === 'production'
-			? 'flat-oinky.db'
-			: `${process.env.NODE_ENV ?? 'development'}.flat-oinky.db`;
-	return path.join(app.getPath('userData'), 'storage', filename);
+export type DatabaseOptions = {
+	/** Used verbatim under userData/storage; callers decide NODE_ENV prefixing. */
+	filename: string;
+	schema: string;
+	version: number;
+	pragmas?: readonly string[];
 };
 
-let database: DatabaseSync | undefined;
+const openDatabases = new Set<{
+	filename: string;
+	close: () => void;
+}>();
 let closingHooked = false;
 
-const applySchema = (db: DatabaseSync): void => {
-	const version = Number(db.prepare('PRAGMA user_version').get()?.user_version ?? 0);
-	if (version >= SCHEMA_VERSION) return;
-	db.exec(SCHEMA_SQL);
-	db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
-};
-
-export const getDatabase = (): DatabaseSync => {
-	if (database) return database;
-	const filepath = getDatabasePath();
-	fs.mkdirSync(path.dirname(filepath), { recursive: true });
-	database = new DatabaseSync(filepath, { enableForeignKeyConstraints: true });
-	database.exec('PRAGMA journal_mode = WAL');
-	applySchema(database);
-	if (!closingHooked) {
-		closingHooked = true;
-		app.on('will-quit', () => {
-			if (!database) return;
+const ensureClosingHook = (): void => {
+	if (closingHooked) return;
+	closingHooked = true;
+	app.on('will-quit', () => {
+		for (const entry of openDatabases) {
 			try {
-				database.close();
+				entry.close();
 			} catch (error) {
-				console.warn('Failed to close storage database:', error);
+				console.warn(`Failed to close database ${entry.filename}:`, error);
 			}
-			database = undefined;
-		});
-	}
-	return database;
+		}
+		openDatabases.clear();
+	});
 };
 
-export const transaction = <T>(fn: (db: DatabaseSync) => T): T => {
-	const db = getDatabase();
-	db.exec('BEGIN');
-	try {
-		const result = fn(db);
-		db.exec('COMMIT');
-		return result;
-	} catch (error) {
-		try {
-			db.exec('ROLLBACK');
-		} catch {
-			// ignore rollback failures when no transaction is open
+export const initDatabase = (options: DatabaseOptions) => {
+	let database: DatabaseSync | undefined;
+
+	const applySchema = (db: DatabaseSync): void => {
+		const version = Number(db.prepare('PRAGMA user_version').get()?.user_version ?? 0);
+		if (version >= options.version) return;
+		db.exec(options.schema);
+		db.exec(`PRAGMA user_version = ${options.version}`);
+	};
+
+	const getFilePath = (): string =>
+		path.join(app.getPath('userData'), 'oinky-storage', options.filename);
+
+	const getDatabase = (): DatabaseSync => {
+		if (database) return database;
+		const filepath = getFilePath();
+		fs.mkdirSync(path.dirname(filepath), { recursive: true });
+		database = new DatabaseSync(filepath, { enableForeignKeyConstraints: true });
+		database.exec('PRAGMA journal_mode = WAL');
+		for (const pragma of options.pragmas ?? []) {
+			database.exec(pragma);
 		}
-		throw error;
-	}
+		applySchema(database);
+		const handle = {
+			filename: options.filename,
+			close: () => {
+				if (!database) return;
+				database.close();
+				database = undefined;
+			},
+		};
+		openDatabases.add(handle);
+		ensureClosingHook();
+		return database;
+	};
+
+	const transaction = <T>(fn: (db: DatabaseSync) => T): T => {
+		const db = getDatabase();
+		db.exec('BEGIN');
+		try {
+			const result = fn(db);
+			db.exec('COMMIT');
+			return result;
+		} catch (error) {
+			try {
+				db.exec('ROLLBACK');
+			} catch {
+				// ignore rollback failures when no transaction is open
+			}
+			throw error;
+		}
+	};
+
+	return { getDatabase, getFilePath, transaction };
 };
+
+export const { getDatabase, transaction } = initDatabase({
+	filename:
+		process.env.NODE_ENV === 'production'
+			? 'flat-oinky.db'
+			: `${process.env.NODE_ENV ?? 'development'}.flat-oinky.db`,
+	schema: SCHEMA_SQL,
+	version: SCHEMA_VERSION,
+});

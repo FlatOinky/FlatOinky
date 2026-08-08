@@ -257,12 +257,21 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		return { container, button };
 	};
 
+	const onMenuOpen = (lifecycle: Lifecycle, handler: () => void) => {
+		const listener = (event: ToggleEvent) => {
+			if (event.newState === 'open') handler();
+		};
+		menuDropdown.addEventListener('toggle', listener);
+		lifecycle.onCleanup(() => menuDropdown.removeEventListener('toggle', listener));
+	};
+
 	return {
 		initMenuItem,
 		initActivity,
 		initWidget,
 		initWindowButton,
 		initMenuAction,
+		onMenuOpen,
 		initTrayButton,
 		initTrayButtonMenu,
 		elements: {
