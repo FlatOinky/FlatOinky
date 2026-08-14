@@ -40,10 +40,11 @@ Layout under `src/`:
 - `styles.css` + `styles/` — Tailwind/DaisyUI entry and component CSS
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
 - `client/systems/` — always-on features (app menu, notifications, logging, updates,
-  devtools, profiles). Systems other than profiles live on a restartable child
-  lifecycle rebuilt on profile swap; the profiles system owns the Profiles & Plugins
-  tray window and drives that restart.
-- `plugins/` — toggleable plugins (`tweaks`, `chat`, `monitor`, `metrics`, `themes`, …)
+  context menu, devtools, profiles). Systems other than profiles live on a restartable
+  child lifecycle rebuilt on profile swap; the profiles system owns the Profiles &
+  Plugins tray window and drives that restart.
+- `plugins/` — toggleable plugins (`tweaks`, `chat`, `monitor`, `metrics`, `themes`,
+  `mouse`, …)
 - `templates/`, `assets/`
 
 ## Client vs plugins
@@ -54,11 +55,11 @@ Layout under `src/`:
   reaches the client only through `PluginContext`.
 - **`PluginContext` is the third-party contract.** Anything a plugin needs must be
   reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `notifications`,
-  `log`, `settings`, `storages`, `collections`). System-only APIs (`updater`,
-  openDevTools, saveReferences) stay off the context. `notifications` is a getter that
-  throws if accessed before notifications are initialized. `log` is a
-  `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace); plugin
-  contexts prefix messages with `[plugin.name]`.
+  `contextMenu`, `log`, `settings`, `storages`, `collections`). System-only APIs
+  (`updater`, openDevTools, saveReferences) stay off the context. `notifications` and
+  `contextMenu` are getters that throw if accessed before those systems are initialized.
+  `log` is a `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace);
+  plugin contexts prefix messages with `[plugin.name]`.
 
 ## Coexisting with the FlatMMO client
 
@@ -66,14 +67,18 @@ Layout under `src/`:
   the game sources. `mutatedFunctions` (currently `get_player_animation`) wraps each
   match so the game calls `window.flatOinky.client.mutators.<fn>(original, …args)` when
   a plugin has registered a mutator, otherwise the original. `hookedFunctions`
-  (`server_command`, `add_to_chat`, `play_sound`, `play_track`, `pause_track`) then wraps
+  (`server_command`, `add_to_chat`, `play_sound`, `play_track`, `pause_track`,
+  `mouse_click_handler`) then wraps
   each match so the game calls `window.flatOinky.client.hooks.<fn>` first; returning
   `false` suppresses the inner call. A name may appear in either list or both — when
   both, the mutator pass runs first and the hook pass nests around it (veto, then
-  mutate). Plugins return `{ events?, hooks?, mutators? }` from `init`; add a new hook
-  or mutator by updating the matching list and the nested types in
+  mutate). Plugins return `{ events?, hooks?, mutators?, contextMenu? }` from `init`;
+  add a new hook or mutator by updating the matching list and the nested types in
   [src/client.ts](src/client.ts). Paint-path mutators must use fixed-arity dispatchers
-  (no rest/spread) so they stay allocation-free.
+  (no rest/spread) so they stay allocation-free. `contextMenu` is a map of target type
+  to `(target) => ContextMenuItem[]`; the always-on context menu system calls
+  `context.contextMenu.show(targets, event)` and folds each target's native left/right
+  click with every plugin's contributions for that type.
 - **CSS isolation** — game styles are injected as
   `@layer fmmo { @scope (html) to (.flat-oinky) { ... } }`, so they stop at the Oinky
   root. Oinky UI lives under `.flat-oinky`; Tailwind preflight is scoped there in

@@ -8,6 +8,13 @@ import {
 	type ClientStorage,
 	type PluginCollections,
 } from './client/client_storage';
+import type {
+	ContextMenu,
+	ContextMenuItem,
+	ContextTarget,
+	ContextTargetOf,
+	ContextTargetType,
+} from './client/context_menu';
 import { getAppVersion, saveFile } from './client/ipc_renderer';
 import { initLogging, type Logger, type LogLevel, type LogMethod } from './client/logging';
 import type { Notifications } from './client/notifications';
@@ -18,6 +25,13 @@ import { initUi } from './client/ui';
 import { initUpdater } from './client/updater';
 
 export type { ChatMessage, Logger, LogLevel, LogMethod };
+export type {
+	ContextMenu,
+	ContextMenuItem,
+	ContextTarget,
+	ContextTargetOf,
+	ContextTargetType,
+} from './client/context_menu';
 
 export type Lifecycle = ReturnType<typeof initLifecycle>;
 
@@ -74,6 +88,7 @@ const createContext = (
 	ipc: ClientIpc,
 	log: Logger,
 	getNotifications: () => Notifications | undefined,
+	getContextMenu: () => ContextMenu | undefined,
 ) => {
 	return {
 		character,
@@ -86,6 +101,11 @@ const createContext = (
 			const notifications = getNotifications();
 			if (!notifications) throw new Error('Notifications have not been initialized');
 			return notifications;
+		},
+		get contextMenu() {
+			const contextMenu = getContextMenu();
+			if (!contextMenu) throw new Error('Context menu has not been initialized');
+			return contextMenu;
 		},
 	};
 };
@@ -156,16 +176,22 @@ export type PluginHooks = {
 	playSound?: (url: string, volume: number) => PluginHookResult;
 	playTrack?: (url: string) => PluginHookResult;
 	pauseTrack?: () => PluginHookResult;
+	mouseClick?: (event: MouseEvent) => PluginHookResult;
 };
 
 export type PluginMutators = {
 	playerAnimation?: PluginMutator<[username: string, slot?: string], FMMO.AnimationSheet | null>;
 };
 
+export type PluginContextMenu = {
+	[K in ContextTargetType]?: (target: ContextTargetOf<K>) => ContextMenuItem[];
+};
+
 export type PluginCallbacks = {
 	events?: PluginEvents;
 	hooks?: PluginHooks;
 	mutators?: PluginMutators;
+	contextMenu?: PluginContextMenu;
 };
 
 /** A mutator dispatcher is absent while no plugin registers that mutator. */
@@ -179,6 +205,9 @@ export type PluginsApi = {
 	events: Required<PluginEvents>;
 	hooks: Required<PluginHooks>;
 	mutators: MutatorDispatchers<PluginMutators>;
+	contextMenu: {
+		buildItems: (target: ContextTarget) => ContextMenuItem[];
+	};
 };
 
 export type Plugin = {
@@ -429,8 +458,28 @@ const initPlugins = (
 					return instance.callbacks.hooks?.pauseTrack?.() ?? true;
 				});
 			},
+			mouseClick: (event) => {
+				return instanceList.every((instance) => {
+					return instance.callbacks.hooks?.mouseClick?.(event) ?? true;
+				});
+			},
 		},
 		mutators,
+		contextMenu: {
+			buildItems: (target) => {
+				const items: ContextMenuItem[] = [];
+				for (const instance of instanceList) {
+					const build = instance.callbacks.contextMenu?.[target.type];
+					if (!build) continue;
+					try {
+						items.push(...build(target as never));
+					} catch (error) {
+						console.error(error);
+					}
+				}
+				return items;
+			},
+		},
 	};
 
 	return {
@@ -459,6 +508,7 @@ export const hookedFunctions = [
 	'play_sound',
 	'play_track',
 	'pause_track',
+	'mouse_click_handler',
 ] as const;
 
 export const mutatedFunctions = ['get_player_animation'] as const;
@@ -550,6 +600,7 @@ const createClientHooks = (plugins: ClientPlugins) => {
 		play_sound: (url: string, volume: number) => plugins.api.hooks.playSound(url, volume),
 		play_track: (url: string) => plugins.api.hooks.playTrack(url),
 		pause_track: () => plugins.api.hooks.pauseTrack(),
+		mouse_click_handler: (event: MouseEvent) => plugins.api.hooks.mouseClick(event),
 	} satisfies Record<(typeof hookedFunctions)[number], unknown>;
 };
 
@@ -590,6 +641,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
 
 	let notifications: Notifications | undefined;
+	let contextMenu: ContextMenu | undefined;
 	const logging = initLogging(loggingStorage, () => plugins.api.events.chatMessage);
 	const context = createContext(
 		character,
@@ -599,6 +651,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		ipc,
 		logging.logger,
 		() => notifications,
+		() => contextMenu,
 	);
 	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage, logging.createLogger);
 	const hooks = createClientHooks(plugins);
@@ -612,6 +665,9 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		clientStorage,
 		setNotifications: (next) => {
 			notifications = next;
+		},
+		setContextMenu: (next) => {
+			contextMenu = next;
 		},
 		profiles,
 		plugins,

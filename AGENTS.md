@@ -66,6 +66,9 @@ client.
     (re-exported from `client.ts`).
   - `client/notifications.ts` — `initNotifications` factory backing
     `PluginContext.notifications`.
+  - `client/context_menu.ts` — `initContextMenu` factory backing
+    `PluginContext.contextMenu` (cursor-anchored popover built from native left/right
+    click actions plus plugin `contextMenu` contributions).
   - `client/logging.ts` — `initLogging` factory backing `PluginContext.log` and the
     System Logging settings section.
   - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file,
@@ -73,8 +76,8 @@ client.
     re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`.
   - `client/updater.ts` — update UI state machine wired to the main updater.
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
-    notifications tray/settings, logging settings, updates UI, devtools, profiles);
-    never toggleable. Systems other than profiles live on a restartable child
+    notifications tray/settings, logging settings, context menu, updates UI, devtools,
+    profiles); never toggleable. Systems other than profiles live on a restartable child
     lifecycle rebuilt on profile swap. Profiles owns the Profiles & Plugins tray
     window (profile CRUD plus per-profile plugin enable toggles).
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and

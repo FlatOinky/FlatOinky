@@ -98,13 +98,14 @@ observe/override game behavior. The wrapped functions are listed as `hookedFunct
 [src/renderer/src/client.ts](../src/renderer/src/client.ts) and injected by
 `transpileScript` in [src/renderer/src/transpilers.ts](../src/renderer/src/transpilers.ts):
 
-| Hooked function  | Defined in        |
-| ---------------- | ----------------- |
-| `server_command` | `js/websocket.js` |
-| `add_to_chat`    | `js/chat.js`      |
-| `play_sound`     | `js/ui.js`        |
-| `play_track`     | `js/ui.js`        |
-| `pause_track`    | `js/ui.js`        |
+| Hooked function       | Defined in        |
+| --------------------- | ----------------- |
+| `server_command`      | `js/websocket.js` |
+| `add_to_chat`         | `js/chat.js`      |
+| `play_sound`          | `js/ui.js`        |
+| `play_track`          | `js/ui.js`        |
+| `pause_track`         | `js/ui.js`        |
+| `mouse_click_handler` | `js/canvas.js`    |
 
 When investigating how a server message or UI action behaves, start from these definitions
 and trace outward.

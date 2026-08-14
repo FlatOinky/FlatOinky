@@ -24,6 +24,8 @@
 		"build:linux": "pnpm run build && electron-builder --linux && node build/copy_channel_files.mjs"
 	},
 	"dependencies": {
+		"@dicebear/core": "^10.4.0",
+		"@dicebear/styles": "^10.3.0",
 		"@electron-toolkit/preload": "^3.0.2",
 		"@electron-toolkit/utils": "^4.0.0",
 		"dot-prop": "^10.2.0",

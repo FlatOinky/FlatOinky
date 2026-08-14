@@ -1,5 +1,7 @@
 import type { ClientPlugins, Lifecycle } from '../client';
 import type { ClientStorage } from './client_storage';
+import type { ContextMenu } from './context_menu';
+import { initContextMenu } from './context_menu';
 import type { Logging } from './logging';
 import type { Notifications } from './notifications';
 import { initNotifications } from './notifications';
@@ -21,6 +23,7 @@ export type SystemsContext = {
 	notificationsStorage: ClientStorage;
 	clientStorage: ClientStorage;
 	setNotifications: (notifications: Notifications) => void;
+	setContextMenu: (contextMenu: ContextMenu) => void;
 	profiles: Profiles;
 	plugins: ClientPlugins;
 	logging: Logging;
@@ -36,6 +39,7 @@ export const initSystems = async (
 		notificationsStorage,
 		clientStorage,
 		setNotifications,
+		setContextMenu,
 		profiles,
 		plugins,
 		logging,
@@ -56,6 +60,11 @@ export const initSystems = async (
 		setNotifications(notifications);
 		initNotificationsSystem(systems, ui, notifications, settingsMenu);
 		initLoggingSystem(systems, logging, settingsMenu);
+
+		const contextMenu = initContextMenu(systems, ui.root, (target) =>
+			plugins.api.contextMenu.buildItems(target),
+		);
+		setContextMenu(contextMenu);
 
 		initUpdatesSystem(systems, ui, updater, settingsMenu);
 		await initDevtoolsSystem(systems, ui, settingsMenu, references);

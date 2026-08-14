@@ -49,11 +49,13 @@ declare global {
 	function save_local_mutes(set: Set<string>): void;
 	function refresh_local_mutes_html(): void;
 	var opened_modals: Set<string>;
-	var ground_items: object[];
+	var ground_items: FMMO.GroundItem[];
+	var items: FMMO.InventoryItem[];
 	var sound_off: boolean;
 	var music_off: boolean;
 	var players: { [username: string]: FMMO.Player };
-	var npcs: { [uuid: string]: object };
+	var npcs: { [uuid: string]: FMMO.Npc };
+	var map_objects: FMMO.MapObject[];
 	var projectile_objects: { [uuid: string]: FMMO.NpcProjectile };
 	var projectile_to_player_objects: { [uuid: string]: FMMO.PlayerProjectile };
 	var projectile_environment_objects: { [uuid: string]: FMMO.EnvironmentProjectile };
@@ -63,7 +65,26 @@ declare global {
 	let canvas_scale: number;
 	let TILE_SIZE: number;
 	let teleport_tiles: { x: number; y: number }[];
+	let mouse_over_now: { x: number; y: number; x_tile: number; y_tile: number };
+	let tile_marker_mode: boolean;
+	let selected_bank_tab: number;
 	var active_animations: Record<string, Record<string, FMMO.AnimationSheet>>;
 	function get_player_animation(username: string, slot?: string): FMMO.AnimationSheet | null;
 	function get_equipment(username: string, slot: string): string;
+	function is_mouse_on_ground_item(x: number, y: number, groundItem: FMMO.GroundItem): boolean;
+	function is_mouse_on_npc(x: number, y: number, npc: FMMO.Npc): boolean;
+	function is_mouse_on_player(x: number, y: number, player: FMMO.Player): boolean;
+	function is_mouse_on_map_object(x: number, y: number, mapObject: FMMO.MapObject): boolean;
+	function activate_click_animation(color: string, x: number, y: number): void;
+	function send_unrepeatable_bytes(value: string): void;
+	function send_unrepeatable_bytes_1s(value: string): void;
+	function is_bank_open(): boolean;
+	function get_inventory_item_count(item: string): number;
+	function open_input_deposit_to_bank_dialogue(
+		item: string,
+		label: string,
+		imagePath: string,
+		defaultValue: number,
+		tabIndex: number,
+	): void;
 }

@@ -44,6 +44,50 @@ declare namespace FMMO {
 		y: string;
 	};
 
+	export type Npc = {
+		uuid: string;
+		name: string;
+		label: string;
+		x: number;
+		y: number;
+		client_x: number;
+		client_y: number;
+		width: number;
+		height: number;
+		hp: number;
+		is_hidden: boolean;
+		interactable: boolean;
+		is_pickpocket_able: boolean;
+		has_click_priority: boolean;
+	};
+
+	export type GroundItem = {
+		uuid: string;
+		name: string;
+		amount: number;
+		x: number;
+		y: number;
+	};
+
+	export type MapObject = {
+		uuid: string;
+		name: string;
+		label: string;
+		x: number;
+		y: number;
+		tile_width: number;
+		tile_height: number;
+		interactable: boolean;
+		is_interactable: () => boolean;
+	};
+
+	export type InventoryItem = {
+		item: string;
+		amount: number | string;
+		background_color?: string;
+		tooltip?: string;
+	};
+
 	export type NpcProjectile = {
 		npc_uuid_target: string;
 		frames_interval_1: ReturnType<typeof setInterval>;
