@@ -243,7 +243,6 @@ const determineChaosDelay = () => {
 			? (delay - CHAOS_BELL_POINT_MS) / (CHAOS_MAX_INTERVAL_MS - CHAOS_BELL_POINT_MS)
 			: (CHAOS_BELL_POINT_MS - delay) / (CHAOS_BELL_POINT_MS - CHAOS_MIN_INTERVAL_MS);
 	multiplier *= multiplier;
-	console.log({ multiplier });
 	return delay * multiplier + CHAOS_BELL_POINT_MS * (1 - multiplier);
 };
 
