@@ -130,8 +130,26 @@ export const initInventoryTrigger = (
 		options.show([buildItemTarget(name, index)], event);
 	};
 
+	const onClick = (event: MouseEvent) => {
+		if (!options.isEnabled()) return;
+		if (!is_bank_open()) return;
+		const slot = (event.target as Element | null)?.closest('.item');
+		if (!slot?.parentElement || slot.parentElement !== inventory) return;
+		const name = slot.querySelector('img[data-item-name]')?.getAttribute('data-item-name');
+		if (!name) return;
+		const index = Array.prototype.indexOf.call(inventory.children, slot);
+		if (index < 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		Globals.websocket?.send(
+			`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~${get_inventory_item_count(name)}`,
+		);
+	};
+
+	inventory.addEventListener('click', onClick, true);
 	inventory.addEventListener('contextmenu', onContextMenu, true);
 	lifecycle.onCleanup(() => {
 		inventory.removeEventListener('contextmenu', onContextMenu, true);
+		inventory.removeEventListener('click', onClick, true);
 	});
 };
