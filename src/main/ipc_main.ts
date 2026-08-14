@@ -243,6 +243,34 @@ export const ipcMainSetup = (): void => {
 		},
 	);
 
+	ipcMain.on(
+		'storage:clearCollection',
+		(
+			event,
+			kind: storage.ScopeKind,
+			context: string,
+			namespace: string,
+			match?: storage.CollectionMatch,
+		) => {
+			if (!isValidName(context) || !isValidName(namespace)) return;
+			if (
+				match !== undefined &&
+				(typeof match !== 'object' || match === null || Array.isArray(match))
+			) {
+				return;
+			}
+			const session = sessions.get(event.sender.id);
+			if (!session) return;
+			const scope = resolveScope(session, kind);
+			if (!scope) return;
+			try {
+				storage.clearCollection(scope, context, namespace, match);
+			} catch (error) {
+				console.warn(error);
+			}
+		},
+	);
+
 	ipcMain.handle('storage:listProfiles', () => storage.listProfiles());
 
 	ipcMain.handle('storage:createProfile', (_event, name: string) => {

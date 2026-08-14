@@ -210,6 +210,45 @@ export const fetchCollection = (
 	return rows.map((row) => parseCollectionValue(row.value)).reverse();
 };
 
+const COLLECTION_MATCH_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+export type CollectionMatch = Record<string, string | number | boolean | null>;
+
+const toSqlMatchValue = (value: string | number | boolean | null): string | number | null => {
+	if (typeof value === 'boolean') return value ? 1 : 0;
+	return value;
+};
+
+export const clearCollection = (
+	scope: Scope,
+	context: string,
+	namespace: string,
+	match?: CollectionMatch,
+): void => {
+	const { table, idColumn } = COLLECTION_TABLE_MAP[scope.kind];
+	const scopeId = getScopeId(scope);
+	const entries = match ? Object.entries(match) : [];
+	for (const [key] of entries) {
+		if (!COLLECTION_MATCH_KEY.test(key)) {
+			throw new Error(`Invalid collection match key: ${key}`);
+		}
+	}
+	const matchClauses = entries.map(([key]) => `json_extract(value, '$.${key}') IS ?`).join(' AND ');
+	const matchValues = entries.map(([, value]) => toSqlMatchValue(value));
+	const db = getDatabase();
+	if (idColumn) {
+		const sql = matchClauses
+			? `DELETE FROM ${table} WHERE ${idColumn} = ? AND context = ? AND namespace = ? AND ${matchClauses}`
+			: `DELETE FROM ${table} WHERE ${idColumn} = ? AND context = ? AND namespace = ?`;
+		db.prepare(sql).run(scopeId as number, context, namespace, ...matchValues);
+	} else {
+		const sql = matchClauses
+			? `DELETE FROM ${table} WHERE context = ? AND namespace = ? AND ${matchClauses}`
+			: `DELETE FROM ${table} WHERE context = ? AND namespace = ?`;
+		db.prepare(sql).run(context, namespace, ...matchValues);
+	}
+};
+
 // #region profiles
 
 export type ProfileRow = { id: number; name: string };

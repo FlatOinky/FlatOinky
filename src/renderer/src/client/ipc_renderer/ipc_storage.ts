@@ -51,6 +51,15 @@ export const fetchCollection = async (
 ): Promise<unknown[]> =>
 	await ipcRenderer.invoke('storage:fetchCollection', kind, context, namespace, quantity);
 
+export type CollectionMatch = Record<string, string | number | boolean | null>;
+
+export const clearCollection = (
+	kind: ScopeKind,
+	context: StorageContext | string,
+	namespace: string,
+	match?: CollectionMatch,
+): void => ipcRenderer.send('storage:clearCollection', kind, context, namespace, match);
+
 export const listProfiles = async (): Promise<ProfileRow[]> =>
 	await ipcRenderer.invoke('storage:listProfiles');
 

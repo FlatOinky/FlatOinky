@@ -207,9 +207,12 @@ export const createPluginStorages = async (
 
 // #region collections
 
+export type CollectionMatch = ipcStorage.CollectionMatch;
+
 export type Collection<T = unknown> = {
 	fetch: (quantity: number) => Promise<T[]>;
 	append: (value: T, max?: number) => void;
+	clear: (match?: CollectionMatch) => void;
 };
 
 export type PluginCollections = {
@@ -226,6 +229,7 @@ const createCollection = <T>(
 	fetch: async (quantity) =>
 		(await ipcStorage.fetchCollection(kind, context, namespace, quantity)) as T[],
 	append: (value, max) => ipcStorage.appendCollection(kind, context, namespace, value, max),
+	clear: (match) => ipcStorage.clearCollection(kind, context, namespace, match),
 });
 
 export const createPluginCollections = (namespace: string): PluginCollections => {

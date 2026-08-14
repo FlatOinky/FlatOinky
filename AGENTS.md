@@ -98,7 +98,8 @@ sections for always-on systems use `core/systems`), and per-scope append-only
 `*_collections` rows keyed the same way (plugins fold a collection name into the
 namespace as `oinky/<name>/<collection>`). `client`, `notifications`, `logging`, and
 `plugins` use profile storage; `updater` and `devtools` use global storage. Collections
-are read with `fetch(quantity)` and written with `append(value, max?)`.
+are read with `fetch(quantity)`, written with `append(value, max?)`, and cleared with
+`clear(match?)` (optional field match via `json_extract`).
 
 ## 4. Safety and permission boundaries
 

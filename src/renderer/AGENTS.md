@@ -127,6 +127,7 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      append-only histories (chat messages, XP drops, …). API:
      - `fetch(quantity)` → `Promise<T[]>` (oldest→newest, up to `quantity` most recent)
      - `append(value, max?)` — fire-and-forget insert; optional `max` trims oldest rows
+     - `clear(match?)` — fire-and-forget delete; optional `match` filters by JSON fields
        Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
        `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
        rendering.

@@ -93,6 +93,18 @@ const createXpAccumulator = async (context: PluginContext) => {
 		trim();
 	};
 
+	const scrub = (skill?: string) => {
+		if (skill === undefined) {
+			cache.length = 0;
+			collection.clear();
+			return;
+		}
+		for (let i = cache.length - 1; i >= 0; i--) {
+			if (cache[i].skill === skill) cache.splice(i, 1);
+		}
+		collection.clear({ skill });
+	};
+
 	const slice = (settings: Settings) => {
 		const cutoff = Date.now() - settings.timeSpan * (1 + RECENT_WINDOW_PERCENTAGE) * 60 * 1000;
 		let start = 0;
@@ -105,6 +117,7 @@ const createXpAccumulator = async (context: PluginContext) => {
 	return {
 		cache,
 		append,
+		scrub,
 		trim,
 		slice,
 		forEach,
@@ -246,6 +259,8 @@ const mountSkillBlock = (
 	skill: string,
 	activeSkillCharts: { [key: string]: boolean },
 	sessionTotals: { all: number; bySkill: { [key: string]: number } },
+	onCloseTotal: () => void,
+	onScrub: (skill: string) => void,
 ) => {
 	let showTotal = settings.metricsWindow.showTotal && skill === 'total';
 	const skillFilter = skill === 'total' ? () => true : (xpDrop: XPDrop) => xpDrop.skill === skill;
@@ -273,24 +288,40 @@ const mountSkillBlock = (
 			'session-xp',
 		);
 
-	if (skill !== 'total') {
-		el.button`absolute top-1 right-1 btn btn-xs size-2 btn-circle btn-error in-locked-window:hidden`.mount(
-			container,
-			'close',
-			(button) => {
-				button.innerHTML = '×';
-				button.onclick = () => {
-					activeSkillCharts[skill] = false;
-					xpTracker = startXpTracker(
-						xpAccumulator,
-						settings,
-						skillFilter,
-						sessionTotals.bySkill[skill] ?? 0,
-					);
-				};
-			},
-		);
-	}
+	const actions = el.div`absolute top-1 right-1 flex gap-2 in-locked-window:hidden`.mount(
+		container,
+		'actions',
+	);
+	el.button`btn btn-xs size-3 -m-0.5 btn-circle btn-secondary btn-soft tooltip tooltip-bottom tooltip-end tooltip-secondary`.mount(
+		actions,
+		'scrub',
+		(button) => {
+			el.icon.eraser`size-3 -m-0.5`.mount(button, 'icon');
+			button.setAttribute('data-tip', 'Clear XP');
+			button.onclick = () => onScrub(skill);
+		},
+	);
+	el.button`btn btn-xs size-3 -m-0.5 btn-circle btn-error btn-soft tooltip tooltip-bottom tooltip-end tooltip-error`.mount(
+		actions,
+		'close',
+		(button) => {
+			el.icon.x`size-3 -m-0.5`.mount(button, 'icon');
+			button.setAttribute('data-tip', 'Close');
+			button.onclick = () => {
+				if (skill === 'total') {
+					onCloseTotal();
+					return;
+				}
+				activeSkillCharts[skill] = false;
+				xpTracker = startXpTracker(
+					xpAccumulator,
+					settings,
+					skillFilter,
+					sessionTotals.bySkill[skill] ?? 0,
+				);
+			};
+		},
+	);
 
 	const skillChart = mountSkillChart(context, container, xpTracker, settings.chartColor, {
 		responsive: true,
@@ -384,6 +415,8 @@ const initMetricsWindow = (
 	activeSkillCharts: { [key: string]: boolean },
 	sessionTotals: { all: number; bySkill: { [key: string]: number } },
 	onClose: () => void,
+	onCloseTotal: () => void,
+	onScrub: (skill: string) => void,
 ) => {
 	const lifecycle = parentLifecycle.spawnLifecycle();
 	const window = context.ui.windows.initWindow(lifecycle, {
@@ -417,6 +450,8 @@ const initMetricsWindow = (
 				skill,
 				activeSkillCharts,
 				sessionTotals,
+				onCloseTotal,
+				onScrub,
 			),
 		);
 	};
@@ -448,6 +483,30 @@ export const MetricsPlugin: Plugin = {
 		}
 
 		let windowMetrics: ReturnType<typeof initMetricsWindow> | undefined;
+		let showTotalCheckbox: HTMLInputElement | undefined;
+		let refreshMetrics = () => {};
+
+		const setShowTotal = (show: boolean) => {
+			settings.metricsWindow.showTotal = show;
+			if (showTotalCheckbox) showTotalCheckbox.checked = show;
+			if (show) windowMetrics?.ensureSkillMounted('total');
+			windowMetrics?.skillCharts.forEach((chart) => chart.syncShowTotal());
+		};
+
+		const scrubXp = (skill: string) => {
+			if (skill === 'total') {
+				xpAccumulator.scrub();
+				sessionTotals.all = 0;
+				sessionTotals.bySkill = {};
+			} else {
+				const removed = sessionTotals.bySkill[skill] ?? 0;
+				xpAccumulator.scrub(skill);
+				sessionTotals.all = Math.max(0, sessionTotals.all - removed);
+				delete sessionTotals.bySkill[skill];
+			}
+			refreshMetrics();
+		};
+
 		const createWindowMetrics = () => {
 			if (!settings.metricsWindow.isOpen) return;
 			const newWindow = initMetricsWindow(
@@ -460,6 +519,8 @@ export const MetricsPlugin: Plugin = {
 				() => {
 					settings.metricsWindow.isOpen = false;
 				},
+				() => setShowTotal(false),
+				scrubXp,
 			);
 			newWindow.lifecycle.onCleanup(() => {
 				windowMetrics = undefined;
@@ -516,7 +577,7 @@ export const MetricsPlugin: Plugin = {
 			}, settings.updateInterval * 1000);
 		};
 
-		const refreshMetrics = () => {
+		refreshMetrics = () => {
 			toggleChart.lineGraph.svg.remove();
 			xpTracker = startXpTracker(xpAccumulator, settings, () => true, sessionTotals.all);
 			toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
@@ -535,12 +596,9 @@ export const MetricsPlugin: Plugin = {
 				description: 'Show the combined total XP chart in the metrics window.',
 				specialType: 'toggle',
 				input: el.input.checkbox``.then((input) => {
+					showTotalCheckbox = input;
 					input.checked = settings.metricsWindow.showTotal;
-					input.onchange = () => {
-						settings.metricsWindow.showTotal = input.checked;
-						if (input.checked) windowMetrics?.ensureSkillMounted('total');
-						windowMetrics?.skillCharts.forEach((chart) => chart.syncShowTotal());
-					};
+					input.onchange = () => setShowTotal(input.checked);
 				}),
 			},
 			{

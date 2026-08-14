@@ -252,6 +252,7 @@ export const icon = {
 	download: setupIconElement('icon-[tabler--download]'),
 	edit: setupIconElement('icon-[tabler--edit]'),
 	editOff: setupIconElement('icon-[tabler--edit-off]'),
+	eraser: setupIconElement('icon-[tabler--eraser]'),
 	eye: setupIconElement('icon-[tabler--eye]'),
 	eyeOff: setupIconElement('icon-[tabler--eye-off]'),
 	highlight: setupIconElement('icon-[tabler--highlight]'),
