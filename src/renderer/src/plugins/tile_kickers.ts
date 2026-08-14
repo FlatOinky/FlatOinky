@@ -8,8 +8,9 @@ const CACHE_CAP = 128;
 const KICK_RISE_ART_PIXELS = 3;
 const ART_TILE_SIZE = 16;
 const CHAOS_DURATION_MS = 1000;
-const CHAOS_MIN_INTERVAL_MS = 5000;
+const CHAOS_MIN_INTERVAL_MS = 2000;
 const CHAOS_MAX_INTERVAL_MS = 20000;
+const CHAOS_BELL_POINT_MS = 5000;
 
 const initialSettings = {
 	enabled: false,
@@ -233,6 +234,19 @@ const createAnimationMutator = (
 
 // #region settings
 
+const determineChaosDelay = () => {
+	const delay =
+		CHAOS_MIN_INTERVAL_MS + Math.random() * (CHAOS_MAX_INTERVAL_MS - CHAOS_MIN_INTERVAL_MS);
+	if (delay === CHAOS_BELL_POINT_MS) return delay;
+	let multiplier =
+		delay > CHAOS_BELL_POINT_MS
+			? (delay - CHAOS_BELL_POINT_MS) / (CHAOS_MAX_INTERVAL_MS - CHAOS_BELL_POINT_MS)
+			: (CHAOS_BELL_POINT_MS - delay) / (CHAOS_BELL_POINT_MS - CHAOS_MIN_INTERVAL_MS);
+	multiplier *= multiplier;
+	console.log({ multiplier });
+	return delay * multiplier + CHAOS_BELL_POINT_MS * (1 - multiplier);
+};
+
 const initChaosMode = (
 	lifecycle: Lifecycle,
 	settings: Settings,
@@ -249,8 +263,7 @@ const initChaosMode = (
 	const scheduleNextChaos = () => {
 		clearChaosTimer();
 		if (!settings.enabled || !settings.chaosMode) return;
-		const delay =
-			CHAOS_MIN_INTERVAL_MS + Math.random() * (CHAOS_MAX_INTERVAL_MS - CHAOS_MIN_INTERVAL_MS);
+		const delay = determineChaosDelay();
 		timeoutId = setTimeout(() => {
 			setChaosUntil(performance.now() + CHAOS_DURATION_MS);
 			scheduleNextChaos();
@@ -336,8 +349,6 @@ export const TileKickersPlugin: Plugin = {
 			},
 			{
 				label: 'Chaos mode',
-				description:
-					'Randomly kick for about a second every 5–20 seconds, ignoring transport tiles.',
 				specialType: 'toggle',
 				input: el.input.checkbox``.then((input) => {
 					input.checked = settings.chaosMode;
