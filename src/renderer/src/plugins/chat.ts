@@ -23,12 +23,12 @@ import {
 	timestampFormatOptions,
 } from './chat/chat_types';
 import {
-	createKeyWordsSettingsNode,
-	createKeyWordsVolumeSettingsNode,
-	initialKeyWords,
+	createWordMatchesSettingsNode,
+	createWordMatchesVolumeSettingsNode,
+	initialWordMatches,
 	isChatMessageFiltered,
 	isChatMessageFilteredFromLog,
-	notifyKeyWordMatches,
+	notifyWordMatches,
 } from './chat/chat_words';
 
 const daisyUiColors = {
@@ -75,9 +75,9 @@ export const ChatPlugin: Plugin = {
 		const colors = context.storages.profile.reactive('colors', initialChatColors);
 		const channels = context.storages.character.reactive('channels', initialChannels);
 		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
-		const keyWords = context.storages.profile.reactive('keyWords', initialKeyWords);
+		const wordMatches = context.storages.profile.reactive('keyWords', initialWordMatches);
 		const filters = {
-			keyWords,
+			wordMatches,
 			muted: mutedPlayers,
 		};
 		const settingsMenu = context.settings.initMenu(lifecycle);
@@ -274,9 +274,13 @@ export const ChatPlugin: Plugin = {
 			},
 		]);
 
-		const keyWordsSection = settingsMenu.mountSection('Key Words', [
-			createKeyWordsVolumeSettingsNode(keyWords, context.notifications),
-			createKeyWordsSettingsNode(keyWords, onSettingsChange, context.settings.helpers.swapToggle),
+		const wordMatchesSection = settingsMenu.mountSection('Word Matches', [
+			createWordMatchesVolumeSettingsNode(wordMatches, context.notifications),
+			createWordMatchesSettingsNode(
+				wordMatches,
+				onSettingsChange,
+				context.settings.helpers.swapToggle,
+			),
 		]);
 
 		const mutedPlayersSectionTitle =
@@ -312,9 +316,9 @@ export const ChatPlugin: Plugin = {
 			elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
 			settingsMenu.open();
 		};
-		elements.keyWordsActivator.onclick = () => {
-			elements.keyWordsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-			keyWordsSection.open();
+		elements.wordMatchesActivator.onclick = () => {
+			elements.wordMatchesActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+			wordMatchesSection.open();
 		};
 		elements.mutedPlayersActivator.onclick = () => {
 			elements.mutedPlayersActivator.closest<HTMLElement>('[popover]')?.hidePopover();
@@ -332,14 +336,14 @@ export const ChatPlugin: Plugin = {
 					if (chatMessage.type === 'pm_from' && chatMessage.username) {
 						pmState.latestPmUsername = chatMessage.username;
 					}
-					notifyKeyWordMatches(
+					notifyWordMatches(
 						chatMessage,
-						keyWords,
+						wordMatches,
 						context.notifications,
 						context.character.username,
 					);
-					if (isChatMessageFiltered(chatMessage, keyWords)) {
-						if (isChatMessageFilteredFromLog(chatMessage, keyWords)) return;
+					if (isChatMessageFiltered(chatMessage, wordMatches)) {
+						if (isChatMessageFilteredFromLog(chatMessage, wordMatches)) return;
 						storeChatMessage(chatMessage, settings);
 						return;
 					}

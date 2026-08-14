@@ -5,18 +5,18 @@ import * as el from '../../client/ui/elements';
 import { createListEditor } from './chat_list_editor';
 import { MutedPlayers } from './chat_muted';
 
-export type KeyWordType = 'visible' | 'highlight' | 'collapse' | 'filter';
+export type WordMatchType = 'visible' | 'highlight' | 'collapse' | 'filter';
 
-export const keyWordTypeOptions: ReadonlyArray<{ label: string; value: KeyWordType }> = [
-	{ label: 'Visible', value: 'visible' },
+export const wordMatchTypeOptions: ReadonlyArray<{ label: string; value: WordMatchType }> = [
+	{ label: 'Normal', value: 'visible' },
 	{ label: 'Highlight', value: 'highlight' },
 	{ label: 'Collapse', value: 'collapse' },
 	{ label: 'Hide', value: 'filter' },
 ];
 
-export type KeyWordEntry = {
+export type WordMatchEntry = {
 	word: string;
-	type: KeyWordType;
+	type: WordMatchType;
 	/** When true, filtered messages are still kept in the chat log. */
 	logMessages: boolean;
 	enableNotification: boolean;
@@ -24,7 +24,7 @@ export type KeyWordEntry = {
 	regex: boolean;
 };
 
-export const initialKeyWordEntry: KeyWordEntry = {
+export const initialWordMatchEntry: WordMatchEntry = {
 	word: '',
 	type: 'visible',
 	logMessages: true,
@@ -33,21 +33,21 @@ export const initialKeyWordEntry: KeyWordEntry = {
 	regex: false,
 };
 
-export const initialKeyWords = {
-	entries: [] as KeyWordEntry[],
-	/** Shared by every key word; individual entries only toggle alerts on or off. */
+export const initialWordMatches = {
+	entries: [] as WordMatchEntry[],
+	/** Shared by every word match; individual entries only toggle alerts on or off. */
 	audioVolume: 1,
 };
-export type KeyWords = typeof initialKeyWords;
+export type WordMatches = typeof initialWordMatches;
 
 export type ChatFilters = {
-	keyWords: KeyWords;
+	wordMatches: WordMatches;
 	muted: MutedPlayers;
 };
 
 type SwapToggle = SettingsHelpers['swapToggle'];
 
-const keyWordTypePrecedence: Record<KeyWordType, number> = {
+const wordMatchTypePrecedence: Record<WordMatchType, number> = {
 	filter: 4,
 	collapse: 3,
 	highlight: 2,
@@ -58,28 +58,30 @@ const normalizeWord = (value: string): string => value.trim();
 
 const entryList = <T>(entries: T[] | undefined): T[] => (Array.isArray(entries) ? entries : []);
 
-const keyWordEntries = (keyWords: KeyWords): KeyWordEntry[] => entryList(keyWords.entries);
+const wordMatchEntries = (wordMatches: WordMatches): WordMatchEntry[] =>
+	entryList(wordMatches.entries);
 
 const hasWord = (entries: { word: string }[], candidate: string): boolean =>
 	entries.some((entry) => entry.word.toLowerCase() === candidate.toLowerCase());
 
 const entryWord = (entry: { word?: string }): string => normalizeWord(entry.word ?? '');
 
-const entryType = (entry: KeyWordEntry): KeyWordType => entry.type ?? initialKeyWordEntry.type;
+const entryType = (entry: WordMatchEntry): WordMatchType =>
+	entry.type ?? initialWordMatchEntry.type;
 
-const entryLogMessages = (entry: KeyWordEntry): boolean =>
-	entry.logMessages ?? initialKeyWordEntry.logMessages;
+const entryLogMessages = (entry: WordMatchEntry): boolean =>
+	entry.logMessages ?? initialWordMatchEntry.logMessages;
 
-const entryEnableNotification = (entry: KeyWordEntry): boolean =>
-	entry.enableNotification ?? initialKeyWordEntry.enableNotification;
+const entryEnableNotification = (entry: WordMatchEntry): boolean =>
+	entry.enableNotification ?? initialWordMatchEntry.enableNotification;
 
-const entryEnableAudio = (entry: KeyWordEntry): boolean =>
-	entry.enableAudio ?? initialKeyWordEntry.enableAudio;
+const entryEnableAudio = (entry: WordMatchEntry): boolean =>
+	entry.enableAudio ?? initialWordMatchEntry.enableAudio;
 
-const entryRegex = (entry: KeyWordEntry): boolean => entry.regex ?? initialKeyWordEntry.regex;
+const entryRegex = (entry: WordMatchEntry): boolean => entry.regex ?? initialWordMatchEntry.regex;
 
-const keyWordsAudioVolume = (keyWords: KeyWords): number =>
-	keyWords.audioVolume ?? initialKeyWords.audioVolume;
+const wordMatchesAudioVolume = (wordMatches: WordMatches): number =>
+	wordMatches.audioVolume ?? initialWordMatches.audioVolume;
 
 const tryCompileRegex = (pattern: string, flags: string): RegExp | null => {
 	try {
@@ -89,7 +91,7 @@ const tryCompileRegex = (pattern: string, flags: string): RegExp | null => {
 	}
 };
 
-const entryMatchesMessage = (entry: KeyWordEntry, message: string): boolean => {
+const entryMatchesMessage = (entry: WordMatchEntry, message: string): boolean => {
 	const trimmed = entryWord(entry);
 	if (!trimmed) return false;
 	if (entryRegex(entry)) {
@@ -99,52 +101,58 @@ const entryMatchesMessage = (entry: KeyWordEntry, message: string): boolean => {
 	return message.toLowerCase().includes(trimmed.toLowerCase());
 };
 
-export const matchedKeyWordEntries = (
+export const matchedWordMatchEntries = (
 	chatMessage: ChatMessage,
-	keyWords: KeyWords,
-): KeyWordEntry[] => {
+	wordMatches: WordMatches,
+): WordMatchEntry[] => {
 	if (chatMessage.type === 'welcome' || !chatMessage.message) return [];
-	return keyWordEntries(keyWords).filter((entry) =>
+	return wordMatchEntries(wordMatches).filter((entry) =>
 		entryMatchesMessage(entry, chatMessage.message),
 	);
 };
 
-export const effectiveKeyWordType = (
+export const effectiveWordMatchType = (
 	chatMessage: ChatMessage,
-	keyWords: KeyWords,
-): KeyWordType | undefined => {
-	const matches = matchedKeyWordEntries(chatMessage, keyWords);
+	wordMatches: WordMatches,
+): WordMatchType | undefined => {
+	const matches = matchedWordMatchEntries(chatMessage, wordMatches);
 	if (matches.length === 0) return undefined;
-	let best: KeyWordType = entryType(matches[0]!);
+	let best: WordMatchType = entryType(matches[0]!);
 	for (const entry of matches) {
 		const type = entryType(entry);
-		if (keyWordTypePrecedence[type] > keyWordTypePrecedence[best]) best = type;
+		if (wordMatchTypePrecedence[type] > wordMatchTypePrecedence[best]) best = type;
 	}
 	return best;
 };
 
-export const isChatMessageFiltered = (chatMessage: ChatMessage, keyWords: KeyWords): boolean =>
-	effectiveKeyWordType(chatMessage, keyWords) === 'filter';
+export const isChatMessageFiltered = (
+	chatMessage: ChatMessage,
+	wordMatches: WordMatches,
+): boolean => effectiveWordMatchType(chatMessage, wordMatches) === 'filter';
 
 export const isChatMessageFilteredFromLog = (
 	chatMessage: ChatMessage,
-	keyWords: KeyWords,
+	wordMatches: WordMatches,
 ): boolean => {
 	if (chatMessage.type === 'welcome') return false;
-	return matchedKeyWordEntries(chatMessage, keyWords)
+	return matchedWordMatchEntries(chatMessage, wordMatches)
 		.filter((entry) => entryType(entry) === 'filter')
 		.some((entry) => !entryLogMessages(entry));
 };
 
-export const isChatMessageCollapsed = (chatMessage: ChatMessage, keyWords: KeyWords): boolean =>
-	effectiveKeyWordType(chatMessage, keyWords) === 'collapse';
+export const isChatMessageCollapsed = (
+	chatMessage: ChatMessage,
+	wordMatches: WordMatches,
+): boolean => effectiveWordMatchType(chatMessage, wordMatches) === 'collapse';
 
-export const isChatMessageHighlighted = (chatMessage: ChatMessage, keyWords: KeyWords): boolean =>
-	effectiveKeyWordType(chatMessage, keyWords) === 'highlight';
+export const isChatMessageHighlighted = (
+	chatMessage: ChatMessage,
+	wordMatches: WordMatches,
+): boolean => effectiveWordMatchType(chatMessage, wordMatches) === 'highlight';
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const highlightPattern = (entries: KeyWordEntry[]): RegExp | null => {
+const highlightPattern = (entries: WordMatchEntry[]): RegExp | null => {
 	const parts = entries
 		.filter((entry) => entryType(entry) === 'highlight')
 		.map((entry) => {
@@ -161,8 +169,8 @@ const highlightPattern = (entries: KeyWordEntry[]): RegExp | null => {
 	return tryCompileRegex(`(${parts.join('|')})`, 'gi');
 };
 
-export const highlightMessageWords = (messageEl: HTMLElement, keyWords: KeyWords): void => {
-	const pattern = highlightPattern(keyWordEntries(keyWords));
+export const highlightMessageWords = (messageEl: HTMLElement, wordMatches: WordMatches): void => {
+	const pattern = highlightPattern(wordMatchEntries(wordMatches));
 	if (!pattern) return;
 
 	const walker = document.createTreeWalker(messageEl, NodeFilter.SHOW_TEXT);
@@ -209,52 +217,52 @@ const unescapeMessageEntities = (message: string): string =>
 		.replaceAll('&quot;', '"')
 		.replaceAll('&#039;', "'");
 
-const updateKeyWordEntry = (
-	keyWords: KeyWords,
+const updateWordMatchEntry = (
+	wordMatches: WordMatches,
 	word: string,
-	patch: Partial<Omit<KeyWordEntry, 'word'>>,
+	patch: Partial<Omit<WordMatchEntry, 'word'>>,
 ): void => {
-	keyWords.entries = keyWordEntries(keyWords).map((entry) =>
+	wordMatches.entries = wordMatchEntries(wordMatches).map((entry) =>
 		entry.word === word ? { ...entry, ...patch } : entry,
 	);
 };
 
-const addKeyWordEntry = (keyWords: KeyWords, value: string): boolean => {
+const addWordMatchEntry = (wordMatches: WordMatches, value: string): boolean => {
 	const trimmed = normalizeWord(value);
 	if (!trimmed) return false;
-	const entries = keyWordEntries(keyWords);
+	const entries = wordMatchEntries(wordMatches);
 	if (hasWord(entries, trimmed)) return false;
-	keyWords.entries = [
+	wordMatches.entries = [
 		...entries,
 		{
-			...initialKeyWordEntry,
+			...initialWordMatchEntry,
 			word: trimmed,
 		},
 	];
 	return true;
 };
 
-const removeKeyWordEntry = (keyWords: KeyWords, word: string): void => {
-	keyWords.entries = keyWordEntries(keyWords).filter((entry) => entry.word !== word);
+const removeWordMatchEntry = (wordMatches: WordMatches, word: string): void => {
+	wordMatches.entries = wordMatchEntries(wordMatches).filter((entry) => entry.word !== word);
 };
 
-const previewKeyWordAlert = (notifications: Notifications, keyWords: KeyWords): void => {
-	notifications.send('Key word', {
-		volume: keyWordsAudioVolume(keyWords),
+const previewWordMatchAlert = (notifications: Notifications, wordMatches: WordMatches): void => {
+	notifications.send('Word match', {
+		volume: wordMatchesAudioVolume(wordMatches),
 		notification: false,
 	});
 };
 
-export const notifyKeyWordMatches = (
+export const notifyWordMatches = (
 	chatMessage: ChatMessage,
-	keyWords: KeyWords,
+	wordMatches: WordMatches,
 	notifications: Notifications,
 	ownUsername: string,
 ): void => {
 	if (chatMessage.type === 'welcome' || chatMessage.type === 'pm_to') return;
 	if (chatMessage.username && chatMessage.username === ownUsername) return;
 
-	const matches = matchedKeyWordEntries(chatMessage, keyWords);
+	const matches = matchedWordMatchEntries(chatMessage, wordMatches);
 	if (matches.length === 0) return;
 
 	const notifyMatches = matches.filter((entry) => entryEnableNotification(entry));
@@ -265,43 +273,43 @@ export const notifyKeyWordMatches = (
 		const title = entryWord((notifyMatches[0] ?? audioMatches[0])!);
 		notifications.send(title, {
 			message: body,
-			volume: keyWordsAudioVolume(keyWords),
+			volume: wordMatchesAudioVolume(wordMatches),
 			notification: notifyMatches.length > 0,
 			audio: audioMatches.length > 0,
 		});
 	}
 };
 
-export const createKeyWordsVolumeSettingsNode = (
-	keyWords: KeyWords,
+export const createWordMatchesVolumeSettingsNode = (
+	wordMatches: WordMatches,
 	notifications: Notifications,
 ): SettingsNode => ({
 	label: 'Alert volume',
-	description: 'Volume of the alert sound, shared by every key word.',
+	description: 'Volume of the alert sound, shared by every word match.',
 	specialType: 'alertVolume',
-	onTest: () => previewKeyWordAlert(notifications, keyWords),
+	onTest: () => previewWordMatchAlert(notifications, wordMatches),
 	input: el.input.range``.then((input) => {
 		input.min = '0';
 		input.max = '1';
 		input.step = '0.05';
-		input.value = String(keyWordsAudioVolume(keyWords));
-		input.onchange = () => (keyWords.audioVolume = parseFloat(input.value));
+		input.value = String(wordMatchesAudioVolume(wordMatches));
+		input.onchange = () => (wordMatches.audioVolume = parseFloat(input.value));
 	}),
 });
 
-export const createKeyWordsSettingsNode = (
-	keyWords: KeyWords,
+export const createWordMatchesSettingsNode = (
+	wordMatches: WordMatches,
 	onChange: (() => void) | undefined,
 	swapToggle: SwapToggle,
 ): Element =>
 	createListEditor({
-		title: (count) => `Key words (${count})`,
+		title: (count) => `Matches (${count})`,
 		placeholder: 'Word or phrase',
 		maxLength: 64,
 		removeTitle: (entry) => `Remove ${entry.word}`,
-		getItems: () => keyWordEntries(keyWords),
-		add: (value) => addKeyWordEntry(keyWords, value),
-		remove: (entry) => removeKeyWordEntry(keyWords, entry.word),
+		getItems: () => wordMatchEntries(wordMatches),
+		add: (value) => addWordMatchEntry(wordMatches, value),
+		remove: (entry) => removeWordMatchEntry(wordMatches, entry.word),
 		collapsible: false,
 		onChange,
 		renderItem: (body, entry) => {
@@ -312,7 +320,7 @@ export const createKeyWordsSettingsNode = (
 				});
 
 				el.select`select select-sm w-28 shrink-0`.mount(row, undefined, (select) => {
-					for (const option of keyWordTypeOptions) {
+					for (const option of wordMatchTypeOptions) {
 						el.option``.mount(select, undefined, (opt) => {
 							opt.value = option.value;
 							opt.textContent = option.label;
@@ -320,8 +328,8 @@ export const createKeyWordsSettingsNode = (
 					}
 					select.value = entryType(entry);
 					select.onchange = () => {
-						updateKeyWordEntry(keyWords, entry.word, {
-							type: select.value as KeyWordType,
+						updateWordMatchEntry(wordMatches, entry.word, {
+							type: select.value as WordMatchType,
 						});
 						onChange?.();
 					};
@@ -332,7 +340,7 @@ export const createKeyWordsSettingsNode = (
 						el.input.checkbox``.then((input) => {
 							input.checked = entryLogMessages(entry);
 							input.onchange = () => {
-								updateKeyWordEntry(keyWords, entry.word, {
+								updateWordMatchEntry(wordMatches, entry.word, {
 									logMessages: input.checked,
 								});
 								onChange?.();
@@ -347,7 +355,7 @@ export const createKeyWordsSettingsNode = (
 						el.input.checkbox``.then((input) => {
 							input.checked = entryEnableNotification(entry);
 							input.onchange = () => {
-								updateKeyWordEntry(keyWords, entry.word, {
+								updateWordMatchEntry(wordMatches, entry.word, {
 									enableNotification: input.checked,
 								});
 							};
@@ -361,7 +369,7 @@ export const createKeyWordsSettingsNode = (
 						el.input.checkbox``.then((input) => {
 							input.checked = entryEnableAudio(entry);
 							input.onchange = () => {
-								updateKeyWordEntry(keyWords, entry.word, {
+								updateWordMatchEntry(wordMatches, entry.word, {
 									enableAudio: input.checked,
 								});
 							};
@@ -375,7 +383,7 @@ export const createKeyWordsSettingsNode = (
 						el.input.checkbox``.then((input) => {
 							input.checked = entryRegex(entry);
 							input.onchange = () => {
-								updateKeyWordEntry(keyWords, entry.word, { regex: input.checked });
+								updateWordMatchEntry(wordMatches, entry.word, { regex: input.checked });
 								onChange?.();
 							};
 						}),

@@ -85,7 +85,7 @@ export const getVisibleChatMessages = (settings: Settings, filters: ChatFilters)
 	const visible = chatMessages.filter(
 		(chatMessage) =>
 			!isChatMessageMuted(chatMessage, filters.muted) &&
-			!isChatMessageFiltered(chatMessage, filters.keyWords),
+			!isChatMessageFiltered(chatMessage, filters.wordMatches),
 	);
 	return visible.slice(Math.max(0, visible.length - settings.maxChatLength));
 };
@@ -213,7 +213,7 @@ export const createChatMessageContent = (
 	parts.push(
 		el.span``.then((messageEl) => {
 			messageEl.innerHTML = formatMessageHtml(chatMessage.message);
-			highlightMessageWords(messageEl, filters.keyWords);
+			highlightMessageWords(messageEl, filters.wordMatches);
 		}),
 	);
 
@@ -270,13 +270,13 @@ export const renderMessageLi = (
 	bgClass: string,
 	filters: ChatFilters,
 ): HTMLLIElement => {
-	if (isChatMessageCollapsed(chatMessage, filters.keyWords)) {
+	if (isChatMessageCollapsed(chatMessage, filters.wordMatches)) {
 		return createCollapsedMessageLi(chatMessage, settings, bgClass, filters);
 	}
 	return createMessageLi(
 		createChatMessageContent(chatMessage, settings, filters),
 		bgClass,
-		isChatMessageHighlighted(chatMessage, filters.keyWords),
+		isChatMessageHighlighted(chatMessage, filters.wordMatches),
 	);
 };
 
@@ -334,8 +334,8 @@ export const mountChatMessage = (
 	}
 	const { messagesContainer, popupsContainer, stickiness } = elements;
 	const messageBg = getMessageBg(settings.enableZebra);
-	const collapsed = isChatMessageCollapsed(chatMessage, filters.keyWords);
-	const highlighted = isChatMessageHighlighted(chatMessage, filters.keyWords);
+	const collapsed = isChatMessageCollapsed(chatMessage, filters.wordMatches);
+	const highlighted = isChatMessageHighlighted(chatMessage, filters.wordMatches);
 
 	if (collapsed) {
 		messagesContainer.appendChild(

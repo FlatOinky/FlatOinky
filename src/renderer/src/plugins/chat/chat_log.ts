@@ -71,7 +71,7 @@ export const wireChatLog = (
 		const logMessages = chatMessages.filter(
 			(chatMessage) =>
 				!isChatMessageMutedFromLog(chatMessage, filters.muted) &&
-				!isChatMessageFilteredFromLog(chatMessage, filters.keyWords),
+				!isChatMessageFilteredFromLog(chatMessage, filters.wordMatches),
 		);
 		logContainer.replaceChildren(
 			...logMessages.map((chatMessage) =>
