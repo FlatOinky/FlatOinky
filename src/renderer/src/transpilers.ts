@@ -23,6 +23,10 @@ const UNWANTED_SNIPPETS: ReadonlyArray<{ pattern: string; replacement: string }>
 	},
 ];
 
+const renameGameMapClassReferences = (input: string): string => {
+	return input.replaceAll(/(class|new|instanceof) Map/g, '$1 GameMap');
+};
+
 const removeUnwantedSnippets = (input: string): string => {
 	const pattern = new RegExp(UNWANTED_SNIPPETS.map(({ pattern }) => `(${pattern})`).join('|'), 'g');
 	return input.replace(pattern, (...args) => {
@@ -112,6 +116,7 @@ export const transpileScript = (
 	mutatedFunctions: readonly string[],
 ): string =>
 	transpileReducer(script, [
+		renameGameMapClassReferences,
 		removeUnwantedSnippets,
 		convertScriptNavigationUrls,
 		injectBeforeConnect,
