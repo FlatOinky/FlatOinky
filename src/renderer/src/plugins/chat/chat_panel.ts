@@ -36,11 +36,12 @@ const hideUpstreamChatNode = (lifecycle: Lifecycle, selector: string): void => {
 
 const mountToggleButton = (root: HTMLElement, settings: Settings) => {
 	const toggleButton =
-		el.label`absolute right-full btn btn-sm engaged:btn-secondary btn-square m-1 indicator`.mount(
+		el.label`absolute right-full btn btn-sm engaged:btn-secondary btn-square m-1 indicator swap`.mount(
 			root,
 			'toggle',
 		);
-	el.icon.chevronDown`size-6 -m-1 transition-transform`.mount(toggleButton, 'icon');
+	el.icon.chevronDown`size-6 -m-1 transition-transform swap-off`.mount(toggleButton, 'icon');
+	el.icon.chevronsDown`size-6 -m-1 transition-transform swap-on`.mount(toggleButton, 'icon');
 
 	const toggleCheckbox = el.input.checkbox`hidden`.mount(
 		toggleButton,
@@ -231,6 +232,7 @@ export const initChat = (
 	// wiring
 	const onMessagesScroll = () => {
 		stickiness.isSticky = checkIsAtBottom(messagesContainer);
+		toggleButton.classList.toggle('swap-active', !stickiness.isSticky);
 		if (stickiness.isSticky) {
 			updateToggleIndicator(toggleIndicator, false);
 		}
