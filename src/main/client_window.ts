@@ -19,6 +19,8 @@ export function createWindow(): void {
 		},
 	});
 
+	mainWindow.webContents.backgroundThrottling = false;
+
 	// mainWindow.setIcon(icon);
 
 	mainWindow.on('ready-to-show', () => mainWindow.show());
