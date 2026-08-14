@@ -20,15 +20,30 @@ export type NotificationOptions = {
 
 export const initNotifications = (lifecycle: Lifecycle, storage: ClientStorage) => {
 	const settings = storage.reactive('settings', initialNotificationSettings);
-	const audio = new Audio();
-	lifecycle.onCleanup(() => audio.remove());
+	const audioCache = new Map<string, HTMLAudioElement>();
+	lifecycle.onCleanup(() =>
+		audioCache.entries().forEach(([src, audio]) => {
+			audioCache.delete(src);
+			audio.remove();
+		}),
+	);
+
+	const getAudio = (src: string) => {
+		const existing = audioCache.get(src);
+		if (existing) return existing;
+		const audio = new Audio();
+		audio.src = src;
+		audioCache.set(src, audio);
+		return audio;
+	};
+	getAudio(notificationMp3);
 
 	const send = (title: string, options: NotificationOptions = {}): void => {
 		if ((options.notification ?? true) && settings.enableNotification) {
 			ipcCreateNotification(title, options.message);
 		}
 		if ((options.audio ?? true) && settings.enableAudio) {
-			audio.src = options.customSound ?? settings.customSound ?? notificationMp3;
+			const audio = getAudio(options.customSound ?? settings.customSound ?? notificationMp3);
 			audio.volume = settings.audioVolume * (options.volume ?? 1);
 			audio.currentTime = 0;
 			void audio.play();
