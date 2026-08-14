@@ -180,8 +180,7 @@ export const initUpdater = (
 
 	// A login check in dev would nag on every reload with an update that cannot
 	// install anyway; manual checks still run there.
-	const isDevelopment = process.env.NODE_ENV === 'development';
-	if (settings.checkOnLaunch && !isDevelopment) check({ silent: true });
+	if (settings.checkOnLaunch && !import.meta.env.DEV) check({ silent: true });
 
 	return {
 		version,

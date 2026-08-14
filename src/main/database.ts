@@ -155,10 +155,9 @@ export const initDatabase = (options: DatabaseOptions) => {
 };
 
 export const { getDatabase, transaction } = initDatabase({
-	filename:
-		process.env.NODE_ENV === 'production'
-			? 'flat-oinky.db'
-			: `${process.env.NODE_ENV ?? 'development'}.flat-oinky.db`,
+	filename: import.meta.env.PROD
+		? 'flat-oinky.db'
+		: `${import.meta.env.MODE ?? 'development'}.flat-oinky.db`,
 	schema: SCHEMA_SQL,
 	version: SCHEMA_VERSION,
 });

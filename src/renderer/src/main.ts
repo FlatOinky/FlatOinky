@@ -168,7 +168,7 @@ const renderLoaderPage = (className = ''): string => {
 };
 
 const renderDevtoolButton = (): string => {
-	if (process.env.NODE_ENV !== 'development') return '';
+	if (!import.meta.env.DEV) return '';
 	return `<button type="button" flat-oinky="devtools" class="btn btn-sm btn-ghost">Devtools</button>`;
 };
 
@@ -482,7 +482,7 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 			const characters = parseCharactersHtmlText(dashboardHtmlText);
 			if (characters.length > 0) {
 				flatOinky.characters = characters;
-				if (process.env.NODE_ENV === 'development') {
+				if (import.meta.env.DEV) {
 					flatOinky.characterIndex = flatOinky.characters.length - 1;
 				}
 			}

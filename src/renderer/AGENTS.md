@@ -213,6 +213,6 @@ AGENTS.md).
 
 - Do not launch the app or hit the live server (root AGENTS.md).
 - Vite HMR sends a `reload-window` custom event; the renderer does a full reload.
-- Dev-only behavior: `process.env.NODE_ENV === 'development'` auto-selects the last
+- Dev-only behavior: `import.meta.env.DEV` auto-selects the last
   character and shows the pre-client Devtools button. The in-game Devtools tray is
   gated on the `enabledDevtools` setting (default false), not on `NODE_ENV`.
