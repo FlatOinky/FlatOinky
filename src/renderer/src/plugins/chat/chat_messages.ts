@@ -226,7 +226,7 @@ export const createMessageLi = (
 	bgClass: string,
 	highlighted = false,
 ): HTMLLIElement =>
-	el.li`p-1 text-shadow-md ${bgClass}${highlighted ? ` ${highlightedRowClass}` : ''}`.then((li) => {
+	el.li`p-1 ${bgClass}${highlighted ? ` ${highlightedRowClass}` : ''}`.then((li) => {
 		li.appendChild(content);
 	});
 
@@ -235,7 +235,7 @@ export const createPopupLi = (
 	bgClass: string,
 	highlighted = false,
 ): HTMLLIElement =>
-	el.li`px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${bgClass}${highlighted ? ` ${highlightedRowClass}` : ''}`.then(
+	el.li`px-1 py-0.5 mt-1 last:mb-0.5 rounded-box ${bgClass}${highlighted ? ` ${highlightedRowClass}` : ''}`.then(
 		(li) => {
 			li.appendChild(content);
 		},
@@ -247,7 +247,7 @@ const createCollapsedMessageLi = (
 	bgClass: string,
 	filters: ChatFilters,
 ): HTMLLIElement => {
-	return el.li`text-shadow-md ${bgClass}`.then((li) => {
+	return el.li`${bgClass}`.then((li) => {
 		el.button`-my-1 mx-1 px-1 py-px btn btn-ghost btn-xs justify-start opacity-70 hover:opacity-100 pointer-events-auto`.mount(
 			li,
 			undefined,
