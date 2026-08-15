@@ -110,19 +110,23 @@ export const initContextMenu = (
 		menu.style.left = `${event.clientX}px`;
 		menu.style.top = `${event.clientY}px`;
 
-		// Auto popovers light-dismiss on the right-button mouseup that follows
-		// contextmenu/mousedown, so open only after pointerup.
 		if (menu.matches(':popover-open')) {
 			menu.hidePopover();
 		}
-		document.addEventListener(
-			'pointerup',
-			() => {
-				menu.showPopover();
-				clampPosition(event.clientX, event.clientY);
-			},
-			{ once: true },
-		);
+
+		const reveal = () => {
+			menu.showPopover();
+			clampPosition(event.clientX, event.clientY);
+		};
+
+		// Auto popovers light-dismiss on the right-button mouseup that follows
+		// mousedown (canvas) and macOS contextmenu. Windows fires contextmenu
+		// after pointerup, so opening then would wait for a second click.
+		if (event.buttons === 0) {
+			reveal();
+		} else {
+			document.addEventListener('pointerup', reveal, { once: true });
+		}
 	};
 
 	const show = (targets: ContextTarget[], event: MouseEvent): boolean => {
