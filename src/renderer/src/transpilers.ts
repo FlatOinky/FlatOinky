@@ -77,7 +77,7 @@ const createWrapFunctions = (
 
 const injectBeforeConnect = (input: string): string => {
 	return input.replace(
-		/(\w*)(Globals.websocket.send\(['"]CONNECT=['"])/,
+		/^(\s*)(Globals.websocket.send\(['"]CONNECT=['"])/m,
 		`$1window?.flatOinky?.client?.handleBeforeConnect();\n$1$2`,
 	);
 };
