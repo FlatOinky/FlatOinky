@@ -1,6 +1,7 @@
 import type { SettingsHelpers, SettingsNode } from '../client/settings';
 import { Lifecycle, Plugin, PluginContext } from '../client';
 import * as el from '../client/ui/elements';
+import { createBotWatcherSettings, initBotWatcher } from './monitor/bot_watcher';
 
 // #region Vars
 
@@ -51,6 +52,7 @@ const initialSettings = {
 		worship: { ...initialAlertSettings, threshold: 3 },
 		run: { ...initialAlertSettings, enabled: false, threshold: 10 },
 	} satisfies Record<StateCueKey, typeof initialAlertSettings & { threshold: number }>,
+	botWatcher: createBotWatcherSettings(initialAlertSettings),
 };
 type AlertScope = typeof initialAlertSettings;
 
@@ -429,7 +431,7 @@ export const MonitorPlugin: Plugin = {
 	namespace: 'oinky/monitor',
 	name: 'Monitor',
 	description:
-		'Desktop/sound alerts for audio cues, low sleep/health/worship/run, AFK detection, plus a crafting progress indicator.',
+		'Desktop/sound alerts for audio cues, low sleep/health/worship/run, AFK detection, a crafting progress indicator, and a Bot Watcher for world events.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('alertSettings', initialSettings);
 		const helpers = context.settings.helpers;
@@ -443,6 +445,14 @@ export const MonitorPlugin: Plugin = {
 			() => settings.enableStateCues,
 		);
 		const afkApi = initAfkDetection(context, settings.afkDetection, helpers, lifecycle);
+		const botWatcherApi = initBotWatcher(
+			lifecycle,
+			context,
+			settings.botWatcher,
+			helpers,
+			makeToggleNode,
+			makeCueCard,
+		);
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Afk Detection', afkApi.nodes);
@@ -468,9 +478,11 @@ export const MonitorPlugin: Plugin = {
 			),
 			...stateCuesApi.nodes,
 		]);
+		settingsMenu.mountSection('Bot Watcher', botWatcherApi.nodes);
 
 		return {
 			events: {
+				chatMessage: (chatMessage) => botWatcherApi.handleChatMessage(chatMessage),
 				makeUiChange: (item, completed, total, sessionXp) =>
 					craftingActivity.update(item, completed, total, sessionXp),
 				updateSleep: (value) => stateCuesApi.evaluate('sleep', value),
