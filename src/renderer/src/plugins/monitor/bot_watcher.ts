@@ -363,6 +363,7 @@ const categoryIcon = (key: CategoryKey, isGem: boolean): Element => {
 	})();
 	icon.classList.add('size-6');
 	icon.classList.add('-m-1');
+	icon.classList.add('leading-none');
 	return icon;
 };
 
@@ -421,7 +422,7 @@ const mountWatcherRow = (container: HTMLElement, id: string, title: string): Wat
 		);
 	const wrap = el.div`rounded-full shrink-0`.mount(root, 'aura');
 	const circle = el.div`size-8 rounded-full flex items-center justify-center`.mount(wrap, 'circle');
-	const iconHost = el.span``.mount(circle, 'icon');
+	const iconHost = el.span`leading-none`.mount(circle, 'icon');
 	const text = el.div`flex flex-col min-w-0 flex-1 gap-0.5`.mount(root, 'text');
 	const header = el.div`flex items-baseline gap-1.5 flex-wrap`.mount(text, 'header');
 	el.span`font-medium text-sm leading-tight`.mount(header, 'title', (span) => {
@@ -463,7 +464,7 @@ const mountWatcherStack = (container: HTMLElement, id: string): WatcherStack => 
 		);
 	const wrap = el.div`rounded-full shrink-0`.mount(root, 'aura');
 	const circle = el.div`size-8 rounded-full flex items-center justify-center`.mount(wrap, 'circle');
-	const iconHost = el.span``.mount(circle, 'icon');
+	const iconHost = el.span`leading-none`.mount(circle, 'icon');
 	const badgeRow = el.span`flex gap-1 flex-wrap justify-center`.mount(root, 'badges');
 	const location = el.div`text-xs text-base-content/80 truncate w-full text-center`.mount(
 		root,
@@ -1197,7 +1198,7 @@ export const initBotWatcher = (
 			title: 'Bot Watcher',
 			storage: context.storages.profile,
 			icon: el.icon.binoculars``.element,
-			initialState: { width: 216, height: 196, top: 76, left: 8 },
+			initialState: { width: 224, height: 104, top: 76, left: 188 },
 			onClose: () => {
 				settings.windowOpen = false;
 			},
