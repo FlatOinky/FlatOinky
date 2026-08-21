@@ -1,3 +1,5 @@
+import { DatabaseSync } from 'node:sqlite';
+import { app } from 'electron';
 import * as dot from 'dot-prop';
 import { getDatabase, transaction } from './database';
 
@@ -83,49 +85,112 @@ const loadDocuments = (scope: Scope): DocumentRows => {
 	return result;
 };
 
-const updateDocument = (
+const readDocument = (scope: Scope, context: string, namespace: string): object => {
+	const { table, idColumn } = SETTINGS_TABLE_MAP[scope.kind];
+	const scopeId = getScopeId(scope);
+	const db = getDatabase();
+	const existing = idColumn
+		? (db
+				.prepare(
+					`SELECT value FROM ${table} WHERE ${idColumn} = ? AND context = ? AND namespace = ?`,
+				)
+				.get(scopeId as number, context, namespace) as { value: string } | undefined)
+		: (db
+				.prepare(`SELECT value FROM ${table} WHERE context = ? AND namespace = ?`)
+				.get(context, namespace) as { value: string } | undefined);
+	return parseValue(existing?.value);
+};
+
+const persistDocument = (
+	db: DatabaseSync,
 	scope: Scope,
 	context: string,
 	namespace: string,
-	key: StorageKey,
-	value: unknown,
+	document: object,
 ): void => {
 	const { table, idColumn } = SETTINGS_TABLE_MAP[scope.kind];
 	const scopeId = getScopeId(scope);
-	transaction((db) => {
-		const existing = idColumn
-			? (db
-					.prepare(
-						`SELECT value FROM ${table} WHERE ${idColumn} = ? AND context = ? AND namespace = ?`,
-					)
-					.get(scopeId as number, context, namespace) as { value: string } | undefined)
-			: (db
-					.prepare(`SELECT value FROM ${table} WHERE context = ? AND namespace = ?`)
-					.get(context, namespace) as { value: string } | undefined);
-		const document = parseValue(existing?.value);
-		if (value === undefined) {
-			dot.deleteProperty(document, key);
-		} else {
-			dot.setProperty(document, key, value);
-		}
-		const serialized = JSON.stringify(document);
-		if (idColumn) {
-			db.prepare(
-				`INSERT INTO ${table} (${idColumn}, context, namespace, value) VALUES (?, ?, ?, ?)
-				ON CONFLICT (${idColumn}, context, namespace) DO UPDATE SET value = excluded.value`,
-			).run(scopeId as number, context, namespace, serialized);
-		} else {
-			db.prepare(
-				`INSERT INTO ${table} (context, namespace, value) VALUES (?, ?, ?)
-				ON CONFLICT (context, namespace) DO UPDATE SET value = excluded.value`,
-			).run(context, namespace, serialized);
-		}
-	});
+	const serialized = JSON.stringify(document);
+	if (idColumn) {
+		db.prepare(
+			`INSERT INTO ${table} (${idColumn}, context, namespace, value) VALUES (?, ?, ?, ?)
+			ON CONFLICT (${idColumn}, context, namespace) DO UPDATE SET value = excluded.value`,
+		).run(scopeId as number, context, namespace, serialized);
+	} else {
+		db.prepare(
+			`INSERT INTO ${table} (context, namespace, value) VALUES (?, ?, ?)
+			ON CONFLICT (context, namespace) DO UPDATE SET value = excluded.value`,
+		).run(context, namespace, serialized);
+	}
 };
 
 // #region settings
 
-export const loadSettings = (scope: Scope): DocumentRows => loadDocuments(scope);
+const SETTINGS_WRITE_DEBOUNCE_MS = 200;
+const SETTINGS_WRITE_MAX_WAIT_MS = 1000;
+
+type PendingSettingsDocument = {
+	scope: Scope;
+	context: string;
+	namespace: string;
+	document: object;
+};
+
+const pendingSettings = new Map<string, PendingSettingsDocument>();
+let settingsFlushTimer: ReturnType<typeof setTimeout> | undefined;
+let settingsFirstPendingAt: number | undefined;
+
+const pendingSettingsKey = (scope: Scope, context: string, namespace: string): string =>
+	JSON.stringify([scope.kind, getScopeId(scope), context, namespace]);
+
+const flushPendingSettings = (): void => {
+	if (settingsFlushTimer !== undefined) {
+		clearTimeout(settingsFlushTimer);
+		settingsFlushTimer = undefined;
+	}
+	settingsFirstPendingAt = undefined;
+	if (pendingSettings.size === 0) return;
+	const pending = [...pendingSettings.values()];
+	pendingSettings.clear();
+	transaction((db) => {
+		for (const entry of pending) {
+			persistDocument(db, entry.scope, entry.context, entry.namespace, entry.document);
+		}
+	});
+};
+
+const scheduleSettingsFlush = (): void => {
+	const now = Date.now();
+	settingsFirstPendingAt ??= now;
+	const wait = Math.min(
+		SETTINGS_WRITE_DEBOUNCE_MS,
+		Math.max(0, SETTINGS_WRITE_MAX_WAIT_MS - (now - settingsFirstPendingAt)),
+	);
+	if (settingsFlushTimer !== undefined) clearTimeout(settingsFlushTimer);
+	settingsFlushTimer = setTimeout(flushPendingSettings, wait);
+};
+
+const getPendingDocument = (scope: Scope, context: string, namespace: string): object => {
+	const key = pendingSettingsKey(scope, context, namespace);
+	const existing = pendingSettings.get(key);
+	if (existing) return existing.document;
+	const document = readDocument(scope, context, namespace);
+	pendingSettings.set(key, { scope, context, namespace, document });
+	return document;
+};
+
+app.on('will-quit', () => {
+	try {
+		flushPendingSettings();
+	} catch (error) {
+		console.warn('Failed to flush pending settings:', error);
+	}
+});
+
+export const loadSettings = (scope: Scope): DocumentRows => {
+	flushPendingSettings();
+	return loadDocuments(scope);
+};
 
 export const updateSettings = (
 	scope: Scope,
@@ -133,7 +198,15 @@ export const updateSettings = (
 	namespace: string,
 	key: StorageKey,
 	value: unknown,
-): void => updateDocument(scope, context, namespace, key, value);
+): void => {
+	const document = getPendingDocument(scope, context, namespace);
+	if (value === undefined) {
+		dot.deleteProperty(document, key);
+	} else {
+		dot.setProperty(document, key, value);
+	}
+	scheduleSettingsFlush();
+};
 
 // #region collections
 
@@ -305,6 +378,7 @@ const uniqueProfileName = (base: string): string => {
 };
 
 export const duplicateProfile = (sourceId: number): ProfileRow => {
+	flushPendingSettings();
 	const db = getDatabase();
 	const source = db.prepare('SELECT id, name FROM profiles WHERE id = ?').get(sourceId) as
 		| ProfileRow
@@ -327,6 +401,7 @@ export const duplicateProfile = (sourceId: number): ProfileRow => {
 };
 
 export const deleteProfile = (id: number): void => {
+	flushPendingSettings();
 	const profiles = listProfiles();
 	if (profiles.length <= 1) throw new Error('Cannot delete the last profile');
 	const target = profiles.find((entry) => entry.id === id);
