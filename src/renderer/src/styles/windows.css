@@ -16,6 +16,7 @@ article[oinky-window] {
 	/* Resting transform must stay `none` — any transform creates a stacking
 	   context that would trap painted layers and kill locked-window alpha. */
 	transform: none;
+	contain: layout;
 	opacity: 1;
 	visibility: visible;
 	/* visibility is delayed on minimize so the fade can finish first. */
@@ -23,6 +24,10 @@ article[oinky-window] {
 	transition-duration: 150ms;
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-delay: 0s;
+}
+article[oinky-window][oinky-window-dragging] {
+	transition: none;
+	will-change: transform;
 }
 article[oinky-window][locked-window] {
 	pointer-events: none;

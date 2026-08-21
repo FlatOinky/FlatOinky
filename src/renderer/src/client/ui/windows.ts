@@ -16,15 +16,31 @@ const renderWindowFrame = (id: string, title: string) => {
 
 // #region utils
 
+const WINDOW_SNAP = 4;
+
+const snapPx = (value: number): number => Math.floor(value / WINDOW_SNAP) * WINDOW_SNAP;
+
+const setStylePx = (
+	frame: HTMLElement,
+	property: 'width' | 'height' | 'left' | 'top',
+	value: number,
+) => {
+	const next = `${value}px`;
+	if (frame.style[property] === next) return;
+	frame.style[property] = next;
+};
+
 const updateWindowFramePosition = (
 	frame: HTMLElement,
 	state: WindowState,
-	settings = { windowOpacity: 7, windowSnap: 4 },
+	options?: { size?: boolean },
 ) => {
-	frame.style.width = `${Math.floor(state.width / settings.windowSnap) * settings.windowSnap}px`;
-	frame.style.height = `${Math.floor(state.height / settings.windowSnap) * settings.windowSnap}px`;
-	frame.style.left = `${1 + Math.floor(state.left / settings.windowSnap) * settings.windowSnap}px`;
-	frame.style.top = `${1 + Math.floor(state.top / settings.windowSnap) * settings.windowSnap}px`;
+	if (options?.size !== false) {
+		setStylePx(frame, 'width', snapPx(state.width));
+		setStylePx(frame, 'height', snapPx(state.height));
+	}
+	setStylePx(frame, 'left', 1 + snapPx(state.left));
+	setStylePx(frame, 'top', 1 + snapPx(state.top));
 };
 
 const updateWindowFrameLock = (frame: HTMLElement, state: WindowState) => {
@@ -51,12 +67,21 @@ const handleElementDrag = (
 	mouseDownCallback?: () => void,
 	mouseUpCallback?: () => void,
 ) => {
-	element.onmousedown = () => {
+	element.onmousedown = (downEvent: MouseEvent) => {
+		if (downEvent.button !== 0) return;
+		downEvent.preventDefault();
 		const modifier = 1 / window.api.getZoomFactor();
 		mouseDownCallback?.();
+		let leftoverX = 0;
+		let leftoverY = 0;
 		const handler = (event: MouseEvent) => {
-			const x = Math.round(event.movementX * modifier);
-			const y = Math.round(event.movementY * modifier);
+			leftoverX += event.movementX * modifier;
+			leftoverY += event.movementY * modifier;
+			const x = leftoverX < 0 ? Math.ceil(leftoverX) : Math.floor(leftoverX);
+			const y = leftoverY < 0 ? Math.ceil(leftoverY) : Math.floor(leftoverY);
+			leftoverX -= x;
+			leftoverY -= y;
+			if (x === 0 && y === 0) return;
 			callback(x, y);
 		};
 		document.addEventListener('mousemove', handler);
@@ -119,7 +144,7 @@ type WindowOptions = {
 export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: TaskbarApi) => {
 	const container = document.createElement('section');
 	container.setAttribute('oinky', 'windows');
-	container.className = 'absolute inset-0 @container pointer-events-none';
+	container.className = 'absolute inset-0 pointer-events-none';
 	lifecycle.onCleanup(() => container.remove());
 	root.appendChild(container);
 
@@ -161,18 +186,52 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			windowFrames[id] = undefined;
 		});
 
-		const handleFrameEdgeDrag = (
-			windowEdge: HTMLElement,
-			callback: (x: number, y: number) => void,
-		) =>
-			handleElementDrag(
-				windowEdge,
-				(x, y) => {
-					callback(x, y);
-					updateWindowFramePosition(windowFrame, windowState);
-				},
-				undefined,
-				() => {
+		const handleGeometryDrag = (
+			element: HTMLElement,
+			mode: 'move' | 'resize',
+			onDelta: (x: number, y: number) => void,
+			mouseDownCallback?: () => void,
+			mouseUpCallback?: () => void,
+		) => {
+			let originLeft = 0;
+			let originTop = 0;
+			let rafId = 0;
+
+			const applyMoveTransform = () => {
+				const dx = snapPx(windowState.left) - snapPx(originLeft);
+				const dy = snapPx(windowState.top) - snapPx(originTop);
+				const next = dx === 0 && dy === 0 ? '' : `translate3d(${dx}px, ${dy}px, 0)`;
+				if (windowFrame.style.transform === next) return;
+				windowFrame.style.transform = next;
+			};
+
+			const applyVisual = () => {
+				rafId = 0;
+				if (mode === 'move') {
+					applyMoveTransform();
+					return;
+				}
+				updateWindowFramePosition(windowFrame, windowState);
+			};
+
+			const scheduleVisual = () => {
+				if (rafId !== 0) return;
+				rafId = requestAnimationFrame(applyVisual);
+			};
+
+			const commitDrag = () => {
+				if (rafId !== 0) {
+					cancelAnimationFrame(rafId);
+					rafId = 0;
+				}
+				if (mode === 'move') {
+					updateWindowFramePosition(windowFrame, windowState, { size: false });
+					windowFrame.style.transform = 'none';
+					// Flush used style while transition is still disabled so clearing
+					// translate3d cannot interpolate against the new left/top.
+					void windowFrame.offsetWidth;
+				} else {
+					applyVisual();
 					const containerRect = container.getBoundingClientRect();
 					const windowRect = windowFrame.getBoundingClientRect();
 					windowState.height = Math.ceil(windowRect.height);
@@ -180,8 +239,40 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 					windowState.top = Math.ceil(windowRect.top - containerRect.top);
 					windowState.left = Math.ceil(windowRect.left - containerRect.left);
 					updateWindowFramePosition(windowFrame, windowState);
+				}
+				windowFrame.removeAttribute('oinky-window-dragging');
+				windowFrame.style.transform = '';
+			};
+
+			lifecycle.onCleanup(() => {
+				if (rafId === 0) return;
+				cancelAnimationFrame(rafId);
+				rafId = 0;
+			});
+
+			handleElementDrag(
+				element,
+				(x, y) => {
+					onDelta(x, y);
+					scheduleVisual();
+				},
+				() => {
+					originLeft = windowState.left;
+					originTop = windowState.top;
+					windowFrame.setAttribute('oinky-window-dragging', '');
+					mouseDownCallback?.();
+				},
+				() => {
+					commitDrag();
+					mouseUpCallback?.();
 				},
 			);
+		};
+
+		const handleFrameEdgeDrag = (
+			windowEdge: HTMLElement,
+			callback: (x: number, y: number) => void,
+		) => handleGeometryDrag(windowEdge, 'resize', callback);
 		const frameEdges = windowFrame.querySelectorAll<HTMLDivElement>('div[oinky-window-edge]');
 		frameEdges.forEach((windowEdge) => {
 			const position = windowEdge.getAttribute('oinky-window-edge');
@@ -243,12 +334,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 
 		const frameDraggables = windowFrame.querySelectorAll<HTMLDivElement>('div[oinky-window-drag]');
 		frameDraggables.forEach((windowDraggable) => {
-			handleElementDrag(
+			handleGeometryDrag(
 				windowDraggable,
+				'move',
 				(x, y) => {
 					windowState.left = windowState.left + x;
 					windowState.top = windowState.top + y;
-					updateWindowFramePosition(windowFrame, windowState);
 				},
 				() => {
 					windowDraggable.classList.remove('cursor-grab');
