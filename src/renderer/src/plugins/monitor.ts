@@ -24,7 +24,7 @@ const stateCues = {
 	sleep: { title: 'Sleep' },
 	health: { title: 'Health' },
 	worship: { title: 'Worship' },
-	run: { title: 'Run' },
+	run: { title: 'Run Energy' },
 } as const;
 type StateCueKey = keyof typeof stateCues;
 

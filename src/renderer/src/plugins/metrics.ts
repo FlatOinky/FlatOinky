@@ -54,6 +54,7 @@ const initialSettings = {
 		isOpen: false,
 		showTotal: true,
 		showInactiveSkills: false,
+		keepControlButtons: false,
 	},
 };
 type Settings = typeof initialSettings;
@@ -288,11 +289,8 @@ const mountSkillBlock = (
 			'session-xp',
 		);
 
-	const actions = el.div`absolute top-1 right-1 flex gap-2 in-locked-window:hidden`.mount(
-		container,
-		'actions',
-	);
-	el.button`btn btn-xs size-3 -m-0.5 btn-circle btn-secondary btn-soft tooltip tooltip-bottom tooltip-end tooltip-secondary`.mount(
+	const actions = el.div`absolute top-1 right-1 flex gap-2`.mount(container, 'actions');
+	el.button`btn btn-xs size-3 -m-0.5 in-locked-window:opacity-50 in-locked-window:hover:opacity-100 btn-circle btn-secondary btn-soft tooltip tooltip-bottom tooltip-end tooltip-secondary`.mount(
 		actions,
 		'scrub',
 		(button) => {
@@ -301,7 +299,7 @@ const mountSkillBlock = (
 			button.onclick = () => onScrub(skill);
 		},
 	);
-	el.button`btn btn-xs size-3 -m-0.5 btn-circle btn-error btn-soft tooltip tooltip-bottom tooltip-end tooltip-error`.mount(
+	el.button`btn btn-xs size-3 -m-0.5 in-locked-window:opacity-50 in-locked-window:hover:opacity-100 btn-circle btn-error btn-soft tooltip tooltip-bottom tooltip-end tooltip-error`.mount(
 		actions,
 		'close',
 		(button) => {
@@ -345,7 +343,7 @@ const mountSkillBlock = (
 			hr: metrics.xpPerHrSmoothed,
 			min: metrics.xpPerMinSmoothed,
 		}[settings.xpRateType];
-		const order = `-${Math.ceil(xpRateValue)}`;
+		const order = skill === 'total' ? '-99999999999' : `-${Math.ceil(xpRateValue)}`;
 		if (order !== lastOrder) {
 			lastOrder = order;
 			container.style.setProperty('--skill-order', order);
@@ -362,6 +360,8 @@ const mountSkillBlock = (
 		}
 	};
 	const updateVisibility = (metrics: XpTrackerMetrics) => {
+		actions.classList.toggle('in-locked-window:hidden', !settings.metricsWindow.keepControlButtons);
+		actions.classList.toggle('pointer-events-auto', settings.metricsWindow.keepControlButtons);
 		showTotal = settings.metricsWindow.showTotal && skill === 'total';
 		const isVisible = isBlockVisible(metrics);
 		if (isVisible === lastVisible) return isVisible;
@@ -609,6 +609,18 @@ export const MetricsPlugin: Plugin = {
 					input.checked = settings.metricsWindow.showInactiveSkills;
 					input.onchange = () => {
 						settings.metricsWindow.showInactiveSkills = input.checked;
+						windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
+					};
+				}),
+			},
+			{
+				label: 'Keep control buttons',
+				description: 'Keep the Clear and Close buttons visible when the window is locked.',
+				specialType: 'toggle',
+				input: el.input.checkbox``.then((input) => {
+					input.checked = settings.metricsWindow.keepControlButtons;
+					input.onchange = () => {
+						settings.metricsWindow.keepControlButtons = input.checked;
 						windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
 					};
 				}),

@@ -26,15 +26,15 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
 	tree: 'Evil Tree',
 	meteor: 'Meteor',
 	alien: 'Alien',
-	storm: 'Storm',
-	ancient: 'Ancient',
+	storm: 'Storm Scroll',
+	ancient: 'Ancient Ore',
 };
 const DEFAULT_CATEGORIES: Record<CategoryKey, boolean> = {
 	tree: true,
 	meteor: true,
 	alien: true,
 	storm: true,
-	ancient: true,
+	ancient: false,
 };
 const UNKNOWN_WAITING = 'Unknown, waiting for !s';
 
@@ -51,7 +51,8 @@ const botWatcherAlertKeys = [
 	'evilTree',
 	'gemMeteor',
 	'alien',
-	'meteorStale',
+	'meteorChange',
+	'meteorUpdated',
 	'storm',
 	'superStorm',
 	'ancientUp',
@@ -60,11 +61,12 @@ type BotWatcherAlertKey = (typeof botWatcherAlertKeys)[number];
 
 const botWatcherAlertMeta: Record<BotWatcherAlertKey, { title: string }> = {
 	evilTree: { title: 'Evil Tree spotted' },
-	gemMeteor: { title: 'Gem Meteor ping' },
+	gemMeteor: { title: 'Gem Meteor' },
 	alien: { title: 'Alien arrived' },
-	meteorStale: { title: 'Meteor may have moved' },
-	storm: { title: 'Storm started' },
-	superStorm: { title: 'Super Storm ping' },
+	meteorChange: { title: 'Meteor changed location' },
+	meteorUpdated: { title: 'Meteor location set' },
+	storm: { title: 'Storm scroll' },
+	superStorm: { title: 'Super Storm' },
 	ancientUp: { title: 'Ancient up' },
 };
 
@@ -89,7 +91,8 @@ export const createBotWatcherSettings = (alert: AlertScope) => ({
 		evilTree: { ...alert },
 		gemMeteor: { ...alert },
 		alien: { ...alert },
-		meteorStale: { ...alert },
+		meteorChange: { ...alert },
+		meteorUpdated: { ...alert },
 		storm: { ...alert },
 		superStorm: { ...alert },
 		ancientUp: { ...alert },
@@ -186,7 +189,8 @@ const createBotWatcherState = (): BotWatcherState => ({
 		evilTree: false,
 		gemMeteor: false,
 		alien: false,
-		meteorStale: false,
+		meteorChange: false,
+		meteorUpdated: false,
 		storm: false,
 		superStorm: false,
 		ancientUp: false,
@@ -610,7 +614,7 @@ export const initBotWatcher = (
 	const meteorList = (): MeteorEntry[] =>
 		Array.isArray(state.meteorHistory) ? state.meteorHistory : [];
 
-	const currentMeteor = (): MeteorEntry | undefined => state.currentMeteor ?? undefined;
+	const getCurrentMeteor = (): MeteorEntry | undefined => state.currentMeteor ?? undefined;
 
 	const meteorByBucket = (bucket: number): MeteorEntry | undefined => {
 		if (state.currentMeteor?.setAt === bucket) return state.currentMeteor;
@@ -654,7 +658,7 @@ export const initBotWatcher = (
 
 	const markGemPing = (now: number) => {
 		const bucket = attributeHourBucket(now);
-		const meteor = currentMeteor();
+		const meteor = getCurrentMeteor();
 		const entry = meteorByBucket(bucket) ?? (meteor?.setAt === bucket ? meteor : undefined);
 		if (entry) {
 			const alreadyPinged = entry.gemPinged;
@@ -728,15 +732,18 @@ export const initBotWatcher = (
 		const { location, setAt } = parseLocatedValue(raw, now);
 		if (!location) return;
 		const at = asEpoch(setAt, now) ?? now;
-		const meteor = currentMeteor();
-		const previousBucket = asEpoch(meteor?.setAt, now);
-		const previousStale = previousBucket !== undefined ? now >= previousBucket + HOUR_MS : false;
+		const currentMeteor = getCurrentMeteor();
+		const currentEpoch = asEpoch(currentMeteor?.setAt, now);
+		const isCurrentStale = currentEpoch !== undefined ? now >= currentEpoch + HOUR_MS : false;
 		const entry = upsertMeteor(location, at, now);
-		if (previousBucket !== entry.setAt) {
-			state.latched.meteorStale = false;
+		state.latched.meteorUpdated =
+			currentMeteor === undefined || currentMeteor.location === location;
+		fireOnce('meteorUpdated', location);
+		if (currentEpoch !== entry.setAt) {
+			state.latched.meteorChange = false;
 			state.latched.gemMeteor = false;
 		}
-		if (previousStale && now < entry.setAt + HOUR_MS) state.latched.meteorStale = false;
+		if (isCurrentStale && now < entry.setAt + HOUR_MS) state.latched.meteorChange = false;
 	};
 
 	const applyAncientValue = (raw: string, now: number) => {
@@ -915,7 +922,7 @@ export const initBotWatcher = (
 	};
 
 	const meteorView = (now: number): CategoryView => {
-		const meteor = currentMeteor();
+		const meteor = getCurrentMeteor();
 		if (!meteor) {
 			return { phase: 'unknown', title: 'Meteor', badges: [], detail: UNKNOWN_WAITING };
 		}
@@ -1041,10 +1048,10 @@ export const initBotWatcher = (
 	};
 
 	const evaluateAlerts = (now: number) => {
-		const meteor = currentMeteor();
+		const meteor = getCurrentMeteor();
 		const setAt = asEpoch(meteor?.setAt, now);
 		if (meteor && setAt !== undefined && now >= setAt + HOUR_MS) {
-			fireOnce('meteorStale', meteor.location);
+			fireOnce('meteorChange', meteor.location);
 		}
 	};
 
@@ -1304,13 +1311,24 @@ export const initBotWatcher = (
 	const nodes: SettingsNode[] = [
 		makeToggleNode(
 			'Enable Watcher',
-			'Parse chat for world-event commands.',
+			'Parse chat for world-event commands and responses.',
 			() => settings.enabled,
 			setEnabled,
 		),
+		...CATEGORY_KEYS.map((key) =>
+			makeToggleNode(
+				`${CATEGORY_LABELS[key]} tracking`,
+				'',
+				() => settings.categories[key] !== false,
+				(value) => {
+					settings.categories[key] = value;
+					paintAll(Date.now());
+				},
+			),
+		),
 		{
 			label: 'Tracked Bot',
-			description: 'Username of the world-event bot to watch in chat and PMs.',
+			description: 'Username of the bot to track in chat and PMs.',
 			reset: (input) => {
 				input.value = DEFAULT_BOT_NAME;
 			},
@@ -1325,7 +1343,6 @@ export const initBotWatcher = (
 		},
 		{
 			label: 'Window Style',
-			description: 'Layout of event cards in the Bot Watcher window.',
 			reset: (input) => {
 				input.value = DEFAULT_WINDOW_STYLE;
 			},
@@ -1343,20 +1360,9 @@ export const initBotWatcher = (
 				};
 			}),
 		},
-		...CATEGORY_KEYS.map((key) =>
-			makeToggleNode(
-				CATEGORY_LABELS[key],
-				`Show ${CATEGORY_LABELS[key]} in the Bot Watcher tray and window.`,
-				() => settings.categories[key] !== false,
-				(value) => {
-					settings.categories[key] = value;
-					paintAll(Date.now());
-				},
-			),
-		),
 		makeToggleNode(
 			'Enable alerts',
-			'Master switch for Bot Watcher desktop/sound alerts.',
+			'',
 			() => settings.enableAlerts,
 			(value) => {
 				settings.enableAlerts = value;
