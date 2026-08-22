@@ -10,6 +10,14 @@ export const initialNotificationSettings = {
 	customSound: undefined as string | undefined,
 };
 
+export const initialAlertScope = {
+	enabled: true,
+	enableNotification: true,
+	enableAudio: true,
+	audioVolume: 1,
+};
+export type AlertScope = typeof initialAlertScope;
+
 export type NotificationOptions = {
 	message?: string;
 	volume?: number; // per-call multiplier applied on top of the master volume
@@ -50,7 +58,16 @@ export const initNotifications = (lifecycle: Lifecycle, storage: ClientStorage) 
 		}
 	};
 
-	return { settings, initialSettings: initialNotificationSettings, send };
+	const sendFromScope = (title: string, scoped: AlertScope, message?: string): void => {
+		send(title, {
+			message,
+			volume: scoped.audioVolume,
+			notification: scoped.enableNotification,
+			audio: scoped.enableAudio,
+		});
+	};
+
+	return { settings, initialSettings: initialNotificationSettings, send, sendFromScope };
 };
 
 export type Notifications = ReturnType<typeof initNotifications>;

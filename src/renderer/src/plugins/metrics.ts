@@ -472,6 +472,7 @@ export const MetricsPlugin: Plugin = {
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const settingsMenu = context.settings.initMenu(lifecycle);
+		const helpers = context.settings.helpers;
 		const xpAccumulator = await createXpAccumulator(context);
 		const sessionTotals = { all: 0, bySkill: {} as { [key: string]: number } };
 		const recentXpDrops = xpAccumulator.slice(settings);
@@ -601,30 +602,24 @@ export const MetricsPlugin: Plugin = {
 					input.onchange = () => setShowTotal(input.checked);
 				}),
 			},
-			{
-				label: 'Show inactive skills',
-				description: 'Keep skill charts visible after they stop gaining XP.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.metricsWindow.showInactiveSkills;
-					input.onchange = () => {
-						settings.metricsWindow.showInactiveSkills = input.checked;
-						windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
-					};
-				}),
-			},
-			{
-				label: 'Keep control buttons',
-				description: 'Keep the Clear and Close buttons visible when the window is locked.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.metricsWindow.keepControlButtons;
-					input.onchange = () => {
-						settings.metricsWindow.keepControlButtons = input.checked;
-						windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
-					};
-				}),
-			},
+			helpers.toggle(
+				'Show inactive skills',
+				'Keep skill charts visible after they stop gaining XP.',
+				() => settings.metricsWindow.showInactiveSkills,
+				(value) => {
+					settings.metricsWindow.showInactiveSkills = value;
+					windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
+				},
+			),
+			helpers.toggle(
+				'Keep control buttons',
+				'Keep the Clear and Close buttons visible when the window is locked.',
+				() => settings.metricsWindow.keepControlButtons,
+				(value) => {
+					settings.metricsWindow.keepControlButtons = value;
+					windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
+				},
+			),
 			{
 				label: 'Chart color',
 				description: 'Color of the XP rate line charts.',
@@ -775,7 +770,7 @@ export const MetricsPlugin: Plugin = {
 					restartUpdateLoop();
 				},
 				xpDrop: ({ username, skill, xp }) => {
-					if (username !== context.character.username) return;
+					if (!context.isLocalUsername(username)) return;
 					if (typeof xp !== 'number' || xp <= 0 || isNaN(xp)) return;
 					sessionTotals.all += xp;
 					sessionTotals.bySkill[skill] = (sessionTotals.bySkill[skill] ?? 0) + xp;

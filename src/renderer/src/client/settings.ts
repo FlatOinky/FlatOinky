@@ -1,5 +1,6 @@
 import { ClientUi, Lifecycle } from '../client';
 import { ClientStorage } from './client_storage';
+import type { AlertScope } from './notifications';
 import * as el from './ui/elements';
 
 // #region types
@@ -454,11 +455,116 @@ const makeAlertTestButton = (onTest: () => void): Element =>
 		},
 	);
 
+const alertComboColumns = 'auto auto 1fr auto';
+
+const makeAlertComboCells = (
+	notificationInput: HTMLInputElement,
+	audioInput: HTMLInputElement,
+	volumeInput: HTMLInputElement,
+	onTest: () => void,
+): Element[] => [
+	makeSwapToggle(
+		notificationInput,
+		el.icon.bell`size-4`.element,
+		el.icon.bellOff`size-4`.element,
+		'Desktop notifications',
+	),
+	makeSwapToggle(
+		audioInput,
+		el.icon.volume`size-4`.element,
+		el.icon.volumeOff`size-4`.element,
+		'Alert sound',
+	),
+	makeAlertVolume(volumeInput),
+	makeAlertTestButton(onTest),
+];
+
+const makeToggle = (
+	label: string,
+	description: string,
+	get: () => boolean,
+	set: (value: boolean) => void,
+): SettingsInputNode => ({
+	label,
+	description,
+	specialType: 'toggle',
+	input: el.input.checkbox``.then((input) => {
+		input.checked = get();
+		input.onchange = () => set(input.checked);
+	}),
+});
+
+type CueCardOptions = {
+	id: string;
+	title: string;
+	scoped: AlertScope;
+	onTest: () => void;
+	onEnabledChange?: () => void;
+	mountHeaderExtras?: (header: HTMLElement) => void;
+};
+
+const makeCueCard = ({
+	id,
+	title,
+	scoped,
+	onTest,
+	onEnabledChange,
+	mountHeaderExtras,
+}: CueCardOptions): Element =>
+	el.div`border border-base-content/20 rounded-box p-3 flex flex-col gap-2`.then((card) => {
+		const header = el.div`flex gap-2 items-center`.mount(card, 'header');
+
+		const enabledInput = el.input.checkbox``.then((input) => {
+			input.checked = scoped.enabled;
+			input.onchange = () => {
+				scoped.enabled = input.checked;
+				onEnabledChange?.();
+			};
+		});
+		enabledInput.classList = 'toggle toggle-sm';
+		enabledInput.id = `${id}-enabled`;
+		header.appendChild(enabledInput);
+		el.label`font-medium text-sm cursor-pointer`.mount(header, undefined, (label) => {
+			label.htmlFor = enabledInput.id;
+			label.textContent = title;
+		});
+
+		if (mountHeaderExtras) {
+			el.span`flex-1 min-w-0`.mount(header);
+			mountHeaderExtras(header);
+		}
+
+		const alerts = el.div`grid gap-2 items-center w-full`.mount(card, 'alerts');
+		alerts.style.gridTemplateColumns = alertComboColumns;
+		alerts.append(
+			...makeAlertComboCells(
+				el.input.checkbox``.then((input) => {
+					input.checked = scoped.enableNotification;
+					input.onchange = () => (scoped.enableNotification = input.checked);
+				}),
+				el.input.checkbox``.then((input) => {
+					input.checked = scoped.enableAudio;
+					input.onchange = () => (scoped.enableAudio = input.checked);
+				}),
+				el.input.range``.then((input) => {
+					input.min = '0';
+					input.max = '1';
+					input.step = '0.05';
+					input.value = String(scoped.audioVolume);
+					input.onchange = () => (scoped.audioVolume = parseFloat(input.value));
+				}),
+				onTest,
+			),
+		);
+	});
+
 /** Reusable DOM builders exposed to plugins via `context.settings.helpers`. */
 export const settingsHelpers = {
 	swapToggle: makeSwapToggle,
 	alertVolume: makeAlertVolume,
 	alertTestButton: makeAlertTestButton,
+	toggle: makeToggle,
+	cueCard: makeCueCard,
 };
 export type SettingsHelpers = typeof settingsHelpers;
 
@@ -700,23 +806,13 @@ const mountRowNode = (
 
 const mountAlertComboNode = (container: HTMLElement, node: SettingsAlertComboNode) =>
 	mountRowNode(container, node, {
-		columns: 'auto auto 1fr auto',
-		cells: [
-			makeSwapToggle(
-				node.notificationInput,
-				el.icon.bell`size-4`.element,
-				el.icon.bellOff`size-4`.element,
-				'Desktop notifications',
-			),
-			makeSwapToggle(
-				node.audioInput,
-				el.icon.volume`size-4`.element,
-				el.icon.volumeOff`size-4`.element,
-				'Alert sound',
-			),
-			makeAlertVolume(node.volumeInput),
-			makeAlertTestButton(node.onTest),
-		],
+		columns: alertComboColumns,
+		cells: makeAlertComboCells(
+			node.notificationInput,
+			node.audioInput,
+			node.volumeInput,
+			node.onTest,
+		),
 	});
 
 /** Label on the left, notification/audio toggles right-aligned; volume lives elsewhere. */

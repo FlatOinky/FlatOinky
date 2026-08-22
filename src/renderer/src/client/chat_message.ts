@@ -58,6 +58,14 @@ export const sanitizeMessage = (message: string): string =>
 		.replaceAll('"', '&quot;')
 		.replaceAll("'", '&#039;');
 
+export const unescapeMessage = (message: string): string =>
+	message
+		.replaceAll('&amp;', '&')
+		.replaceAll('&lt;', '<')
+		.replaceAll('&gt;', '>')
+		.replaceAll('&quot;', '"')
+		.replaceAll('&#039;', "'");
+
 const determineServerMessageType = (message: string, color: string) => {
 	if (message.startsWith('[server]')) return 'announcement';
 	if (message.startsWith('You have completed the achievement')) return 'achievement';

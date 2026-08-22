@@ -25,6 +25,7 @@ import { initUi } from './client/ui';
 import { initUpdater } from './client/updater';
 
 export type { ChatMessage, Logger, LogLevel, LogMethod };
+export { sanitizeMessage, unescapeMessage } from './client/chat_message';
 export type {
 	ContextMenu,
 	ContextMenuItem,
@@ -90,6 +91,19 @@ const createContext = (
 	getNotifications: () => Notifications | undefined,
 	getContextMenu: () => ContextMenu | undefined,
 ) => {
+	const isLocalUsername = (username?: string) => {
+		if (!username) return false;
+		const needle = username.toLowerCase();
+		if (needle === character.username.toLowerCase()) return true;
+		const localUsername = Globals.local_username;
+		return localUsername != null && needle === localUsername.toLowerCase();
+	};
+	const getPlayer = (username: string) => players[username];
+	const getLocalPlayer = () => {
+		const username = Globals.local_username;
+		if (!username) return undefined;
+		return players[username];
+	};
 	return {
 		character,
 		ui,
@@ -97,6 +111,9 @@ const createContext = (
 		container,
 		ipc,
 		log,
+		isLocalUsername,
+		getPlayer,
+		getLocalPlayer,
 		get notifications() {
 			const notifications = getNotifications();
 			if (!notifications) throw new Error('Notifications have not been initialized');

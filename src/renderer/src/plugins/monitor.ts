@@ -1,15 +1,9 @@
-import type { SettingsHelpers, SettingsNode } from '../client/settings';
 import { Lifecycle, Plugin, PluginContext } from '../client';
+import { initialAlertScope } from '../client/notifications';
+import type { SettingsHelpers, SettingsNode } from '../client/settings';
 import * as el from '../client/ui/elements';
 
 // #region Vars
-
-const initialAlertSettings = {
-	enabled: true,
-	enableNotification: true,
-	enableAudio: true,
-	audioVolume: 1,
-};
 
 const audioCues = {
 	gemDrop: { file: 'gem.ogg', title: 'Gem Drop' },
@@ -32,27 +26,26 @@ const soundFileName = (source: string): string =>
 
 const initialSettings = {
 	afkDetection: {
-		...initialAlertSettings,
+		...initialAlertScope,
 		enabled: false,
 		ignoreCrafting: false,
 		afkThreshold: 60,
 	},
 	enableAudioCues: false,
 	audioCues: {
-		gemDrop: { ...initialAlertSettings },
-		fallingTree: { ...initialAlertSettings },
-		birdNest: { ...initialAlertSettings },
-		alienEncounter: { ...initialAlertSettings },
-	} satisfies Record<AudioCueKey, typeof initialAlertSettings>,
+		gemDrop: { ...initialAlertScope },
+		fallingTree: { ...initialAlertScope },
+		birdNest: { ...initialAlertScope },
+		alienEncounter: { ...initialAlertScope },
+	} satisfies Record<AudioCueKey, typeof initialAlertScope>,
 	enableStateCues: false,
 	stateCues: {
-		sleep: { ...initialAlertSettings, threshold: 0 },
-		health: { ...initialAlertSettings, threshold: 5 },
-		worship: { ...initialAlertSettings, threshold: 3 },
-		run: { ...initialAlertSettings, enabled: false, threshold: 10 },
-	} satisfies Record<StateCueKey, typeof initialAlertSettings & { threshold: number }>,
+		sleep: { ...initialAlertScope, threshold: 0 },
+		health: { ...initialAlertScope, threshold: 5 },
+		worship: { ...initialAlertScope, threshold: 3 },
+		run: { ...initialAlertScope, enabled: false, threshold: 10 },
+	} satisfies Record<StateCueKey, typeof initialAlertScope & { threshold: number }>,
 };
-type AlertScope = typeof initialAlertSettings;
 
 // #region crafting activity
 
@@ -108,98 +101,6 @@ const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => 
 	return { update };
 };
 
-// #region cue cards
-
-const makeToggleNode = (
-	label: string,
-	description: string,
-	get: () => boolean,
-	set: (value: boolean) => void,
-): SettingsNode => ({
-	label,
-	description,
-	specialType: 'toggle',
-	input: el.input.checkbox``.then((input) => {
-		input.checked = get();
-		input.onchange = () => set(input.checked);
-	}),
-});
-
-const mountCueAlertControls = (
-	container: HTMLElement,
-	scoped: AlertScope,
-	helpers: SettingsHelpers,
-	onTest: () => void,
-) => {
-	const alerts = el.div`grid gap-2 items-center w-full`.mount(container, 'alerts');
-	alerts.style.gridTemplateColumns = 'auto auto 1fr auto';
-	alerts.append(
-		helpers.swapToggle(
-			el.input.checkbox``.then((input) => {
-				input.checked = scoped.enableNotification;
-				input.onchange = () => (scoped.enableNotification = input.checked);
-			}),
-			el.icon.bell`size-4`.element,
-			el.icon.bellOff`size-4`.element,
-			'Desktop notifications',
-		),
-		helpers.swapToggle(
-			el.input.checkbox``.then((input) => {
-				input.checked = scoped.enableAudio;
-				input.onchange = () => (scoped.enableAudio = input.checked);
-			}),
-			el.icon.volume`size-4`.element,
-			el.icon.volumeOff`size-4`.element,
-			'Alert sound',
-		),
-		helpers.alertVolume(
-			el.input.range``.then((input) => {
-				input.min = '0';
-				input.max = '1';
-				input.step = '0.05';
-				input.value = String(scoped.audioVolume);
-				input.onchange = () => (scoped.audioVolume = parseFloat(input.value));
-			}),
-		),
-		helpers.alertTestButton(onTest),
-	);
-};
-
-const makeCueCard = (
-	id: string,
-	title: string,
-	scoped: AlertScope,
-	helpers: SettingsHelpers,
-	onTest: () => void,
-	onEnabledChange?: () => void,
-	mountHeaderExtras?: (header: HTMLElement) => void,
-): Element =>
-	el.div`border border-base-content/20 rounded-box p-3 flex flex-col gap-2`.then((card) => {
-		const header = el.div`flex gap-2 items-center`.mount(card, 'header');
-
-		const enabledInput = el.input.checkbox``.then((input) => {
-			input.checked = scoped.enabled;
-			input.onchange = () => {
-				scoped.enabled = input.checked;
-				onEnabledChange?.();
-			};
-		});
-		enabledInput.classList = 'toggle toggle-sm';
-		enabledInput.id = `${id}-enabled`;
-		header.appendChild(enabledInput);
-		el.label`font-medium text-sm cursor-pointer`.mount(header, undefined, (label) => {
-			label.htmlFor = enabledInput.id;
-			label.textContent = title;
-		});
-
-		if (mountHeaderExtras) {
-			el.span`flex-1 min-w-0`.mount(header);
-			mountHeaderExtras(header);
-		}
-
-		mountCueAlertControls(card, scoped, helpers, onTest);
-	});
-
 // #region audio cues
 
 const initAudioCues = (
@@ -209,20 +110,18 @@ const initAudioCues = (
 ) => {
 	const sendAlert = (key: AudioCueKey) => {
 		const scoped = scopes[key];
-		const title = audioCues[key].title;
-		context.notifications.send(title, {
-			volume: scoped.audioVolume,
-			notification: scoped.enableNotification,
-			audio: scoped.enableAudio,
-		});
+		context.notifications.sendFromScope(audioCues[key].title, scoped);
 	};
 
 	const nodes: SettingsNode[] = Object.entries(audioCues).map(([key, cue]) => {
 		const audioCueKey = key as AudioCueKey;
 		const scoped = scopes[audioCueKey];
-		return makeCueCard(`audio-cue-${audioCueKey}`, cue.title, scoped, helpers, () =>
-			sendAlert(audioCueKey),
-		);
+		return helpers.cueCard({
+			id: `audio-cue-${audioCueKey}`,
+			title: cue.title,
+			scoped,
+			onTest: () => sendAlert(audioCueKey),
+		});
 	});
 
 	return { sendAlert, nodes };
@@ -238,14 +137,13 @@ const makeStateCueCard = (
 	onTest: () => void,
 ): Element => {
 	const defaults = initialSettings.stateCues[key];
-	return makeCueCard(
-		`state-cue-${key}`,
-		stateCues[key].title,
+	return helpers.cueCard({
+		id: `state-cue-${key}`,
+		title: stateCues[key].title,
 		scoped,
-		helpers,
 		onTest,
-		onEnabledOrThresholdChange,
-		(header) => {
+		onEnabledChange: onEnabledOrThresholdChange,
+		mountHeaderExtras: (header) => {
 			el.span`text-xs text-base-content/60 shrink-0`.mount(header, undefined, (span) => {
 				span.textContent = 'Threshold';
 			});
@@ -279,7 +177,7 @@ const makeStateCueCard = (
 				},
 			);
 		},
-	);
+	});
 };
 
 const initStateCues = (
@@ -293,12 +191,11 @@ const initStateCues = (
 	const sendAlert = (key: StateCueKey, value: number) => {
 		const scoped = scopes[key];
 		const title = stateCues[key].title;
-		context.notifications.send(title, {
-			message: `${title} is at ${value} (threshold ${scoped.threshold})`,
-			volume: scoped.audioVolume,
-			notification: scoped.enableNotification,
-			audio: scoped.enableAudio,
-		});
+		context.notifications.sendFromScope(
+			title,
+			scoped,
+			`${title} is at ${value} (threshold ${scoped.threshold})`,
+		);
 	};
 
 	const evaluate = (key: StateCueKey, value: number) => {
@@ -341,16 +238,8 @@ const initAfkDetection = (
 	let lastActivityAt = Date.now();
 	let alerted = false;
 
-	const isLocal = (username: string | undefined) =>
-		!!username && username.toLowerCase() === context.character.username.toLowerCase();
-
 	const sendAlert = () => {
-		context.notifications.send('AFK', {
-			message: `No activity for ${scoped.afkThreshold}s`,
-			volume: scoped.audioVolume,
-			notification: scoped.enableNotification,
-			audio: scoped.enableAudio,
-		});
+		context.notifications.sendFromScope('AFK', scoped, `No activity for ${scoped.afkThreshold}s`);
 	};
 
 	const markActive = () => {
@@ -361,12 +250,12 @@ const initAfkDetection = (
 	const handleServerCommand = (command: string, values: string[]) => {
 		switch (command) {
 			case 'XP_DROP': {
-				if (!isLocal(values[0])) return;
+				if (!context.isLocalUsername(values[0])) return;
 				if (scoped.ignoreCrafting && values[1] === 'crafting') return;
 				return markActive();
 			}
 			case 'START_CLIENTSIDE_MOVEMENT':
-				if (!isLocal(values[0])) return;
+				if (!context.isLocalUsername(values[0])) return;
 				return markActive();
 			case 'PROGRESS_BAR':
 			case 'SET_PROGRESS_BAR':
@@ -383,8 +272,14 @@ const initAfkDetection = (
 	lifecycle.onCleanup(() => clearInterval(intervalId));
 
 	const nodes: SettingsNode[] = [
-		makeCueCard('afk-detection', 'Afk Detection', scoped, helpers, sendAlert, () => {
-			alerted = false;
+		helpers.cueCard({
+			id: 'afk-detection',
+			title: 'Afk Detection',
+			scoped,
+			onTest: sendAlert,
+			onEnabledChange: () => {
+				alerted = false;
+			},
 		}),
 		{
 			label: 'AFK threshold',
@@ -410,7 +305,7 @@ const initAfkDetection = (
 				};
 			}),
 		},
-		makeToggleNode(
+		helpers.toggle(
 			'Ignore crafting XP',
 			'Exclude crafting XP drops from counting as activity.',
 			() => scoped.ignoreCrafting,
@@ -447,7 +342,7 @@ export const MonitorPlugin: Plugin = {
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Afk Detection', afkApi.nodes);
 		settingsMenu.mountSection('Audio Cues', [
-			makeToggleNode(
+			helpers.toggle(
 				'Enable audio cues',
 				'Master switch for all audio cue alerts.',
 				() => settings.enableAudioCues,
@@ -458,7 +353,7 @@ export const MonitorPlugin: Plugin = {
 			...audioCuesApi.nodes,
 		]);
 		settingsMenu.mountSection('State Cues', [
-			makeToggleNode(
+			helpers.toggle(
 				'Enable state cues',
 				'Master switch for all state cue alerts.',
 				() => settings.enableStateCues,
@@ -476,7 +371,7 @@ export const MonitorPlugin: Plugin = {
 				updateSleep: (value) => stateCuesApi.evaluate('sleep', value),
 				updateWorship: (value) => stateCuesApi.evaluate('worship', value),
 				updateHealth: (username, current) => {
-					if (username.toLowerCase() !== context.character.username.toLowerCase()) return;
+					if (!context.isLocalUsername(username)) return;
 					stateCuesApi.evaluate('health', current);
 				},
 				updateRun: (_enabled, current) => stateCuesApi.evaluate('run', current),

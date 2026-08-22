@@ -1,5 +1,4 @@
 import { Plugin } from '../client';
-import * as el from '../client/ui/elements';
 import { initInventoryTrigger, inventoryMenuItems } from './mouse/inventory';
 import { flatstatsItem, lookupItem, wikiItem } from './mouse/links';
 import { collectTargets } from './mouse/targets';
@@ -17,6 +16,7 @@ export const MousePlugin: Plugin = {
 		'Right-click the canvas or inventory to choose what to interact with, plus wiki and profile links.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
+		const helpers = context.settings.helpers;
 
 		initInventoryTrigger(lifecycle, {
 			isEnabled: () => settings.enabled,
@@ -25,41 +25,31 @@ export const MousePlugin: Plugin = {
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Context Menu', [
-			{
-				label: 'Enabled',
-				description: 'Show a menu of actions when right-clicking the canvas or inventory.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enabled;
-					input.onchange = () => {
-						settings.enabled = input.checked;
-						if (!input.checked) context.contextMenu.close();
-					};
-				}),
-			},
-			{
-				label: 'Walk here',
-				description: 'Include a Walk here entry that clicks the tile under the cursor.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.includeWalkHere;
-					input.onchange = () => {
-						settings.includeWalkHere = input.checked;
-					};
-				}),
-			},
-			{
-				label: 'Ground Item Identicons',
-				description:
-					'Show a unique identicon beside each ground item so duplicate drops are distinguishable.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.showDropIdenticons;
-					input.onchange = () => {
-						settings.showDropIdenticons = input.checked;
-					};
-				}),
-			},
+			helpers.toggle(
+				'Enabled',
+				'Show a menu of actions when right-clicking the canvas or inventory.',
+				() => settings.enabled,
+				(value) => {
+					settings.enabled = value;
+					if (!value) context.contextMenu.close();
+				},
+			),
+			helpers.toggle(
+				'Walk here',
+				'Include a Walk here entry that clicks the tile under the cursor.',
+				() => settings.includeWalkHere,
+				(value) => {
+					settings.includeWalkHere = value;
+				},
+			),
+			helpers.toggle(
+				'Ground Item Identicons',
+				'Show a unique identicon beside each ground item so duplicate drops are distinguishable.',
+				() => settings.showDropIdenticons,
+				(value) => {
+					settings.showDropIdenticons = value;
+				},
+			),
 		]);
 
 		return {

@@ -1,4 +1,4 @@
-import { ChatMessage } from '../../client';
+import { ChatMessage, unescapeMessage } from '../../client';
 import type { Notifications } from '../../client/notifications';
 import type { SettingsHelpers, SettingsNode } from '../../client/settings';
 import * as el from '../../client/ui/elements';
@@ -209,14 +209,6 @@ export const highlightMessageWords = (messageEl: HTMLElement, wordMatches: WordM
 	}
 };
 
-const unescapeMessageEntities = (message: string): string =>
-	message
-		.replaceAll('&amp;', '&')
-		.replaceAll('&lt;', '<')
-		.replaceAll('&gt;', '>')
-		.replaceAll('&quot;', '"')
-		.replaceAll('&#039;', "'");
-
 const updateWordMatchEntry = (
 	wordMatches: WordMatches,
 	word: string,
@@ -267,7 +259,7 @@ export const notifyWordMatches = (
 
 	const notifyMatches = matches.filter((entry) => entryEnableNotification(entry));
 	const audioMatches = matches.filter((entry) => entryEnableAudio(entry));
-	const body = unescapeMessageEntities(chatMessage.message);
+	const body = unescapeMessage(chatMessage.message);
 
 	if (notifyMatches.length > 0 || audioMatches.length > 0) {
 		const title = entryWord((notifyMatches[0] ?? audioMatches[0])!);

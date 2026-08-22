@@ -1,4 +1,4 @@
-import type { Lifecycle, PluginMutator } from '../../client';
+import type { ClientContext, Lifecycle, PluginMutator } from '../../client';
 
 const CACHE_CAP = 256;
 // Matches Y_OFFSET_40_16 in paint_players — hats draw 8px above other layers.
@@ -134,7 +134,11 @@ const buildCompositeKey = (
 
 // #endregion
 
-export const initPlayerCache = (lifecycle: Lifecycle, isEnabled: () => boolean) => {
+export const initPlayerCache = (
+	lifecycle: Lifecycle,
+	context: ClientContext,
+	isEnabled: () => boolean,
+) => {
 	const store = createCompositeStore();
 	const paintStates = new WeakMap<FMMO.Player, PaintState>();
 
@@ -257,9 +261,9 @@ export const initPlayerCache = (lifecycle: Lifecycle, isEnabled: () => boolean) 
 		FMMO.AnimationSheet | null
 	> = (next, username, slot) => {
 		if (!isEnabled()) return next(username, slot);
-		if (username === Globals.local_username) return next(username, slot);
+		if (context.isLocalUsername(username)) return next(username, slot);
 
-		const player = players[username];
+		const player = context.getPlayer(username);
 		if (!player) return next(username, slot);
 
 		// paint_players always requests body first; that call owns collection

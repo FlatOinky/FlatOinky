@@ -55,11 +55,15 @@ Layout under `src/`:
   reaches the client only through `PluginContext`.
 - **`PluginContext` is the third-party contract.** Anything a plugin needs must be
   reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `notifications`,
-  `contextMenu`, `log`, `settings`, `storages`, `collections`). System-only APIs
-  (`updater`, openDevTools, saveReferences) stay off the context. `notifications` and
-  `contextMenu` are getters that throw if accessed before those systems are initialized.
-  `log` is a `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace);
-  plugin contexts prefix messages with `[plugin.name]`.
+  `contextMenu`, `log`, `settings`, `storages`, `collections`, `isLocalUsername`,
+  `getPlayer`, `getLocalPlayer`). System-only APIs (`updater`, openDevTools,
+  saveReferences) stay off the context. `notifications` and `contextMenu` are getters
+  that throw if accessed before those systems are initialized. `log` is a
+  `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace); plugin
+  contexts prefix messages with `[plugin.name]`. `isLocalUsername` is
+  case-insensitive against `character.username` and `Globals.local_username`.
+  `getLocalPlayer` looks up `players[Globals.local_username]`. HTML entity helpers
+  `sanitizeMessage` / `unescapeMessage` are exported from `client.ts`, not the context.
 
 ## Coexisting with the FlatMMO client
 
@@ -137,9 +141,12 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
    one of `toggle`, `swap`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
    `numberSliderCombo`, `labelSteppedRange`, `alertVolume`, `alertCombo`, or
-   `alertToggles` (see [src/client/settings.ts](src/client/settings.ts)). Always-on
-   systems share a single `core/systems` settings entry titled System via
-   `setupSystemApi()`.
+   `alertToggles` (see [src/client/settings.ts](src/client/settings.ts)). Helpers on
+   `context.settings.helpers` include `toggle(label, description, get, set)` and
+   `cueCard({ id, title, scoped, onTest, onEnabledChange?, mountHeaderExtras? })` for
+   per-cue `AlertScope` cards. `context.notifications.sendFromScope(title, scoped,
+message?)` maps an `AlertScope` onto `send`. Always-on systems share a single
+   `core/systems` settings entry titled System via `setupSystemApi()`.
 5. **UI** — on `context.ui`:
    - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
      `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,
@@ -153,7 +160,6 @@ Skeleton:
 
 ```ts
 import { Plugin } from '../client';
-import * as el from '../client/ui/elements';
 
 export const ExamplePlugin: Plugin = {
 	namespace: 'oinky/example',
@@ -163,16 +169,14 @@ export const ExamplePlugin: Plugin = {
 		const settings = context.storages.profile.reactive('settings', { enabled: true });
 		const menu = context.settings.initMenu(lifecycle);
 		menu.mountSection('General', [
-			{
-				label: 'Enabled',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enabled;
-					input.onchange = () => {
-						settings.enabled = input.checked;
-					};
-				}),
-			},
+			context.settings.helpers.toggle(
+				'Enabled',
+				'',
+				() => settings.enabled,
+				(value) => {
+					settings.enabled = value;
+				},
+			),
 		]);
 		lifecycle.onCleanup(() => {
 			/* undo listeners / DOM */

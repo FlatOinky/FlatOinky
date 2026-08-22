@@ -1,6 +1,7 @@
 import { utc } from '@date-fns/utc';
 import { format, isValid, parse } from 'date-fns';
-import { Lifecycle, Plugin, PluginContext, type ChatMessage } from '../client';
+import { Lifecycle, Plugin, PluginContext, unescapeMessage, type ChatMessage } from '../client';
+import { initialAlertScope } from '../client/notifications';
 import type { SettingsHelpers, SettingsNode } from '../client/settings';
 import * as el from '../client/ui/elements';
 
@@ -40,13 +41,7 @@ const UNKNOWN_WAITING = 'Unknown, waiting for !s';
 
 // #region types
 
-const initialAlertSettings = {
-	enabled: true,
-	enableNotification: true,
-	enableAudio: true,
-	audioVolume: 1,
-};
-type AlertScope = typeof initialAlertSettings;
+type AlertScope = typeof initialAlertScope;
 
 const botWatcherAlertKeys = [
 	'evilTree',
@@ -89,101 +84,17 @@ const createBotWatcherSettings = () => ({
 	enableAlerts: false,
 	categories: { ...DEFAULT_CATEGORIES },
 	alerts: {
-		evilTree: { ...initialAlertSettings },
-		gemMeteor: { ...initialAlertSettings },
-		alien: { ...initialAlertSettings },
-		meteorChange: { ...initialAlertSettings },
-		meteorUpdated: { ...initialAlertSettings },
-		storm: { ...initialAlertSettings },
-		superStorm: { ...initialAlertSettings },
-		ancientUp: { ...initialAlertSettings },
+		evilTree: { ...initialAlertScope },
+		gemMeteor: { ...initialAlertScope },
+		alien: { ...initialAlertScope },
+		meteorChange: { ...initialAlertScope },
+		meteorUpdated: { ...initialAlertScope },
+		storm: { ...initialAlertScope },
+		superStorm: { ...initialAlertScope },
+		ancientUp: { ...initialAlertScope },
 	} satisfies Record<BotWatcherAlertKey, AlertScope>,
 });
 type BotWatcherSettings = ReturnType<typeof createBotWatcherSettings>;
-
-// #region settings helpers
-
-const makeToggleNode = (
-	label: string,
-	description: string,
-	get: () => boolean,
-	set: (value: boolean) => void,
-): SettingsNode => ({
-	label,
-	description,
-	specialType: 'toggle',
-	input: el.input.checkbox``.then((input) => {
-		input.checked = get();
-		input.onchange = () => set(input.checked);
-	}),
-});
-
-const mountCueAlertControls = (
-	container: HTMLElement,
-	scoped: AlertScope,
-	helpers: SettingsHelpers,
-	onTest: () => void,
-) => {
-	const alerts = el.div`grid gap-2 items-center w-full`.mount(container, 'alerts');
-	alerts.style.gridTemplateColumns = 'auto auto 1fr auto';
-	alerts.append(
-		helpers.swapToggle(
-			el.input.checkbox``.then((input) => {
-				input.checked = scoped.enableNotification;
-				input.onchange = () => (scoped.enableNotification = input.checked);
-			}),
-			el.icon.bell`size-4`.element,
-			el.icon.bellOff`size-4`.element,
-			'Desktop notifications',
-		),
-		helpers.swapToggle(
-			el.input.checkbox``.then((input) => {
-				input.checked = scoped.enableAudio;
-				input.onchange = () => (scoped.enableAudio = input.checked);
-			}),
-			el.icon.volume`size-4`.element,
-			el.icon.volumeOff`size-4`.element,
-			'Alert sound',
-		),
-		helpers.alertVolume(
-			el.input.range``.then((input) => {
-				input.min = '0';
-				input.max = '1';
-				input.step = '0.05';
-				input.value = String(scoped.audioVolume);
-				input.onchange = () => (scoped.audioVolume = parseFloat(input.value));
-			}),
-		),
-		helpers.alertTestButton(onTest),
-	);
-};
-
-const makeCueCard = (
-	id: string,
-	title: string,
-	scoped: AlertScope,
-	helpers: SettingsHelpers,
-	onTest: () => void,
-): Element =>
-	el.div`border border-base-content/20 rounded-box p-3 flex flex-col gap-2`.then((card) => {
-		const header = el.div`flex gap-2 items-center`.mount(card, 'header');
-
-		const enabledInput = el.input.checkbox``.then((input) => {
-			input.checked = scoped.enabled;
-			input.onchange = () => {
-				scoped.enabled = input.checked;
-			};
-		});
-		enabledInput.classList = 'toggle toggle-sm';
-		enabledInput.id = `${id}-enabled`;
-		header.appendChild(enabledInput);
-		el.label`font-medium text-sm cursor-pointer`.mount(header, undefined, (label) => {
-			label.htmlFor = enabledInput.id;
-			label.textContent = title;
-		});
-
-		mountCueAlertControls(card, scoped, helpers, onTest);
-	});
 
 type StormKind = 'scroll' | 'unknown';
 
@@ -392,14 +303,7 @@ const isPlayerChat = (chatMessage: ChatMessage, botName: string): boolean => {
 	return !isBotName(chatMessage.username, botName);
 };
 
-const decodeMessage = (message: string): string =>
-	message
-		.replaceAll('&amp;', '&')
-		.replaceAll('&lt;', '<')
-		.replaceAll('&gt;', '>')
-		.replaceAll('&quot;', '"')
-		.replaceAll('&#039;', "'")
-		.trim();
+const decodeMessage = (message: string): string => unescapeMessage(message).trim();
 
 // #region ui helpers
 
@@ -662,13 +566,11 @@ const initBotWatcher = (
 	let pendingSt: PendingPayload | undefined;
 
 	const sendAlert = (key: BotWatcherAlertKey, message?: string) => {
-		const scoped = settings.alerts[key];
-		context.notifications.send(botWatcherAlertMeta[key].title, {
+		context.notifications.sendFromScope(
+			botWatcherAlertMeta[key].title,
+			settings.alerts[key],
 			message,
-			volume: scoped.audioVolume,
-			notification: scoped.enableNotification,
-			audio: scoped.enableAudio,
-		});
+		);
 	};
 
 	const fireOnce = (key: BotWatcherAlertKey, message?: string) => {
@@ -1377,14 +1279,14 @@ const initBotWatcher = (
 	};
 
 	const watcherNodes: SettingsNode[] = [
-		makeToggleNode(
+		helpers.toggle(
 			'Enable Watcher',
 			'Parse chat for world-event commands and responses.',
 			() => settings.enabled,
 			setEnabled,
 		),
 		...CATEGORY_KEYS.map((key) =>
-			makeToggleNode(
+			helpers.toggle(
 				`${CATEGORY_LABELS[key]} tracking`,
 				'',
 				() => settings.categories[key] !== false,
@@ -1431,7 +1333,7 @@ const initBotWatcher = (
 	];
 
 	const alertNodes: SettingsNode[] = [
-		makeToggleNode(
+		helpers.toggle(
 			'Enable alerts',
 			'',
 			() => settings.enableAlerts,
@@ -1440,13 +1342,12 @@ const initBotWatcher = (
 			},
 		),
 		...botWatcherAlertKeys.map((key) =>
-			makeCueCard(
-				`bot-watcher-${key}`,
-				botWatcherAlertMeta[key].title,
-				settings.alerts[key],
-				helpers,
-				() => sendAlert(key),
-			),
+			helpers.cueCard({
+				id: `bot-watcher-${key}`,
+				title: botWatcherAlertMeta[key].title,
+				scoped: settings.alerts[key],
+				onTest: () => sendAlert(key),
+			}),
 		),
 	];
 

@@ -1,4 +1,4 @@
-import { Lifecycle, Plugin, PluginMutator } from '../client';
+import { Lifecycle, Plugin, PluginContext, PluginMutator } from '../client';
 import * as el from '../client/ui/elements';
 
 const FPS = 60;
@@ -165,14 +165,16 @@ const secondsUntilTransport = (
 
 type KickPredicate = () => boolean;
 
-const createKickPredicate = (settings: Settings, getChaosUntil: () => number): KickPredicate => {
+const createKickPredicate = (
+	context: PluginContext,
+	settings: Settings,
+	getChaosUntil: () => number,
+): KickPredicate => {
 	return () => {
 		if (!settings.enabled) return false;
 		if (performance.now() < getChaosUntil()) return true;
 
-		const username = Globals.local_username;
-		if (!username) return false;
-		const player = players[username];
+		const player = context.getLocalPlayer();
 		if (!player) return false;
 		const pathing = player.client_pathing;
 		if (!pathing || pathing.length === 0) return false;
@@ -193,6 +195,7 @@ const isKickSlot = (slot: string | undefined): slot is 'legs' | 'boots' =>
 	slot === 'legs' || slot === 'boots';
 
 const createAnimationMutator = (
+	context: PluginContext,
 	compositor: Compositor,
 	shouldKick: KickPredicate,
 ): PluginMutator<[username: string, slot?: string], FMMO.AnimationSheet | null> => {
@@ -224,7 +227,7 @@ const createAnimationMutator = (
 		const sheet = next(username, slot);
 		if (!sheet) return sheet;
 		if (!isKickSlot(slot)) return sheet;
-		if (username !== Globals.local_username) return sheet;
+		if (!context.isLocalUsername(username)) return sheet;
 		if (!shouldKick()) return sheet;
 		return getShim(slot, sheet);
 	};
@@ -293,8 +296,8 @@ export const TileKickersPlugin: Plugin = {
 			chaosUntil = until;
 		});
 
-		const shouldKick = createKickPredicate(settings, () => chaosUntil);
-		const playerAnimation = createAnimationMutator(compositor, shouldKick);
+		const shouldKick = createKickPredicate(context, settings, () => chaosUntil);
+		const playerAnimation = createAnimationMutator(context, compositor, shouldKick);
 
 		const syncChaos = () => {
 			if (settings.enabled && settings.chaosMode) scheduleNextChaos();
@@ -307,19 +310,17 @@ export const TileKickersPlugin: Plugin = {
 		syncChaos();
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
+		const helpers = context.settings.helpers;
 		settingsMenu.mountSection('Tile Kickers', [
-			{
-				label: 'Enabled',
-				description: "Start kickin'",
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enabled;
-					input.onchange = () => {
-						settings.enabled = input.checked;
-						syncChaos();
-					};
-				}),
-			},
+			helpers.toggle(
+				'Enabled',
+				"Start kickin'",
+				() => settings.enabled,
+				(value) => {
+					settings.enabled = value;
+					syncChaos();
+				},
+			),
 			{
 				label: 'Lead time',
 				description: 'Seconds before arriving at a transport tile to start kicking.',
@@ -346,17 +347,15 @@ export const TileKickersPlugin: Plugin = {
 					};
 				}),
 			},
-			{
-				label: 'Chaos mode',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.chaosMode;
-					input.onchange = () => {
-						settings.chaosMode = input.checked;
-						syncChaos();
-					};
-				}),
-			},
+			helpers.toggle(
+				'Chaos mode',
+				'',
+				() => settings.chaosMode,
+				(value) => {
+					settings.chaosMode = value;
+					syncChaos();
+				},
+			),
 		]);
 
 		return {

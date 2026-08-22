@@ -1,4 +1,4 @@
-import { Lifecycle, Plugin } from '../client';
+import { ClientContext, Lifecycle, Plugin } from '../client';
 import * as el from '../client/ui/elements';
 import { initPlayerCache } from './tweaks/player_cache';
 
@@ -94,9 +94,9 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lif
 // player-projectile paint loop never checks whether that target still exists.
 // SET_MAP drops every non-local player, so anything mid-flight is stranded on
 // the canvas (and keeps its frame interval alive) for the rest of the session.
-const sweepProjectiles = (force = false): void => {
+const sweepProjectiles = (context: ClientContext, force = false): void => {
 	for (const [uuid, projectile] of Object.entries(projectile_to_player_objects)) {
-		if (!force && players[projectile.username_to_target]) continue;
+		if (!force && context.getPlayer(projectile.username_to_target)) continue;
 		clearInterval(projectile.frames_interval_1);
 		delete projectile_to_player_objects[uuid];
 	}
@@ -115,12 +115,12 @@ const sweepProjectiles = (force = false): void => {
 };
 
 let sweepScheduled = false;
-const scheduleSweep = (): void => {
+const scheduleSweep = (context: ClientContext): void => {
 	if (sweepScheduled) return;
 	sweepScheduled = true;
 	queueMicrotask(() => {
 		sweepScheduled = false;
-		sweepProjectiles();
+		sweepProjectiles(context);
 	});
 };
 
@@ -162,10 +162,11 @@ export const TweaksPlugin: Plugin = {
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const settingsMenu = context.settings.initMenu(lifecycle);
+		const helpers = context.settings.helpers;
 		let dynamicCanvasLifecycle: Lifecycle | null = null;
 		let darkenSkyLifecycle: Lifecycle | null = null;
 
-		const playerCache = initPlayerCache(lifecycle, () => settings.enablePlayerRenderCache);
+		const playerCache = initPlayerCache(lifecycle, context, () => settings.enablePlayerRenderCache);
 
 		const syncDynamicCanvas = () => {
 			dynamicCanvasLifecycle?.cleanup();
@@ -180,43 +181,34 @@ export const TweaksPlugin: Plugin = {
 		};
 
 		settingsMenu.mountSection('Cosmetic', [
-			{
-				label: 'Darken Sky',
-				description: 'Dim the sky map for easier viewing.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enableDarkenSky;
-					input.onchange = () => {
-						settings.enableDarkenSky = input.checked;
-					};
-				}),
-			},
-			{
-				label: 'Dynamic Canvas (Beta)',
-				description: 'Scale the game canvas to fit the window. Experimental.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enableDynamicCanvas_beta;
-					input.onchange = () => {
-						settings.enableDynamicCanvas_beta = input.checked;
-						syncDynamicCanvas();
-					};
-				}),
-			},
+			helpers.toggle(
+				'Darken Sky',
+				'Dim the sky map for easier viewing.',
+				() => settings.enableDarkenSky,
+				(value) => {
+					settings.enableDarkenSky = value;
+				},
+			),
+			helpers.toggle(
+				'Dynamic Canvas (Beta)',
+				'Scale the game canvas to fit the window. Experimental.',
+				() => settings.enableDynamicCanvas_beta,
+				(value) => {
+					settings.enableDynamicCanvas_beta = value;
+					syncDynamicCanvas();
+				},
+			),
 		]);
 
 		settingsMenu.mountSection('Bug Fixes', [
-			{
-				label: 'Clear Stuck Projectiles',
-				description: 'Automatically remove projectiles after leaving an area.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enableProjectileCleanup;
-					input.onchange = () => {
-						settings.enableProjectileCleanup = input.checked;
-					};
-				}),
-			},
+			helpers.toggle(
+				'Clear Stuck Projectiles',
+				'Automatically remove projectiles after leaving an area.',
+				() => settings.enableProjectileCleanup,
+				(value) => {
+					settings.enableProjectileCleanup = value;
+				},
+			),
 			el.div`flex items-center justify-between gap-2`.then((container) => {
 				el.div`flex flex-col gap-0.5`.mount(container, undefined, (text) => {
 					el.span`font-medium text-sm`.mount(text, undefined, (label) => {
@@ -228,35 +220,29 @@ export const TweaksPlugin: Plugin = {
 				});
 				el.button`btn btn-sm`.mount(container, undefined, (button) => {
 					button.textContent = 'Clear';
-					button.onclick = () => sweepProjectiles(true);
+					button.onclick = () => sweepProjectiles(context, true);
 				});
 			}),
 		]);
 
 		settingsMenu.mountSection('Performance', [
-			{
-				label: 'Cache Player Renders',
-				description: 'Caches player renders based on gear and animation frame.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enablePlayerRenderCache;
-					input.onchange = () => {
-						settings.enablePlayerRenderCache = input.checked;
-						if (!input.checked) playerCache.clear();
-					};
-				}),
-			},
-			{
-				label: "Hide Other Players' XP Drops",
-				description: 'Skip rendering XP and level-up drops from other players.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.hideOtherPlayerDrops;
-					input.onchange = () => {
-						settings.hideOtherPlayerDrops = input.checked;
-					};
-				}),
-			},
+			helpers.toggle(
+				'Cache Player Renders',
+				'Caches player renders based on gear and animation frame.',
+				() => settings.enablePlayerRenderCache,
+				(value) => {
+					settings.enablePlayerRenderCache = value;
+					if (!value) playerCache.clear();
+				},
+			),
+			helpers.toggle(
+				"Hide Other Players' XP Drops",
+				'Skip rendering XP and level-up drops from other players.',
+				() => settings.hideOtherPlayerDrops,
+				(value) => {
+					settings.hideOtherPlayerDrops = value;
+				},
+			),
 			{
 				label: 'Particle Reduction',
 				description: 'Reduce snow overlay density and cap concurrent particle effects.',
@@ -304,7 +290,7 @@ export const TweaksPlugin: Plugin = {
 						switch (command) {
 							case 'XP_DROP':
 							case 'LEVEL_UP_DROP':
-								if (values[0] !== Globals.local_username) return false;
+								if (!context.isLocalUsername(values[0])) return false;
 						}
 					}
 					if (command === 'PLAY_PARTICLES') {
@@ -319,7 +305,7 @@ export const TweaksPlugin: Plugin = {
 							case 'CLIENT_REMOVE_PLAYER':
 							case 'CLEAR_CLIENT_NPC':
 							case 'CLEAR_CLIENT_NPCS':
-								scheduleSweep();
+								scheduleSweep(context);
 						}
 					}
 					return true;

@@ -81,6 +81,7 @@ export const ChatPlugin: Plugin = {
 			muted: mutedPlayers,
 		};
 		const settingsMenu = context.settings.initMenu(lifecycle);
+		const helpers = context.settings.helpers;
 
 		const messages = context.collections.character<ChatMessage>('messages');
 		setMessagesCollection(messages);
@@ -100,18 +101,16 @@ export const ChatPlugin: Plugin = {
 			label: string,
 			description: string,
 			key: 'enableZebra' | 'enableTimestamp' | 'enableSmoothScroll',
-		) => ({
-			label,
-			description,
-			specialType: 'toggle' as const,
-			input: el.input.checkbox``.then((input) => {
-				input.checked = settings[key];
-				input.onchange = () => {
-					settings[key] = input.checked;
+		) =>
+			helpers.toggle(
+				label,
+				description,
+				() => settings[key],
+				(value) => {
+					settings[key] = value;
 					onSettingsChange();
-				};
-			}),
-		});
+				},
+			);
 
 		const numberSetting = (
 			label: string,
@@ -249,18 +248,15 @@ export const ChatPlugin: Plugin = {
 		]);
 
 		settingsMenu.mountSection('Commands', [
-			{
-				label: 'Enable commands',
-				description: 'Allow Oinky chat commands and show the commands menu.',
-				specialType: 'toggle' as const,
-				input: el.input.checkbox``.then((input) => {
-					input.checked = settings.enableCommands;
-					input.onchange = () => {
-						settings.enableCommands = input.checked;
-						onSettingsChange();
-					};
-				}),
-			},
+			helpers.toggle(
+				'Enable commands',
+				'Allow Oinky chat commands and show the commands menu.',
+				() => settings.enableCommands,
+				(value) => {
+					settings.enableCommands = value;
+					onSettingsChange();
+				},
+			),
 			{
 				label: 'Command prefix',
 				description: 'Prefix that opens the chat commands menu.',
@@ -296,19 +292,15 @@ export const ChatPlugin: Plugin = {
 			);
 
 		const mutedPlayersSection = settingsMenu.mountSection(mutedPlayersSectionTitle, [
-			{
-				label: 'Discard muted messages',
-				description:
-					'Drop muted players messages entirely instead of keeping them in the chat log.',
-				specialType: 'toggle' as const,
-				input: el.input.checkbox``.then((input) => {
-					input.checked = mutedPlayers.discardMessages;
-					input.onchange = () => {
-						mutedPlayers.discardMessages = input.checked;
-						onSettingsChange();
-					};
-				}),
-			},
+			helpers.toggle(
+				'Discard muted messages',
+				'Drop muted players messages entirely instead of keeping them in the chat log.',
+				() => mutedPlayers.discardMessages,
+				(value) => {
+					mutedPlayers.discardMessages = value;
+					onSettingsChange();
+				},
+			),
 			createMutedPlayersSettingsNode(mutedPlayers),
 		]);
 
