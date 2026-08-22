@@ -1,8 +1,8 @@
 import { utc } from '@date-fns/utc';
 import { format, isValid, parse } from 'date-fns';
-import type { ChatMessage, Lifecycle, PluginContext } from '../../client';
-import type { SettingsHelpers, SettingsNode } from '../../client/settings';
-import * as el from '../../client/ui/elements';
+import { Lifecycle, Plugin, PluginContext, type ChatMessage } from '../client';
+import type { SettingsHelpers, SettingsNode } from '../client/settings';
+import * as el from '../client/ui/elements';
 
 // #region constants
 
@@ -40,12 +40,13 @@ const UNKNOWN_WAITING = 'Unknown, waiting for !s';
 
 // #region types
 
-export type AlertScope = {
-	enabled: boolean;
-	enableNotification: boolean;
-	enableAudio: boolean;
-	audioVolume: number;
+const initialAlertSettings = {
+	enabled: true,
+	enableNotification: true,
+	enableAudio: true,
+	audioVolume: 1,
 };
+type AlertScope = typeof initialAlertSettings;
 
 const botWatcherAlertKeys = [
 	'evilTree',
@@ -80,7 +81,7 @@ const WINDOW_STYLE_LABELS: Record<WindowStyle, string> = {
 
 const asWindowStyle = (value: string): WindowStyle => (value === 'row' ? 'row' : 'stack');
 
-export const createBotWatcherSettings = (alert: AlertScope) => ({
+const createBotWatcherSettings = () => ({
 	enabled: true,
 	windowOpen: false,
 	windowStyle: DEFAULT_WINDOW_STYLE as WindowStyle,
@@ -88,32 +89,101 @@ export const createBotWatcherSettings = (alert: AlertScope) => ({
 	enableAlerts: false,
 	categories: { ...DEFAULT_CATEGORIES },
 	alerts: {
-		evilTree: { ...alert },
-		gemMeteor: { ...alert },
-		alien: { ...alert },
-		meteorChange: { ...alert },
-		meteorUpdated: { ...alert },
-		storm: { ...alert },
-		superStorm: { ...alert },
-		ancientUp: { ...alert },
+		evilTree: { ...initialAlertSettings },
+		gemMeteor: { ...initialAlertSettings },
+		alien: { ...initialAlertSettings },
+		meteorChange: { ...initialAlertSettings },
+		meteorUpdated: { ...initialAlertSettings },
+		storm: { ...initialAlertSettings },
+		superStorm: { ...initialAlertSettings },
+		ancientUp: { ...initialAlertSettings },
 	} satisfies Record<BotWatcherAlertKey, AlertScope>,
 });
-export type BotWatcherSettings = ReturnType<typeof createBotWatcherSettings>;
+type BotWatcherSettings = ReturnType<typeof createBotWatcherSettings>;
 
-export type ToggleNodeFactory = (
+// #region settings helpers
+
+const makeToggleNode = (
 	label: string,
 	description: string,
 	get: () => boolean,
 	set: (value: boolean) => void,
-) => SettingsNode;
+): SettingsNode => ({
+	label,
+	description,
+	specialType: 'toggle',
+	input: el.input.checkbox``.then((input) => {
+		input.checked = get();
+		input.onchange = () => set(input.checked);
+	}),
+});
 
-export type CueCardFactory = (
+const mountCueAlertControls = (
+	container: HTMLElement,
+	scoped: AlertScope,
+	helpers: SettingsHelpers,
+	onTest: () => void,
+) => {
+	const alerts = el.div`grid gap-2 items-center w-full`.mount(container, 'alerts');
+	alerts.style.gridTemplateColumns = 'auto auto 1fr auto';
+	alerts.append(
+		helpers.swapToggle(
+			el.input.checkbox``.then((input) => {
+				input.checked = scoped.enableNotification;
+				input.onchange = () => (scoped.enableNotification = input.checked);
+			}),
+			el.icon.bell`size-4`.element,
+			el.icon.bellOff`size-4`.element,
+			'Desktop notifications',
+		),
+		helpers.swapToggle(
+			el.input.checkbox``.then((input) => {
+				input.checked = scoped.enableAudio;
+				input.onchange = () => (scoped.enableAudio = input.checked);
+			}),
+			el.icon.volume`size-4`.element,
+			el.icon.volumeOff`size-4`.element,
+			'Alert sound',
+		),
+		helpers.alertVolume(
+			el.input.range``.then((input) => {
+				input.min = '0';
+				input.max = '1';
+				input.step = '0.05';
+				input.value = String(scoped.audioVolume);
+				input.onchange = () => (scoped.audioVolume = parseFloat(input.value));
+			}),
+		),
+		helpers.alertTestButton(onTest),
+	);
+};
+
+const makeCueCard = (
 	id: string,
 	title: string,
 	scoped: AlertScope,
 	helpers: SettingsHelpers,
 	onTest: () => void,
-) => Element;
+): Element =>
+	el.div`border border-base-content/20 rounded-box p-3 flex flex-col gap-2`.then((card) => {
+		const header = el.div`flex gap-2 items-center`.mount(card, 'header');
+
+		const enabledInput = el.input.checkbox``.then((input) => {
+			input.checked = scoped.enabled;
+			input.onchange = () => {
+				scoped.enabled = input.checked;
+			};
+		});
+		enabledInput.classList = 'toggle toggle-sm';
+		enabledInput.id = `${id}-enabled`;
+		header.appendChild(enabledInput);
+		el.label`font-medium text-sm cursor-pointer`.mount(header, undefined, (label) => {
+			label.htmlFor = enabledInput.id;
+			label.textContent = title;
+		});
+
+		mountCueAlertControls(card, scoped, helpers, onTest);
+	});
 
 type StormKind = 'scroll' | 'unknown';
 
@@ -572,13 +642,11 @@ const renderWindowStack = (
 
 // #region init
 
-export const initBotWatcher = (
+const initBotWatcher = (
 	lifecycle: Lifecycle,
 	context: PluginContext,
 	settings: BotWatcherSettings,
 	helpers: SettingsHelpers,
-	makeToggleNode: ToggleNodeFactory,
-	makeCueCard: CueCardFactory,
 ) => {
 	const state = context.storages.character.reactive('botWatcher', createBotWatcherState());
 	const materialize = <K extends keyof BotWatcherState>(key: K) => {
@@ -1308,7 +1376,7 @@ export const initBotWatcher = (
 		paintAll(now);
 	};
 
-	const nodes: SettingsNode[] = [
+	const watcherNodes: SettingsNode[] = [
 		makeToggleNode(
 			'Enable Watcher',
 			'Parse chat for world-event commands and responses.',
@@ -1360,6 +1428,9 @@ export const initBotWatcher = (
 				};
 			}),
 		},
+	];
+
+	const alertNodes: SettingsNode[] = [
 		makeToggleNode(
 			'Enable alerts',
 			'',
@@ -1379,5 +1450,25 @@ export const initBotWatcher = (
 		),
 	];
 
-	return { handleChatMessage, nodes };
+	return { handleChatMessage, watcherNodes, alertNodes };
+};
+
+// #region Plugin
+
+export const BotWatcherPlugin: Plugin = {
+	namespace: 'oinky/bot_watcher',
+	name: 'Bot Watcher',
+	description: 'Track world events from chat-bot commands and ping when they change.',
+	init: (lifecycle, context) => {
+		const settings = context.storages.profile.reactive('settings', createBotWatcherSettings());
+		const api = initBotWatcher(lifecycle, context, settings, context.settings.helpers);
+		const settingsMenu = context.settings.initMenu(lifecycle);
+		settingsMenu.mountSection('Bot Watcher', api.watcherNodes);
+		settingsMenu.mountSection('Alerts', api.alertNodes);
+		return {
+			events: {
+				chatMessage: (chatMessage) => api.handleChatMessage(chatMessage),
+			},
+		};
+	},
 };
