@@ -2,7 +2,7 @@ import { utc } from '@date-fns/utc';
 import { format, isValid, parse } from 'date-fns';
 import { Lifecycle, Plugin, PluginContext, unescapeMessage, type ChatMessage } from '../client';
 import { initialAlertScope } from '../client/notifications';
-import type { SettingsHelpers, SettingsNode } from '../client/settings';
+import type { SettingsNode } from '../client/settings';
 import * as el from '../client/ui/elements';
 
 // #region constants
@@ -133,8 +133,8 @@ type Phase = 'unknown' | 'absent' | 'active' | 'stale';
 
 type CategoryView = {
 	phase: Phase;
-	title: string;
-	location?: string;
+	label: string;
+	summary?: string;
 	detail?: string;
 	countdownMs?: number;
 	badges: string[];
@@ -373,7 +373,7 @@ const paintIconCircle = (target: IconCircle, phase: Phase, icon: Element, isGem:
 type WatcherRow = IconCircle & {
 	root: HTMLElement;
 	badgeRow: HTMLElement;
-	location: HTMLElement;
+	summary: HTMLElement;
 	detail: HTMLElement;
 	countdown: HTMLElement;
 	dismiss: HTMLButtonElement;
@@ -392,7 +392,7 @@ const mountDismissButton = (container: HTMLElement, extra: string): HTMLButtonEl
 		},
 	);
 
-const mountWatcherRow = (container: HTMLElement, id: string, title: string): WatcherRow => {
+const mountWatcherRow = (container: HTMLElement, id: string, label: string): WatcherRow => {
 	const root =
 		el.div`flex gap-2.5 items-center py-1.5 border-b border-base-content/5 last:border-b-0`.mount(
 			container,
@@ -403,11 +403,11 @@ const mountWatcherRow = (container: HTMLElement, id: string, title: string): Wat
 	const iconHost = el.span`leading-none`.mount(circle, 'icon');
 	const text = el.div`flex flex-col min-w-0 flex-1 gap-0.5`.mount(root, 'text');
 	const header = el.div`flex items-baseline gap-1.5 flex-wrap`.mount(text, 'header');
-	el.span`font-medium text-sm leading-tight`.mount(header, 'title', (span) => {
-		span.textContent = title;
+	el.span`font-medium text-sm leading-tight`.mount(header, 'label', (span) => {
+		span.textContent = label;
 	});
 	const badgeRow = el.span`flex gap-1 flex-wrap`.mount(header, 'badges');
-	const location = el.div`text-xs text-base-content/80 truncate`.mount(text, 'location');
+	const summary = el.div`text-xs text-base-content/80 truncate`.mount(text, 'summary');
 	const detail = el.div`text-xs text-base-content/50`.mount(text, 'detail');
 	const countdown = el.div`tabular-nums font-semibold text-sm shrink-0`.mount(root, 'countdown');
 	const dismiss = mountDismissButton(root, '');
@@ -418,7 +418,7 @@ const mountWatcherRow = (container: HTMLElement, id: string, title: string): Wat
 		iconHost,
 		circleSize: 'size-8',
 		badgeRow,
-		location,
+		summary,
 		detail,
 		countdown,
 		dismiss,
@@ -428,7 +428,7 @@ const mountWatcherRow = (container: HTMLElement, id: string, title: string): Wat
 type WatcherStack = IconCircle & {
 	root: HTMLElement;
 	badgeRow: HTMLElement;
-	location: HTMLElement;
+	summary: HTMLElement;
 	detail: HTMLElement;
 	countdown: HTMLElement;
 	dismiss: HTMLButtonElement;
@@ -444,9 +444,9 @@ const mountWatcherStack = (container: HTMLElement, id: string): WatcherStack => 
 	const circle = el.div`size-8 rounded-full flex items-center justify-center`.mount(wrap, 'circle');
 	const iconHost = el.span`leading-none`.mount(circle, 'icon');
 	const badgeRow = el.span`flex gap-1 flex-wrap justify-center`.mount(root, 'badges');
-	const location = el.div`text-xs text-base-content/80 truncate w-full text-center`.mount(
+	const summary = el.div`text-xs text-base-content/80 truncate w-full text-center`.mount(
 		root,
-		'location',
+		'summary',
 	);
 	const countdown = el.div`tabular-nums font-semibold text-sm`.mount(root, 'countdown');
 	const dismiss = mountDismissButton(root, 'absolute -top-1 -right-1');
@@ -457,7 +457,7 @@ const mountWatcherStack = (container: HTMLElement, id: string): WatcherStack => 
 		iconHost,
 		circleSize: 'size-8',
 		badgeRow,
-		location,
+		summary,
 		countdown,
 		detail: document.createElement('div'),
 		dismiss,
@@ -511,10 +511,10 @@ const renderPopupRow = (
 	if (hidden) return;
 	paintIconCircle(row, view.phase, icon, !!view.isGem);
 	paintBadges(row.badgeRow, view.badges);
-	const location = view.location ?? '';
-	row.location.textContent = location;
-	row.location.title = location;
-	row.location.style.display = location ? 'block' : 'none';
+	const summary = view.summary ?? '';
+	row.summary.textContent = summary;
+	row.summary.title = summary;
+	row.summary.style.display = summary ? 'block' : 'none';
 	row.detail.textContent = view.detail ?? '';
 	row.detail.style.display = view.detail ? 'block' : 'none';
 	paintCountdown(row.countdown, view, 'shrink-0');
@@ -532,10 +532,10 @@ const renderWindowStack = (
 	if (hidden) return;
 	paintIconCircle(stack, view.phase, icon, !!view.isGem);
 	paintBadges(stack.badgeRow, view.badges);
-	const location = view.location ?? '';
-	stack.location.textContent = location;
-	stack.location.title = location;
-	stack.location.style.display = location ? 'block' : 'none';
+	const summary = view.summary ?? '';
+	stack.summary.textContent = summary;
+	stack.summary.title = summary;
+	stack.summary.style.display = summary ? 'block' : 'none';
 	if (stack.detail) {
 		stack.detail.textContent = view.detail ?? '';
 		stack.detail.style.display = view.detail ? 'block' : 'none';
@@ -550,7 +550,6 @@ const initBotWatcher = (
 	lifecycle: Lifecycle,
 	context: PluginContext,
 	settings: BotWatcherSettings,
-	helpers: SettingsHelpers,
 ) => {
 	const state = context.storages.character.reactive('botWatcher', createBotWatcherState());
 	const materialize = <K extends keyof BotWatcherState>(key: K) => {
@@ -862,30 +861,30 @@ const initBotWatcher = (
 
 	const treeView = (now: number): CategoryView => {
 		if (state.tree.status === 'unknown') {
-			return { phase: 'unknown', title: 'Evil Tree', badges: [], detail: UNKNOWN_WAITING };
+			return { phase: 'unknown', label: 'Evil Tree', badges: [], detail: UNKNOWN_WAITING };
 		}
 		if (state.tree.status === 'absent') {
-			return { phase: 'absent', title: 'Evil Tree', badges: [], location: 'None' };
+			return { phase: 'absent', label: 'Evil Tree', badges: [], summary: 'None' };
 		}
 		const setAt = asEpoch(state.tree.setAt, now);
 		if (setAt === undefined) {
-			return { phase: 'active', title: 'Evil Tree', badges: [], location: state.tree.location };
+			return { phase: 'active', label: 'Evil Tree', badges: [], summary: state.tree.location };
 		}
 		const remaining = remainingUntil(hourLater(setAt), now);
 		if (remaining <= 0) {
 			return {
 				phase: 'stale',
-				title: 'Evil Tree',
+				label: 'Evil Tree',
 				badges: [],
-				location: state.tree.location,
+				summary: state.tree.location,
 				detail: `Expired ${formatUtcClock(hourLater(setAt))}`,
 			};
 		}
 		return {
 			phase: 'active',
-			title: 'Evil Tree',
+			label: 'Evil Tree',
 			badges: [],
-			location: state.tree.location,
+			summary: state.tree.location,
 			detail: 'remaining',
 			countdownMs: remaining,
 		};
@@ -894,16 +893,16 @@ const initBotWatcher = (
 	const meteorView = (now: number): CategoryView => {
 		const meteor = getCurrentMeteor();
 		if (!meteor) {
-			return { phase: 'unknown', title: 'Meteor', badges: [], detail: UNKNOWN_WAITING };
+			return { phase: 'unknown', label: 'Meteor', badges: [], detail: UNKNOWN_WAITING };
 		}
 		const setAt = asEpoch(meteor.setAt, now);
 		if (setAt === undefined) {
 			return {
 				phase: 'active',
-				title: 'Meteor',
+				label: 'Meteor',
 				badges: [],
 				isGem: meteor.isGem,
-				location: meteor.location,
+				summary: meteor.location,
 			};
 		}
 		const elapsed = Math.max(0, now - setAt);
@@ -911,10 +910,10 @@ const initBotWatcher = (
 		const stale = elapsed >= HOUR_MS;
 		return {
 			phase: stale ? 'stale' : 'active',
-			title: 'Meteor',
+			label: 'Meteor',
 			badges: [],
 			isGem: meteor.isGem,
-			location: meteor.location,
+			summary: meteor.location,
 			detail: stale ? `May have moved · set ${formatUtcClock(setAt)}` : undefined,
 			countdownMs: remaining,
 		};
@@ -922,18 +921,18 @@ const initBotWatcher = (
 
 	const alienView = (now: number): CategoryView => {
 		if (!state.alien) {
-			return { phase: 'absent', title: 'Alien', badges: [], hidden: true };
+			return { phase: 'absent', label: 'Alien', badges: [], hidden: true };
 		}
 		const remaining = remainingUntil(state.alien.hourBucket + ALIEN_MS, now);
 		if (remaining <= 0) {
-			return { phase: 'absent', title: 'Alien', badges: [], hidden: true };
+			return { phase: 'absent', label: 'Alien', badges: [], hidden: true };
 		}
 		const location = alienLocation(state.alien.hourBucket);
 		return {
 			phase: 'active',
-			title: 'Alien',
+			label: 'Alien',
 			badges: [],
-			location: location ?? 'Location not called out yet',
+			summary: location ?? 'Location not called out yet',
 			detail: 'remaining',
 			countdownMs: remaining,
 		};
@@ -941,27 +940,27 @@ const initBotWatcher = (
 
 	const stormView = (now: number): CategoryView => {
 		if (state.storm.status === 'unknown') {
-			return { phase: 'unknown', title: 'Storm', badges: [], detail: UNKNOWN_WAITING };
+			return { phase: 'unknown', label: 'Storm', badges: [], detail: UNKNOWN_WAITING };
 		}
 		if (state.storm.status === 'absent') {
-			return { phase: 'absent', title: 'Storm', badges: [], location: 'No' };
+			return { phase: 'absent', label: 'Storm', badges: [], summary: 'No' };
 		}
 		const badges: string[] = state.storm.stormKind === 'scroll' ? ['Scroll'] : [];
 		const remaining = remainingUntil(hourLater(state.storm.startedAt), now);
 		if (remaining <= 0) {
 			return {
 				phase: 'stale',
-				title: 'Storm',
+				label: 'Storm',
 				badges,
-				location: state.storm.note,
+				summary: state.storm.note,
 				detail: `Ended ${formatUtcClock(hourLater(state.storm.startedAt))}`,
 			};
 		}
 		return {
 			phase: 'active',
-			title: 'Storm',
+			label: 'Storm',
 			badges,
-			location: state.storm.note,
+			summary: state.storm.note,
 			detail: 'remaining',
 			countdownMs: remaining,
 		};
@@ -969,7 +968,7 @@ const initBotWatcher = (
 
 	const ancientView = (now: number): CategoryView => {
 		if (state.ancient.status === 'unknown') {
-			return { phase: 'unknown', title: 'Ancient', badges: [], detail: UNKNOWN_WAITING };
+			return { phase: 'unknown', label: 'Ancient Ore', badges: [], detail: UNKNOWN_WAITING };
 		}
 		if (state.ancient.status === 'up') {
 			const upAt = asEpoch(state.ancient.observedAt, now);
@@ -979,10 +978,10 @@ const initBotWatcher = (
 			const stale = elapsed >= ANCIENT_STALE_MS;
 			return {
 				phase: stale ? 'stale' : 'active',
-				title: 'Ancient',
+				label: 'Ancient Ore',
 				badges: [],
-				location: stale ? 'Mined?' : 'Yes',
-				detail: stale ? 'May be mined' : 'up',
+				summary: stale ? 'Ancient Up?' : 'Ancient Up',
+				detail: '',
 				countdownMs: elapsed,
 				dismissible: true,
 				hidden: !!state.ancientIgnored,
@@ -993,26 +992,26 @@ const initBotWatcher = (
 			if (remaining > 0) {
 				return {
 					phase: 'absent',
-					title: 'Ancient',
+					label: 'Ancient Ore',
 					badges: [],
-					location: 'No',
+					summary: 'No',
 					detail: `Up by ~${formatUtcClock(hourLater(state.ancient.observedAt))}`,
 					countdownMs: remaining,
 				};
 			}
 			return {
 				phase: 'stale',
-				title: 'Ancient',
+				label: 'Ancient Ore',
 				badges: [],
-				location: 'No',
+				summary: 'No',
 				detail: 'Respawn should have happened',
 			};
 		}
 		return {
 			phase: 'absent',
-			title: 'Ancient',
+			label: 'Ancient Ore',
 			badges: [],
-			location: 'No',
+			summary: 'No',
 			detail: 'Respawn unknown',
 		};
 	};
@@ -1044,7 +1043,7 @@ const initBotWatcher = (
 
 	const unknownView = (): CategoryView => ({
 		phase: 'unknown',
-		title: 'Waiting for !s',
+		label: 'Waiting for !s',
 		badges: [],
 		detail: 'Ask in chat to refresh',
 	});
@@ -1278,6 +1277,8 @@ const initBotWatcher = (
 		paintAll(now);
 	};
 
+	const helpers = context.settings.helpers;
+
 	const watcherNodes: SettingsNode[] = [
 		helpers.toggle(
 			'Enable Watcher',
@@ -1362,7 +1363,7 @@ export const BotWatcherPlugin: Plugin = {
 	description: 'Track world events from chat-bot commands and ping when they change.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', createBotWatcherSettings());
-		const api = initBotWatcher(lifecycle, context, settings, context.settings.helpers);
+		const api = initBotWatcher(lifecycle, context, settings);
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Bot Watcher', api.watcherNodes);
 		settingsMenu.mountSection('Alerts', api.alertNodes);
