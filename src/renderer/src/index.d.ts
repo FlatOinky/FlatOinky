@@ -51,8 +51,11 @@ declare global {
 	var opened_modals: Set<string>;
 	var ground_items: FMMO.GroundItem[];
 	var items: FMMO.InventoryItem[];
-	var sound_off: boolean;
+	var sound_off: number;
 	var music_off: boolean;
+	function play_sound(file: string, vol?: number): void;
+	function play_track(file: string): void;
+	function pause_track(): void;
 	var players: { [username: string]: FMMO.Player };
 	var npcs: { [uuid: string]: FMMO.Npc };
 	var map_objects: FMMO.MapObject[];
