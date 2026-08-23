@@ -8,8 +8,12 @@ const BUFFER_MAX_BYTES = 2 * 1024 * 1024;
 
 type CachedBuffer = { buffer: AudioBuffer; bytes: number };
 
-const soundUrl = (id: string): string => (id.startsWith('http') ? id : `/sounds/${id}`);
-const trackUrl = (id: string): string => (id.startsWith('http') ? id : `/sounds/tracks/${id}`);
+// Resolve against the page URL so production `file://…/out/renderer/index.html`
+// yields `…/renderer/sounds/…` (asset proxy) instead of `file:///sounds/…`.
+const soundUrl = (id: string): string =>
+	id.startsWith('http') ? id : new URL(`sounds/${id}`, document.baseURI).href;
+const trackUrl = (id: string): string =>
+	id.startsWith('http') ? id : new URL(`sounds/tracks/${id}`, document.baseURI).href;
 
 const bufferBytes = (buffer: AudioBuffer): number =>
 	buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
