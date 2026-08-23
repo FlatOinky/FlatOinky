@@ -47,11 +47,105 @@ const formatAliases = (command: ChatCommand, prefix: string): string =>
 		.map((alias) => `<code class="bg-base-200 rounded-selector p-0.5">${prefix}${alias}</code>`)
 		.join(', ');
 
-const filterCommands = (alias: string): ChatCommand[] =>
-	chatCommands.filter((command) => command.aliases.some((entry) => entry.startsWith(alias)));
+const SCORE_EXACT = 1_000_000;
+const SCORE_PREFIX = 500_000;
+const SCORE_CONTAINS = 250_000;
+const SCORE_SUBSEQUENCE = 100_000;
+const SCORE_EDIT = 10_000;
+
+const editDistance = (query: string, alias: string): number => {
+	const queryLength = query.length;
+	const aliasLength = alias.length;
+	const distances = Array.from({ length: queryLength + 1 }, (_, queryIndex) =>
+		Array.from({ length: aliasLength + 1 }, (_, aliasIndex) =>
+			queryIndex === 0 ? aliasIndex : aliasIndex === 0 ? queryIndex : 0,
+		),
+	);
+	for (let queryIndex = 1; queryIndex <= queryLength; queryIndex++) {
+		for (let aliasIndex = 1; aliasIndex <= aliasLength; aliasIndex++) {
+			const cost = query[queryIndex - 1] === alias[aliasIndex - 1] ? 0 : 1;
+			const row = distances[queryIndex];
+			const previous = distances[queryIndex - 1];
+			if (!row || !previous) continue;
+			row[aliasIndex] = Math.min(
+				previous[aliasIndex] + 1,
+				row[aliasIndex - 1] + 1,
+				previous[aliasIndex - 1] + cost,
+			);
+			const twoBack = distances[queryIndex - 2];
+			if (
+				twoBack &&
+				queryIndex > 1 &&
+				aliasIndex > 1 &&
+				query[queryIndex - 1] === alias[aliasIndex - 2] &&
+				query[queryIndex - 2] === alias[aliasIndex - 1]
+			) {
+				row[aliasIndex] = Math.min(row[aliasIndex], twoBack[aliasIndex - 2] + 1);
+			}
+		}
+	}
+	return distances[queryLength]?.[aliasLength] ?? Math.max(queryLength, aliasLength);
+};
+
+const isSubsequence = (query: string, alias: string): boolean => {
+	let index = 0;
+	for (const char of alias) {
+		if (char === query[index]) index += 1;
+		if (index === query.length) return true;
+	}
+	return false;
+};
+
+const maxEditDistance = (query: string): number => {
+	if (query.length <= 2) return 0;
+	if (query.length <= 5) return 1;
+	return 2;
+};
+
+const scoreAlias = (query: string, alias: string): number => {
+	if (query === '') return 1;
+	if (alias === query) return SCORE_EXACT;
+	if (alias.startsWith(query)) return SCORE_PREFIX - alias.length;
+	if (query.length < 2) return 0;
+	const containedAt = alias.indexOf(query);
+	if (containedAt >= 0) return SCORE_CONTAINS - containedAt;
+	if (isSubsequence(query, alias)) return SCORE_SUBSEQUENCE - (alias.length - query.length);
+	const distance = editDistance(query, alias);
+	if (distance > maxEditDistance(query)) return 0;
+	return SCORE_EDIT - distance * 100 - Math.abs(alias.length - query.length);
+};
+
+const scoreCommand = (query: string, command: ChatCommand): number =>
+	command.aliases.reduce((best, alias) => Math.max(best, scoreAlias(query, alias)), 0);
+
+const closestAliasDistance = (query: string, command: ChatCommand): number =>
+	command.aliases.reduce((best, alias) => Math.min(best, editDistance(query, alias)), Infinity);
+
+const filterCommands = (alias: string): ChatCommand[] => {
+	if (alias === '') return [...chatCommands];
+	return chatCommands
+		.map((command) => ({ command, score: scoreCommand(alias, command) }))
+		.filter(({ score }) => score > 0)
+		.sort((left, right) => right.score - left.score)
+		.map(({ command }) => command);
+};
 
 const findExactCommand = (alias: string): ChatCommand | undefined =>
 	chatCommands.find((command) => command.aliases.includes(alias));
+
+const findCorrectedExecutable = (alias: string): ChatCommand | undefined => {
+	const limit = maxEditDistance(alias);
+	if (limit <= 0) return undefined;
+	const ranked = chatCommands
+		.filter((command) => command.execute)
+		.map((command) => ({ command, distance: closestAliasDistance(alias, command) }))
+		.filter(({ distance }) => distance > 0 && distance <= limit)
+		.sort((left, right) => left.distance - right.distance);
+	const best = ranked[0];
+	if (!best) return undefined;
+	if (ranked[1] && ranked[1].distance === best.distance) return undefined;
+	return best.command;
+};
 
 // #region Commands
 
@@ -452,7 +546,7 @@ export const runCommandInput = (value: string, context: ChatCommandContext): boo
 	if (!context.settings.enableCommands) return false;
 	const parsed = parseCommandInput(value, context.settings.commandPrefix);
 	if (!parsed || parsed.alias === '') return false;
-	const command = findExactCommand(parsed.alias);
+	const command = findExactCommand(parsed.alias) ?? findCorrectedExecutable(parsed.alias);
 	if (!command) return false;
 	if (command.execute) {
 		command.run?.(parsed.args, context);
