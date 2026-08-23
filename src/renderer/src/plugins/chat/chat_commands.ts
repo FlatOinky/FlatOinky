@@ -152,6 +152,121 @@ const collectionsCommand: ChatCommand = {
 	},
 };
 
+const dounbotCommands: ChatCommand[] = [
+	{
+		name: 'Bot: Check Statuses',
+		description: 'Yell for world event statuses',
+		aliases: ['statuses'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !s');
+		},
+	},
+	{
+		name: 'Bot: Check Meteor',
+		description: 'Yell for meteor status',
+		aliases: ['meteor'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !m');
+		},
+	},
+	{
+		name: 'Bot: Check Bondfire',
+		description: 'Yell for bondfire status',
+		aliases: ['bondfire'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !bondfire');
+		},
+	},
+	{
+		name: 'Bot: Check Ancient Ore',
+		description: 'Yell for ancient ore status',
+		aliases: ['ancient'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !ancient');
+		},
+	},
+	{
+		name: 'Bot: Check Storm Scroll',
+		description: 'Yell for storm scroll status',
+		aliases: ['scroll'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !storm');
+		},
+	},
+	{
+		name: 'Bot: Check Tree',
+		description: 'Yell for tree status',
+		aliases: ['tree'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !tree');
+		},
+	},
+	{
+		name: 'Bot: Set Meteor',
+		description: 'Sets the meteor value',
+		aliases: ['set-meteor'],
+		execute: false,
+		run: (args, context) => {
+			const message = args.join(' ').trim();
+			if (!message) return;
+			context.send('', `/yell !sm ${message}`);
+		},
+	},
+	{
+		name: 'Bot: Set Evil Tree',
+		description: 'Sets the evil tree value (requires 10k donation)',
+		aliases: ['set-tree'],
+		execute: false,
+		run: (args, context) => {
+			const message = args.join(' ').trim();
+			if (!message) return;
+			context.send('', `/yell !st ${message}`);
+		},
+	},
+	{
+		name: 'Bot: Clear Evil Tree',
+		description: 'Clears the currently set evil tree (requires 10k donation)',
+		aliases: ['clear-tree', 'reset-tree'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !resettree');
+		},
+	},
+	{
+		name: 'Bot: Ping Alien',
+		description: 'Triggers the alien ping in discord (requires 10k donation)',
+		aliases: ['ping-alien'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !alien');
+		},
+	},
+	{
+		name: 'Bot: Ping Gem Meteor',
+		description: 'Triggers the gem meteor ping in discord (requires 10k donation)',
+		aliases: ['ping-gemmeteor'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !gemmeteor');
+		},
+	},
+	{
+		name: 'Bot: Ping Super Storm',
+		description: 'Triggers the super storm ping in discord (requires 10k donation)',
+		aliases: ['ping-superstorm'],
+		execute: true,
+		run: (_args, context) => {
+			context.send('', '/yell !superstorm');
+		},
+	},
+];
+
 export const chatCommands: ChatCommand[] = [
 	collectionsCommand,
 	helpCommand,
@@ -159,6 +274,7 @@ export const chatCommands: ChatCommand[] = [
 	replyTabCommand,
 	ticksCommand,
 	unstuckCommand,
+	...dounbotCommands,
 ];
 
 // #region Selection state
