@@ -409,6 +409,18 @@ const initPlugins = (
 		}
 	};
 
+	const dispatchHook = (call: (instance: PluginInstance) => PluginHookResult) => {
+		let resume = true;
+		for (const instance of instanceList) {
+			try {
+				if ((call(instance) ?? true) === false) resume = false;
+			} catch (error) {
+				console.error(error);
+			}
+		}
+		return resume;
+	};
+
 	const api: PluginsApi = {
 		events: {
 			chatMessage: (chatMessage) => {
@@ -450,36 +462,20 @@ const initPlugins = (
 			},
 		},
 		hooks: {
-			serverCommand: (command, values, rawData) => {
-				return instanceList.every((instance) => {
-					return instance.callbacks.hooks?.serverCommand?.(command, values, rawData) ?? true;
-				});
-			},
-			addToChat: (username, tag, icon, color, message) => {
-				return instanceList.every((instance) => {
-					return instance.callbacks.hooks?.addToChat?.(username, tag, icon, color, message) ?? true;
-				});
-			},
-			playSound: (url, volume) => {
-				return instanceList.every((instance) => {
-					return instance.callbacks.hooks?.playSound?.(url, volume) ?? true;
-				});
-			},
-			playTrack: (url) => {
-				return instanceList.every((instance) => {
-					return instance.callbacks.hooks?.playTrack?.(url) ?? true;
-				});
-			},
-			pauseTrack: () => {
-				return instanceList.every((instance) => {
-					return instance.callbacks.hooks?.pauseTrack?.() ?? true;
-				});
-			},
-			mouseClick: (event) => {
-				return instanceList.every((instance) => {
-					return instance.callbacks.hooks?.mouseClick?.(event) ?? true;
-				});
-			},
+			serverCommand: (command, values, rawData) =>
+				dispatchHook((instance) =>
+					instance.callbacks.hooks?.serverCommand?.(command, values, rawData),
+				),
+			addToChat: (username, tag, icon, color, message) =>
+				dispatchHook((instance) =>
+					instance.callbacks.hooks?.addToChat?.(username, tag, icon, color, message),
+				),
+			playSound: (url, volume) =>
+				dispatchHook((instance) => instance.callbacks.hooks?.playSound?.(url, volume)),
+			playTrack: (url) => dispatchHook((instance) => instance.callbacks.hooks?.playTrack?.(url)),
+			pauseTrack: () => dispatchHook((instance) => instance.callbacks.hooks?.pauseTrack?.()),
+			mouseClick: (event) =>
+				dispatchHook((instance) => instance.callbacks.hooks?.mouseClick?.(event)),
 		},
 		mutators,
 		contextMenu: {
