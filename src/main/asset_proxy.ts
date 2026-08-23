@@ -14,12 +14,19 @@ const FLAT_URL = 'https://flatmmo.com';
 // Static asset requests the game makes with root-relative paths (images,
 // sounds, fonts, etc.). Matched by extension so new game features that load
 // assets work without new transpiler rules.
-const ASSET_EXTENSION = /\.(png|jpe?g|gif|webp|svg|ico|ogg|mp3|wav|m4a|woff2?|ttf|otf|eot)$/i;
+const ASSET_EXTENSION = /\.(png|jpe?g|gif|webp|svg|ico|ogg|mp3|wav|m4a|dat|woff2?|ttf|otf|eot)$/i;
 
 // Paths owned by the app's own bundle / dev server which must never be proxied.
 const APP_OWNED_PREFIXES = ['/assets/', '/@', '/src/', '/node_modules/', '/.vite/'];
 
 const isAssetPath = (pathname: string): boolean => ASSET_EXTENSION.test(pathname);
+
+const contentTypeForAsset = (relativePath: string, contentType: string): string => {
+	if (!relativePath.startsWith('/sounds/')) return contentType;
+	if (contentType && contentType !== 'application/octet-stream') return contentType;
+	if (/\.dat$/i.test(relativePath)) return 'audio/mpeg';
+	return contentType;
+};
 
 // Dynamic game endpoints (data/AJAX) requested with root-relative paths. Proxied
 // so the game's own fetch('/something.php') resolves against the app origin and is
@@ -53,9 +60,13 @@ const proxyToFlat = (
 	});
 };
 
-const responseFromCache = (entry: AssetCacheEntry, method: string): Response => {
+const responseFromCache = (
+	relativePath: string,
+	entry: AssetCacheEntry,
+	method: string,
+): Response => {
 	const headers: Record<string, string> = {
-		'content-type': entry.contentType,
+		'content-type': contentTypeForAsset(relativePath, entry.contentType),
 		'x-flat-oinky-cache': 'hit',
 	};
 	if (entry.etag) headers.etag = entry.etag;
@@ -68,7 +79,8 @@ const responseFromCache = (entry: AssetCacheEntry, method: string): Response => 
 
 const storeUpstreamAsset = async (relativePath: string, response: Response): Promise<Buffer> => {
 	const body = Buffer.from(await response.arrayBuffer());
-	const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
+	const upstreamType = response.headers.get('content-type') ?? 'application/octet-stream';
+	const contentType = contentTypeForAsset(relativePath, upstreamType);
 	const etag = response.headers.get('etag') ?? undefined;
 	const lastModified = response.headers.get('last-modified') ?? undefined;
 	try {
@@ -116,6 +128,10 @@ const fetchAndCacheStaticAsset = async (
 		const body = await storeUpstreamAsset(relativePath, response);
 		const headers = new Headers(response.headers);
 		headers.set('x-flat-oinky-cache', 'miss');
+		headers.set(
+			'content-type',
+			contentTypeForAsset(relativePath, headers.get('content-type') ?? 'application/octet-stream'),
+		);
 		return new Response(method === 'HEAD' ? null : new Uint8Array(body), {
 			status: response.status,
 			statusText: response.statusText,
@@ -143,7 +159,7 @@ const proxyStaticAsset = async (
 			if (isStale(cached)) {
 				void revalidateCachedAsset(relativePath, search, cached);
 			}
-			return responseFromCache(cached, method);
+			return responseFromCache(relativePath, cached, method);
 		}
 	} catch (error) {
 		console.error('asset_proxy: cache read failed', relativePath, error);
