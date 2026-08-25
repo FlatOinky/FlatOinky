@@ -249,6 +249,7 @@ export const icon = {
 	chevronsUp: setupIconElement('icon-[tabler--chevrons-up]'),
 	chevronUp: setupIconElement('icon-[tabler--chevron-up]'),
 	clock: setupIconElement('icon-[tabler--clock]'),
+	cloud: setupIconElement('icon-[tabler--cloud]'),
 	cloudStorm: setupIconElement('icon-[tabler--cloud-storm]'),
 	copy: setupIconElement('icon-[tabler--copy]'),
 	deviceDesktopExclamation: setupIconElement('icon-[tabler--device-desktop-exclamation]'),

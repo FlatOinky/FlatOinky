@@ -21,13 +21,14 @@ const STATUS_LABELS = ['Tree', 'Storm', 'Meteor', 'Bondfire', 'Ancient'] as cons
 type StatusLabel = (typeof STATUS_LABELS)[number];
 const PLAYER_COMMAND = /^!(sm|st|gm|gemmeteor|rt|resettree|alien|superstorm)(?:\s+(.*))?$/i;
 const WATCHABLE_CHAT_TYPES = ['local', 'yell', 'pm_to', 'pm_from'] as const;
-const CATEGORY_KEYS = ['tree', 'meteor', 'alien', 'storm', 'ancient'] as const;
+const CATEGORY_KEYS = ['tree', 'meteor', 'alien', 'storm', 'superStorm', 'ancient'] as const;
 type CategoryKey = (typeof CATEGORY_KEYS)[number];
 const CATEGORY_LABELS: Record<CategoryKey, string> = {
 	tree: 'Evil Tree',
 	meteor: 'Meteor',
 	alien: 'Alien',
 	storm: 'Storm Scroll',
+	superStorm: 'Super Storm',
 	ancient: 'Ancient Ore',
 };
 const DEFAULT_CATEGORIES: Record<CategoryKey, boolean> = {
@@ -35,7 +36,16 @@ const DEFAULT_CATEGORIES: Record<CategoryKey, boolean> = {
 	meteor: true,
 	alien: true,
 	storm: true,
+	superStorm: true,
 	ancient: false,
+};
+const CATEGORY_TRACK_LABELS: Record<CategoryKey, string> = {
+	tree: 'Track Evil Trees',
+	meteor: 'Track Meteors',
+	alien: 'Track Aliens',
+	storm: 'Track Storm Scrolls',
+	superStorm: 'Track Super Storms',
+	ancient: 'Track Ancient Ore',
 };
 const UNKNOWN_WAITING = 'Unknown, waiting for !s';
 
@@ -43,27 +53,24 @@ const UNKNOWN_WAITING = 'Unknown, waiting for !s';
 
 type AlertScope = typeof initialAlertScope;
 
-const botWatcherAlertKeys = [
-	'evilTree',
-	'gemMeteor',
-	'alien',
-	'meteorChange',
-	'meteorUpdated',
-	'storm',
-	'superStorm',
-	'ancientUp',
-] as const;
-type BotWatcherAlertKey = (typeof botWatcherAlertKeys)[number];
-
-const botWatcherAlertMeta: Record<BotWatcherAlertKey, { title: string }> = {
-	evilTree: { title: 'Evil Tree spotted' },
-	gemMeteor: { title: 'Gem Meteor' },
-	alien: { title: 'Alien arrived' },
-	meteorChange: { title: 'Meteor changed location' },
-	meteorUpdated: { title: 'Meteor location set' },
-	storm: { title: 'Storm scroll' },
-	superStorm: { title: 'Super Storm' },
-	ancientUp: { title: 'Ancient up' },
+const botWatcherAlertMeta = {
+	evilTree: { title: 'Evil Tree Spotted', category: 'tree' },
+	gemMeteor: { title: 'Gem Meteor', category: 'meteor' },
+	alien: { title: 'Alien Arrived', category: 'alien' },
+	meteorChange: { title: 'Meteor changed locations', category: 'meteor' },
+	meteorUpdated: { title: 'Meteor found', category: 'meteor' },
+	storm: { title: 'Storm Scroll', category: 'storm' },
+	superStorm: { title: 'Super Storm', category: 'superStorm' },
+	ancientUp: { title: 'Ancient Up', category: 'ancient' },
+} as const satisfies Record<string, { title: string; category: CategoryKey }>;
+type BotWatcherAlertKey = keyof typeof botWatcherAlertMeta;
+const ALERTS_BY_CATEGORY: Record<CategoryKey, BotWatcherAlertKey[]> = {
+	tree: ['evilTree'],
+	meteor: ['meteorChange', 'meteorUpdated', 'gemMeteor'],
+	alien: ['alien'],
+	storm: ['storm'],
+	superStorm: ['superStorm'],
+	ancient: ['ancientUp'],
 };
 
 const WINDOW_STYLES = ['stack', 'row'] as const;
@@ -81,17 +88,16 @@ const createBotWatcherSettings = () => ({
 	windowOpen: false,
 	windowStyle: DEFAULT_WINDOW_STYLE as WindowStyle,
 	trackedBot: DEFAULT_BOT_NAME,
-	enableAlerts: false,
 	categories: { ...DEFAULT_CATEGORIES },
 	alerts: {
-		evilTree: { ...initialAlertScope },
-		gemMeteor: { ...initialAlertScope },
-		alien: { ...initialAlertScope },
-		meteorChange: { ...initialAlertScope },
-		meteorUpdated: { ...initialAlertScope },
-		storm: { ...initialAlertScope },
-		superStorm: { ...initialAlertScope },
-		ancientUp: { ...initialAlertScope },
+		evilTree: { ...initialAlertScope, enabled: false },
+		gemMeteor: { ...initialAlertScope, enabled: false },
+		alien: { ...initialAlertScope, enabled: false },
+		meteorChange: { ...initialAlertScope, enabled: false },
+		meteorUpdated: { ...initialAlertScope, enabled: false },
+		storm: { ...initialAlertScope, enabled: false },
+		superStorm: { ...initialAlertScope, enabled: false },
+		ancientUp: { ...initialAlertScope, enabled: false },
 	} satisfies Record<BotWatcherAlertKey, AlertScope>,
 });
 type BotWatcherSettings = ReturnType<typeof createBotWatcherSettings>;
@@ -107,6 +113,11 @@ type StormRecord =
 	| { status: 'unknown' }
 	| { status: 'absent' }
 	| { status: 'present'; startedAt: number; stormKind: StormKind; note?: string };
+
+type SuperStormRecord =
+	| { status: 'unknown' }
+	| { status: 'absent' }
+	| { status: 'present'; observedAt: number; note?: string };
 
 type MeteorEntry = {
 	location: string;
@@ -127,7 +138,7 @@ type AncientRecord =
 	| { status: 'up'; observedAt?: number }
 	| { status: 'down'; observedAt?: number };
 
-type PendingPayload = { location: string; at: number };
+type PendingPayload = { location: string; at: number; silent?: boolean };
 
 type Phase = 'unknown' | 'absent' | 'active' | 'stale';
 
@@ -141,11 +152,13 @@ type CategoryView = {
 	hidden?: boolean;
 	isGem?: boolean;
 	dismissible?: boolean;
+	dismissTitle?: string;
 };
 
 type BotWatcherState = {
 	tree: TreeRecord;
 	storm: StormRecord;
+	superStorm: SuperStormRecord;
 	meteorHistory: MeteorEntry[];
 	currentMeteor: MeteorEntry | null;
 	alien: AlienRecord | null;
@@ -159,6 +172,7 @@ type BotWatcherState = {
 const createBotWatcherState = (): BotWatcherState => ({
 	tree: { status: 'unknown' },
 	storm: { status: 'unknown' },
+	superStorm: { status: 'unknown' },
 	meteorHistory: [],
 	currentMeteor: null,
 	alien: null,
@@ -334,6 +348,8 @@ const categoryIcon = (key: CategoryKey, isGem: boolean): Element => {
 			case 'alien':
 				return el.icon.alien``.element;
 			case 'storm':
+				return el.icon.cloud``.element;
+			case 'superStorm':
 				return el.icon.cloudStorm``.element;
 			case 'ancient':
 				return el.icon.pick``.element;
@@ -385,7 +401,7 @@ const mountDismissButton = (container: HTMLElement, extra: string): HTMLButtonEl
 		'dismiss',
 		(button) => {
 			button.type = 'button';
-			button.title = 'Ignore until next Ancient';
+			button.title = 'Dismiss';
 			button.className = `${button.className} ${extra}`.trim();
 			el.icon.x`size-3.5`.mount(button);
 			button.style.display = 'none';
@@ -490,6 +506,7 @@ const paintCountdown = (target: HTMLElement, view: CategoryView, extra = '') => 
 const paintDismiss = (button: HTMLButtonElement, view: CategoryView, onDismiss?: () => void) => {
 	const show = !!view.dismissible;
 	button.style.display = show ? '' : 'none';
+	button.title = view.dismissTitle ?? 'Dismiss';
 	button.onclick =
 		show && onDismiss
 			? (event) => {
@@ -572,11 +589,15 @@ const initBotWatcher = (
 		);
 	};
 
-	const fireOnce = (key: BotWatcherAlertKey, message?: string) => {
-		if (!settings.enabled || !settings.enableAlerts) return;
-		if (!settings.alerts[key].enabled) return;
+	const fireOnce = (key: BotWatcherAlertKey, message?: string, silent = false) => {
+		if (!settings.enabled) return;
+		const isCategoryEnabled = settings.categories[botWatcherAlertMeta[key].category];
+		if (!isCategoryEnabled) return;
+		const isAlertEnabled = settings.alerts[key].enabled;
+		if (!isAlertEnabled) return;
 		if (state.latched[key]) return;
 		state.latched[key] = true;
+		if (silent) return;
 		sendAlert(key, message);
 	};
 
@@ -625,27 +646,27 @@ const initBotWatcher = (
 		return pending;
 	};
 
-	const markGemPing = (now: number) => {
+	const markGemPing = (now: number, silent = false) => {
 		const bucket = attributeHourBucket(now);
 		const meteor = getCurrentMeteor();
 		const entry = meteorByBucket(bucket) ?? (meteor?.setAt === bucket ? meteor : undefined);
 		if (entry) {
 			const alreadyPinged = entry.gemPinged;
 			saveMeteorEntry({ ...entry, isGem: true, gemPinged: true });
-			if (!alreadyPinged) fireOnce('gemMeteor', entry.location);
+			if (!alreadyPinged) fireOnce('gemMeteor', entry.location, silent);
 			return;
 		}
 		const pendingKey = String(bucket);
 		if (state.pendingGemBuckets[pendingKey]) return;
 		state.pendingGemBuckets = { ...state.pendingGemBuckets, [pendingKey]: true };
-		fireOnce('gemMeteor');
+		fireOnce('gemMeteor', undefined, silent);
 	};
 
 	const alienLocation = (hourBucket: number): string | undefined =>
 		meteorByBucket(hourBucket - HOUR_MS)?.location ??
 		(state.alien?.hourBucket === hourBucket ? state.alien.location : undefined);
 
-	const pingAlien = (now: number, pingLocation?: string) => {
+	const pingAlien = (now: number, pingLocation?: string, silent = false) => {
 		const hourBucket = attributeHourBucket(now);
 		const already = state.alien?.hourBucket === hourBucket;
 		if (!already) state.latched.alien = false;
@@ -654,17 +675,19 @@ const initBotWatcher = (
 			? { hourBucket, pingedAt: now, location }
 			: { hourBucket, pingedAt: now };
 		if (already) return;
-		fireOnce('alien', location);
+		fireOnce('alien', location, silent);
 	};
 
-	let lastSuperStormAt = 0;
-	const pingSuperStorm = (now: number, note?: string) => {
-		if (now - lastSuperStormAt > PENDING_TTL_MS) state.latched.superStorm = false;
-		lastSuperStormAt = now;
-		fireOnce('superStorm', note);
+	const pingSuperStorm = (now: number, note?: string, silent = false) => {
+		const previous = state.superStorm.status;
+		const observedAt = previous === 'present' ? state.superStorm.observedAt : now;
+		const nextNote = note || (previous === 'present' ? state.superStorm.note : undefined);
+		if (previous !== 'present') state.latched.superStorm = false;
+		state.superStorm = { status: 'present', observedAt, note: nextNote };
+		if (previous !== 'present') fireOnce('superStorm', nextNote, silent);
 	};
 
-	const applyTreeValue = (raw: string, now: number) => {
+	const applyTreeValue = (raw: string, now: number, silent = false) => {
 		if (/^none$/i.test(raw)) {
 			state.tree = { status: 'absent' };
 			state.latched.evilTree = false;
@@ -674,7 +697,7 @@ const initBotWatcher = (
 		if (!location) return;
 		const previous = state.tree.status;
 		state.tree = { status: 'present', location, setAt: asEpoch(setAt, now) ?? now };
-		if (previous !== 'present') fireOnce('evilTree', location);
+		if (previous !== 'present') fireOnce('evilTree', location, silent);
 	};
 
 	const applyStormValue = (raw: string, now: number) => {
@@ -697,7 +720,7 @@ const initBotWatcher = (
 		if (previous !== 'present') fireOnce('storm');
 	};
 
-	const applyMeteorValue = (raw: string, now: number) => {
+	const applyMeteorValue = (raw: string, now: number, silent = false) => {
 		const { location, setAt } = parseLocatedValue(raw, now);
 		if (!location) return;
 		const at = asEpoch(setAt, now) ?? now;
@@ -707,7 +730,7 @@ const initBotWatcher = (
 		const entry = upsertMeteor(location, at, now);
 		state.latched.meteorUpdated =
 			currentMeteor === undefined || currentMeteor.location === location;
-		fireOnce('meteorUpdated', location);
+		fireOnce('meteorUpdated', location, silent);
 		if (currentEpoch !== entry.setAt) {
 			state.latched.meteorChange = false;
 			state.latched.gemMeteor = false;
@@ -767,14 +790,14 @@ const initBotWatcher = (
 		if (/^meteor location updated$/i.test(message)) {
 			const pending = consumePending(pendingSm, now);
 			pendingSm = undefined;
-			if (pending) applyMeteorValue(pending.location, now);
+			if (pending) applyMeteorValue(pending.location, now, pending.silent);
 			return;
 		}
 
 		if (/^evil tree location added$/i.test(message)) {
 			const pending = consumePending(pendingSt, now);
 			pendingSt = undefined;
-			if (pending) applyTreeValue(pending.location, now);
+			if (pending) applyTreeValue(pending.location, now, pending.silent);
 			return;
 		}
 
@@ -825,7 +848,7 @@ const initBotWatcher = (
 		}
 	};
 
-	const applyPlayerCommand = (message: string, now: number) => {
+	const applyPlayerCommand = (message: string, now: number, silent = false) => {
 		const match = message.match(PLAYER_COMMAND);
 		if (!match) return;
 		const command = match[1].toLowerCase();
@@ -833,17 +856,17 @@ const initBotWatcher = (
 		switch (command) {
 			case 'sm': {
 				if (!rest) return;
-				pendingSm = { location: rest, at: now };
+				pendingSm = { location: rest, at: now, silent };
 				return;
 			}
 			case 'st': {
 				if (!rest) return;
-				pendingSt = { location: rest, at: now };
+				pendingSt = { location: rest, at: now, silent };
 				return;
 			}
 			case 'gm':
 			case 'gemmeteor':
-				markGemPing(now);
+				markGemPing(now, silent);
 				return;
 			case 'rt':
 			case 'resettree':
@@ -851,10 +874,10 @@ const initBotWatcher = (
 				state.latched.evilTree = false;
 				return;
 			case 'alien':
-				pingAlien(now);
+				pingAlien(now, undefined, silent);
 				return;
 			case 'superstorm':
-				pingSuperStorm(now, rest || undefined);
+				pingSuperStorm(now, rest || undefined, silent);
 				return;
 		}
 	};
@@ -966,6 +989,28 @@ const initBotWatcher = (
 		};
 	};
 
+	const superStormView = (now: number): CategoryView => {
+		if (state.superStorm.status !== 'present') {
+			return {
+				phase: state.superStorm.status === 'absent' ? 'absent' : 'unknown',
+				label: 'Super Storm',
+				badges: [],
+				hidden: true,
+			};
+		}
+		const started = asEpoch(state.superStorm.observedAt, now) ?? now;
+		const elapsed = Math.max(0, now - started);
+		return {
+			phase: 'active',
+			label: 'Super Storm',
+			badges: [],
+			summary: state.superStorm.note,
+			countdownMs: elapsed,
+			dismissible: true,
+			dismissTitle: 'Mark Super Storm as gone',
+		};
+	};
+
 	const ancientView = (now: number): CategoryView => {
 		if (state.ancient.status === 'unknown') {
 			return { phase: 'unknown', label: 'Ancient Ore', badges: [], detail: UNKNOWN_WAITING };
@@ -984,6 +1029,7 @@ const initBotWatcher = (
 				detail: '',
 				countdownMs: elapsed,
 				dismissible: true,
+				dismissTitle: 'Ignore until next Ancient',
 				hidden: !!state.ancientIgnored,
 			};
 		}
@@ -1020,7 +1066,7 @@ const initBotWatcher = (
 		const meteor = getCurrentMeteor();
 		const setAt = asEpoch(meteor?.setAt, now);
 		if (meteor && setAt !== undefined && now >= setAt + HOUR_MS) {
-			fireOnce('meteorChange', meteor.location);
+			fireOnce('meteorChange');
 		}
 	};
 
@@ -1030,12 +1076,14 @@ const initBotWatcher = (
 			meteor: meteorView(now),
 			alien: alienView(now),
 			storm: stormView(now),
+			superStorm: superStormView(now),
 			ancient: ancientView(now),
 		};
 		const empty =
 			views.tree.phase === 'unknown' &&
 			views.storm.phase === 'unknown' &&
 			views.meteor.phase === 'unknown' &&
+			views.superStorm.phase !== 'active' &&
 			views.ancient.phase === 'unknown' &&
 			views.alien.phase !== 'active';
 		return { views, empty };
@@ -1074,6 +1122,18 @@ const initBotWatcher = (
 		paintAll(Date.now());
 	};
 
+	const dismissSuperStorm = () => {
+		state.superStorm = { status: 'absent' };
+		state.latched.superStorm = false;
+		paintAll(Date.now());
+	};
+
+	const dismissFor = (key: CategoryKey): (() => void) | undefined => {
+		if (key === 'ancient') return ignoreAncient;
+		if (key === 'superStorm') return dismissSuperStorm;
+		return undefined;
+	};
+
 	const paintPopup = (now: number) => {
 		if (!watcherTray) return;
 		const { views, empty } = snapshotViews(now);
@@ -1090,7 +1150,7 @@ const initBotWatcher = (
 				view,
 				categoryIcon(key, !!view.isGem),
 				viewHidden(view, empty, settings.categories[key] !== false),
-				key === 'ancient' ? ignoreAncient : undefined,
+				dismissFor(key),
 			);
 		}
 		const status = state.lastStatusAt
@@ -1112,7 +1172,7 @@ const initBotWatcher = (
 				view,
 				categoryIcon(key, !!view.isGem),
 				viewHidden(view, empty, settings.categories[key] !== false),
-				key === 'ancient' ? ignoreAncient : undefined,
+				dismissFor(key),
 			);
 		}
 	};
@@ -1136,6 +1196,7 @@ const initBotWatcher = (
 					meteor: mountWatcherRow(list, 'meteor', 'Meteor'),
 					alien: mountWatcherRow(list, 'alien', 'Alien'),
 					storm: mountWatcherRow(list, 'storm', 'Storm'),
+					superStorm: mountWatcherRow(list, 'superStorm', 'Super Storm'),
 					ancient: mountWatcherRow(list, 'ancient', 'Ancient'),
 				},
 			};
@@ -1148,6 +1209,7 @@ const initBotWatcher = (
 				meteor: mountWatcherStack(body, 'meteor'),
 				alien: mountWatcherStack(body, 'alien'),
 				storm: mountWatcherStack(body, 'storm'),
+				superStorm: mountWatcherStack(body, 'superStorm'),
 				ancient: mountWatcherStack(body, 'ancient'),
 			},
 		};
@@ -1226,6 +1288,7 @@ const initBotWatcher = (
 			meteor: mountWatcherRow(list, 'meteor', 'Meteor'),
 			alien: mountWatcherRow(list, 'alien', 'Alien'),
 			storm: mountWatcherRow(list, 'storm', 'Storm'),
+			superStorm: mountWatcherRow(list, 'superStorm', 'Super Storm'),
 			ancient: mountWatcherRow(list, 'ancient', 'Ancient'),
 		};
 		const footer = el.div`text-xs text-base-content/50 pt-1`.mount(body, 'footer');
@@ -1271,7 +1334,10 @@ const initBotWatcher = (
 		const now = Date.now();
 		const message = decodeMessage(chatMessage.message);
 		const botName = trackedBotName();
-		if (isPlayerChat(chatMessage, botName)) applyPlayerCommand(message, now);
+		if (isPlayerChat(chatMessage, botName)) {
+			const silent = chatMessage.type === 'pm_to' || context.isLocalUsername(chatMessage.username);
+			applyPlayerCommand(message, now, silent);
+		}
 		if (isBotMessage(chatMessage, botName)) applyBotReply(message, now);
 		evaluateAlerts(now);
 		paintAll(now);
@@ -1286,32 +1352,6 @@ const initBotWatcher = (
 			() => settings.enabled,
 			setEnabled,
 		),
-		...CATEGORY_KEYS.map((key) =>
-			helpers.toggle(
-				`${CATEGORY_LABELS[key]} tracking`,
-				'',
-				() => settings.categories[key] !== false,
-				(value) => {
-					settings.categories[key] = value;
-					paintAll(Date.now());
-				},
-			),
-		),
-		{
-			label: 'Tracked Bot',
-			description: 'Username of the bot to track in chat and PMs.',
-			reset: (input) => {
-				input.value = DEFAULT_BOT_NAME;
-			},
-			input: el.input.text``.then((input) => {
-				input.value = settings.trackedBot;
-				input.onchange = () => {
-					const next = input.value.trim() || DEFAULT_BOT_NAME;
-					settings.trackedBot = next;
-					input.value = next;
-				};
-			}),
-		},
 		{
 			label: 'Window Style',
 			reset: (input) => {
@@ -1331,28 +1371,49 @@ const initBotWatcher = (
 				};
 			}),
 		},
-	];
-
-	const alertNodes: SettingsNode[] = [
-		helpers.toggle(
-			'Enable alerts',
-			'',
-			() => settings.enableAlerts,
-			(value) => {
-				settings.enableAlerts = value;
+		{
+			label: 'Tracked Bot',
+			description: 'Username of the bot to track in chat and PMs.',
+			reset: (input) => {
+				input.value = DEFAULT_BOT_NAME;
 			},
-		),
-		...botWatcherAlertKeys.map((key) =>
-			helpers.cueCard({
-				id: `bot-watcher-${key}`,
-				title: botWatcherAlertMeta[key].title,
-				scoped: settings.alerts[key],
-				onTest: () => sendAlert(key),
+			input: el.input.text``.then((input) => {
+				input.value = settings.trackedBot;
+				input.onchange = () => {
+					const next = input.value.trim() || DEFAULT_BOT_NAME;
+					settings.trackedBot = next;
+					input.value = next;
+				};
 			}),
-		),
+		},
 	];
 
-	return { handleChatMessage, watcherNodes, alertNodes };
+	const categoryNodes = Object.fromEntries(
+		CATEGORY_KEYS.map((key) => [
+			key,
+			[
+				helpers.toggle(
+					CATEGORY_TRACK_LABELS[key],
+					'',
+					() => settings.categories[key] !== false,
+					(value) => {
+						settings.categories[key] = value;
+						paintAll(Date.now());
+					},
+				),
+				...ALERTS_BY_CATEGORY[key].map((alertKey) =>
+					helpers.cueCard({
+						id: `bot-watcher-${alertKey}`,
+						title: botWatcherAlertMeta[alertKey].title,
+						scoped: settings.alerts[alertKey],
+						onTest: () => sendAlert(alertKey),
+					}),
+				),
+			],
+		]),
+	) as Record<CategoryKey, SettingsNode[]>;
+
+	return { handleChatMessage, watcherNodes, categoryNodes };
 };
 
 // #region Plugin
@@ -1366,7 +1427,9 @@ export const BotWatcherPlugin: Plugin = {
 		const api = initBotWatcher(lifecycle, context, settings);
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Bot Watcher', api.watcherNodes);
-		settingsMenu.mountSection('Alerts', api.alertNodes);
+		for (const key of CATEGORY_KEYS) {
+			settingsMenu.mountSection(CATEGORY_LABELS[key], api.categoryNodes[key]);
+		}
 		return {
 			events: {
 				chatMessage: (chatMessage) => api.handleChatMessage(chatMessage),
