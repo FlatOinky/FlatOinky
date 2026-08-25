@@ -22,11 +22,88 @@ const APP_OWNED_PREFIXES = ['/assets/', '/@', '/src/', '/node_modules/', '/.vite
 const isAssetPath = (pathname: string): boolean => ASSET_EXTENSION.test(pathname);
 
 const contentTypeForAsset = (relativePath: string, contentType: string): string => {
-	if (!relativePath.startsWith('/sounds/')) return contentType;
-	if (contentType && contentType !== 'application/octet-stream') return contentType;
-	if (/\.dat$/i.test(relativePath)) return 'audio/mpeg';
+	const path = relativePath.replace(/^\/+/, '');
+	if (path.startsWith('sounds/') && /\.dat$/i.test(path)) return 'audio/mpeg';
 	return contentType;
 };
+
+// #region byte ranges
+// Chromium's media player (HTMLAudioElement) Range-requests audio and requires
+// Content-Length + Accept-Ranges. A bare 200 from cache is why music broke after
+// the first (uncached) play.
+
+type ByteRange = { start: number; end: number };
+
+const parseBytesRange = (
+	header: string | null,
+	size: number,
+): ByteRange | 'unsatisfiable' | null => {
+	if (!header) return null;
+	const trimmed = header.trim();
+	if (!trimmed.toLowerCase().startsWith('bytes=')) return null;
+	const spec = trimmed.slice('bytes='.length);
+	// Multipart ranges: ignore and send the full body (200).
+	if (spec.includes(',')) return null;
+	const dash = spec.indexOf('-');
+	if (dash < 0) return 'unsatisfiable';
+	const left = spec.slice(0, dash);
+	const right = spec.slice(dash + 1);
+	if (left === '' && right === '') return 'unsatisfiable';
+	if (left === '') {
+		const suffix = Number(right);
+		if (!Number.isInteger(suffix) || suffix < 0 || suffix === 0 || size === 0) {
+			return 'unsatisfiable';
+		}
+		return { start: Math.max(0, size - suffix), end: size - 1 };
+	}
+	const start = Number(left);
+	if (!Number.isInteger(start) || start < 0 || start >= size) return 'unsatisfiable';
+	if (right === '') return { start, end: size - 1 };
+	const end = Number(right);
+	if (!Number.isInteger(end) || end < start) return 'unsatisfiable';
+	return { start, end: Math.min(end, size - 1) };
+};
+
+const copyBytes = (
+	body: Uint8Array,
+	start = 0,
+	endExclusive = body.byteLength,
+): Uint8Array<ArrayBuffer> => {
+	const copy = new Uint8Array(endExclusive - start);
+	copy.set(body.subarray(start, endExclusive));
+	return copy;
+};
+
+const serveBufferedAsset = (
+	body: Uint8Array,
+	method: string,
+	request: Request | undefined,
+	headers: Record<string, string>,
+): Response => {
+	const size = body.byteLength;
+	headers['accept-ranges'] = 'bytes';
+	const range = parseBytesRange(request?.headers.get('range') ?? null, size);
+	if (range === 'unsatisfiable') {
+		headers['content-range'] = `bytes */${size}`;
+		headers['content-length'] = '0';
+		return new Response(null, { status: 416, headers });
+	}
+	if (range) {
+		const length = range.end - range.start + 1;
+		headers['content-range'] = `bytes ${range.start}-${range.end}/${size}`;
+		headers['content-length'] = String(length);
+		return new Response(method === 'HEAD' ? null : copyBytes(body, range.start, range.end + 1), {
+			status: 206,
+			headers,
+		});
+	}
+	headers['content-length'] = String(size);
+	return new Response(method === 'HEAD' ? null : copyBytes(body), {
+		status: 200,
+		headers,
+	});
+};
+// #endregion
 
 // Dynamic game endpoints (data/AJAX) requested with root-relative paths. Proxied
 // so the game's own fetch('/something.php') resolves against the app origin and is
@@ -60,22 +137,33 @@ const proxyToFlat = (
 	});
 };
 
+const assetResponseHeaders = (
+	relativePath: string,
+	contentType: string,
+	cacheStatus: 'hit' | 'miss',
+	etag?: string,
+	lastModified?: string,
+): Record<string, string> => {
+	const headers: Record<string, string> = {
+		'content-type': contentTypeForAsset(relativePath, contentType),
+		'x-flat-oinky-cache': cacheStatus,
+	};
+	if (etag) headers.etag = etag;
+	if (lastModified) headers['last-modified'] = lastModified;
+	return headers;
+};
+
 const responseFromCache = (
 	relativePath: string,
 	entry: AssetCacheEntry,
-	method: string,
-): Response => {
-	const headers: Record<string, string> = {
-		'content-type': contentTypeForAsset(relativePath, entry.contentType),
-		'x-flat-oinky-cache': 'hit',
-	};
-	if (entry.etag) headers.etag = entry.etag;
-	if (entry.lastModified) headers['last-modified'] = entry.lastModified;
-	return new Response(method === 'HEAD' ? null : new Uint8Array(entry.body), {
-		status: 200,
-		headers,
-	});
-};
+	request?: Request,
+): Response =>
+	serveBufferedAsset(
+		entry.body,
+		request?.method ?? 'GET',
+		request,
+		assetResponseHeaders(relativePath, entry.contentType, 'hit', entry.etag, entry.lastModified),
+	);
 
 const storeUpstreamAsset = async (relativePath: string, response: Response): Promise<Buffer> => {
 	const body = Buffer.from(await response.arrayBuffer());
@@ -126,17 +214,18 @@ const fetchAndCacheStaticAsset = async (
 	if (!response.ok) return response;
 	try {
 		const body = await storeUpstreamAsset(relativePath, response);
-		const headers = new Headers(response.headers);
-		headers.set('x-flat-oinky-cache', 'miss');
-		headers.set(
-			'content-type',
-			contentTypeForAsset(relativePath, headers.get('content-type') ?? 'application/octet-stream'),
+		return serveBufferedAsset(
+			body,
+			method,
+			request,
+			assetResponseHeaders(
+				relativePath,
+				response.headers.get('content-type') ?? 'application/octet-stream',
+				'miss',
+				response.headers.get('etag') ?? undefined,
+				response.headers.get('last-modified') ?? undefined,
+			),
 		);
-		return new Response(method === 'HEAD' ? null : new Uint8Array(body), {
-			status: response.status,
-			statusText: response.statusText,
-			headers,
-		});
 	} catch (error) {
 		console.error('asset_proxy: failed to buffer upstream asset', relativePath, error);
 		return proxyToFlat(relativePath, search, request);
@@ -159,7 +248,7 @@ const proxyStaticAsset = async (
 			if (isStale(cached)) {
 				void revalidateCachedAsset(relativePath, search, cached);
 			}
-			return responseFromCache(relativePath, cached, method);
+			return responseFromCache(relativePath, cached, request);
 		}
 	} catch (error) {
 		console.error('asset_proxy: cache read failed', relativePath, error);
