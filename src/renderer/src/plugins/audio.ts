@@ -1,6 +1,10 @@
 import { Lifecycle, Plugin } from '../client';
 import * as el from '../client/ui/elements';
-import type { AudioControlDeps } from './audio/audio_controls';
+import {
+	mountGlobalMusicControls,
+	mountGlobalSoundControls,
+	type AudioControlDeps,
+} from './audio/audio_controls';
 import { createAudioEngine } from './audio/audio_engine';
 import { createAudioRegistry } from './audio/audio_registry';
 import { createAudioSync } from './audio/audio_sync';
@@ -73,6 +77,15 @@ export const AudioPlugin: Plugin = {
 
 		const tray = mountAudioTray(lifecycle, context, registry, deps, showWindow);
 		paints.add(tray.schedule);
+
+		const globalControls = el.div`flex flex-col gap-2`.element;
+		const music = mountGlobalMusicControls(globalControls, deps, lifecycle);
+		const sound = mountGlobalSoundControls(globalControls, deps, { layout: 'inline' });
+		paints.add(() => {
+			music.update();
+			sound.update();
+		});
+
 		lifecycle.onCleanup(() => {
 			registry.flush();
 			paints.clear();
@@ -82,6 +95,7 @@ export const AudioPlugin: Plugin = {
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Audio', [
+			globalControls,
 			el.button`btn btn-sm btn-primary`.then((button) => {
 				button.type = 'button';
 				button.textContent = 'Open audio window';
