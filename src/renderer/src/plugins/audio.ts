@@ -34,7 +34,7 @@ const hideUpstreamAudioControls = (lifecycle: Lifecycle) => {
 
 export const AudioPlugin: Plugin = {
 	namespace: 'oinky/audio',
-	name: 'Audio',
+	name: 'Audio Proxy',
 	description:
 		'Play and mix in-game sounds and music, with per-sound volume and a tri-state filter.',
 	init: async (lifecycle, context) => {
@@ -94,17 +94,19 @@ export const AudioPlugin: Plugin = {
 		if (settings.windowOpen) showWindow();
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
-		settingsMenu.mountSection('Audio', [
-			globalControls,
+		settingsMenu.mountSection('Controls', [globalControls]);
+		settingsMenu.mountSection('Per-audio volumes', [
 			el.button`btn btn-sm btn-primary`.then((button) => {
 				button.type = 'button';
-				button.textContent = 'Open audio window';
+				button.textContent = 'Open per-audio volumes window';
 				button.onclick = () => showWindow();
 			}),
 			el.button`btn btn-sm btn-ghost`.then((button) => {
 				button.type = 'button';
-				button.textContent = 'Reset all per-sound overrides';
+				button.textContent = 'Reset all per-audio overrides';
 				button.onclick = () => {
+					const isConfirmed = window.confirm('Are you sure you want to reset all audio overrides?');
+					if (!isConfirmed) return;
 					settings.sounds = {};
 					settings.tracks = {};
 					engine.refreshMusic();

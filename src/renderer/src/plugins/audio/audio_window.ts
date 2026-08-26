@@ -21,7 +21,7 @@ export const initAudioWindow = (
 	const lifecycle = parentLifecycle.spawnLifecycle();
 	const window = context.ui.windows.initWindow(lifecycle, {
 		id: 'audio',
-		title: 'Audio',
+		title: 'Per-audio volumes',
 		icon: el.icon.volume``.element,
 		storage: context.storages.profile,
 		lockable: false,
