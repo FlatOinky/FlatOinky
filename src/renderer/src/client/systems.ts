@@ -15,6 +15,7 @@ import { initLoggingSystem } from './systems/logging';
 import { initNotificationsSystem } from './systems/notifications';
 import { initProfilesSystem } from './systems/profiles';
 import { initUpdatesSystem } from './systems/updates';
+import { initWindowsSystem } from './systems/windows';
 
 export type SystemsContext = {
 	ui: ClientUI;
@@ -55,6 +56,7 @@ export const initSystems = async (
 		const systems = systemsLifecycle;
 
 		initAppSystem(systems, ui);
+		initWindowsSystem(systems, ui, clientStorage, settingsMenu);
 
 		const notifications = initNotifications(systems, notificationsStorage);
 		setNotifications(notifications);

@@ -39,8 +39,8 @@ Layout under `src/`:
 - `transpilers.ts` — rewrite game HTML/JS and inject hooks
 - `styles.css` + `styles/` — Tailwind/DaisyUI entry and component CSS
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
-- `client/systems/` — always-on features (app menu, notifications, logging, updates,
-  context menu, devtools, profiles). Systems other than profiles live on a restartable
+- `client/systems/` — always-on features (app menu, windows, notifications, logging,
+  updates, context menu, devtools, profiles). Systems other than profiles live on a restartable
   child lifecycle rebuilt on profile swap; the profiles system owns the Profiles &
   Plugins tray window and drives that restart.
 - `plugins/` — toggleable plugins (`tweaks`, `chat`, `monitor`, `metrics`, `themes`,

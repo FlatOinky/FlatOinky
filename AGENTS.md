@@ -76,8 +76,8 @@ client.
     re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`.
   - `client/updater.ts` — update UI state machine wired to the main updater.
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
-    notifications tray/settings, logging settings, context menu, updates UI, devtools,
-    profiles); never toggleable. Systems other than profiles live on a restartable child
+    window appearance settings, notifications tray/settings, logging settings, context
+    menu, updates UI, devtools, profiles); never toggleable. Systems other than profiles live on a restartable child
     lifecycle rebuilt on profile swap. Profiles owns the Profiles & Plugins tray
     window (profile CRUD plus per-profile plugin enable toggles).
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and

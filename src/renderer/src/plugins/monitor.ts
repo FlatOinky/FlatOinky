@@ -274,7 +274,7 @@ const initAfkDetection = (
 	const nodes: SettingsNode[] = [
 		helpers.cueCard({
 			id: 'afk-detection',
-			title: 'Afk Detection',
+			title: 'Afk Detected',
 			scoped,
 			onTest: sendAlert,
 			onEnabledChange: () => {
