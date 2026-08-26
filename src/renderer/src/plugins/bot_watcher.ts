@@ -57,8 +57,8 @@ const botWatcherAlertMeta = {
 	evilTree: { title: 'Evil Tree Spotted', category: 'tree' },
 	gemMeteor: { title: 'Gem Meteor', category: 'meteor' },
 	alien: { title: 'Alien Arrived', category: 'alien' },
-	meteorChange: { title: 'Meteor changed locations', category: 'meteor' },
-	meteorUpdated: { title: 'Meteor found', category: 'meteor' },
+	meteorMoved: { title: 'Meteor moved', category: 'meteor' },
+	meteorFound: { title: 'Meteor found', category: 'meteor' },
 	storm: { title: 'Storm Scroll', category: 'storm' },
 	superStorm: { title: 'Super Storm', category: 'superStorm' },
 	ancientUp: { title: 'Ancient Up', category: 'ancient' },
@@ -66,7 +66,7 @@ const botWatcherAlertMeta = {
 type BotWatcherAlertKey = keyof typeof botWatcherAlertMeta;
 const ALERTS_BY_CATEGORY: Record<CategoryKey, BotWatcherAlertKey[]> = {
 	tree: ['evilTree'],
-	meteor: ['meteorChange', 'meteorUpdated', 'gemMeteor'],
+	meteor: ['meteorMoved', 'meteorFound', 'gemMeteor'],
 	alien: ['alien'],
 	storm: ['storm'],
 	superStorm: ['superStorm'],
@@ -93,8 +93,8 @@ const createBotWatcherSettings = () => ({
 		evilTree: { ...initialAlertScope, enabled: false },
 		gemMeteor: { ...initialAlertScope, enabled: false },
 		alien: { ...initialAlertScope, enabled: false },
-		meteorChange: { ...initialAlertScope, enabled: false },
-		meteorUpdated: { ...initialAlertScope, enabled: false },
+		meteorMoved: { ...initialAlertScope, enabled: false },
+		meteorFound: { ...initialAlertScope, enabled: false },
 		storm: { ...initialAlertScope, enabled: false },
 		superStorm: { ...initialAlertScope, enabled: false },
 		ancientUp: { ...initialAlertScope, enabled: false },
@@ -184,8 +184,8 @@ const createBotWatcherState = (): BotWatcherState => ({
 		evilTree: false,
 		gemMeteor: false,
 		alien: false,
-		meteorChange: false,
-		meteorUpdated: false,
+		meteorMoved: false,
+		meteorFound: false,
 		storm: false,
 		superStorm: false,
 		ancientUp: false,
@@ -728,14 +728,13 @@ const initBotWatcher = (
 		const currentEpoch = asEpoch(currentMeteor?.setAt, now);
 		const isCurrentStale = currentEpoch !== undefined ? now >= currentEpoch + HOUR_MS : false;
 		const entry = upsertMeteor(location, at, now);
-		state.latched.meteorUpdated =
-			currentMeteor === undefined || currentMeteor.location === location;
-		fireOnce('meteorUpdated', location, silent);
+		state.latched.meteorFound = currentMeteor === undefined || currentMeteor.location === location;
+		fireOnce('meteorFound', location, silent);
 		if (currentEpoch !== entry.setAt) {
-			state.latched.meteorChange = false;
+			state.latched.meteorMoved = false;
 			state.latched.gemMeteor = false;
 		}
-		if (isCurrentStale && now < entry.setAt + HOUR_MS) state.latched.meteorChange = false;
+		if (isCurrentStale && now < entry.setAt + HOUR_MS) state.latched.meteorMoved = false;
 	};
 
 	const applyAncientValue = (raw: string, now: number) => {
@@ -1066,7 +1065,7 @@ const initBotWatcher = (
 		const meteor = getCurrentMeteor();
 		const setAt = asEpoch(meteor?.setAt, now);
 		if (meteor && setAt !== undefined && now >= setAt + HOUR_MS) {
-			fireOnce('meteorChange');
+			fireOnce('meteorMoved');
 		}
 	};
 
