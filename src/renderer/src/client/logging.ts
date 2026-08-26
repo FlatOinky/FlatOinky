@@ -43,7 +43,10 @@ export const initLogging = (
 ) => {
 	const settings = storage.reactive('settings', initialLoggingSettings);
 
+	let enabled = false;
+
 	const emit = (level: LogMethod, prefix: string | undefined, message: string) => {
+		if (!enabled) return;
 		const text = prefix ? `[Oinky: ${prefix}] ${message}` : `[Oinky] ${message}`;
 		if (allows(level, settings.consoleLevel)) consoleMethods[level](text);
 		if (!allows(level, settings.chatLevel)) return;
@@ -73,5 +76,8 @@ export const initLogging = (
 		initialSettings: initialLoggingSettings,
 		logger: createLogger(),
 		createLogger,
+		setEnabled: (value: boolean) => {
+			enabled = value;
+		},
 	};
 };

@@ -15,6 +15,7 @@ type SettingsNodeBase<TResetInputs extends SettingsInput[] = SettingsInput[]> = 
 	tooltip?: string;
 	valueSuffix?: string;
 	valuePrefix?: string;
+	compact?: boolean;
 	/** Restore defaults; input/change fire automatically for each input this changes. */
 	reset?: (...inputs: TResetInputs) => void;
 };
@@ -342,7 +343,7 @@ const makeLabelSteppedRangeChild = (
 	const { steps } = node;
 	const lastIndex = Math.max(1, steps.length - 1);
 	const container = el.div`w-full`.element;
-	node.input.classList = 'range range-sm w-full';
+	node.input.classList = node.compact ? 'range range-xs w-full' : 'range range-sm w-full';
 	node.input.setAttribute('min', '0');
 	node.input.setAttribute('max', String(steps.length - 1));
 	node.input.setAttribute('step', '1');
@@ -352,7 +353,10 @@ const makeLabelSteppedRangeChild = (
 	// sit inside a matching `mx-2.5` box and each tick shares one absolutely
 	// positioned column with its label. The end columns hug their own tick so a
 	// wide first/last label cannot overflow the row and get clipped.
-	const marks = el.div`relative mx-2.5 mt-1 h-7 text-xs`.mount(container);
+	const marks =
+		el.div`${node.compact ? 'relative mx-2.5 mt-0.5 h-5 text-[0.625rem]' : 'relative mx-2.5 mt-1 h-7 text-xs'}`.mount(
+			container,
+		);
 	const labels: HTMLSpanElement[] = [];
 	steps.forEach((step, index) => {
 		const isFirst = index === 0;
@@ -744,7 +748,8 @@ const mountNodeHeader = (
 		tooltip.setAttribute('data-tip', node.tooltip);
 	}
 	const hasInput = 'input' in node;
-	el.label`${hasInput ? 'font-medium text-sm cursor-pointer' : 'font-medium text-sm'}`.mount(
+	const labelSize = node.compact ? 'text-xs' : 'text-sm';
+	el.label`${hasInput ? `font-medium ${labelSize} cursor-pointer` : `font-medium ${labelSize}`}`.mount(
 		header,
 		undefined,
 		(label) => {
@@ -772,13 +777,14 @@ const mountNodeHeader = (
 
 const mountNodeDescription = (
 	container: HTMLElement,
-	node: Pick<SettingsNodeBase, 'description'>,
+	node: Pick<SettingsNodeBase, 'description' | 'compact'>,
 ) => {
 	if (!node.description) return;
-	const description = el.div`text-xs text-base-content/60 font-normal`.mount(
-		container,
-		'description',
-	);
+	const description =
+		el.div`${node.compact ? 'text-[0.625rem]' : 'text-xs'} text-base-content/60 font-normal`.mount(
+			container,
+			'description',
+		);
 	if (typeof node.description === 'string') {
 		description.textContent = node.description;
 	} else {
@@ -929,7 +935,7 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 		'settings',
 	);
 	const navContainer =
-		el.div`space-y-0.5 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
+		el.div`flex flex-col gap-2 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
 			container,
 			'nav',
 		);
@@ -944,20 +950,30 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 		navContainer.replaceChildren();
 		registry
 			.filter(([, , sections]) => sections.length > 0)
-			.forEach(([pluginNamespace, pluginTitle, sections], namespaceIndex) => {
-				const sectionBlock = el.div`flex flex-col gap-6`.mount(sectionsContainer, pluginNamespace);
+			.forEach(([pluginNamespace, pluginTitle, sections]) => {
+				const sectionBlock =
+					el.div`${pluginNamespace === 'core/systems' ? 'flex flex-col gap-6 order-last' : 'flex flex-col gap-6'}`.mount(
+						sectionsContainer,
+						pluginNamespace,
+					);
 				el.h2`text-2xl font-bold tracking-tight text-base-content/90`.mount(
 					sectionBlock,
 					undefined,
 					(header) => (header.textContent = pluginTitle),
 				);
-				const navNamespaceStyle =
-					'link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm' +
-					(namespaceIndex > 0 ? ' mt-2' : '');
-				el.button`${navNamespaceStyle}`.mount(navContainer, pluginNamespace, (navButton) => {
-					navButton.textContent = pluginTitle;
-					navButton.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
-				});
+				const navGroup =
+					el.div`${pluginNamespace === 'core/systems' ? 'flex flex-col order-last' : 'flex flex-col'}`.mount(
+						navContainer,
+						pluginNamespace,
+					);
+				el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm`.mount(
+					navGroup,
+					undefined,
+					(navButton) => {
+						navButton.textContent = pluginTitle;
+						navButton.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
+					},
+				);
 
 				sections.forEach((section, sectionIndex) => {
 					const sectionContainer = el.div`flex flex-col gap-2`.mount(
@@ -976,7 +992,7 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 						},
 					);
 					el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
-						navContainer,
+						navGroup,
 						undefined,
 						(header) => {
 							header.textContent = sectionTitleText(section.title);

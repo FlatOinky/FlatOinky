@@ -1,4 +1,4 @@
-import type { Logger } from '../../client/logging';
+import type { Logger } from '../../logging';
 import type { AudioSettings, SoundMode } from './audio_types';
 
 const MAX_ATTEMPTS = 6;
@@ -14,7 +14,10 @@ export const createAudioSync = (settings: AudioSettings, log: Logger) => {
 	let attempts = 0;
 
 	const send = (payload: string) => {
-		Globals.websocket?.send(payload);
+		const websocket = Globals.websocket;
+		if (!websocket || websocket.readyState !== WebSocket.OPEN) return false;
+		websocket.send(payload);
+		return true;
 	};
 
 	const reconcile = (music = readMusicState(), sound = readSoundState()) => {
@@ -23,8 +26,8 @@ export const createAudioSync = (settings: AudioSettings, log: Logger) => {
 				log.warn('Gave up reconciling music state with the game server');
 				return;
 			}
+			if (!send('TOGGLE_AUDIO=music')) return;
 			attempts += 1;
-			send('TOGGLE_AUDIO=music');
 			return;
 		}
 		if (sound !== desiredSound(settings.soundMode)) {
@@ -32,8 +35,8 @@ export const createAudioSync = (settings: AudioSettings, log: Logger) => {
 				log.warn('Gave up reconciling sound state with the game server');
 				return;
 			}
+			if (!send('TOGGLE_AUDIO=sound')) return;
 			attempts += 1;
-			send('TOGGLE_AUDIO=sound');
 			return;
 		}
 		attempts = 0;

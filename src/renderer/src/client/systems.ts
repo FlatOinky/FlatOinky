@@ -10,8 +10,8 @@ import type { ClientSettings, SettingsMenu } from './settings';
 import type { ClientUI } from './ui';
 import type { Updater } from './updater';
 import { initAppSystem } from './systems/app';
+import { initAudioSystem } from './systems/audio';
 import { initDevtoolsSystem } from './systems/devtools';
-import { initLoggingSystem } from './systems/logging';
 import { initNotificationsSystem } from './systems/notifications';
 import { initProfilesSystem } from './systems/profiles';
 import { initUpdatesSystem } from './systems/updates';
@@ -57,11 +57,11 @@ export const initSystems = async (
 
 		initAppSystem(systems, ui);
 		initWindowsSystem(systems, ui, clientStorage, settingsMenu);
+		await initAudioSystem(systems, ui, settingsMenu, plugins, logging.createLogger);
 
 		const notifications = initNotifications(systems, notificationsStorage);
 		setNotifications(notifications);
 		initNotificationsSystem(systems, ui, notifications, settingsMenu);
-		initLoggingSystem(systems, logging, settingsMenu);
 
 		const contextMenu = initContextMenu(systems, ui.root, (target) =>
 			plugins.api.contextMenu.buildItems(target),
@@ -69,7 +69,7 @@ export const initSystems = async (
 		setContextMenu(contextMenu);
 
 		initUpdatesSystem(systems, ui, updater, settingsMenu);
-		await initDevtoolsSystem(systems, ui, settingsMenu, references);
+		await initDevtoolsSystem(systems, ui, settingsMenu, logging, references);
 	};
 
 	const restartSystems = async (): Promise<void> => {

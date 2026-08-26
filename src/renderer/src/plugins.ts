@@ -1,7 +1,6 @@
 export { TweaksPlugin } from './plugins/tweaks';
 export { ChatPlugin } from './plugins/chat';
 export { MonitorPlugin } from './plugins/monitor';
-export { AudioPlugin } from './plugins/audio';
 export { BotWatcherPlugin } from './plugins/bot_watcher';
 export { MetricsPlugin } from './plugins/metrics';
 export { ThemesPlugin } from './plugins/themes';

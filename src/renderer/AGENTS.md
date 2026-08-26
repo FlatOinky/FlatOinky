@@ -39,10 +39,11 @@ Layout under `src/`:
 - `transpilers.ts` — rewrite game HTML/JS and inject hooks
 - `styles.css` + `styles/` — Tailwind/DaisyUI entry and component CSS
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
-- `client/systems/` — always-on features (app menu, windows, notifications, logging,
-  updates, context menu, devtools, profiles). Systems other than profiles live on a restartable
+- `client/systems/` — always-on features (app menu, windows, audio, notifications,
+  updates, context menu, devtools including logging, profiles). Systems other than profiles live on a restartable
   child lifecycle rebuilt on profile swap; the profiles system owns the Profiles &
-  Plugins tray window and drives that restart.
+  Plugins tray window and drives that restart. Systems that need game hooks/events
+  call `plugins.registerCallbacks`.
 - `plugins/` — toggleable plugins (`tweaks`, `chat`, `monitor`, `metrics`, `themes`,
   `mouse`, …)
 - `templates/`, `assets/`
@@ -124,8 +125,9 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC into
      SQLite automatically. Do not re-save manually. Plugin storages use context
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
-     `systems` with bare namespaces (`client`, `updater`, `notifications`, `logging`,
-     `devtools`, `plugins` for the enabled-plugin map).
+     `systems` with bare namespaces (`client`, `updater`, `notifications`, `audio`,
+     `logging`, `devtools`, `plugins` for the enabled-plugin map). Logging emit is
+     gated by the Devtools enable toggle.
 
      **Collections** — `context.collections.global | profile | character(name)` for
      append-only histories (chat messages, XP drops, …). API:
@@ -133,6 +135,7 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      - `append(value, max?)` — fire-and-forget insert; optional `max` trims oldest rows
      - `clear(match?)` — fire-and-forget delete; optional `match` filters by JSON fields
        Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
+       Systems may use `createSystemCollection(kind, namespace)` (e.g. `audio/plays`).
        `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
        rendering.
 4. **Settings** — `context.settings.initMenu(lifecycle)` then
