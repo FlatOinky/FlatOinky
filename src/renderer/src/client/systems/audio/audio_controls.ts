@@ -68,6 +68,7 @@ const bindVolumeInput = (
 	let dragging = false;
 	const paintLabel = () => {
 		if (label) label.textContent = `${Math.round(getValue() * 100)}%`;
+		label?.classList.toggle('text-warning', getValue() > 1);
 	};
 	const paintValue = () => {
 		if (!dragging && document.activeElement !== input) input.value = String(getValue());

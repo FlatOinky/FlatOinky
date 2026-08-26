@@ -29,7 +29,7 @@ export type KnownAudio = {
 	lastAt: number | null;
 };
 
-export const VOLUME_RANGE = { min: 0, max: 1.5, step: 0.1, default: 1 } as const;
+export const VOLUME_RANGE = { min: 0, max: 1.5, step: 0.05, default: 1 } as const;
 
 export const DEFAULT_OVERRIDE: AudioOverride = { muted: false, volume: VOLUME_RANGE.default };
 
@@ -56,7 +56,8 @@ export const snapVolume = (raw: number): number => {
 	if (!Number.isFinite(raw)) return VOLUME_RANGE.default;
 	const stepped = Math.round(raw / VOLUME_RANGE.step) * VOLUME_RANGE.step;
 	const clamped = Math.min(VOLUME_RANGE.max, Math.max(VOLUME_RANGE.min, stepped));
-	return Math.round(clamped * 10) / 10;
+	const scale = 1 / VOLUME_RANGE.step;
+	return Math.round(clamped * scale) / scale;
 };
 
 export const overrideBag = (settings: AudioSettings, kind: AudioKind) =>
