@@ -1,4 +1,4 @@
-import type { Collection } from '../../client_storage';
+import type { Collection } from '../../client/client_storage';
 import type { AudioKind, AudioPlay, KnownAudio } from './audio_types';
 import { displayNameFor, SOUND_DISPLAY_NAMES, TRACK_DISPLAY_NAMES } from './sound_names';
 

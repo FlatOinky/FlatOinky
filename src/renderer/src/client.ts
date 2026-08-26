@@ -299,7 +299,6 @@ const initPlugins = (
 ) => {
 	const registry: PluginRegistry = {};
 	const instances: PluginInstances = {};
-	const systemInstances: PluginInstance[] = [];
 	let instanceList: PluginInstance[] = [];
 	const listeners = new Set<() => void>();
 	let startedUp = false;
@@ -323,21 +322,9 @@ const initPlugins = (
 	};
 
 	const notify = () => {
-		instanceList = [...systemInstances, ...Object.values(instances)];
+		instanceList = Object.values(instances);
 		refreshMutators();
 		for (const listener of listeners) listener();
-	};
-
-	const registerCallbacks = (lifecycle: Lifecycle, callbacks: PluginCallbacks) => {
-		const instance: PluginInstance = { callbacks, lifecycle };
-		systemInstances.push(instance);
-		notify();
-		lifecycle.onCleanup(() => {
-			const index = systemInstances.indexOf(instance);
-			if (index < 0) return;
-			systemInstances.splice(index, 1);
-			notify();
-		});
 	};
 
 	const isEnabled = (namespace: string) => pluginsStorage.get(['enabled', namespace]) !== false;
@@ -513,7 +500,6 @@ const initPlugins = (
 		instances,
 		api,
 		registerPlugin,
-		registerCallbacks,
 		startPlugin,
 		stopPlugin,
 		isEnabled,

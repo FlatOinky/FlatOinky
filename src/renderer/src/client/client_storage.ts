@@ -232,9 +232,6 @@ const createCollection = <T>(
 	clear: (match) => ipcStorage.clearCollection(kind, context, namespace, match),
 });
 
-export const createSystemCollection = <T = unknown>(kind: ScopeKind, namespace: string) =>
-	createCollection<T>(kind, 'systems', namespace);
-
 export const createPluginCollections = (namespace: string): PluginCollections => {
 	const context: StorageContext = 'plugins';
 	return {

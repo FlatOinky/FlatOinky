@@ -1,4 +1,4 @@
-import type { Lifecycle } from '../../../client';
+import type { Lifecycle } from '../../client';
 import type { AudioKind, AudioSettings } from './audio_types';
 import { getOverride, resolveGain } from './audio_types';
 import { isEssentialSound } from './sound_names';

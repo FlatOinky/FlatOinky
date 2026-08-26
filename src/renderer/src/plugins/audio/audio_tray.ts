@@ -1,6 +1,5 @@
-import type { Lifecycle } from '../../../client';
-import type { ClientUI } from '../../ui';
-import * as el from '../../ui/elements';
+import type { Lifecycle, PluginContext } from '../../client';
+import * as el from '../../client/ui/elements';
 import type { AudioControlDeps } from './audio_controls';
 import {
 	createCoalescedPaint,
@@ -17,12 +16,12 @@ export type AudioTray = ReturnType<typeof mountAudioTray>;
 
 export const mountAudioTray = (
 	lifecycle: Lifecycle,
-	ui: ClientUI,
+	context: PluginContext,
 	registry: AudioRegistry,
 	deps: AudioControlDeps,
 	onOpenWindow: () => void,
 ) => {
-	const { trayMenu } = ui.taskbar.initTrayButtonMenu(lifecycle, 'audio', {
+	const { trayMenu } = context.ui.taskbar.initTrayButtonMenu(lifecycle, 'audio', {
 		button: {
 			title: 'Audio',
 			icon: el.icon.volume``.then((icon) => {

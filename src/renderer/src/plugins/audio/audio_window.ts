@@ -1,7 +1,5 @@
-import type { Lifecycle } from '../../../client';
-import type { ClientStorage } from '../../client_storage';
-import type { ClientUI } from '../../ui';
-import * as el from '../../ui/elements';
+import type { Lifecycle, PluginContext } from '../../client';
+import * as el from '../../client/ui/elements';
 import type { AudioControlDeps } from './audio_controls';
 import { createCoalescedPaint, mountAudioRow, type AudioRow } from './audio_controls';
 import type { AudioRegistry } from './audio_registry';
@@ -15,17 +13,17 @@ export type AudioWindowApi = {
 
 export const initAudioWindow = (
 	parentLifecycle: Lifecycle,
-	{ ui, storage }: { ui: ClientUI; storage: ClientStorage },
+	context: PluginContext,
 	registry: AudioRegistry,
 	deps: AudioControlDeps,
 	onClose: () => void,
 ): AudioWindowApi => {
 	const lifecycle = parentLifecycle.spawnLifecycle();
-	const window = ui.windows.initWindow(lifecycle, {
+	const window = context.ui.windows.initWindow(lifecycle, {
 		id: 'audio',
 		title: 'Audio',
 		icon: el.icon.volume``.element,
-		storage,
+		storage: context.storages.profile,
 		lockable: false,
 		initialState: {
 			width: 520,

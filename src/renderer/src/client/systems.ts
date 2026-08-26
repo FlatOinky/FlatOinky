@@ -10,7 +10,6 @@ import type { ClientSettings, SettingsMenu } from './settings';
 import type { ClientUI } from './ui';
 import type { Updater } from './updater';
 import { initAppSystem } from './systems/app';
-import { initAudioSystem } from './systems/audio';
 import { initDevtoolsSystem } from './systems/devtools';
 import { initNotificationsSystem } from './systems/notifications';
 import { initProfilesSystem } from './systems/profiles';
@@ -57,7 +56,6 @@ export const initSystems = async (
 
 		initAppSystem(systems, ui);
 		initWindowsSystem(systems, ui, clientStorage, settingsMenu);
-		await initAudioSystem(systems, ui, settingsMenu, plugins, logging.createLogger);
 
 		const notifications = initNotifications(systems, notificationsStorage);
 		setNotifications(notifications);

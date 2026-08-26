@@ -1,4 +1,4 @@
-import type { Logger } from '../../logging';
+import type { Logger } from '../../client/logging';
 import type { AudioSettings, SoundMode } from './audio_types';
 
 const MAX_ATTEMPTS = 6;

@@ -76,7 +76,7 @@ client.
     re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`.
   - `client/updater.ts` — update UI state machine wired to the main updater.
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
-    window appearance settings, audio, notifications tray/settings, context
+    window appearance settings, notifications tray/settings, context
     menu, updates UI, devtools including logging, profiles); never toggleable. Systems other than profiles live on a restartable child
     lifecycle rebuilt on profile swap. Profiles owns the Profiles & Plugins tray
     window (profile CRUD plus per-profile plugin enable toggles).
@@ -93,11 +93,10 @@ development and production) with BLOB bodies and ETag metadata. Tables cover pro
 characters, character↔profile mappings, per-scope `*_settings` documents keyed by
 `context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
 `<name>` for client internals — including `client`, `updater`, `notifications`,
-`audio`, `logging`, `devtools`, and `plugins` for the per-profile enabled-plugin map;
-settings sections for always-on systems use `core/systems`), and per-scope append-only
+`logging`, `devtools`, and `plugins` for the per-profile enabled-plugin map; settings
+sections for always-on systems use `core/systems`), and per-scope append-only
 `*_collections` rows keyed the same way (plugins fold a collection name into the
-namespace as `oinky/<name>/<collection>`; systems may use a bare namespace such as
-`audio/plays`). `client`, `notifications`, `audio`, `logging`, and
+namespace as `oinky/<name>/<collection>`). `client`, `notifications`, `logging`, and
 `plugins` use profile storage; `updater` and `devtools` use global storage. Collections
 are read with `fetch(quantity)`, written with `append(value, max?)`, and cleared with
 `clear(match?)` (optional field match via `json_extract`).

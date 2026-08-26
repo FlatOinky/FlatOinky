@@ -1,5 +1,5 @@
-import type { Lifecycle } from '../../../client';
-import * as el from '../../ui/elements';
+import type { Lifecycle } from '../../client';
+import * as el from '../../client/ui/elements';
 import type { AudioEngine } from './audio_engine';
 import type { AudioKind, AudioSettings, SoundMode } from './audio_types';
 import {
