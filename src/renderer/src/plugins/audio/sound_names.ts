@@ -16,7 +16,11 @@ export const SOUND_DISPLAY_NAMES: Record<string, string> = {
 	'dialogue.mp3': 'Dialogue',
 	'dig.ogg': 'Dig',
 	'doorClose_1.ogg': 'Door Close 1',
+	'doorClose_2.ogg': 'Door Close 2',
+	'doorClose_3.ogg': 'Door Close 3',
 	'doorClose_4.ogg': 'Door Close 4',
+	'doorOpen_1.ogg': 'Door Open 1',
+	'doorOpen_2.ogg': 'Door Open 2',
 	'drink.mp3': 'Drink',
 	'dropitem.ogg': 'Item Dropped',
 	'equip.ogg': 'Equip Item',
@@ -66,6 +70,7 @@ export const TRACK_DISPLAY_NAMES: Record<string, string> = {
 	'everb.dat': 'Everbrook',
 	'fart.dat': 'Greenhouse',
 	'wind.dat': 'Clouds',
+	'tg.dat': 'Thieves Guild',
 };
 
 // Mirror of upstream ESSENTAIL_SOUNDS in refs/js/ui.js (typo is the game's).
