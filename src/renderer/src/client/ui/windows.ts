@@ -149,6 +149,14 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	root.appendChild(container);
 
 	const windowFrames: Partial<{ [windowId: string]: HTMLElement }> = {};
+	let focusSequence = 0;
+
+	const focusWindow = (id: string) => {
+		const frame = windowFrames[id];
+		if (!frame) return;
+		focusSequence += 1;
+		frame.style.zIndex = String(focusSequence);
+	};
 
 	// #region > utils
 
@@ -182,7 +190,11 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		}
 
 		windowFrames[id] = windowFrame;
+		focusWindow(id);
+		const onPointerDown = () => focusWindow(id);
+		windowFrame.addEventListener('pointerdown', onPointerDown);
 		lifecycle.onCleanup(() => {
+			windowFrame.removeEventListener('pointerdown', onPointerDown);
 			windowFrames[id] = undefined;
 		});
 
@@ -367,6 +379,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			icon: windowButtonIcon,
 			onClick: () => {
 				toggleWindowVisibility(windowFrame, windowState);
+				if (!windowState.minimized) focusWindow(id);
 				syncWindowChrome();
 			},
 		});
@@ -397,6 +410,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			windowState.minimized ? 'Expand' : 'Minimize',
 			() => {
 				toggleWindowVisibility(windowFrame, windowState);
+				if (!windowState.minimized) focusWindow(id);
 				syncWindowChrome();
 			},
 		);
@@ -475,6 +489,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			windowMinimizer.onclick = () => {
 				windowState.minimized = !windowState.minimized;
 				updateWindowFrameMinimized(windowFrame, windowState);
+				if (!windowState.minimized) focusWindow(id);
 				syncWindowChrome();
 			};
 		});
@@ -498,10 +513,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			},
 			showWindow: () => {
 				showWindow(windowFrame, windowState);
+				focusWindow(id);
 				syncWindowChrome();
 			},
 			toggleWindowVisibility: () => {
 				toggleWindowVisibility(windowFrame, windowState);
+				if (!windowState.minimized) focusWindow(id);
 				syncWindowChrome();
 			},
 			forceWindowUpdate: () => forceWindowUpdate(windowFrame, windowState),
