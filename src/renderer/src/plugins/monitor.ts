@@ -187,6 +187,7 @@ const initStateCues = (
 	isEnabled: () => boolean,
 ) => {
 	const latched = new Set<StateCueKey>();
+	const primed = new Set<StateCueKey>();
 
 	const sendAlert = (key: StateCueKey, value: number) => {
 		const scoped = scopes[key];
@@ -204,12 +205,19 @@ const initStateCues = (
 		const scoped = scopes[key];
 		if (value > scoped.threshold) {
 			latched.delete(key);
+			primed.add(key);
 			return;
 		}
 		if (!scoped.enabled || latched.has(key)) return;
 		latched.add(key);
+		if (!primed.has(key)) {
+			primed.add(key);
+			return;
+		}
 		sendAlert(key, value);
 	};
+
+	const resetBaseline = () => primed.clear();
 
 	const nodes: SettingsNode[] = Object.entries(stateCues).map(([key]) => {
 		const stateCueKey = key as StateCueKey;
@@ -223,7 +231,7 @@ const initStateCues = (
 		);
 	});
 
-	return { evaluate, nodes };
+	return { evaluate, resetBaseline, nodes };
 };
 
 // #region afk detection
@@ -366,6 +374,7 @@ export const MonitorPlugin: Plugin = {
 
 		return {
 			events: {
+				login: () => stateCuesApi.resetBaseline(),
 				makeUiChange: (item, completed, total, sessionXp) =>
 					craftingActivity.update(item, completed, total, sessionXp),
 				updateSleep: (value) => stateCuesApi.evaluate('sleep', value),
