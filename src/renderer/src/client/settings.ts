@@ -930,7 +930,7 @@ const sectionTitleText = (title: SettingsSection['title']) =>
 	typeof title === 'string' ? title : (title.textContent ?? '');
 
 const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
-	const container = el.div`grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] gap-2 h-full`.init(
+	const container = el.div`grid grid-cols-[auto_1fr] grid-rows-[1fr_auto] gap-2 h-full`.init(
 		lifecycle,
 		undefined,
 		'settings',
@@ -941,8 +941,8 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 			'nav',
 		);
 	const sectionsEl = el.div`flex-1 flex flex-col gap-12 overflow-y-auto overflow-x-hidden search`;
-	mountSearchBar(lifecycle, container, sectionsEl.element);
 	const sectionsContainer = sectionsEl.mount(container, 'sections');
+	mountSearchBar(lifecycle, container, sectionsContainer);
 
 	const update = () => {
 		sectionsContainer.replaceChildren();

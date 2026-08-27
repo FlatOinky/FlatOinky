@@ -38,9 +38,9 @@ export const initAudioWindow = (
 		},
 	});
 
-	const sectionsEl = el.div`flex-1 flex flex-col gap-8 h-full min-h-0 overflow-y-auto overflow-x-hidden search`;
-	mountSearchBar(lifecycle, window.body, sectionsEl.element);
+	const sectionsEl = el.div`flex-1 flex flex-col gap-8 min-h-0 overflow-y-auto overflow-x-hidden search`;
 	const sections = sectionsEl.mount(window.body, 'sections');
+	mountSearchBar(lifecycle, window.body, sections);
 
 	const soundsSection = el.div`flex flex-col gap-1 search-item`.mount(sections, 'sounds');
 	el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
