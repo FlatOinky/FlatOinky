@@ -1,0 +1,5 @@
+.search.search-active {
+	.search-item:not(.search-item-valid) {
+		display: none !important;
+	}
+}

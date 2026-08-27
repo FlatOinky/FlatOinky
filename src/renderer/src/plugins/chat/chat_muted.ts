@@ -63,7 +63,7 @@ export const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Elem
 		add: (value) => addMutedPlayer(mutedPlayers, value),
 		remove: (username) => removeMutedPlayer(mutedPlayers, username),
 		renderItem: (body, username) => {
-			el.span`flex-1 min-w-0 truncate py-0.5`.mount(body, undefined, (span) => {
+			el.span`flex-1 min-w-0 truncate py-0.5 search-value`.mount(body, undefined, (span) => {
 				span.textContent = username;
 			});
 		},

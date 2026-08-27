@@ -96,12 +96,12 @@ export const AudioPlugin: Plugin = {
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Controls', [globalControls]);
 		settingsMenu.mountSection('Per-audio volumes', [
-			el.button`btn btn-sm btn-primary`.then((button) => {
+			el.button`btn btn-sm btn-primary search-value`.then((button) => {
 				button.type = 'button';
 				button.textContent = 'Open per-audio volumes window';
 				button.onclick = () => showWindow();
 			}),
-			el.button`btn btn-sm btn-ghost`.then((button) => {
+			el.button`btn btn-sm btn-ghost search-value`.then((button) => {
 				button.type = 'button';
 				button.textContent = 'Reset all per-audio overrides';
 				button.onclick = () => {

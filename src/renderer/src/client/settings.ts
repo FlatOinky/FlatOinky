@@ -1,3 +1,4 @@
+import Fuse from 'fuse.js';
 import { ClientUi, Lifecycle } from '../client';
 import { ClientStorage } from './client_storage';
 import type { AlertScope } from './notifications';
@@ -528,7 +529,7 @@ const makeCueCard = ({
 		enabledInput.classList = 'toggle toggle-sm';
 		enabledInput.id = `${id}-enabled`;
 		header.appendChild(enabledInput);
-		el.label`font-medium text-sm cursor-pointer`.mount(header, undefined, (label) => {
+		el.label`font-medium text-sm cursor-pointer search-value`.mount(header, undefined, (label) => {
 			label.htmlFor = enabledInput.id;
 			label.textContent = title;
 		});
@@ -749,7 +750,7 @@ const mountNodeHeader = (
 	}
 	const hasInput = 'input' in node;
 	const labelSize = node.compact ? 'text-xs' : 'text-sm';
-	el.label`${hasInput ? `font-medium ${labelSize} cursor-pointer` : `font-medium ${labelSize}`}`.mount(
+	el.label`${hasInput ? `font-medium ${labelSize} cursor-pointer` : `font-medium ${labelSize}`} search-value`.mount(
 		header,
 		undefined,
 		(label) => {
@@ -781,7 +782,7 @@ const mountNodeDescription = (
 ) => {
 	if (!node.description) return;
 	const description =
-		el.div`${node.compact ? 'text-[0.625rem]' : 'text-xs'} text-base-content/60 font-normal`.mount(
+		el.div`${node.compact ? 'text-[0.625rem]' : 'text-xs'} text-base-content/60 font-normal search-value`.mount(
 			container,
 			'description',
 		);
@@ -922,6 +923,64 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 	}
 };
 
+// #region makeSearch
+
+const makeSearch = (searchInput: HTMLInputElement, searchContainer: Element) => {
+	type SearchRecord = { item: Element; textContent: string };
+	let searchFuse: Fuse<SearchRecord> | undefined;
+
+	const rebuildCache = () => {
+		const searchRecords = Array.from(searchContainer.querySelectorAll('.search-item')).map(
+			(item) => ({
+				item,
+				textContent: Array.from(item.querySelectorAll('.search-value'))
+					.map((value) => value.textContent ?? '')
+					.join(' '),
+			}),
+		);
+		searchFuse = new Fuse(searchRecords, {
+			keys: ['textContent'],
+			tokenMatch: 'all',
+			useTokenSearch: true,
+			includeScore: true,
+			threshold: 0.25,
+		});
+	};
+
+	const applySearch = () => {
+		const value = searchInput.value.trim();
+		const isActive = value.length > 0;
+		searchContainer.classList.toggle('search-active', isActive);
+		if (!isActive) return;
+		searchContainer.querySelectorAll('.search-item').forEach((item) => {
+			item.classList.remove('search-item-valid');
+		});
+		searchFuse?.search(value).forEach(({ item, score }) => {
+			item.item.classList.toggle('search-item-valid', typeof score === 'number');
+		});
+	};
+
+	let rebuildScheduled = false;
+	const scheduleRebuild = () => {
+		if (rebuildScheduled) return;
+		rebuildScheduled = true;
+		queueMicrotask(() => {
+			rebuildScheduled = false;
+			rebuildCache();
+			applySearch();
+		});
+	};
+
+	const observer = new MutationObserver(scheduleRebuild);
+	observer.observe(searchContainer, { childList: true, subtree: true });
+	searchInput.oninput = applySearch;
+	rebuildCache();
+
+	return {
+		disconnect: () => observer.disconnect(),
+	};
+};
+
 // #region initSettingsMenu
 
 /** Nav entries stay plain text, so an element title contributes only its text. */
@@ -929,21 +988,45 @@ const sectionTitleText = (title: SettingsSection['title']) =>
 	typeof title === 'string' ? title : (title.textContent ?? '');
 
 const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
-	const container = el.div`grid grid-cols-[auto_1fr] gap-2 h-full`.init(
+	const container = el.div`grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] gap-2 h-full`.init(
 		lifecycle,
 		undefined,
 		'settings',
 	);
 	const navContainer =
-		el.div`flex flex-col gap-2 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
+		el.div`row-span-2 flex flex-col gap-2 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
 			container,
 			'nav',
 		);
+	const searchContainer = el.div`join p-2`.mount(container, 'search');
 	const sectionsContainer =
-		el.div`flex-1 flex flex-col gap-12 overflow-y-auto overflow-x-hidden`.mount(
+		el.div`flex-1 flex flex-col gap-12 overflow-y-auto overflow-x-hidden search`.mount(
 			container,
 			'sections',
 		);
+
+	const searchInput = el.input.text`join-item input block input-xs w-full`.mount(
+		searchContainer,
+		undefined,
+		(input) => {
+			input.placeholder = 'Search';
+		},
+	);
+	const search = makeSearch(searchInput, sectionsContainer);
+	lifecycle.onCleanup(search.disconnect);
+
+	el.button`join-item btn btn-xs btn-square btn-error btn-soft`.mount(
+		searchContainer,
+		undefined,
+		(button) => {
+			el.icon.x`size-4`.mount(button);
+			button.onclick = () => {
+				searchInput.value = '';
+				searchInput.dispatchEvent(new Event('input'));
+				searchInput.dispatchEvent(new Event('change'));
+			};
+		},
+	);
 
 	const update = () => {
 		sectionsContainer.replaceChildren();
@@ -956,7 +1039,8 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 						sectionsContainer,
 						pluginNamespace,
 					);
-				el.h2`text-2xl font-bold tracking-tight text-base-content/90`.mount(
+				sectionBlock.classList.add('search-item');
+				el.h2`text-2xl font-bold tracking-tight text-base-content/90 search-value`.mount(
 					sectionBlock,
 					undefined,
 					(header) => (header.textContent = pluginTitle),
@@ -976,11 +1060,11 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 				);
 
 				sections.forEach((section, sectionIndex) => {
-					const sectionContainer = el.div`flex flex-col gap-2`.mount(
+					const sectionContainer = el.div`flex flex-col gap-2 search-item`.mount(
 						sectionBlock,
 						String(sectionIndex),
 					);
-					el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
+					el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
 						sectionContainer,
 						undefined,
 						(divider) => {
@@ -1000,7 +1084,9 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 						},
 					);
 					section.nodes.forEach((node) => {
-						const nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1`.mount(sectionContainer);
+						const nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1 search-item`.mount(
+							sectionContainer,
+						);
 						mountSettingsMenuNode(nodeContainer, node);
 					});
 				});

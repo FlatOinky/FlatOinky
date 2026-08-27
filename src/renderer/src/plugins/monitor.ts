@@ -144,7 +144,7 @@ const makeStateCueCard = (
 		onTest,
 		onEnabledChange: onEnabledOrThresholdChange,
 		mountHeaderExtras: (header) => {
-			el.span`text-xs text-base-content/60 shrink-0`.mount(header, undefined, (span) => {
+			el.span`text-xs text-base-content/60 shrink-0 search-value`.mount(header, undefined, (span) => {
 				span.textContent = 'Threshold';
 			});
 

@@ -27,13 +27,13 @@ export const createListEditor = <TItem>(options: ListEditorOptions<TItem>): Elem
 			});
 		}
 
-		const listTitle = el.div`text-sm font-medium`.element;
+		const listTitle = el.div`text-sm font-medium search-value`.element;
 		const list =
 			el.ul`flex flex-col gap-1 w-full max-h-64 overflow-y-auto scrollbar-thumb-base-content/50 scrollbar-track-base-200/70 p-3`
 				.element;
 
 		if (collapsible) {
-			listTitle.classList = 'collapse-title min-h-0 py-2 px-3 text-sm font-medium';
+			listTitle.classList = 'collapse-title min-h-0 py-2 px-3 text-sm font-medium search-value';
 			el.div`collapse collapse-arrow border border-base-content/20 rounded-box`.mount(
 				root,
 				undefined,

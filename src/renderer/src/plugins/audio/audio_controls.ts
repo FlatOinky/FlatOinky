@@ -126,7 +126,7 @@ const mountMuteSwap = (container: HTMLElement, id: string, tip: string) => {
 
 const mountStacked = (container: HTMLElement, id: string, label: string) => {
 	const root = el.div`flex flex-col gap-1 py-1`.mount(container, id);
-	const title = el.div`text-sm leading-tight px-0.5`.mount(root, 'title');
+	const title = el.div`text-sm leading-tight px-0.5 search-value`.mount(root, 'title');
 	title.textContent = label;
 	const controls = el.div`flex items-center gap-1.5`.mount(root, 'controls');
 	return { root, title, controls };
@@ -166,7 +166,9 @@ export const mountAudioRow = (
 	const root = stacked
 		? el.div`flex flex-col gap-1 py-1`.mount(container, id)
 		: el.div`flex flex-col gap-0.5 py-1`.mount(container, id);
-	const title = stacked ? el.div`text-sm leading-tight px-0.5`.mount(root, 'title') : undefined;
+	const title = stacked
+		? el.div`text-sm leading-tight px-0.5 search-value`.mount(root, 'title')
+		: undefined;
 	let detail: HTMLElement | undefined;
 	if (stacked && options.detail) {
 		detail = el.div`text-[11px] text-base-content/50 truncate px-0.5`.mount(root, 'detail');
@@ -176,7 +178,7 @@ export const mountAudioRow = (
 	let inlineTitle: HTMLElement | undefined;
 	if (!stacked) {
 		const text = el.div`flex flex-col min-w-0 flex-1`.mount(row, 'text');
-		inlineTitle = el.div`text-sm truncate leading-tight`.mount(text, 'title');
+		inlineTitle = el.div`text-sm truncate leading-tight search-value`.mount(text, 'title');
 		if (options.detail) {
 			detail = el.div`text-[11px] text-base-content/50 truncate`.mount(text, 'detail');
 		}

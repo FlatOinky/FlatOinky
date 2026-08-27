@@ -211,10 +211,10 @@ export const TweaksPlugin: Plugin = {
 			),
 			el.div`flex items-center justify-between gap-2`.then((container) => {
 				el.div`flex flex-col gap-0.5`.mount(container, undefined, (text) => {
-					el.span`font-medium text-sm`.mount(text, undefined, (label) => {
+					el.span`font-medium text-sm search-value`.mount(text, undefined, (label) => {
 						label.textContent = 'Clear Projectiles Now';
 					});
-					el.span`text-xs text-base-content/60`.mount(text, undefined, (description) => {
+					el.span`text-xs text-base-content/60 search-value`.mount(text, undefined, (description) => {
 						description.textContent = 'Remove every projectile currently drawn on the canvas.';
 					});
 				});
