@@ -67,7 +67,7 @@ export const mountSearchBar = (
 	barParent: Element,
 	searchContainer: Element,
 ) => {
-	const searchBar = el.div`join p-2`.mount(barParent, 'search');
+	const searchBar = el.div`join p-1`.mount(barParent, 'search');
 	const searchInput = el.input.text`join-item input block input-xs w-full`.mount(
 		searchBar,
 		undefined,
