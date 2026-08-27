@@ -144,9 +144,13 @@ const makeStateCueCard = (
 		onTest,
 		onEnabledChange: onEnabledOrThresholdChange,
 		mountHeaderExtras: (header) => {
-			el.span`text-xs text-base-content/60 shrink-0 search-value`.mount(header, undefined, (span) => {
-				span.textContent = 'Threshold';
-			});
+			el.span`text-xs text-base-content/60 shrink-0 search-value`.mount(
+				header,
+				undefined,
+				(span) => {
+					span.textContent = 'Threshold';
+				},
+			);
 
 			const thresholdInput = el.input.number`input input-sm w-20 tabular-nums`.mount(
 				header,

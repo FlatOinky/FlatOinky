@@ -306,10 +306,14 @@ export const createWordMatchesSettingsNode = (
 		onChange,
 		renderItem: (body, entry) => {
 			el.div`flex gap-2 items-center flex-wrap w-full`.mount(body, undefined, (row) => {
-				el.span`font-medium text-sm flex-1 min-w-0 truncate search-value`.mount(row, undefined, (label) => {
-					label.textContent = entry.word;
-					label.title = entry.word;
-				});
+				el.span`font-medium text-sm flex-1 min-w-0 truncate search-value`.mount(
+					row,
+					undefined,
+					(label) => {
+						label.textContent = entry.word;
+						label.title = entry.word;
+					},
+				);
 
 				el.select`select select-sm w-28 shrink-0`.mount(row, undefined, (select) => {
 					for (const option of wordMatchTypeOptions) {

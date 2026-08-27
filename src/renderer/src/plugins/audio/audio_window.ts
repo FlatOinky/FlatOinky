@@ -1,5 +1,6 @@
 import type { Lifecycle, PluginContext } from '../../client';
 import * as el from '../../client/ui/elements';
+import { mountSearchBar } from '../../client/ui/search';
 import type { AudioControlDeps } from './audio_controls';
 import { createCoalescedPaint, mountAudioRow, type AudioRow } from './audio_controls';
 import type { AudioRegistry } from './audio_registry';
@@ -33,18 +34,16 @@ export const initAudioWindow = (
 		},
 		onClose,
 		onPreMount: (mounted) => {
-			mounted.body.className = 'min-h-0 h-full';
+			mounted.body.className = 'flex flex-col min-h-0 h-full';
 		},
 	});
 
-	const sections =
-		el.div`flex-1 flex flex-col gap-8 h-full min-h-0 overflow-y-auto overflow-x-hidden`.mount(
-			window.body,
-			'sections',
-		);
+	const sectionsEl = el.div`flex-1 flex flex-col gap-8 h-full min-h-0 overflow-y-auto overflow-x-hidden search`;
+	mountSearchBar(lifecycle, window.body, sectionsEl.element);
+	const sections = sectionsEl.mount(window.body, 'sections');
 
-	const soundsSection = el.div`flex flex-col gap-1`.mount(sections, 'sounds');
-	el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
+	const soundsSection = el.div`flex flex-col gap-1 search-item`.mount(sections, 'sounds');
+	el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
 		soundsSection,
 		'title',
 		(divider) => {
@@ -53,8 +52,8 @@ export const initAudioWindow = (
 	);
 	const soundsList = el.div`flex flex-col`.mount(soundsSection, 'list');
 
-	const musicSection = el.div`flex flex-col gap-1`.mount(sections, 'music');
-	el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
+	const musicSection = el.div`flex flex-col gap-1 search-item`.mount(sections, 'music');
+	el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
 		musicSection,
 		'title',
 		(divider) => {

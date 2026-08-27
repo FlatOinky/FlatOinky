@@ -214,9 +214,13 @@ export const TweaksPlugin: Plugin = {
 					el.span`font-medium text-sm search-value`.mount(text, undefined, (label) => {
 						label.textContent = 'Clear Projectiles Now';
 					});
-					el.span`text-xs text-base-content/60 search-value`.mount(text, undefined, (description) => {
-						description.textContent = 'Remove every projectile currently drawn on the canvas.';
-					});
+					el.span`text-xs text-base-content/60 search-value`.mount(
+						text,
+						undefined,
+						(description) => {
+							description.textContent = 'Remove every projectile currently drawn on the canvas.';
+						},
+					);
 				});
 				el.button`btn btn-sm`.mount(container, undefined, (button) => {
 					button.textContent = 'Clear';

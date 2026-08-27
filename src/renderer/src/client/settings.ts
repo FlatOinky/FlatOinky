@@ -1,8 +1,8 @@
-import Fuse from 'fuse.js';
 import { ClientUi, Lifecycle } from '../client';
 import { ClientStorage } from './client_storage';
 import type { AlertScope } from './notifications';
 import * as el from './ui/elements';
+import { mountSearchBar } from './ui/search';
 
 // #region types
 
@@ -923,64 +923,6 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 	}
 };
 
-// #region makeSearch
-
-const makeSearch = (searchInput: HTMLInputElement, searchContainer: Element) => {
-	type SearchRecord = { item: Element; textContent: string };
-	let searchFuse: Fuse<SearchRecord> | undefined;
-
-	const rebuildCache = () => {
-		const searchRecords = Array.from(searchContainer.querySelectorAll('.search-item')).map(
-			(item) => ({
-				item,
-				textContent: Array.from(item.querySelectorAll('.search-value'))
-					.map((value) => value.textContent ?? '')
-					.join(' '),
-			}),
-		);
-		searchFuse = new Fuse(searchRecords, {
-			keys: ['textContent'],
-			tokenMatch: 'all',
-			useTokenSearch: true,
-			includeScore: true,
-			threshold: 0.25,
-		});
-	};
-
-	const applySearch = () => {
-		const value = searchInput.value.trim();
-		const isActive = value.length > 0;
-		searchContainer.classList.toggle('search-active', isActive);
-		if (!isActive) return;
-		searchContainer.querySelectorAll('.search-item').forEach((item) => {
-			item.classList.remove('search-item-valid');
-		});
-		searchFuse?.search(value).forEach(({ item, score }) => {
-			item.item.classList.toggle('search-item-valid', typeof score === 'number');
-		});
-	};
-
-	let rebuildScheduled = false;
-	const scheduleRebuild = () => {
-		if (rebuildScheduled) return;
-		rebuildScheduled = true;
-		queueMicrotask(() => {
-			rebuildScheduled = false;
-			rebuildCache();
-			applySearch();
-		});
-	};
-
-	const observer = new MutationObserver(scheduleRebuild);
-	observer.observe(searchContainer, { childList: true, subtree: true });
-	searchInput.oninput = applySearch;
-	rebuildCache();
-
-	return {
-		disconnect: () => observer.disconnect(),
-	};
-};
-
 // #region initSettingsMenu
 
 /** Nav entries stay plain text, so an element title contributes only its text. */
@@ -998,35 +940,9 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 			container,
 			'nav',
 		);
-	const searchContainer = el.div`join p-2`.mount(container, 'search');
-	const sectionsContainer =
-		el.div`flex-1 flex flex-col gap-12 overflow-y-auto overflow-x-hidden search`.mount(
-			container,
-			'sections',
-		);
-
-	const searchInput = el.input.text`join-item input block input-xs w-full`.mount(
-		searchContainer,
-		undefined,
-		(input) => {
-			input.placeholder = 'Search';
-		},
-	);
-	const search = makeSearch(searchInput, sectionsContainer);
-	lifecycle.onCleanup(search.disconnect);
-
-	el.button`join-item btn btn-xs btn-square btn-error btn-soft`.mount(
-		searchContainer,
-		undefined,
-		(button) => {
-			el.icon.x`size-4`.mount(button);
-			button.onclick = () => {
-				searchInput.value = '';
-				searchInput.dispatchEvent(new Event('input'));
-				searchInput.dispatchEvent(new Event('change'));
-			};
-		},
-	);
+	const sectionsEl = el.div`flex-1 flex flex-col gap-12 overflow-y-auto overflow-x-hidden search`;
+	mountSearchBar(lifecycle, container, sectionsEl.element);
+	const sectionsContainer = sectionsEl.mount(container, 'sections');
 
 	const update = () => {
 		sectionsContainer.replaceChildren();

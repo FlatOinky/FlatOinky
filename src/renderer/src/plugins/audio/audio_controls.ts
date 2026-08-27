@@ -164,11 +164,14 @@ export const mountAudioRow = (
 ): AudioRow => {
 	const stacked = options.layout === 'stacked';
 	const root = stacked
-		? el.div`flex flex-col gap-1 py-1`.mount(container, id)
-		: el.div`flex flex-col gap-0.5 py-1`.mount(container, id);
+		? el.div`flex flex-col gap-1 py-1 search-item`.mount(container, id)
+		: el.div`flex flex-col gap-0.5 py-1 search-item`.mount(container, id);
 	const title = stacked
 		? el.div`text-sm leading-tight px-0.5 search-value`.mount(root, 'title')
 		: undefined;
+	el.span`sr-only search-value`.mount(root, 'search-id', (span) => {
+		span.textContent = id;
+	});
 	let detail: HTMLElement | undefined;
 	if (stacked && options.detail) {
 		detail = el.div`text-[11px] text-base-content/50 truncate px-0.5`.mount(root, 'detail');
