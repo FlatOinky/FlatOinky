@@ -723,18 +723,22 @@ const initBotWatcher = (
 	const applyMeteorValue = (raw: string, now: number, silent = false) => {
 		const { location, setAt } = parseLocatedValue(raw, now);
 		if (!location) return;
+		const gem = stripGemWord(location);
+		if (!gem.location) return;
 		const at = asEpoch(setAt, now) ?? now;
 		const currentMeteor = getCurrentMeteor();
 		const currentEpoch = asEpoch(currentMeteor?.setAt, now);
 		const isCurrentStale = currentEpoch !== undefined ? now >= currentEpoch + HOUR_MS : false;
+		const sameLocation = currentMeteor?.location === gem.location;
 		const entry = upsertMeteor(location, at, now);
-		state.latched.meteorFound = currentMeteor === undefined || currentMeteor.location === location;
-		fireOnce('meteorFound', location, silent);
+		state.latched.meteorFound = currentMeteor === undefined || sameLocation;
+		fireOnce('meteorFound', gem.location, silent);
 		if (currentEpoch !== entry.setAt) {
 			state.latched.meteorMoved = false;
 			state.latched.gemMeteor = false;
 		}
 		if (isCurrentStale && now < entry.setAt + HOUR_MS) state.latched.meteorMoved = false;
+		if (entry.isGem) fireOnce('gemMeteor', entry.location, silent);
 	};
 
 	const applyAncientValue = (raw: string, now: number) => {
