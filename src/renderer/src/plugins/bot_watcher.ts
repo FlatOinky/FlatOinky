@@ -898,13 +898,7 @@ const initBotWatcher = (
 		}
 		const remaining = remainingUntil(hourLater(setAt), now);
 		if (remaining <= 0) {
-			return {
-				phase: 'stale',
-				label: 'Evil Tree',
-				badges: [],
-				summary: state.tree.location,
-				detail: `Expired ${formatUtcClock(hourLater(setAt))}`,
-			};
+			return { phase: 'absent', label: 'Evil Tree', badges: [], summary: 'None' };
 		}
 		return {
 			phase: 'active',
@@ -1066,6 +1060,13 @@ const initBotWatcher = (
 	};
 
 	const evaluateAlerts = (now: number) => {
+		if (state.tree.status === 'present') {
+			const treeSetAt = asEpoch(state.tree.setAt, now);
+			if (treeSetAt !== undefined && now >= treeSetAt + HOUR_MS) {
+				state.tree = { status: 'absent' };
+				state.latched.evilTree = false;
+			}
+		}
 		const meteor = getCurrentMeteor();
 		const setAt = asEpoch(meteor?.setAt, now);
 		if (meteor && setAt !== undefined && now >= setAt + HOUR_MS) {
