@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS assets (
 `;
 
 const { getDatabase, getFilePath } = initDatabase({
-	filename: 'asset-cache.db',
+	filename: import.meta.env.PROD
+		? 'asset-cache.db'
+		: `${import.meta.env.MODE ?? 'development'}.asset-cache.db`,
 	schema: SCHEMA_SQL,
 	version: SCHEMA_VERSION,
 	pragmas: ['PRAGMA synchronous = NORMAL'],
