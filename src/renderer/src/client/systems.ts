@@ -24,6 +24,7 @@ export type SystemsContext = {
 	clientStorage: ClientStorage;
 	setNotifications: (notifications: Notifications) => void;
 	setContextMenu: (contextMenu: ContextMenu) => void;
+	setRecordServerCommand: (fn: (raw: string) => void) => void;
 	profiles: Profiles;
 	plugins: ClientPlugins;
 	logging: Logging;
@@ -40,6 +41,7 @@ export const initSystems = async (
 		clientStorage,
 		setNotifications,
 		setContextMenu,
+		setRecordServerCommand,
 		profiles,
 		plugins,
 		logging,
@@ -67,7 +69,14 @@ export const initSystems = async (
 		setContextMenu(contextMenu);
 
 		initUpdatesSystem(systems, ui, updater, settingsMenu);
-		await initDevtoolsSystem(systems, ui, settingsMenu, logging, references);
+		await initDevtoolsSystem(
+			systems,
+			ui,
+			settingsMenu,
+			logging,
+			references,
+			setRecordServerCommand,
+		);
 	};
 
 	const restartSystems = async (): Promise<void> => {

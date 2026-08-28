@@ -532,7 +532,7 @@ export const mutatedFunctions = ['get_player_animation'] as const;
 
 export type ClientHooks = ReturnType<typeof createClientHooks>;
 
-const createClientHooks = (plugins: ClientPlugins) => {
+const createClientHooks = (plugins: ClientPlugins, recordServerCommand: (raw: string) => void) => {
 	const handleServerCommandAsync = async (
 		command: string,
 		values: string[],
@@ -609,6 +609,7 @@ const createClientHooks = (plugins: ClientPlugins) => {
 	};
 	return {
 		server_command: (command: string, values: string[], rawCommand: string) => {
+			recordServerCommand(rawCommand);
 			handleServerCommandAsync(command, values, rawCommand);
 			return plugins.api.hooks.serverCommand(command, values, rawCommand);
 		},
@@ -661,6 +662,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 
 	let notifications: Notifications | undefined;
 	let contextMenu: ContextMenu | undefined;
+	let recordServerCommand = (_raw: string) => {};
 	const logging = initLogging(loggingStorage, () => plugins.api.events.chatMessage);
 	const context = createContext(
 		character,
@@ -674,7 +676,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		() => contextMenu,
 	);
 	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage, logging.createLogger);
-	const hooks = createClientHooks(plugins);
+	const hooks = createClientHooks(plugins, (raw) => recordServerCommand(raw));
 	const mutators = createClientMutators(plugins);
 
 	await initSystems(lifecycle, {
@@ -688,6 +690,9 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		},
 		setContextMenu: (next) => {
 			contextMenu = next;
+		},
+		setRecordServerCommand: (next) => {
+			recordServerCommand = next;
 		},
 		profiles,
 		plugins,

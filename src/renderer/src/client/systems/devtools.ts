@@ -11,6 +11,8 @@ const initialSettings = {
 	enabledDevtools: false,
 };
 
+const MAX_SERVER_COMMANDS = 1000;
+
 const logLevelSteps = logLevels.map((level) => logLevelLabels[level]);
 
 const loggingNodes = (logging: Logging): SettingsNode[] => {
@@ -55,17 +57,34 @@ export const initDevtoolsSystem = async (
 	settingsMenu: SettingsMenu,
 	logging: Logging,
 	references: FMMO.ReferenceManifest,
+	setRecordServerCommand: (fn: (raw: string) => void) => void,
 ): Promise<void> => {
 	const storage = await createGlobalStorage('systems', 'devtools');
 	const settings = storage.reactive('settings', initialSettings);
 	let devtoolsLifecycle: Lifecycle | null = null;
-	lifecycle.onCleanup(() => logging.setEnabled(false));
+	const serverCommands: string[] = [];
+	const recordServerCommand = (raw: string) => {
+		if (!settings.enabledDevtools) return;
+		serverCommands.push(`${new Date().toISOString()} ${raw}`);
+		if (serverCommands.length > MAX_SERVER_COMMANDS) {
+			serverCommands.splice(0, serverCommands.length - MAX_SERVER_COMMANDS);
+		}
+	};
+	setRecordServerCommand(recordServerCommand);
+	lifecycle.onCleanup(() => {
+		logging.setEnabled(false);
+		serverCommands.length = 0;
+		setRecordServerCommand(() => {});
+	});
 
 	const syncDevtoolsMenu = () => {
 		devtoolsLifecycle?.cleanup();
 		devtoolsLifecycle = null;
 		logging.setEnabled(settings.enabledDevtools);
-		if (!settings.enabledDevtools) return;
+		if (!settings.enabledDevtools) {
+			serverCommands.length = 0;
+			return;
+		}
 		devtoolsLifecycle = lifecycle.spawnLifecycle();
 		const { trayMenu } = ui.taskbar.initTrayButtonMenu(devtoolsLifecycle, 'devtools', {
 			button: {
@@ -89,7 +108,19 @@ export const initDevtoolsSystem = async (
 		el.li``.mount(menu, 'saveReferences', (item) => {
 			el.button``.mount(item, 'button', (button) => {
 				button.textContent = 'Save References';
-				button.onclick = () => saveReferences(references);
+				button.onclick = () => {
+					const stamp = new Date().toISOString().replaceAll(':', '-');
+					saveReferences({
+						...references,
+						inline: [
+							...references.inline,
+							{
+								name: `server_commands-${stamp}.txt`,
+								content: serverCommands.join('\n'),
+							},
+						],
+					});
+				};
 			});
 		});
 	};
