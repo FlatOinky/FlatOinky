@@ -59,6 +59,8 @@ declare global {
 	var players: { [username: string]: FMMO.Player };
 	var npcs: { [uuid: string]: FMMO.Npc };
 	var map_objects: FMMO.MapObject[];
+	var object_paint_shake: Set<string>;
+	var current_map: string;
 	var projectile_objects: { [uuid: string]: FMMO.NpcProjectile };
 	var projectile_to_player_objects: { [uuid: string]: FMMO.PlayerProjectile };
 	var projectile_environment_objects: { [uuid: string]: FMMO.EnvironmentProjectile };

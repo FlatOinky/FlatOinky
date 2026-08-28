@@ -179,6 +179,7 @@ export type PluginEvents = {
 	}) => void;
 	makeUiChange?: (item: null | string, completed: number, total: number, sessionXp: number) => void;
 	setMap?: (map: string) => void;
+	objectDepleted?: (object: FMMO.MapObject) => void;
 	updateSleep?: (value: number) => void;
 	updateWorship?: (value: number) => void;
 	updateHealth?: (username: string, current: number, max: number, showBar: boolean) => void;
@@ -450,6 +451,9 @@ const initPlugins = (
 			setMap: (map) => {
 				dispatchEvent((instance) => instance.callbacks.events?.setMap?.(map));
 			},
+			objectDepleted: (object) => {
+				dispatchEvent((instance) => instance.callbacks.events?.objectDepleted?.(object));
+			},
 			updateSleep: (value) => {
 				dispatchEvent((instance) => instance.callbacks.events?.updateSleep?.(value));
 			},
@@ -577,6 +581,18 @@ const createClientHooks = (plugins: ClientPlugins, recordServerCommand: (raw: st
 				const map = values[0];
 				if (!map) return;
 				return plugins.api.events.setMap(map);
+			}
+			case 'UPDATE_OBJECTS': {
+				const previous: Record<string, string> = {};
+				for (const object of map_objects) previous[object.uuid] = object.filename;
+				queueMicrotask(() => {
+					for (const object of map_objects) {
+						const filename = previous[object.uuid];
+						if (filename === undefined || filename === object.filename) continue;
+						plugins.api.events.objectDepleted(object);
+					}
+				});
+				return;
 			}
 			case 'INNER_HTML_TAGS': {
 				// Some tag ids arrive with trailing whitespace (e.g. `sleep-value `).

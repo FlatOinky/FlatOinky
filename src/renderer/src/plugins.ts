@@ -6,4 +6,5 @@ export { BotWatcherPlugin } from './plugins/bot_watcher';
 export { MetricsPlugin } from './plugins/metrics';
 export { ThemesPlugin } from './plugins/themes';
 export { TileKickersPlugin } from './plugins/tile_kickers';
+export { ProspectingTimersPlugin } from './plugins/prospecting_timers';
 export { MousePlugin } from './plugins/mouse';

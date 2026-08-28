@@ -81,7 +81,10 @@ Layout under `src/`:
   both, the mutator pass runs first and the hook pass nests around it (veto, then
   mutate). Plugins return `{ events?, hooks?, mutators?, contextMenu? }` from `init`;
   add a new hook or mutator by updating the matching list and the nested types in
-  [src/client.ts](src/client.ts). Paint-path mutators must use fixed-arity dispatchers
+  [src/client.ts](src/client.ts). `objectDepleted` fires after `UPDATE_OBJECTS` when
+  an existing map object's `filename` changes (the snapshot is taken before the game
+  applies the command; the event runs on a microtask with the new object). Paint-path
+  mutators must use fixed-arity dispatchers
   (no rest/spread) so they stay allocation-free. `contextMenu` is a map of target type
   to `(target) => ContextMenuItem[]`; the always-on context menu system calls
   `context.contextMenu.show(targets, event)` and folds each target's native left/right

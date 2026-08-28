@@ -73,6 +73,7 @@ declare namespace FMMO {
 		uuid: string;
 		name: string;
 		label: string;
+		filename: string;
 		x: number;
 		y: number;
 		tile_width: number;

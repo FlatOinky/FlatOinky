@@ -14,6 +14,7 @@ const initialSettings = {
 	enableDarkenSky: true,
 	enableDynamicCanvas_beta: false,
 	enableProjectileCleanup: true,
+	enableObjectShakeCleanup: true,
 	hideOtherPlayerDrops: false,
 	particleReduction: 'none' as ParticleLevel,
 	enablePlayerRenderCache: true,
@@ -126,6 +127,27 @@ const scheduleSweep = (context: ClientContext): void => {
 
 // #endregion
 
+// #region shake
+
+const sweepVanishedShakes = (): void => {
+	for (const uuid of object_paint_shake) {
+		if (map_objects.some((object) => object.uuid === uuid)) continue;
+		object_paint_shake.delete(uuid);
+	}
+};
+
+let shakeSweepScheduled = false;
+const scheduleVanishedShakeSweep = (): void => {
+	if (shakeSweepScheduled) return;
+	shakeSweepScheduled = true;
+	queueMicrotask(() => {
+		shakeSweepScheduled = false;
+		sweepVanishedShakes();
+	});
+};
+
+// #endregion
+
 // #region performance
 
 const sweepParticles = (): void => {
@@ -201,6 +223,14 @@ export const TweaksPlugin: Plugin = {
 		]);
 
 		settingsMenu.mountSection('Bug Fixes', [
+			helpers.toggle(
+				'Remove object shake',
+				'Stop objects shaking once they are depleted or removed.',
+				() => settings.enableObjectShakeCleanup,
+				(value) => {
+					settings.enableObjectShakeCleanup = value;
+				},
+			),
 			helpers.toggle(
 				'Clear Stuck Projectiles',
 				'Automatically remove projectiles after leaving an area.',
@@ -283,6 +313,10 @@ export const TweaksPlugin: Plugin = {
 						darkenSkyLifecycle = null;
 					});
 				},
+				objectDepleted: (object) => {
+					if (!settings.enableObjectShakeCleanup) return;
+					object_paint_shake.delete(object.uuid);
+				},
 			},
 			hooks: {
 				// Vetoing XP_DROP / LEVEL_UP_DROP / PLAY_PARTICLES here is lossless for
@@ -311,6 +345,9 @@ export const TweaksPlugin: Plugin = {
 							case 'CLEAR_CLIENT_NPCS':
 								scheduleSweep(context);
 						}
+					}
+					if (settings.enableObjectShakeCleanup && command === 'UPDATE_OBJECTS') {
+						scheduleVanishedShakeSweep();
 					}
 					return true;
 				},
