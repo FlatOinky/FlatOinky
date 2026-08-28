@@ -245,9 +245,15 @@ const mountSkillChart = (
 		if (updateDom) lineGraph.updatePath();
 	};
 
+	const replaceSeries = (values: number[]) => {
+		graphData.splice(0, graphData.length, ...values);
+		lineGraph.updatePath();
+	};
+
 	return {
 		lineGraph,
 		runInterval,
+		replaceSeries,
 		setColor: (next: string) => applyChartColor(lineGraph.svg, next),
 	};
 };
@@ -311,12 +317,7 @@ const mountSkillBlock = (
 					return;
 				}
 				activeSkillCharts[skill] = false;
-				xpTracker = startXpTracker(
-					xpAccumulator,
-					settings,
-					skillFilter,
-					sessionTotals.bySkill[skill] ?? 0,
-				);
+				resync();
 			};
 		},
 	);
@@ -382,6 +383,19 @@ const mountSkillBlock = (
 	updateStats(xpTracker.initialMetrics);
 	updateVisibility(xpTracker.initialMetrics);
 
+	const resync = () => {
+		xpTracker = startXpTracker(
+			xpAccumulator,
+			settings,
+			skillFilter,
+			skill === 'total' ? sessionTotals.all : (sessionTotals.bySkill[skill] ?? 0),
+		);
+		lastMetrics = xpTracker.initialMetrics;
+		skillChart.replaceSeries(xpTracker.initialMetrics.smoothedValues);
+		updateStats(xpTracker.initialMetrics);
+		updateVisibility(xpTracker.initialMetrics);
+	};
+
 	const runInterval = () => {
 		const metrics = xpTracker.runInterval();
 		lastMetrics = metrics;
@@ -400,6 +414,7 @@ const mountSkillBlock = (
 		xpTracker,
 		skillChart,
 		runInterval,
+		resync,
 		syncShowTotal,
 		syncVisibility,
 	};
@@ -555,35 +570,31 @@ export const MetricsPlugin: Plugin = {
 		let xpTracker = startXpTracker(xpAccumulator, settings, () => true, sessionTotals.all);
 		let toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 
-		let intervalId: ReturnType<typeof setInterval> | undefined;
-		// events.startup waits before starting the loop, so a teardown can land mid-wait;
-		// this flag stops a late start from orphaning an interval on a dead lifecycle.
-		let disposed = false;
-		lifecycle.onCleanup(() => {
-			disposed = true;
-			if (intervalId !== undefined) clearInterval(intervalId);
-			intervalId = undefined;
-		});
+		const rebuildTrackers = () => {
+			xpTracker = startXpTracker(xpAccumulator, settings, () => true, sessionTotals.all);
+			toggleChart.replaceSeries(xpTracker.initialMetrics.smoothedValues);
+			windowMetrics?.skillCharts.forEach((chart) => chart.resync());
+		};
 
-		const restartUpdateLoop = () => {
-			if (intervalId !== undefined) clearInterval(intervalId);
-			if (disposed) return;
-			intervalId = setInterval(() => {
+		const updateLoop = context.timers.initInterval(lifecycle, {
+			interval: settings.updateInterval * 1000,
+			onStart: () => rebuildTrackers(),
+			onTick: () => {
 				xpAccumulator.trim();
 				const metrics = xpTracker.runInterval();
 				toggleChart.runInterval(metrics.smoothedValue);
 				if (windowMetrics && windowMetrics.window.state.minimized === false) {
 					windowMetrics.skillCharts.forEach((chart) => chart.runInterval());
 				}
-			}, settings.updateInterval * 1000);
-		};
+			},
+		});
 
 		refreshMetrics = () => {
 			toggleChart.lineGraph.svg.remove();
 			xpTracker = startXpTracker(xpAccumulator, settings, () => true, sessionTotals.all);
 			toggleChart = mountSkillChart(context, toggleButton, xpTracker, settings.chartColor);
 			refreshWindowMetrics();
-			restartUpdateLoop();
+			updateLoop.setInterval(settings.updateInterval * 1000);
 		};
 
 		const applyChartColors = () => {
@@ -757,7 +768,7 @@ export const MetricsPlugin: Plugin = {
 					input.onchange = () => {
 						settings.updateInterval = parseFloat(input.value);
 						syncIntervalPresetSelect();
-						refreshMetrics();
+						updateLoop.setInterval(settings.updateInterval * 1000);
 					};
 				}),
 			},
@@ -767,7 +778,7 @@ export const MetricsPlugin: Plugin = {
 			events: {
 				startup: async () => {
 					await new Promise((resolve) => setTimeout(resolve, 1000));
-					restartUpdateLoop();
+					updateLoop.start();
 				},
 				xpDrop: ({ username, skill, xp }) => {
 					if (!context.isLocalUsername(username)) return;

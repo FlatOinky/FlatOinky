@@ -37,9 +37,12 @@ client.
   - `index.ts` — app entry / window bootstrap.
   - `ipc_main.ts` — IPC handlers (login, worlds, client HTML/assets, storage/profiles,
     file save, notifications, saveReferences from a ReferenceManifest, window reload,
-    asset-cache clear, openDevTools, and updater check/download/install/channel).
+    asset-cache clear, openDevTools, updater check/download/install/channel, and
+    getAppState).
   - `updater.ts` — electron-updater wrapper: channel (`latest`/`beta`), check,
     download, install, and update events to the renderer.
+  - `app_state.ts` — window focus plus `powerMonitor` suspend/resume, broadcast as
+    `appState` to the renderer.
   - `asset_cache.ts` — SQLite-backed HTTP asset cache with BLOB bodies and ETag
     metadata (`userData/storage/asset-cache.db`, shared across environments).
   - `database.ts` — `initDatabase` factory for `node:sqlite` DatabaseSync instances
@@ -72,9 +75,13 @@ client.
   - `client/logging.ts` — `initLogging` factory backing `PluginContext.log`. Emit is
     gated by the Devtools enable toggle; log-level controls live in the Devtools tray.
   - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file,
-    clearAssetCache, saveReferences, openDevTools, notifications, updates) plus
-    re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`.
+    clearAssetCache, saveReferences, openDevTools, notifications, updates, getAppState)
+    plus re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`.
   - `client/updater.ts` — update UI state machine wired to the main updater.
+  - `client/app_state.ts` — `initAppState` factory: `active` / `background` /
+    `suspended` from main `appState` plus `document.visibilitychange`.
+  - `client/timers.ts` — `initTimers` factory backing `PluginContext.timers`
+    (`initInterval` with stop/start, suspend/resume, and rebuild-on-start).
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
     window appearance settings, notifications tray/settings, context
     menu, updates UI, devtools including logging, profiles); never toggleable. Systems other than profiles live on a restartable child

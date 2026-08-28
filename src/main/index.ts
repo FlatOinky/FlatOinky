@@ -3,6 +3,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { ipcMainSetup } from './ipc_main';
 import { setupAssetProxy } from './asset_proxy';
 import { createWindow } from './client_window';
+import { initAppState } from './app_state';
 import { initUpdater } from './updater';
 
 // This method will be called when Electron has finished
@@ -23,6 +24,7 @@ app.whenReady().then(async () => {
 
 	setupAssetProxy();
 
+	initAppState();
 	await initUpdater();
 
 	createWindow();

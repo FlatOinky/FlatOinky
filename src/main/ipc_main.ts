@@ -2,6 +2,7 @@ import { app, ipcMain, Notification, dialog } from 'electron';
 import * as storage from './storage';
 import * as flatMmo from './flat_mmo';
 import * as updater from './updater';
+import { getAppState } from './app_state';
 import { clearAssetCache, getAssetCacheSizeBytes } from './asset_cache';
 import { saveFile, saveReferencesArchive } from './files';
 import type { StorageKey } from './storage';
@@ -50,6 +51,10 @@ export const ipcMainSetup = (): void => {
 		const notification = new Notification({ title, body: message });
 		notification.show();
 	});
+
+	// #region app state
+
+	ipcMain.handle('getAppState', () => getAppState());
 
 	// #region updates
 

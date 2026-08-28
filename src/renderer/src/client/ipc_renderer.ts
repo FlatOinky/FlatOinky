@@ -4,6 +4,13 @@ export const { ipcRenderer } = window.electron as ElectronAPI;
 
 export * as ipcStorage from './ipc_renderer/ipc_storage';
 
+export type AppStatePayload = {
+	focused: boolean;
+	suspended: boolean;
+};
+
+export const getAppState = (): Promise<AppStatePayload> => ipcRenderer.invoke('getAppState');
+
 export const reloadWindow = (): void => ipcRenderer.send('reloadWindow');
 
 export const openDevTools = (): void => ipcRenderer.send('openDevTools');

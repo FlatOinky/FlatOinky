@@ -1,4 +1,5 @@
 import { ChatMessage, parseChatMessage } from './client/chat_message';
+import { initAppState } from './client/app_state';
 import {
 	createGlobalStorage,
 	createPluginCollections,
@@ -17,6 +18,7 @@ import type {
 } from './client/context_menu';
 import { getAppVersion, saveFile } from './client/ipc_renderer';
 import { initLogging, type Logger, type LogLevel, type LogMethod } from './client/logging';
+import { initTimers, type ClientTimers } from './client/timers';
 import type { Notifications } from './client/notifications';
 import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
@@ -88,6 +90,7 @@ const createContext = (
 	container: HTMLElement,
 	ipc: ClientIpc,
 	log: Logger,
+	timers: ClientTimers,
 	getNotifications: () => Notifications | undefined,
 	getContextMenu: () => ContextMenu | undefined,
 ) => {
@@ -111,6 +114,7 @@ const createContext = (
 		container,
 		ipc,
 		log,
+		timers,
 		isLocalUsername,
 		getPlayer,
 		getLocalPlayer,
@@ -652,6 +656,8 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		]);
 	const settings = initSettings(lifecycle, ui, clientStorage);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
+	const appState = await initAppState(lifecycle);
+	const timers = initTimers(lifecycle, appState);
 
 	let notifications: Notifications | undefined;
 	let contextMenu: ContextMenu | undefined;
@@ -663,6 +669,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		canvasContainer,
 		ipc,
 		logging.logger,
+		timers,
 		() => notifications,
 		() => contextMenu,
 	);
