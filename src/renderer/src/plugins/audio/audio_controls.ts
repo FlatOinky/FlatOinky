@@ -1,4 +1,5 @@
 import type { Lifecycle } from '../../client';
+import { settingsHelpers } from '../../client/settings';
 import * as el from '../../client/ui/elements';
 import type { AudioEngine } from './audio_engine';
 import type { AudioKind, AudioSettings, SoundMode } from './audio_types';
@@ -111,16 +112,15 @@ const mountVolumeSlider = (container: HTMLElement, id: string) => {
 
 const mountMuteSwap = (container: HTMLElement, id: string, tip: string) => {
 	const input = el.input.checkbox``.element;
-	const toggle =
-		el.label`swap btn btn-sm btn-square tooltip tooltip-top tooltip-start active:translate-none has-checked:btn-soft has-checked:btn-success not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`.mount(
-			container,
-			id,
-		);
-	toggle.setAttribute('data-tip', tip);
-	input.classList = 'sr-only';
-	const onIcon = el.icon.volume`size-4 swap-on`.element;
-	const offIcon = el.icon.volumeOff`size-4 swap-off`.element;
-	toggle.append(input, onIcon, offIcon);
+	settingsHelpers.swapToggle(
+		input,
+		el.icon.volume`size-4`.element,
+		el.icon.volumeOff`size-4`.element,
+		tip,
+		'tooltip-start',
+		container,
+		id,
+	);
 	return input;
 };
 
@@ -335,7 +335,7 @@ export const mountGlobalSoundControls = (
 	options: { layout?: 'inline' | 'stacked' } = {},
 ) => {
 	const { root, title, controls } = mountStacked(container, 'sound', 'Sound');
-	const cycle = el.button`btn btn-sm justify-start gap-1 tooltip tooltip-top`.mount(
+	const cycle = el.button`btn btn-sm btn-soft justify-start gap-1 tooltip tooltip-top`.mount(
 		controls,
 		'mode',
 		(button) => {
@@ -370,10 +370,9 @@ export const mountGlobalSoundControls = (
 		iconHost.replaceChildren(
 			mode === 'off' ? el.icon.volumeOff`size-4`.element : el.icon.volume`size-4`.element,
 		);
-		cycle.classList.toggle('btn-ghost', mode === 'off');
-		cycle.classList.toggle('btn-soft', mode !== 'off');
 		cycle.classList.toggle('btn-success', mode === 'all');
 		cycle.classList.toggle('btn-warning', mode === 'essential');
+		cycle.classList.toggle('btn-error', mode === 'off');
 		paintVolume();
 	};
 	update();

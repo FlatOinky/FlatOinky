@@ -394,12 +394,16 @@ const makeSwapToggle = (
 	offIcon: Element,
 	tip: string,
 	tipAlign = 'tooltip-start',
+	container?: Element,
+	id?: string,
 ): Element => {
 	// DaisyUI's btn press style uses `translate: 0 .5px`, which expands scroll
 	// overflow on the last row of a list and flashes a scrollbar — cancel it.
 	const toggle =
-		el.label`swap btn btn-sm btn-square btn-soft tooltip tooltip-top ${tipAlign} active:translate-none has-checked:btn-success not-has-checked:btn-error`
-			.element;
+		el.label`swap btn btn-sm btn-square btn-soft tooltip tooltip-top ${tipAlign} active:translate-none has-checked:btn-success not-has-checked:btn-error`.mount(
+			container,
+			id,
+		);
 	toggle.setAttribute('data-tip', tip);
 	input.classList = 'sr-only';
 	onIcon.classList.add('swap-on');
