@@ -89,6 +89,12 @@ declare namespace FMMO {
 		tooltip?: string;
 	};
 
+	export type BankItem = {
+		name: string;
+		value: number;
+		category: number | string;
+	};
+
 	export type NpcProjectile = {
 		npc_uuid_target: string;
 		frames_interval_1: ReturnType<typeof setInterval>;

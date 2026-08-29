@@ -86,9 +86,14 @@ Layout under `src/`:
   applies the command; the event runs on a microtask with the new object). Paint-path
   mutators must use fixed-arity dispatchers
   (no rest/spread) so they stay allocation-free. `contextMenu` is a map of target type
-  to `(target) => ContextMenuItem[]`; the always-on context menu system calls
-  `context.contextMenu.show(targets, event)` and folds each target's native left/right
-  click with every plugin's contributions for that type.
+  to `(target) => ContextMenuItem[]`; plugins branch on `target.subtype` inside a type
+  callback. Items may set `order` (unset is 0; stable sort). The always-on context menu
+  system calls `context.contextMenu.show(targets, event, { collapse })` and folds each
+  target's native left/right click with every plugin's contributions for that type.
+  With `collapse: true` and more than one target, the menu lists targets and shows
+  that target's actions in a side submenu on hover (click runs `leftClick`, or the
+  first item if there is none). A target with only one item stays inline as an
+  action row. The Mouse plugin's **Collapse targets** setting passes this flag.
 - **CSS isolation** — game styles are injected as
   `@layer fmmo { @scope (html) to (.flat-oinky) { ... } }`, so they stop at the Oinky
   root. Oinky UI lives under `.flat-oinky`; Tailwind preflight is scoped there in

@@ -56,8 +56,9 @@ export const collectTargets = (
 		const name = groundItem.name;
 		const label = formatItemName(name);
 		targets.push({
-			type: 'ground_item',
-			data: { uuid, name, label },
+			type: 'item',
+			subtype: 'ground',
+			data: { uuid, name, label, amount: groundItem.amount },
 			icon: showDropIdenticons ? dropIcon(uuid) : undefined,
 			leftClick: {
 				action: 'Take',

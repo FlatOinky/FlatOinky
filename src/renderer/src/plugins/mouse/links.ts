@@ -1,4 +1,4 @@
-import type { ContextMenuItem } from '../../client';
+import type { ContextMenuItem, ContextTargetOf } from '../../client';
 
 export const openExternal = (url: string): void => {
 	window.open(url, '_blank', 'noopener');
@@ -6,11 +6,25 @@ export const openExternal = (url: string): void => {
 
 export const wikiPageName = (label: string): string => label.replaceAll(' ', '_');
 
-export const wikiItem = (label: string): ContextMenuItem => ({
+export const wikiItem = (label: string, order?: number): ContextMenuItem => ({
 	action: 'Wiki',
 	subject: label,
+	order,
 	onSelect: () => {
 		openExternal(`https://flatmmo.wiki/index.php/${encodeURIComponent(wikiPageName(label))}`);
+	},
+});
+
+export const examineItem = (target: ContextTargetOf<'item'>): ContextMenuItem => ({
+	action: 'Examine',
+	subject: target.data.label,
+	order: 110,
+	onSelect: () => {
+		const command =
+			target.subtype === 'bank_withdrawal'
+				? `RIGHT_CLICKED_WITHDRAW_BANK=${target.data.name}`
+				: `RIGHT_CLICKS_ITEM=${target.data.name}`;
+		Globals.websocket?.send(command);
 	},
 });
 

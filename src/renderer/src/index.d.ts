@@ -51,6 +51,8 @@ declare global {
 	var opened_modals: Set<string>;
 	var ground_items: FMMO.GroundItem[];
 	var items: FMMO.InventoryItem[];
+	var bank_items: FMMO.BankItem[];
+	let withdraw_as_notes: boolean;
 	var sound_off: number;
 	var music_off: boolean;
 	function play_sound(file: string, vol?: number): void;
@@ -91,5 +93,12 @@ declare global {
 		imagePath: string,
 		defaultValue: number,
 		tabIndex: number,
+	): void;
+	function open_input_integer_dialogue(
+		item: string,
+		label: string,
+		imagePath: string,
+		defaultValue: number,
+		serverCommand: string,
 	): void;
 }

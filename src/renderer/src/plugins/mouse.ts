@@ -1,11 +1,12 @@
-import { Plugin } from '../client';
-import { initInventoryTrigger, inventoryMenuItems } from './mouse/inventory';
-import { flatstatsItem, lookupItem, wikiItem } from './mouse/links';
+import { Plugin, type ContextTarget } from '../client';
+import { initBankTrigger, initInventoryTrigger, inventoryMenuItems } from './mouse/inventory';
+import { examineItem, flatstatsItem, lookupItem, wikiItem } from './mouse/links';
 import { collectTargets } from './mouse/targets';
 
 const initialSettings = {
 	enabled: true,
 	includeWalkHere: true,
+	collapseTargets: true,
 	showDropIdenticons: false,
 };
 
@@ -18,33 +19,49 @@ export const MousePlugin: Plugin = {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const helpers = context.settings.helpers;
 
+		const show = (targets: ContextTarget[], event: MouseEvent) =>
+			context.contextMenu.show(targets, event, { collapse: settings.collapseTargets });
+
 		initInventoryTrigger(lifecycle, {
 			isEnabled: () => settings.enabled,
-			show: (targets, event) => context.contextMenu.show(targets, event),
+			show,
+		});
+		initBankTrigger(lifecycle, {
+			isEnabled: () => settings.enabled,
+			show,
 		});
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Context Menu', [
 			helpers.toggle(
-				'Enabled',
-				'Show a menu of actions when right-clicking the canvas or inventory.',
+				'Enable Context Menu',
+				'',
 				() => settings.enabled,
 				(value) => {
 					settings.enabled = value;
 					if (!value) context.contextMenu.close();
 				},
 			),
+			// TODO: decide if this is even useful
+			// helpers.toggle(
+			// 	'Walk here',
+			// 	'Include a Walk here entry that clicks the tile under the cursor.',
+			// 	() => settings.includeWalkHere,
+			// 	(value) => {
+			// 		settings.includeWalkHere = value;
+			// 	},
+			// ),
 			helpers.toggle(
-				'Walk here',
-				'Include a Walk here entry that clicks the tile under the cursor.',
-				() => settings.includeWalkHere,
+				'Enable Submenus',
+				'When a target (player, item, etc.) has multiple actions, show a side menu on hover.',
+				() => settings.collapseTargets,
 				(value) => {
-					settings.includeWalkHere = value;
+					settings.collapseTargets = value;
 				},
 			),
 			helpers.toggle(
 				'Ground Item Identicons',
-				'Show a unique identicon beside each ground item so duplicate drops are distinguishable.',
+				'Show a unique identicon beside ground items so drops are distinguishable.',
 				() => settings.showDropIdenticons,
 				(value) => {
 					settings.showDropIdenticons = value;
@@ -66,14 +83,17 @@ export const MousePlugin: Plugin = {
 						includeWalkHere: settings.includeWalkHere,
 						showDropIdenticons: settings.showDropIdenticons,
 					});
-					return !context.contextMenu.show(targets, event);
+					return !show(targets, event);
 				},
 			},
 			contextMenu: {
-				ground_item: (target) => [wikiItem(target.data.label)],
 				npc: (target) => [wikiItem(target.data.label)],
 				player: (target) => [lookupItem(target.data.username), flatstatsItem(target.data.username)],
-				item: (target) => inventoryMenuItems(target),
+				item: (target) => [
+					...inventoryMenuItems(target),
+					wikiItem(target.data.label, 100),
+					examineItem(target),
+				],
 			},
 		};
 	},

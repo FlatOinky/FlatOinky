@@ -1,13 +1,79 @@
 import type { ContextMenuItem, ContextTarget, ContextTargetOf, Lifecycle } from '../../client';
 import { formatItemName } from './targets';
 
+const withdrawCommand = (): string =>
+	withdraw_as_notes ? 'WITHDRAW_FROM_BANK_NOTES' : 'WITHDRAW_FROM_BANK';
+
+const depositAmounts = (name: string, label: string): ContextMenuItem[] => [
+	{
+		action: 'Deposit 50',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~50`);
+		},
+	},
+	{
+		action: 'Deposit 25',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~25`);
+		},
+	},
+	{
+		action: 'Deposit 5',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~5`);
+		},
+	},
+	{
+		action: 'Deposit 1',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~1`);
+		},
+	},
+];
+
+const withdrawAmounts = (name: string, label: string): ContextMenuItem[] => [
+	{
+		action: 'Withdraw 50',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`${withdrawCommand()}=${name}~50`);
+		},
+	},
+	{
+		action: 'Withdraw 25',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`${withdrawCommand()}=${name}~25`);
+		},
+	},
+	{
+		action: 'Withdraw 5',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`${withdrawCommand()}=${name}~5`);
+		},
+	},
+	{
+		action: 'Withdraw 1',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`${withdrawCommand()}=${name}~1`);
+		},
+	},
+];
+
 export const buildItemTarget = (name: string, index: number): ContextTarget => {
 	const label = formatItemName(name);
 	const amount = get_inventory_item_count(name);
 	const bankOpen = is_bank_open();
 	const target: ContextTargetOf<'item'> = {
 		type: 'item',
-		data: { name, label, amount, index, bankOpen },
+		subtype: bankOpen ? 'bank_deposit' : 'inventory',
+		data: { name, label, amount, index },
 	};
 
 	if (bankOpen) {
@@ -41,68 +107,68 @@ export const buildItemTarget = (name: string, index: number): ContextTarget => {
 				Globals.websocket?.send(`CLICKS_INVENTORY_ITEM=${name}~${index}`);
 			},
 		};
-		target.rightClick = {
-			action: 'Examine',
-			subject: label,
-			onSelect: () => {
-				Globals.websocket?.send(`RIGHT_CLICKS_ITEM=${name}`);
-			},
-		};
 	}
 
 	return target;
 };
 
+export const buildBankTarget = (name: string, amount: number): ContextTarget => {
+	const label = formatItemName(name);
+	const target: ContextTargetOf<'item'> = {
+		type: 'item',
+		subtype: 'bank_withdrawal',
+		data: { name, label, amount },
+		leftClick: {
+			action: 'Withdraw X',
+			subject: label,
+			onSelect: () => {
+				open_input_integer_dialogue(
+					name,
+					'Enter Amount',
+					`images/items/${name}.png`,
+					amount,
+					withdrawCommand(),
+				);
+			},
+		},
+		rightClick: {
+			action: 'Withdraw all',
+			subject: label,
+			onSelect: () => {
+				Globals.websocket?.send(`${withdrawCommand()}=${name}~${amount}`);
+			},
+		},
+	};
+	return target;
+};
+
 export const inventoryMenuItems = (target: ContextTargetOf<'item'>): ContextMenuItem[] => {
-	const { name, label, bankOpen } = target.data;
-	if (bankOpen) {
-		return [
-			{
-				action: 'Deposit 50',
-				subject: label,
-				onSelect: () => {
-					Globals.websocket?.send(`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~50`);
+	const { name, label } = target.data;
+	switch (target.subtype) {
+		case 'bank_deposit':
+			return depositAmounts(name, label);
+		case 'bank_withdrawal':
+			return withdrawAmounts(name, label);
+		case 'inventory':
+			return [
+				{
+					action: 'Drop 1',
+					subject: label,
+					onSelect: () => {
+						Globals.websocket?.send(`DROP_ITEM=${name}`);
+					},
 				},
-			},
-			{
-				action: 'Deposit 25',
-				subject: label,
-				onSelect: () => {
-					Globals.websocket?.send(`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~25`);
+				{
+					action: 'Drop all',
+					subject: label,
+					onSelect: () => {
+						Globals.websocket?.send(`DROP_ALL_ITEM=${name}`);
+					},
 				},
-			},
-			{
-				action: 'Deposit 5',
-				subject: label,
-				onSelect: () => {
-					Globals.websocket?.send(`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~5`);
-				},
-			},
-			{
-				action: 'Deposit 1',
-				subject: label,
-				onSelect: () => {
-					Globals.websocket?.send(`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~1`);
-				},
-			},
-		];
+			];
+		default:
+			return [];
 	}
-	return [
-		{
-			action: 'Drop 1',
-			subject: label,
-			onSelect: () => {
-				Globals.websocket?.send(`DROP_ITEM=${name}`);
-			},
-		},
-		{
-			action: 'Drop all',
-			subject: label,
-			onSelect: () => {
-				Globals.websocket?.send(`DROP_ALL_ITEM=${name}`);
-			},
-		},
-	];
 };
 
 export type InventoryTriggerOptions = {
@@ -137,8 +203,6 @@ export const initInventoryTrigger = (
 		if (!slot?.parentElement || slot.parentElement !== inventory) return;
 		const name = slot.querySelector('img[data-item-name]')?.getAttribute('data-item-name');
 		if (!name) return;
-		const index = Array.prototype.indexOf.call(inventory.children, slot);
-		if (index < 0) return;
 		event.preventDefault();
 		event.stopPropagation();
 		Globals.websocket?.send(
@@ -151,5 +215,29 @@ export const initInventoryTrigger = (
 	lifecycle.onCleanup(() => {
 		inventory.removeEventListener('contextmenu', onContextMenu, true);
 		inventory.removeEventListener('click', onClick, true);
+	});
+};
+
+export const initBankTrigger = (lifecycle: Lifecycle, options: InventoryTriggerOptions): void => {
+	const storage = document.getElementById('storage-item');
+	if (!storage) return;
+
+	const onContextMenu = (event: MouseEvent) => {
+		if (!options.isEnabled()) return;
+		const slot = (event.target as Element | null)?.closest('.item');
+		if (!slot || !storage.contains(slot)) return;
+		const name = slot.getAttribute('data-bank-item-name');
+		if (!name) return;
+		const bankItem = bank_items.find((item) => item.name === name);
+		const amount = bankItem?.value ?? 0;
+		if (amount === 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		options.show([buildBankTarget(name, amount)], event);
+	};
+
+	storage.addEventListener('contextmenu', onContextMenu, true);
+	lifecycle.onCleanup(() => {
+		storage.removeEventListener('contextmenu', onContextMenu, true);
 	});
 };
