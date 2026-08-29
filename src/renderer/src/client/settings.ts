@@ -914,13 +914,14 @@ const sectionTitleText = (title: SettingsSection['title']) =>
 	typeof title === 'string' ? title : (title.textContent ?? '');
 
 const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
-	const container = el.div`grid grid-cols-[auto_1fr] grid-rows-[1fr_auto] gap-2 h-full`.init(
-		lifecycle,
-		undefined,
-		'settings',
-	);
+	const container =
+		el.div`grid grid-cols-[minmax(128px,max-content)_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`.init(
+			lifecycle,
+			undefined,
+			'settings',
+		);
 	const navContainer =
-		el.div`row-span-2 flex flex-col gap-2 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-32 overflow-y-auto overflow-x-hidden`.mount(
+		el.div`row-span-2 flex flex-col gap-2 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box overflow-y-auto overflow-x-hidden`.mount(
 			container,
 			'nav',
 		);

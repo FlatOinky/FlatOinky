@@ -95,15 +95,15 @@ export const AudioPlugin: Plugin = {
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
 		settingsMenu.mountSection('Controls', [globalControls]);
-		settingsMenu.mountSection('Per-audio volumes', [
+		settingsMenu.mountSection('Individual volumes', [
 			el.button`btn btn-sm btn-primary search-value`.then((button) => {
 				button.type = 'button';
-				button.textContent = 'Open per-audio volumes window';
+				button.textContent = 'Manage individual volumes';
 				button.onclick = () => showWindow();
 			}),
 			el.button`btn btn-sm btn-ghost search-value`.then((button) => {
 				button.type = 'button';
-				button.textContent = 'Reset all per-audio overrides';
+				button.textContent = 'Reset all individual volumes';
 				button.onclick = () => {
 					const isConfirmed = window.confirm('Are you sure you want to reset all audio overrides?');
 					if (!isConfirmed) return;
