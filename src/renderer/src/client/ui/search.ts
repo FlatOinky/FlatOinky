@@ -78,18 +78,14 @@ export const mountSearchBar = (
 	const search = makeSearch(searchInput, searchContainer);
 	lifecycle.onCleanup(search.disconnect);
 
-	el.button`join-item btn btn-xs btn-square btn-error btn-soft`.mount(
-		searchBar,
-		undefined,
-		(button) => {
-			el.icon.x`size-4`.mount(button);
-			button.onclick = () => {
-				searchInput.value = '';
-				searchInput.dispatchEvent(new Event('input'));
-				searchInput.dispatchEvent(new Event('change'));
-			};
-		},
-	);
+	el.button`join-item btn btn-xs btn-square`.mount(searchBar, undefined, (button) => {
+		el.icon.x`size-4`.mount(button);
+		button.onclick = () => {
+			searchInput.value = '';
+			searchInput.dispatchEvent(new Event('input'));
+			searchInput.dispatchEvent(new Event('change'));
+		};
+	});
 
 	return { searchBar, searchInput };
 };
