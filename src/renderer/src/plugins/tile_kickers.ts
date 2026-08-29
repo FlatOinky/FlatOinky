@@ -323,7 +323,6 @@ export const TileKickersPlugin: Plugin = {
 			),
 			{
 				label: 'Lead time',
-				description: 'Seconds before arriving at a transport tile to start kicking.',
 				tooltip:
 					"This is a guess based on the player's speed and the server's lag, very imprecise.",
 				specialType: 'numberSliderCombo',
