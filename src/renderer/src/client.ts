@@ -19,7 +19,7 @@ import type {
 import { getAppVersion, saveFile } from './client/ipc_renderer';
 import { initLogging, type Logger, type LogLevel, type LogMethod } from './client/logging';
 import { initTimers, type ClientTimers } from './client/timers';
-import type { Notifications } from './client/notifications';
+import type { Alerts } from './client/alerts';
 import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
 import { initSystems } from './client/systems';
@@ -91,7 +91,7 @@ const createContext = (
 	ipc: ClientIpc,
 	log: Logger,
 	timers: ClientTimers,
-	getNotifications: () => Notifications | undefined,
+	getAlerts: () => Alerts | undefined,
 	getContextMenu: () => ContextMenu | undefined,
 ) => {
 	const isLocalUsername = (username?: string) => {
@@ -118,10 +118,10 @@ const createContext = (
 		isLocalUsername,
 		getPlayer,
 		getLocalPlayer,
-		get notifications() {
-			const notifications = getNotifications();
-			if (!notifications) throw new Error('Notifications have not been initialized');
-			return notifications;
+		get alerts() {
+			const alerts = getAlerts();
+			if (!alerts) throw new Error('Alerts have not been initialized');
+			return alerts;
 		},
 		get contextMenu() {
 			const contextMenu = getContextMenu();
@@ -663,10 +663,11 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		getAppVersion(),
 	]);
 	const profiles = initProfiles(storagePayload);
-	const [clientStorage, updaterStorage, notificationsStorage, pluginsStorage, loggingStorage] =
+	const [clientStorage, updaterStorage, alertsStorage, pluginsStorage, loggingStorage] =
 		await Promise.all([
 			createProfileStorage('systems', 'client'),
 			createGlobalStorage('systems', 'updater'),
+			// Namespace stays `notifications` so existing profile settings still load.
 			createProfileStorage('systems', 'notifications'),
 			createProfileStorage('systems', 'plugins'),
 			createProfileStorage('systems', 'logging'),
@@ -676,7 +677,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	const appState = await initAppState(lifecycle);
 	const timers = initTimers(lifecycle, appState);
 
-	let notifications: Notifications | undefined;
+	let alerts: Alerts | undefined;
 	let contextMenu: ContextMenu | undefined;
 	let recordServerCommand = (_raw: string) => {};
 	const logging = initLogging(loggingStorage, () => plugins.api.events.chatMessage);
@@ -688,7 +689,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		ipc,
 		logging.logger,
 		timers,
-		() => notifications,
+		() => alerts,
 		() => contextMenu,
 	);
 	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage, logging.createLogger);
@@ -699,10 +700,10 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		ui,
 		settings,
 		updater,
-		notificationsStorage,
+		alertsStorage,
 		clientStorage,
-		setNotifications: (next) => {
-			notifications = next;
+		setAlerts: (next) => {
+			alerts = next;
 		},
 		setContextMenu: (next) => {
 			contextMenu = next;
@@ -714,6 +715,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		plugins,
 		logging,
 		references,
+		appState,
 	});
 
 	// TODO: need to fix this

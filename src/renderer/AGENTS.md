@@ -39,7 +39,7 @@ Layout under `src/`:
 - `transpilers.ts` — rewrite game HTML/JS and inject hooks
 - `styles.css` + `styles/` — Tailwind/DaisyUI entry and component CSS
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
-- `client/systems/` — always-on features (app menu, windows, notifications,
+- `client/systems/` — always-on features (app menu, windows, alerts,
   updates, context menu, devtools including logging, profiles). Systems other than profiles live on a restartable
   child lifecycle rebuilt on profile swap; the profiles system owns the Profiles &
   Plugins tray window and drives that restart.
@@ -54,10 +54,10 @@ Layout under `src/`:
 - **`plugins/`** owns optional features. Every plugin must be safe to stop, and
   reaches the client only through `PluginContext`.
 - **`PluginContext` is the third-party contract.** Anything a plugin needs must be
-  reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `notifications`,
+  reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `alerts`,
   `contextMenu`, `log`, `settings`, `storages`, `collections`, `timers`,
   `isLocalUsername`, `getPlayer`, `getLocalPlayer`). System-only APIs (`updater`,
-  openDevTools, saveReferences) stay off the context. `notifications` and `contextMenu`
+  openDevTools, saveReferences) stay off the context. `alerts` and `contextMenu`
   are getters that throw if accessed before those systems are initialized. `log` is a
   `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace); plugin
   contexts prefix messages with `[plugin.name]`. `timers.initInterval(lifecycle, options)`
@@ -135,7 +135,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC into
      SQLite automatically. Do not re-save manually. Plugin storages use context
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
-     `systems` with bare namespaces (`client`, `updater`, `notifications`,
+     `systems` with bare namespaces (`client`, `updater`, `notifications` (alerts;
+     namespace name kept for compatibility),
      `logging`, `devtools`, `plugins` for the enabled-plugin map). Logging emit is
      gated by the Devtools enable toggle.
 
@@ -152,11 +153,11 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    falls back to that element's text). Nodes are plain `Element`s or
    `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
    one of `toggle`, `swap`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
-   `numberSliderCombo`, `labelSteppedRange`, `alertVolume`, `alertCombo`, or
-   `alertToggles` (see [src/client/settings.ts](src/client/settings.ts)). Helpers on
+   `numberSliderCombo`, `labelSteppedRange`, `alertVolume`, or `alertControls`
+   (see [src/client/settings.ts](src/client/settings.ts)). Helpers on
    `context.settings.helpers` include `toggle(label, description, get, set)` and
    `cueCard({ id, title, scoped, onTest, onEnabledChange?, mountHeaderExtras? })` for
-   per-cue `AlertScope` cards. `context.notifications.sendFromScope(title, scoped,
+   per-cue `AlertScope` cards. `context.alerts.sendFromScope(title, scoped,
 message?)` maps an `AlertScope` onto `send`. Always-on systems share a single
    `core/systems` settings entry titled System via `setupSystemApi()`.
 5. **UI** — on `context.ui`:

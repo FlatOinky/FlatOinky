@@ -1,7 +1,7 @@
 import { utc } from '@date-fns/utc';
 import { format, isValid, parse } from 'date-fns';
 import { Lifecycle, Plugin, PluginContext, unescapeMessage, type ChatMessage } from '../client';
-import { initialAlertScope } from '../client/notifications';
+import { initialAlertScope } from '../client/alerts';
 import type { SettingsNode } from '../client/settings';
 import * as el from '../client/ui/elements';
 
@@ -582,11 +582,7 @@ const initBotWatcher = (
 	let pendingSt: PendingPayload | undefined;
 
 	const sendAlert = (key: BotWatcherAlertKey, message?: string) => {
-		context.notifications.sendFromScope(
-			botWatcherAlertMeta[key].title,
-			settings.alerts[key],
-			message,
-		);
+		context.alerts.sendFromScope(botWatcherAlertMeta[key].title, settings.alerts[key], message);
 	};
 
 	const fireOnce = (key: BotWatcherAlertKey, message?: string, silent = false) => {

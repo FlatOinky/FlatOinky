@@ -1,5 +1,5 @@
 import { Lifecycle, Plugin, PluginContext } from '../client';
-import { initialAlertScope } from '../client/notifications';
+import { initialAlertScope } from '../client/alerts';
 import type { SettingsHelpers, SettingsNode } from '../client/settings';
 import * as el from '../client/ui/elements';
 
@@ -110,7 +110,7 @@ const initAudioCues = (
 ) => {
 	const sendAlert = (key: AudioCueKey) => {
 		const scoped = scopes[key];
-		context.notifications.sendFromScope(audioCues[key].title, scoped);
+		context.alerts.sendFromScope(audioCues[key].title, scoped);
 	};
 
 	const nodes: SettingsNode[] = Object.entries(audioCues).map(([key, cue]) => {
@@ -196,7 +196,7 @@ const initStateCues = (
 	const sendAlert = (key: StateCueKey, value: number) => {
 		const scoped = scopes[key];
 		const title = stateCues[key].title;
-		context.notifications.sendFromScope(
+		context.alerts.sendFromScope(
 			title,
 			scoped,
 			`${title} is at ${value} (threshold ${scoped.threshold})`,
@@ -251,7 +251,7 @@ const initAfkDetection = (
 	let alerted = false;
 
 	const sendAlert = () => {
-		context.notifications.sendFromScope('AFK', scoped, `No activity for ${scoped.afkThreshold}s`);
+		context.alerts.sendFromScope('AFK', scoped, `No activity for ${scoped.afkThreshold}s`);
 	};
 
 	const markActive = () => {

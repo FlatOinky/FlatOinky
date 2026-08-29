@@ -1,6 +1,6 @@
 import { ChatMessage, unescapeMessage } from '../../client';
-import type { Notifications } from '../../client/notifications';
-import type { SettingsHelpers, SettingsNode } from '../../client/settings';
+import type { Alerts } from '../../client/alerts';
+import type { SettingsHelpers } from '../../client/settings';
 import * as el from '../../client/ui/elements';
 import { createListEditor } from './chat_list_editor';
 import { MutedPlayers } from './chat_muted';
@@ -21,6 +21,8 @@ export type WordMatchEntry = {
 	logMessages: boolean;
 	enableNotification: boolean;
 	enableAudio: boolean;
+	enableFlash: boolean;
+	enableToast: boolean;
 	regex: boolean;
 };
 
@@ -30,13 +32,13 @@ export const initialWordMatchEntry: WordMatchEntry = {
 	logMessages: true,
 	enableNotification: false,
 	enableAudio: false,
+	enableFlash: false,
+	enableToast: false,
 	regex: false,
 };
 
 export const initialWordMatches = {
 	entries: [] as WordMatchEntry[],
-	/** Shared by every word match; individual entries only toggle alerts on or off. */
-	audioVolume: 1,
 };
 export type WordMatches = typeof initialWordMatches;
 
@@ -78,10 +80,13 @@ const entryEnableNotification = (entry: WordMatchEntry): boolean =>
 const entryEnableAudio = (entry: WordMatchEntry): boolean =>
 	entry.enableAudio ?? initialWordMatchEntry.enableAudio;
 
-const entryRegex = (entry: WordMatchEntry): boolean => entry.regex ?? initialWordMatchEntry.regex;
+const entryEnableFlash = (entry: WordMatchEntry): boolean =>
+	entry.enableFlash ?? initialWordMatchEntry.enableFlash;
 
-const wordMatchesAudioVolume = (wordMatches: WordMatches): number =>
-	wordMatches.audioVolume ?? initialWordMatches.audioVolume;
+const entryEnableToast = (entry: WordMatchEntry): boolean =>
+	entry.enableToast ?? initialWordMatchEntry.enableToast;
+
+const entryRegex = (entry: WordMatchEntry): boolean => entry.regex ?? initialWordMatchEntry.regex;
 
 const tryCompileRegex = (pattern: string, flags: string): RegExp | null => {
 	try {
@@ -238,17 +243,10 @@ const removeWordMatchEntry = (wordMatches: WordMatches, word: string): void => {
 	wordMatches.entries = wordMatchEntries(wordMatches).filter((entry) => entry.word !== word);
 };
 
-const previewWordMatchAlert = (notifications: Notifications, wordMatches: WordMatches): void => {
-	notifications.send('Word match', {
-		volume: wordMatchesAudioVolume(wordMatches),
-		notification: false,
-	});
-};
-
 export const notifyWordMatches = (
 	chatMessage: ChatMessage,
 	wordMatches: WordMatches,
-	notifications: Notifications,
+	alerts: Alerts,
 	ownUsername: string,
 ): void => {
 	if (chatMessage.type === 'welcome' || chatMessage.type === 'pm_to') return;
@@ -259,35 +257,28 @@ export const notifyWordMatches = (
 
 	const notifyMatches = matches.filter((entry) => entryEnableNotification(entry));
 	const audioMatches = matches.filter((entry) => entryEnableAudio(entry));
+	const flashMatches = matches.filter((entry) => entryEnableFlash(entry));
+	const toastMatches = matches.filter((entry) => entryEnableToast(entry));
 	const body = unescapeMessage(chatMessage.message);
 
-	if (notifyMatches.length > 0 || audioMatches.length > 0) {
-		const title = entryWord((notifyMatches[0] ?? audioMatches[0])!);
-		notifications.send(title, {
+	if (
+		notifyMatches.length > 0 ||
+		audioMatches.length > 0 ||
+		flashMatches.length > 0 ||
+		toastMatches.length > 0
+	) {
+		const title = entryWord(
+			(notifyMatches[0] ?? audioMatches[0] ?? flashMatches[0] ?? toastMatches[0])!,
+		);
+		alerts.send(title, {
 			message: body,
-			volume: wordMatchesAudioVolume(wordMatches),
 			notification: notifyMatches.length > 0,
 			audio: audioMatches.length > 0,
+			flash: flashMatches.length > 0,
+			toast: toastMatches.length > 0,
 		});
 	}
 };
-
-export const createWordMatchesVolumeSettingsNode = (
-	wordMatches: WordMatches,
-	notifications: Notifications,
-): SettingsNode => ({
-	label: 'Alert volume',
-	description: 'Volume of the alert sound, shared by every word match.',
-	specialType: 'alertVolume',
-	onTest: () => previewWordMatchAlert(notifications, wordMatches),
-	input: el.input.range``.then((input) => {
-		input.min = '0';
-		input.max = '1';
-		input.step = '0.05';
-		input.value = String(wordMatchesAudioVolume(wordMatches));
-		input.onchange = () => (wordMatches.audioVolume = parseFloat(input.value));
-	}),
-});
 
 export const createWordMatchesSettingsNode = (
 	wordMatches: WordMatches,
@@ -356,8 +347,8 @@ export const createWordMatchesSettingsNode = (
 								});
 							};
 						}),
-						el.icon.bell`size-4`.element,
-						el.icon.bellOff`size-4`.element,
+						el.icon.notification`size-4`.element,
+						el.icon.notificationOff`size-4`.element,
 						'Desktop notifications',
 						'tooltip-end',
 					),
@@ -373,6 +364,34 @@ export const createWordMatchesSettingsNode = (
 						el.icon.volume`size-4`.element,
 						el.icon.volumeOff`size-4`.element,
 						'Alert sound',
+						'tooltip-end',
+					),
+					swapToggle(
+						el.input.checkbox``.then((input) => {
+							input.checked = entryEnableFlash(entry);
+							input.onchange = () => {
+								updateWordMatchEntry(wordMatches, entry.word, {
+									enableFlash: input.checked,
+								});
+							};
+						}),
+						el.icon.bulb`size-4`.element,
+						el.icon.bulbOff`size-4`.element,
+						'Screen flash',
+						'tooltip-end',
+					),
+					swapToggle(
+						el.input.checkbox``.then((input) => {
+							input.checked = entryEnableToast(entry);
+							input.onchange = () => {
+								updateWordMatchEntry(wordMatches, entry.word, {
+									enableToast: input.checked,
+								});
+							};
+						}),
+						el.icon.bread`size-4`.element,
+						el.icon.breadOff`size-4`.element,
+						'Toast',
 						'tooltip-end',
 					),
 					swapToggle(

@@ -1,17 +1,17 @@
 import type { ClientPlugins, Lifecycle } from '../client';
+import type { AppState } from './app_state';
 import type { ClientStorage } from './client_storage';
 import type { ContextMenu } from './context_menu';
 import { initContextMenu } from './context_menu';
 import type { Logging } from './logging';
-import type { Notifications } from './notifications';
-import { initNotifications } from './notifications';
+import { initAlerts, type Alerts } from './alerts';
 import type { Profiles } from './profiles';
 import type { ClientSettings, SettingsMenu } from './settings';
 import type { ClientUI } from './ui';
 import type { Updater } from './updater';
 import { initAppSystem } from './systems/app';
 import { initDevtoolsSystem } from './systems/devtools';
-import { initNotificationsSystem } from './systems/notifications';
+import { initAlertsSystem } from './systems/alerts';
 import { initProfilesSystem } from './systems/profiles';
 import { initUpdatesSystem } from './systems/updates';
 import { initWindowsSystem } from './systems/windows';
@@ -20,15 +20,16 @@ export type SystemsContext = {
 	ui: ClientUI;
 	settings: ClientSettings;
 	updater: Updater;
-	notificationsStorage: ClientStorage;
+	alertsStorage: ClientStorage;
 	clientStorage: ClientStorage;
-	setNotifications: (notifications: Notifications) => void;
+	setAlerts: (alerts: Alerts) => void;
 	setContextMenu: (contextMenu: ContextMenu) => void;
 	setRecordServerCommand: (fn: (raw: string) => void) => void;
 	profiles: Profiles;
 	plugins: ClientPlugins;
 	logging: Logging;
 	references: FMMO.ReferenceManifest;
+	appState: AppState;
 };
 
 export const initSystems = async (
@@ -37,15 +38,16 @@ export const initSystems = async (
 		ui,
 		settings,
 		updater,
-		notificationsStorage,
+		alertsStorage,
 		clientStorage,
-		setNotifications,
+		setAlerts,
 		setContextMenu,
 		setRecordServerCommand,
 		profiles,
 		plugins,
 		logging,
 		references,
+		appState,
 	}: SystemsContext,
 ): Promise<void> => {
 	const settingsMenu: SettingsMenu = settings.setupSystemApi().initMenu(lifecycle);
@@ -59,9 +61,9 @@ export const initSystems = async (
 		initAppSystem(systems, ui);
 		initWindowsSystem(systems, ui, clientStorage, settingsMenu);
 
-		const notifications = initNotifications(systems, notificationsStorage);
-		setNotifications(notifications);
-		initNotificationsSystem(systems, ui, notifications, settingsMenu);
+		const alerts = initAlerts(systems, alertsStorage, { root: ui.root, appState });
+		setAlerts(alerts);
+		initAlertsSystem(systems, ui, alerts, settingsMenu);
 
 		const contextMenu = initContextMenu(systems, ui.root, (target) =>
 			plugins.api.contextMenu.buildItems(target),

@@ -24,7 +24,6 @@ import {
 } from './chat/chat_types';
 import {
 	createWordMatchesSettingsNode,
-	createWordMatchesVolumeSettingsNode,
 	initialWordMatches,
 	isChatMessageFiltered,
 	isChatMessageFilteredFromLog,
@@ -271,7 +270,6 @@ export const ChatPlugin: Plugin = {
 		]);
 
 		const wordMatchesSection = settingsMenu.mountSection('Word Matches', [
-			createWordMatchesVolumeSettingsNode(wordMatches, context.notifications),
 			createWordMatchesSettingsNode(
 				wordMatches,
 				onSettingsChange,
@@ -328,12 +326,7 @@ export const ChatPlugin: Plugin = {
 					if (chatMessage.type === 'pm_from' && chatMessage.username) {
 						pmState.latestPmUsername = chatMessage.username;
 					}
-					notifyWordMatches(
-						chatMessage,
-						wordMatches,
-						context.notifications,
-						context.character.username,
-					);
+					notifyWordMatches(chatMessage, wordMatches, context.alerts, context.character.username);
 					if (isChatMessageFiltered(chatMessage, wordMatches)) {
 						if (isChatMessageFilteredFromLog(chatMessage, wordMatches)) return;
 						storeChatMessage(chatMessage, settings);

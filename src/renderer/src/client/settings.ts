@@ -1,6 +1,6 @@
 import { ClientUi, Lifecycle } from '../client';
 import { ClientStorage } from './client_storage';
-import type { AlertScope } from './notifications';
+import type { AlertScope } from './alerts';
 import * as el from './ui/elements';
 import { mountSearchBar } from './ui/search';
 
@@ -28,31 +28,21 @@ type SettingsInputNode =
 	| (SettingsInputBase & { specialType: 'numberSliderCombo' })
 	| (SettingsInputBase & { specialType: 'labelSteppedRange'; steps: string[] })
 	| (SettingsInputBase & { specialType: 'swap'; onIcon: Element; offIcon: Element })
-	| (SettingsInputBase & { specialType: 'alertVolume'; onTest: () => void });
-export type SettingsAlertComboNode = SettingsNodeBase<
-	[HTMLInputElement, HTMLInputElement, HTMLInputElement]
-> & {
-	specialType: 'alertCombo';
+	| (SettingsInputBase & { specialType: 'alertVolume' });
+export type AlertChannelInputs = {
 	notificationInput: HTMLInputElement;
 	audioInput: HTMLInputElement;
-	volumeInput: HTMLInputElement;
-	onTest: () => void;
+	flashInput: HTMLInputElement;
+	toastInput: HTMLInputElement;
 };
-export type SettingsAlertTogglesNode = SettingsNodeBase<[HTMLInputElement, HTMLInputElement]> & {
-	specialType: 'alertToggles';
-	notificationInput: HTMLInputElement;
-	audioInput: HTMLInputElement;
-};
-export type SettingsNode =
-	| Element
-	| SettingsInputNode
-	| SettingsAlertComboNode
-	| SettingsAlertTogglesNode;
-type SettingsRowLayout = {
-	/** CSS grid-template-columns, e.g. 'auto auto 1fr auto'; omit for equal flex cells. */
-	columns?: string;
-	cells: SettingsNode[];
-};
+export type SettingsAlertControlsNode = SettingsNodeBase<
+	[HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]
+> &
+	AlertChannelInputs & {
+		specialType: 'alertControls';
+		onTest: () => void;
+	};
+export type SettingsNode = Element | SettingsInputNode | SettingsAlertControlsNode;
 
 // #region setupPluginApi
 
@@ -408,7 +398,7 @@ const makeSwapToggle = (
 	// DaisyUI's btn press style uses `translate: 0 .5px`, which expands scroll
 	// overflow on the last row of a list and flashes a scrollbar — cancel it.
 	const toggle =
-		el.label`swap btn btn-sm btn-square tooltip tooltip-top ${tipAlign} active:translate-none has-checked:btn-soft has-checked:btn-success not-has-checked:btn-ghost not-has-checked:border not-has-checked:border-error`
+		el.label`swap btn btn-sm btn-square btn-soft tooltip tooltip-top ${tipAlign} active:translate-none has-checked:btn-success not-has-checked:btn-error`
 			.element;
 	toggle.setAttribute('data-tip', tip);
 	input.classList = 'sr-only';
@@ -451,7 +441,7 @@ const makeAlertVolume = (input: SettingsInput): Element => {
 };
 
 const makeAlertTestButton = (onTest: () => void): Element =>
-	el.button`btn btn-sm btn-square btn-soft btn-accent tooltip tooltip-top tooltip-end`.then(
+	el.button`btn btn-sm btn-square btn-soft btn-accent tooltip tooltip-top tooltip-end shrink-0`.then(
 		(button) => {
 			button.type = 'button';
 			button.setAttribute('data-tip', 'Test alert');
@@ -460,29 +450,52 @@ const makeAlertTestButton = (onTest: () => void): Element =>
 		},
 	);
 
-const alertComboColumns = 'auto auto 1fr auto';
-
-const makeAlertComboCells = (
-	notificationInput: HTMLInputElement,
-	audioInput: HTMLInputElement,
-	volumeInput: HTMLInputElement,
+const makeAlertChannelToggles = (
+	inputs: AlertChannelInputs,
 	onTest: () => void,
-): Element[] => [
-	makeSwapToggle(
-		notificationInput,
-		el.icon.bell`size-4`.element,
-		el.icon.bellOff`size-4`.element,
-		'Desktop notifications',
-	),
-	makeSwapToggle(
-		audioInput,
-		el.icon.volume`size-4`.element,
-		el.icon.volumeOff`size-4`.element,
-		'Alert sound',
-	),
-	makeAlertVolume(volumeInput),
-	makeAlertTestButton(onTest),
-];
+	tipAlign = 'tooltip-start',
+): Element => {
+	const row = el.div`flex items-center w-full`.element;
+	const join = el.div`join flex-1 min-w-0 w-full`.mount(row);
+	const toggles = [
+		makeSwapToggle(
+			inputs.notificationInput,
+			el.icon.notification`size-4`.element,
+			el.icon.notificationOff`size-4`.element,
+			'Desktop notifications',
+			tipAlign,
+		),
+		makeSwapToggle(
+			inputs.audioInput,
+			el.icon.volume`size-4`.element,
+			el.icon.volumeOff`size-4`.element,
+			'Alert sound',
+			tipAlign,
+		),
+		makeSwapToggle(
+			inputs.flashInput,
+			el.icon.bulb`size-4`.element,
+			el.icon.bulbOff`size-4`.element,
+			'Screen flash',
+			tipAlign,
+		),
+		makeSwapToggle(
+			inputs.toastInput,
+			el.icon.bread`size-4`.element,
+			el.icon.breadOff`size-4`.element,
+			'Toast',
+			tipAlign,
+		),
+	];
+	for (const toggle of toggles) {
+		toggle.classList.add('join-item', 'flex-1');
+		toggle.classList.remove('btn-square');
+		join.appendChild(toggle);
+	}
+	el.div`divider divider-horizontal mx-1 h-8 min-h-8 w-4 shrink-0`.mount(row);
+	row.appendChild(makeAlertTestButton(onTest));
+	return row;
+};
 
 const makeToggle = (
 	label: string,
@@ -539,34 +552,37 @@ const makeCueCard = ({
 			mountHeaderExtras(header);
 		}
 
-		const alerts = el.div`grid gap-2 items-center w-full`.mount(card, 'alerts');
-		alerts.style.gridTemplateColumns = alertComboColumns;
-		alerts.append(
-			...makeAlertComboCells(
-				el.input.checkbox``.then((input) => {
-					input.checked = scoped.enableNotification;
-					input.onchange = () => (scoped.enableNotification = input.checked);
-				}),
-				el.input.checkbox``.then((input) => {
-					input.checked = scoped.enableAudio;
-					input.onchange = () => (scoped.enableAudio = input.checked);
-				}),
-				el.input.range``.then((input) => {
-					input.min = '0';
-					input.max = '1';
-					input.step = '0.05';
-					input.value = String(scoped.audioVolume);
-					input.onchange = () => (scoped.audioVolume = parseFloat(input.value));
-				}),
-				onTest,
-			),
-		);
+		el.div`flex items-center w-full`.mount(card, 'alerts', (alerts) => {
+			alerts.appendChild(
+				makeAlertChannelToggles(
+					{
+						notificationInput: el.input.checkbox``.then((input) => {
+							input.checked = scoped.enableNotification;
+							input.onchange = () => (scoped.enableNotification = input.checked);
+						}),
+						audioInput: el.input.checkbox``.then((input) => {
+							input.checked = scoped.enableAudio;
+							input.onchange = () => (scoped.enableAudio = input.checked);
+						}),
+						flashInput: el.input.checkbox``.then((input) => {
+							input.checked = scoped.enableFlash ?? false;
+							input.onchange = () => (scoped.enableFlash = input.checked);
+						}),
+						toastInput: el.input.checkbox``.then((input) => {
+							input.checked = scoped.enableToast ?? true;
+							input.onchange = () => (scoped.enableToast = input.checked);
+						}),
+					},
+					onTest,
+				),
+			);
+		});
 	});
 
 /** Reusable DOM builders exposed to plugins via `context.settings.helpers`. */
 export const settingsHelpers = {
 	swapToggle: makeSwapToggle,
-	alertVolume: makeAlertVolume,
+	alertChannelToggles: makeAlertChannelToggles,
 	alertTestButton: makeAlertTestButton,
 	toggle: makeToggle,
 	cueCard: makeCueCard,
@@ -600,9 +616,7 @@ const makeNodeChild = (node: SettingsInputNode): Element => {
 		return makeSwapToggle(node.input, node.onIcon, node.offIcon, node.tooltip ?? '', 'tooltip-end');
 	}
 	if (node.specialType === 'alertVolume') {
-		const container = el.div`flex gap-2 items-center w-full`.element;
-		container.append(makeAlertVolume(node.input), makeAlertTestButton(node.onTest));
-		return container;
+		return makeAlertVolume(node.input);
 	}
 	if (node.input instanceof HTMLTextAreaElement) {
 		node.input.classList = 'textarea textarea-sm w-full';
@@ -722,12 +736,13 @@ const dispatchChanged = (inputs: readonly SettingsInput[], action: () => void) =
 };
 
 const applyReset = (node: Exclude<SettingsNode, Element>) => {
-	if (node.specialType === 'alertCombo') {
-		const inputs = [node.notificationInput, node.audioInput, node.volumeInput] as const;
-		return dispatchChanged(inputs, () => node.reset?.(...inputs));
-	}
-	if (node.specialType === 'alertToggles') {
-		const inputs = [node.notificationInput, node.audioInput] as const;
+	if (node.specialType === 'alertControls') {
+		const inputs = [
+			node.notificationInput,
+			node.audioInput,
+			node.flashInput,
+			node.toastInput,
+		] as const;
 		return dispatchChanged(inputs, () => node.reset?.(...inputs));
 	}
 	dispatchChanged([node.input], () => node.reset?.(node.input));
@@ -795,52 +810,21 @@ const mountNodeDescription = (
 
 // #region alert nodes
 
-const mountRowNode = (
-	container: HTMLElement,
-	node: Exclude<SettingsNode, Element>,
-	layout: SettingsRowLayout,
-) => {
+const mountAlertControlsNode = (container: HTMLElement, node: SettingsAlertControlsNode) => {
 	if (node.label || node.tooltip || node.reset) mountNodeHeader(container, node);
 	mountNodeDescription(container, node);
-	const row = el.div`flex gap-2 items-center w-full`.mount(container, 'row', (element) => {
-		if (!layout.columns) return;
-		element.classList = 'grid gap-2 items-center w-full';
-		element.style.gridTemplateColumns = layout.columns;
-	});
-	const cellStyle = `flex flex-col gap-0.5 min-w-0${layout.columns ? '' : ' flex-1'}`;
-	layout.cells.forEach((cell) => mountSettingsMenuNode(el.div`${cellStyle}`.mount(row), cell));
-};
-
-const mountAlertComboNode = (container: HTMLElement, node: SettingsAlertComboNode) =>
-	mountRowNode(container, node, {
-		columns: alertComboColumns,
-		cells: makeAlertComboCells(
-			node.notificationInput,
-			node.audioInput,
-			node.volumeInput,
+	const stack = el.div`flex flex-col gap-2 w-full`.mount(container, 'controls');
+	stack.appendChild(
+		makeAlertChannelToggles(
+			{
+				notificationInput: node.notificationInput,
+				audioInput: node.audioInput,
+				flashInput: node.flashInput,
+				toastInput: node.toastInput,
+			},
 			node.onTest,
 		),
-	});
-
-/** Label on the left, notification/audio toggles right-aligned; volume lives elsewhere. */
-const mountAlertTogglesNode = (container: HTMLElement, node: SettingsAlertTogglesNode) => {
-	mountNodeHeader(container, node, undefined, [
-		makeSwapToggle(
-			node.notificationInput,
-			el.icon.bell`size-4`.element,
-			el.icon.bellOff`size-4`.element,
-			'Desktop notifications',
-			'tooltip-end',
-		),
-		makeSwapToggle(
-			node.audioInput,
-			el.icon.volume`size-4`.element,
-			el.icon.volumeOff`size-4`.element,
-			'Alert sound',
-			'tooltip-end',
-		),
-	]);
-	mountNodeDescription(container, node);
+	);
 };
 
 export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
@@ -848,12 +832,8 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 		container.appendChild(node);
 		return;
 	}
-	if (node.specialType === 'alertCombo') {
-		mountAlertComboNode(container, node);
-		return;
-	}
-	if (node.specialType === 'alertToggles') {
-		mountAlertTogglesNode(container, node);
+	if (node.specialType === 'alertControls') {
+		mountAlertControlsNode(container, node);
 		return;
 	}
 	if (node.input instanceof HTMLTextAreaElement) {

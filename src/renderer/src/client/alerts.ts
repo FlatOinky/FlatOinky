@@ -1,33 +1,61 @@
 import notificationMp3 from '../assets/notification.mp3';
 import type { Lifecycle } from '../client';
+import {
+	initScreenFlash,
+	type AlertFlashSpeed,
+	type AlertFlashType,
+	type AlertFlashWhen,
+} from './alerts/screen_flash';
+import { initToasts, type AlertToastDismiss } from './alerts/toast';
+import type { AppState } from './app_state';
 import type { ClientStorage } from './client_storage';
 import { createNotification as ipcCreateNotification } from './ipc_renderer';
 
-export const initialNotificationSettings = {
+export type { AlertFlashSpeed, AlertFlashType, AlertFlashWhen } from './alerts/screen_flash';
+export type { AlertToastDismiss } from './alerts/toast';
+
+export const initialAlertSettings = {
 	enableNotification: false,
 	enableAudio: false,
+	enableFlash: false,
+	enableToast: false,
 	audioVolume: 0.35,
 	customSound: undefined as string | undefined,
+	flashWhen: 'background' as AlertFlashWhen,
+	flashColor: '#ff0000',
+	flashSpeed: 'normal' as AlertFlashSpeed,
+	flashType: 'three' as AlertFlashType,
+	toastAutoDismiss: 'foreground' as AlertToastDismiss,
+	toastDismissAfter: 8,
 };
 
 export const initialAlertScope = {
 	enabled: true,
 	enableNotification: true,
 	enableAudio: true,
-	audioVolume: 1,
+	enableFlash: false,
+	enableToast: true,
 };
 export type AlertScope = typeof initialAlertScope;
 
-export type NotificationOptions = {
+export type AlertOptions = {
 	message?: string;
-	volume?: number; // per-call multiplier applied on top of the master volume
-	customSound?: string; // overrides the master custom sound for this call
-	notification?: boolean; // caller-side gate (default true)
-	audio?: boolean; // caller-side gate (default true)
+	icon?: string;
+	customSound?: string;
+	notification?: boolean;
+	audio?: boolean;
+	flash?: boolean;
+	toast?: boolean;
 };
 
-export const initNotifications = (lifecycle: Lifecycle, storage: ClientStorage) => {
-	const settings = storage.reactive('settings', initialNotificationSettings);
+export const initAlerts = (
+	lifecycle: Lifecycle,
+	storage: ClientStorage,
+	{ root, appState }: { root: HTMLElement; appState: AppState },
+) => {
+	const settings = storage.reactive('settings', initialAlertSettings);
+	const screenFlash = initScreenFlash(lifecycle, root, settings, appState);
+	const toasts = initToasts(lifecycle, root, settings, appState);
 	const bufferCache: Record<string, AudioBuffer> = {};
 	const inflight: Record<string, Promise<AudioBuffer | undefined>> = {};
 	let audioContext: AudioContext | undefined;
@@ -104,28 +132,38 @@ export const initNotifications = (lifecycle: Lifecycle, storage: ClientStorage) 
 
 	void loadBuffer(notificationMp3);
 
-	const send = (title: string, options: NotificationOptions = {}): void => {
+	const send = (title: string, options: AlertOptions = {}): void => {
 		if ((options.notification ?? true) && settings.enableNotification) {
 			ipcCreateNotification(title, options.message);
 		}
 		if ((options.audio ?? true) && settings.enableAudio) {
-			play(
-				options.customSound ?? settings.customSound ?? notificationMp3,
-				settings.audioVolume * (options.volume ?? 1),
-			);
+			play(options.customSound ?? settings.customSound ?? notificationMp3, settings.audioVolume);
+		}
+		if ((options.flash ?? true) && settings.enableFlash) {
+			screenFlash.start();
+		}
+		if ((options.toast ?? true) && settings.enableToast) {
+			toasts.show({ title, message: options.message, icon: options.icon });
 		}
 	};
 
 	const sendFromScope = (title: string, scoped: AlertScope, message?: string): void => {
 		send(title, {
 			message,
-			volume: scoped.audioVolume,
 			notification: scoped.enableNotification,
 			audio: scoped.enableAudio,
+			flash: scoped.enableFlash ?? false,
+			toast: scoped.enableToast ?? true,
 		});
 	};
 
-	return { settings, initialSettings: initialNotificationSettings, send, sendFromScope };
+	return {
+		settings,
+		initialSettings: initialAlertSettings,
+		send,
+		sendFromScope,
+		testFlash: () => screenFlash.start({ ignoreWhen: true }),
+	};
 };
 
-export type Notifications = ReturnType<typeof initNotifications>;
+export type Alerts = ReturnType<typeof initAlerts>;

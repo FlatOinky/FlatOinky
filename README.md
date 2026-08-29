@@ -52,7 +52,7 @@ A desktop application for Flat MMO
 
 #### Monitor
 
-- Per-cue desktop notifications and audio, under Audio Cues in Client settings
+- Per-cue desktop notifications, sound, screen flash, and toast, under Audio Cues in Client settings
 - Listens for
   - Gem Drop
   - Falling Tree
@@ -71,9 +71,9 @@ A desktop application for Flat MMO
 - Dynamic Canvas (Beta), which scales the game canvas to fit the window
 - Clear Stuck Projectiles (automatic) and a Clear Projectiles Now button
 
-#### Notifications
+#### Alerts
 
-- Global desktop-notification and alert-sound switches (both default off), with master volume and a custom sound URL
+- Global desktop-notification, alert-sound, screen-flash, and toast switches (all default off), with master volume and a custom sound URL
 - Tray quick toggles for the same controls
 - Plugin alerts (Monitor, Key Words) respect these master gates
 

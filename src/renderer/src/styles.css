@@ -6,6 +6,7 @@
 @import './styles/windows.css' layer(components);
 @import './styles/chat.css' layer(components);
 @import './styles/search.css' layer(components);
+@import './styles/alerts.css' layer(components);
 
 @layer base {
 	/* Coping the base styles from preflight to .flat-oinky since html/body is no longer the root */
