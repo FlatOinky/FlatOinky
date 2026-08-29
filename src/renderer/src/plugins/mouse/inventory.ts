@@ -222,8 +222,7 @@ export const initBankTrigger = (lifecycle: Lifecycle, options: InventoryTriggerO
 	const storage = document.getElementById('storage-item');
 	if (!storage) return;
 
-	const onContextMenu = (event: MouseEvent) => {
-		if (!options.isEnabled()) return;
+	const bankSlot = (event: MouseEvent) => {
 		const slot = (event.target as Element | null)?.closest('.item');
 		if (!slot || !storage.contains(slot)) return;
 		const name = slot.getAttribute('data-bank-item-name');
@@ -231,13 +230,31 @@ export const initBankTrigger = (lifecycle: Lifecycle, options: InventoryTriggerO
 		const bankItem = bank_items.find((item) => item.name === name);
 		const amount = bankItem?.value ?? 0;
 		if (amount === 0) return;
-		event.preventDefault();
-		event.stopPropagation();
-		options.show([buildBankTarget(name, amount)], event);
+		return { name, amount };
 	};
 
+	const onContextMenu = (event: MouseEvent) => {
+		if (!options.isEnabled()) return;
+		const slot = bankSlot(event);
+		if (!slot) return;
+		event.preventDefault();
+		event.stopPropagation();
+		options.show([buildBankTarget(slot.name, slot.amount)], event);
+	};
+
+	const onClick = (event: MouseEvent) => {
+		if (!options.isEnabled()) return;
+		const slot = bankSlot(event);
+		if (!slot) return;
+		event.preventDefault();
+		event.stopPropagation();
+		Globals.websocket?.send(`${withdrawCommand()}=${slot.name}~${slot.amount}`);
+	};
+
+	storage.addEventListener('click', onClick, true);
 	storage.addEventListener('contextmenu', onContextMenu, true);
 	lifecycle.onCleanup(() => {
 		storage.removeEventListener('contextmenu', onContextMenu, true);
+		storage.removeEventListener('click', onClick, true);
 	});
 };
