@@ -1,5 +1,6 @@
 import * as dot from 'dot-prop';
 import { ipcStorage } from './ipc_renderer';
+import type { ScopeKind, StorageContext, StorageInitPayload } from './ipc_renderer/ipc_storage';
 
 type JSONData =
 	| boolean
@@ -11,9 +12,9 @@ type JSONData =
 export type StorageKey = string | readonly (string | number)[];
 
 export type StorageData = {
-	global: { [namespace: string]: Record<string, JSONData> };
-	profiles: { [profile: string]: { [namespace: string]: Record<string, JSONData> } };
-	characters: { [character: string]: { [namespace: string]: Record<string, JSONData> } };
+	global: { [context: string]: { [namespace: string]: Record<string, JSONData> } };
+	profile: { [context: string]: { [namespace: string]: Record<string, JSONData> } };
+	character: { [context: string]: { [namespace: string]: Record<string, JSONData> } };
 };
 
 export type ClientStorage = {
@@ -23,85 +24,224 @@ export type ClientStorage = {
 	reactive: <T extends object>(keys: string | readonly (string | number)[], defaults: T) => T;
 };
 
-export const storageData = ipcStorage.loadStorage<StorageData>();
+// #region state
+
+let state: StorageData | undefined;
+let statePromise: Promise<StorageData> | undefined;
+let initPayload: StorageInitPayload | undefined;
+
+export const getInitPayload = (): StorageInitPayload => {
+	if (!initPayload) throw new Error('Storage has not been initialized');
+	return initPayload;
+};
+
+export const initClientStorage = async (characterName: string): Promise<StorageInitPayload> => {
+	const payload = await ipcStorage.initStorage(characterName);
+	initPayload = payload;
+	state = {
+		global: (payload.settings.global ?? {}) as StorageData['global'],
+		profile: (payload.settings.profile ?? {}) as StorageData['profile'],
+		character: (payload.settings.character ?? {}) as StorageData['character'],
+	};
+	statePromise = Promise.resolve(state);
+	return payload;
+};
+
+export const replaceClientStorageSettings = (settings: StorageInitPayload['settings']): void => {
+	if (!initPayload) return;
+	initPayload = { ...initPayload, settings };
+	// Mutate the existing state object so wrapStorageData views created during
+	// initClient keep resolving against live data. reactive() proxies still
+	// capture their nested targets and must be rebuilt by the systems/plugins
+	// restart. The settings-window geometry proxy (systems/client) stays bound
+	// to the old profile until the next reload because initSettings is not
+	// restartable.
+	if (!state) {
+		state = {
+			global: (settings.global ?? {}) as StorageData['global'],
+			profile: (settings.profile ?? {}) as StorageData['profile'],
+			character: (settings.character ?? {}) as StorageData['character'],
+		};
+		statePromise = Promise.resolve(state);
+		return;
+	}
+	for (const key of Object.keys(state.global)) delete state.global[key];
+	for (const key of Object.keys(state.profile)) delete state.profile[key];
+	for (const key of Object.keys(state.character)) delete state.character[key];
+	Object.assign(state.global, settings.global ?? {});
+	Object.assign(state.profile, settings.profile ?? {});
+	Object.assign(state.character, settings.character ?? {});
+};
+
+const getState = (): Promise<StorageData> => {
+	if (!statePromise) throw new Error('Storage has not been initialized');
+	return statePromise;
+};
+
+// #region routing
+
+const routeUpdate = (path: readonly (string | number | symbol)[], value: unknown): void => {
+	if (path.length < 3) return;
+	const [root, context, namespace, ...rest] = path;
+	if (typeof context !== 'string' || typeof namespace !== 'string') return;
+	if (root !== 'global' && root !== 'profile' && root !== 'character') return;
+	const key = rest.filter((segment): segment is string | number => typeof segment !== 'symbol');
+	if (key.length !== rest.length) return;
+	if (key.length < 1) return;
+	ipcStorage.updateSettings(root as ScopeKind, context, namespace, key, value);
+};
+
+// #region proxy
+
+const clone = <T>(data: T): T => JSON.parse(JSON.stringify(data));
+
+const plainValue = <T>(value: T): T =>
+	typeof value === 'object' && value !== null ? clone(value) : value;
 
 const deepProxy = <T extends object>(
 	target: T,
-	defaults: T,
-	onChange: (keys: readonly (string | symbol)[], newValue: unknown, oldValue: unknown) => void,
-	keys: readonly (string | symbol)[] = [],
-	cache = new WeakMap(),
+	onChange: (
+		path: readonly (string | number | symbol)[],
+		newValue: unknown,
+		oldValue: unknown,
+	) => void,
+	path: readonly (string | number | symbol)[] = [],
+	defaults?: unknown,
 ): T => {
-	const proxy = new Proxy(target, {
+	return new Proxy(target, {
 		get(target, property, receiver) {
-			const defaultValue = Reflect.get(defaults, property, receiver);
+			const defaultValue =
+				defaults && typeof defaults === 'object'
+					? Reflect.get(defaults, property, receiver)
+					: undefined;
 			const value = Reflect.get(target, property, receiver) ?? defaultValue;
 			if (typeof value !== 'object' || value === null) return value;
-			return deepProxy(value, defaultValue ?? {}, onChange, [...keys, property], cache);
+			return deepProxy(value, onChange, [...path, property], defaultValue ?? {});
 		},
 		set(target, property, newValue, receiver) {
 			const oldValue = Reflect.get(target, property, receiver);
 			if (oldValue === newValue) return true;
-			Reflect.set(target, property, newValue, receiver);
-			onChange([...keys, property], newValue, oldValue);
+			const value = plainValue(newValue);
+			Reflect.set(target, property, value, receiver);
+			onChange([...path, property], value, oldValue);
+			return true;
+		},
+		deleteProperty(target, property) {
+			const oldValue = Reflect.get(target, property);
+			Reflect.deleteProperty(target, property);
+			onChange([...path, property], undefined, oldValue);
 			return true;
 		},
 	});
-	cache.set(target, proxy);
-	return proxy;
 };
 
-const wrapStorageData = <T extends object>(
-	storageData: T,
-	onUpdate: (key: readonly (string | number)[], value: unknown) => void,
+// #region scoped views
+
+const wrapStorageData = (
+	state: StorageData,
+	basePath: readonly (string | number)[],
 ): ClientStorage => {
+	const resolve = (property: string | readonly (string | number)[]): (string | number)[] => [
+		...basePath,
+		...(Array.isArray(property) ? property : [property]),
+	];
 	return {
 		get(property) {
-			const properties = Array.isArray(property) ? property : [property];
-			return dot.getProperty(storageData, properties);
+			return dot.getProperty(state, resolve(property));
 		},
 		set(property, value) {
-			const properties = Array.isArray(property) ? property : [property];
-			onUpdate(properties, value);
-			dot.setProperty(storageData, properties, value);
+			const path = resolve(property);
+			const next = plainValue(value);
+			dot.setProperty(state, path, next);
+			routeUpdate(path, next);
 		},
 		delete(property) {
-			const properties = Array.isArray(property) ? property : [property];
-			onUpdate(properties, undefined);
-			dot.deleteProperty(storageData, properties);
+			const path = resolve(property);
+			dot.deleteProperty(state, path);
+			routeUpdate(path, undefined);
 		},
 		reactive(property, defaults) {
-			const properties = Array.isArray(property) ? property : [property];
-			const data = (dot.getProperty(storageData, properties) ?? {}) as typeof defaults;
-			const clone = <T extends object>(data): T => JSON.parse(JSON.stringify(data));
-			return deepProxy(data, clone(defaults), (keys, value) => {
-				onUpdate([...properties, ...keys], value);
-			});
+			const path = resolve(property);
+			let target = dot.getProperty(state, path) as typeof defaults | undefined;
+			if (typeof target !== 'object' || target === null) {
+				target = {} as typeof defaults;
+				dot.setProperty(state, path, target as object);
+			}
+			return deepProxy(target, (keys, value) => routeUpdate(keys, value), path, clone(defaults));
 		},
 	};
 };
 
+export const createGlobalStorage = async (context: StorageContext | string, namespace: string) => {
+	return wrapStorageData(await getState(), ['global', context, namespace]);
+};
+
+export const createProfileStorage = async (context: StorageContext | string, namespace: string) => {
+	return wrapStorageData(await getState(), ['profile', context, namespace]);
+};
+
+export const createCharacterStorage = async (
+	context: StorageContext | string,
+	namespace: string,
+) => {
+	return wrapStorageData(await getState(), ['character', context, namespace]);
+};
+
+// #region factory
+
 export const createPluginStorages = async (
 	namespace: string,
-	profile: string,
-	username: string,
 ): Promise<{
 	global: ClientStorage;
 	profile: ClientStorage;
 	character: ClientStorage;
 }> => {
-	const globalData = (await storageData).global?.[namespace] ?? {};
-	const profileData = (await storageData).profiles?.[profile]?.[namespace] ?? {};
-	const characterData = (await storageData).characters?.[username]?.[namespace] ?? {};
+	const state = await getState();
+	const context: StorageContext = 'plugins';
 	return {
-		global: wrapStorageData(globalData, (keys, value) =>
-			ipcStorage.updateGlobalStorage([namespace, ...keys], value),
-		),
-		profile: wrapStorageData(profileData, (keys, value) =>
-			ipcStorage.updateProfileStorage([profile, namespace, ...keys], value),
-		),
-		character: wrapStorageData(characterData, (keys, value) =>
-			ipcStorage.updateCharacterStorage([username, namespace, ...keys], value),
-		),
+		global: wrapStorageData(state, ['global', context, namespace]),
+		profile: wrapStorageData(state, ['profile', context, namespace]),
+		character: wrapStorageData(state, ['character', context, namespace]),
 	};
 };
+
+// #region collections
+
+export type CollectionMatch = ipcStorage.CollectionMatch;
+
+export type Collection<T = unknown> = {
+	fetch: (quantity: number) => Promise<T[]>;
+	append: (value: T, max?: number) => void;
+	clear: (match?: CollectionMatch) => void;
+};
+
+export type PluginCollections = {
+	global: <T = unknown>(name: string) => Collection<T>;
+	profile: <T = unknown>(name: string) => Collection<T>;
+	character: <T = unknown>(name: string) => Collection<T>;
+};
+
+const createCollection = <T>(
+	kind: ScopeKind,
+	context: StorageContext,
+	namespace: string,
+): Collection<T> => ({
+	fetch: async (quantity) =>
+		(await ipcStorage.fetchCollection(kind, context, namespace, quantity)) as T[],
+	append: (value, max) => ipcStorage.appendCollection(kind, context, namespace, value, max),
+	clear: (match) => ipcStorage.clearCollection(kind, context, namespace, match),
+});
+
+export const createPluginCollections = (namespace: string): PluginCollections => {
+	const context: StorageContext = 'plugins';
+	return {
+		global: <T = unknown>(name: string) =>
+			createCollection<T>('global', context, `${namespace}/${name}`),
+		profile: <T = unknown>(name: string) =>
+			createCollection<T>('profile', context, `${namespace}/${name}`),
+		character: <T = unknown>(name: string) =>
+			createCollection<T>('character', context, `${namespace}/${name}`),
+	};
+};
+
+export const storageData = async () => deepProxy(await getState(), routeUpdate);

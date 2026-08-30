@@ -1,662 +1,383 @@
-import mustache from 'mustache';
-import { formatDate } from 'date-fns';
-import chatTemplate from './chat/chat.html?raw';
-import chatTabsTemplate from './chat/chat_tabs.html?raw';
-import chatActionsTemplate from './chat/chat_actions.html?raw';
-import chatLogTemplate from './chat/chat_log.html?raw';
-import chatMessageTemplate from './chat/chat_message.html?raw';
-import yellIconSrc from '../assets/yell.png';
-import pmToIconSrc from '../assets/pm_to.png';
-import pmFromIconSrc from '../assets/pm_from.png';
-import { ChatMessage, Lifecycle, Plugin, PluginContext } from '../client';
-import { ipcRenderer } from '../client/ipc_renderer';
+import { Plugin } from '../client';
+import type { ChatMessage } from '../client';
+import * as el from '../client/ui/elements';
+import {
+	applyChatColors,
+	applyChatSettings,
+	mountChatMessage,
+	setMessagesCollection,
+	storeChatMessage,
+} from './chat/chat_messages';
+import { initChatLogWindow } from './chat/chat_log';
+import { initialMutedPlayers, initMutedPlayersWindow, isChatMessageMuted } from './chat/chat_muted';
+import { initChat } from './chat/chat_panel';
+import { hydrateChatMessages, pmState } from './chat/chat_state';
+import {
+	chatColorMeta,
+	initialChannels,
+	initialChatColors,
+	initialSettings,
+	timestampFormatOptions,
+} from './chat/chat_types';
+import {
+	initialWordMatches,
+	initMessageScannerWindow,
+	isChatMessageFiltered,
+	isChatMessageFilteredFromLog,
+	notifyWordMatches,
+} from './chat/chat_words';
 
-const namespace = 'core/chat';
+const daisyUiColors = {
+	primary: 'var(--color-primary)',
+	'primary-content': 'var(--color-primary-content)',
+	secondary: 'var(--color-secondary)',
+	'secondary-content': 'var(--color-secondary-content)',
+	accent: 'var(--color-accent)',
+	'accent-content': 'var(--color-accent-content)',
+	neutral: 'var(--color-neutral)',
+	'neutral-content': 'var(--color-neutral-content)',
+	info: 'var(--color-info)',
+	'info-content': 'var(--color-info-content)',
+	success: 'var(--color-success)',
+	'success-content': 'var(--color-success-content)',
+	warning: 'var(--color-warning)',
+	'warning-content': 'var(--color-warning-content)',
+	error: 'var(--color-error)',
+	'error-content': 'var(--color-error-content)',
+	'base-content': 'var(--color-base-content)',
+} as const;
 
-type ChatTab = {
-	type: 'custom' | 'pm';
-	prefix: string;
-	name: string;
-};
-
-// #region Vars
-
-const highResSigils = [
-	'images/ui/basket_egg_sigil.png',
-	'images/ui/basket_sigil.png',
-	'images/ui/bat_sigil.png',
-	'images/ui/bell_sigil.png',
-	'images/ui/blue_party_hat_sigil.png',
-	'images/ui/broken_bell_sigil.png',
-	'images/ui/bronze_event_2_sigil.png',
-	'images/ui/bronze_event_sigil.png',
-	'images/ui/bunny_sigil.png',
-	'images/ui/candy_cane_sigil.png',
-	'images/ui/carrot_sigil.png',
-	'images/ui/cat_sigil.png',
-	'images/ui/chocolate_sigil.png',
-	'images/ui/dh1_max_sigil.png',
-	'images/ui/easter_egg_sigil.png',
-	'images/ui/event_2_sigil.png',
-	'images/ui/event_sigil.png',
-	'images/ui/fake_bell_sigil.png',
-	'images/ui/fancy_bell_sigil.png',
-	'images/ui/ghost_sigil.png',
-	'images/ui/gift_sigil.png',
-	'images/ui/gold_event_2_sigil.png',
-	'images/ui/gold_event_sigil.png',
-	'images/ui/green_party_hat_sigil.png',
-	'images/ui/hatching_chicken_sigil.png',
-	'images/ui/mad_bunny_sigil.png',
-	'images/ui/mummy_head_sigil.png',
-	'images/ui/mummy_sigil.png',
-	'images/ui/pink_party_hat_sigil.png',
-	'images/ui/pumpkin_sigil.png',
-	'images/ui/red_party_hat_sigil.png',
-	'images/ui/reindeer_sigil.png',
-	'images/ui/santa_hat_sigil.png',
-	'images/ui/silver_event_2_sigil.png',
-	'images/ui/silver_event_sigil.png',
-	'images/ui/skull_sigil.png',
-	'images/ui/snowflake_sigil.png',
-	'images/ui/snowman_sigil.png',
-	'images/ui/spider_sigil.png',
-	'images/ui/tree_sigil.png',
-	'images/ui/white_party_hat_sigil.png',
-	'images/ui/yellow_party_hat_sigil.png',
-	'images/ui/zombie_sigil.png',
-];
-
-const colorMap = {
-	pink: 'text-accent',
-	grey: 'text-base-content/75',
-	cyan: 'text-info',
-	white: 'text-base-content',
-	green: 'text-success',
-	orange: 'text-warning',
-	lime: 'text-success',
-	red: 'text-error',
-};
-
-const usernamesCache = new Set<string>();
-const chatMessages: ChatMessage[] =
-	JSON.parse(localStorage.getItem(`oinky/${namespace}/chatMessages`) ?? '[]') ?? [];
-let usernameSelf = '';
-
-const sentHistory: string[] = [];
-let sentHistoryIndex = -1;
-
-const initialChannels = {
-	chatTabIndex: 0,
-	chatTabs: [
-		{ type: 'custom', prefix: '', name: 'local' },
-		{ type: 'custom', prefix: '/y', name: 'yell' },
-	] satisfies ChatTab[] as ChatTab[],
-};
-type Channels = typeof initialChannels;
-// let channels = initialChannels;
-
-const initialSettings = {
-	isExpanded: true,
-	isZebraEnabled: true,
-	maxChatLength: 250,
-	maxChatLogLength: 1000,
-	popupDelayMultiplier: 2,
-	timestampFormat: 'h:mmaaa',
-};
-type Settings = typeof initialSettings;
-// let settings = initialSettings;
-
-// #region Utils
-
-const storeChatMessage = async (chatMessage: ChatMessage, settings: Settings) => {
-	chatMessages.push(chatMessage);
-	if (chatMessages.length > settings.maxChatLogLength) {
-		const deleteCount = Math.ceil(chatMessages.length - settings.maxChatLogLength);
-		chatMessages.splice(0, deleteCount);
-	}
-	localStorage.setItem(`oinky/${namespace}/chatMessages`, JSON.stringify(chatMessages));
-};
-
-const chunkMessageBySize = (message: string, chunkSize: number): string[] => {
-	const [chunks] = message.split(' ').reduce(
-		([chunks, chunkIndex]: [string[], number], word) => {
-			const chunk = chunks[chunkIndex];
-			const newChunk = chunk + ' ' + word;
-			if (newChunk.length <= chunkSize) {
-				chunks[chunkIndex] = newChunk;
-				return [chunks, chunkIndex];
-			}
-			const newChunkIndex = chunkIndex + 1;
-			chunks[newChunkIndex] = word;
-			return [chunks, newChunkIndex];
-		},
-		[[''], 0],
-	);
-	return chunks;
-};
-
-let messageBgTickTock = false;
-const getMessageBg = (isZebraEnabled: boolean): HTMLElement['className'] => {
-	if (!isZebraEnabled) return 'bg-base-200/70 text-shadow-base-200/70';
-	messageBgTickTock = !messageBgTickTock;
-	return messageBgTickTock
-		? 'bg-base-100/70 text-shadow-base-100/70'
-		: 'bg-base-300/70 text-shadow-base-300/70';
-};
-
-const getRandomUsername = (): string => {
-	const { size } = usernamesCache;
-	if (size < 1) return usernameSelf;
-	const picked = Math.floor(Math.random() * size);
-	return [...usernamesCache.values()][picked];
-};
-
-const getMessagesContainer = (context: PluginContext): HTMLUListElement | null =>
-	context.ui.getContainer<HTMLUListElement>('chat/messages');
-
-const checkIsAtBottom = (scrollTop: number, clientHeight: number, scrollHeight: number) =>
-	scrollTop + clientHeight >= scrollHeight - clientHeight / 3;
-
-const wrapMessage = (
-	chatMessageRender: string,
-	isZebraEnabled: boolean,
-	isBackgroundEnabled: boolean = true,
-) => {
-	const className = isBackgroundEnabled ? getMessageBg(isZebraEnabled) : '';
-	return `<li class="p-1 text-shadow-md ${className}">${chatMessageRender}</li>`;
-};
-
-// #region Renderers
-
-const renderUsername = (
-	username: string,
-	type: ChatMessage['type'],
-	colorClassName: string,
-): string | null => {
-	if (!username) return null;
-	return `<span class="${colorClassName}">${username + (type === 'local' ? ': ' : '')}</span>`;
-};
-
-const renderUserTag = (tag: string): string | null => {
-	if (!tag || tag === 'none') return null;
-	const tagName = { 'investor-plus': 'investor' }[tag] ?? tag;
-	const className =
-		{ 'investor-plus': 'chat-tag-investor-plus chat-tag-investor-plus-shiny' }[tag] ??
-		`chat-tag-${tag}`;
-	return `<span class="${className}">${tagName}</span>`;
-};
-
-const renderIcon = (src: string): string => {
-	return `<img class="inline-block" src="${src}" />`;
-};
-
-const renderChatMessage = (chatMessage: ChatMessage, timestampFormat: string): string => {
-	const { type, icon, tag, username } = chatMessage;
-	const prefixIcons = [icon && renderIcon(`https://flatmmo.com/${icon}`)].filter((src) => src);
-	const colorClassName = colorMap[chatMessage.color] ?? colorMap.white;
-	const segments = [
-		tag && renderUserTag(tag),
-		username && renderUsername(username, type, colorClassName),
-	].filter((segment) => typeof segment === 'string' && segment.length > 0);
-	const suffixIcons = [
-		type === 'yell' && renderIcon(yellIconSrc),
-		type === 'pm_to' && renderIcon(pmToIconSrc),
-		type === 'pm_from' && renderIcon(pmFromIconSrc),
-	].filter((icon) => typeof icon === 'string');
-	const timestamp = formatDate(chatMessage.timestamp, timestampFormat ?? 'h:mmaaa');
-	let message = chatMessage.message;
-	message = message
-		.split(' ')
-		.map((word) =>
-			word.length > 34 && !word.startsWith('http')
-				? `<span class="break-all"> ${word} </span>`
-				: word,
-		)
+const formatDaisyUiColorLabel = (name: string) =>
+	name
+		.split('-')
+		.map((part) => {
+			if (/^\d+$/.test(part)) return part;
+			const word = part === 'content' ? 'text' : part;
+			return word.charAt(0).toUpperCase() + word.slice(1);
+		})
 		.join(' ');
-	message = message.replace(/(https?:\/\/[^\s]+)/g, (url) => {
-		return `<a class="underline pointer-events-auto break-all" target="_blank" href="${url}">${url}</a>`;
-	});
-	message = message.trim();
-	return mustache.render(chatMessageTemplate, {
-		timestamp,
-		segments,
-		prefixIcons,
-		suffixIcons,
-		message,
-		colorClassName,
-	});
-};
 
-const renderChatTab = ({ name }: ChatTab, isActive: boolean): string => {
-	return `<button oinky-chat="tab" class="tab ${isActive ? 'tab-active' : 'bg-base-300'}">${name}</button>`;
-};
-
-const renderChatTabs = (chatTabs: ChatTab[], selectedIndex: number) => {
-	return mustache.render(chatTabsTemplate, {
-		tabs: chatTabs.map((chatTab, index) => {
-			return renderChatTab(chatTab, index === selectedIndex);
-		}),
-	});
-};
-
-const renderChatActions = () => {
-	return mustache.render(chatActionsTemplate, {});
-};
-
-const renderChatLog = () => {
-	return mustache.render(chatLogTemplate, {});
-};
-
-const renderChat = (
-	username: string,
-	messages: string[],
-	chatTabs: ChatTab[],
-	selectedChatTabIndex: number,
-	isExpanded: boolean,
-): string => {
-	return mustache.render(chatTemplate, {
-		messages,
-		placeholder: username,
-		isExpanded: `${isExpanded}`,
-		children: [
-			renderChatTabs(chatTabs, selectedChatTabIndex),
-			renderChatActions(),
-			renderChatLog(),
-		],
-	});
-};
-
-// #region Updaters
-
-const updateChatTabInputLabel = (channels: Channels): void => {
-	const label = document.querySelector<HTMLSpanElement>('[oinky-chat=input-label]');
-	if (!label) return;
-	const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
-	if (prefix === '') {
-		label.style.display = 'none';
-		label.innerText = '';
-	} else {
-		label.style.display = '';
-		label.innerText = prefix;
-	}
-};
-
-const updateChatTabs = (context: PluginContext, channels: Channels): void => {
-	updateChatTabInputLabel(channels);
-	const container = context.ui.getContainer('chat/tabs');
-	if (!container) return;
-	container.innerHTML = channels.chatTabs
-		.map((chatTab, index) => renderChatTab(chatTab, index === channels.chatTabIndex))
-		.join('\n');
-	container.querySelectorAll<HTMLButtonElement>('button').forEach((button, index) => {
-		button.onclick = () => {
-			channels.chatTabIndex = index;
-			updateChatTabs(context, channels);
-		};
-		button.oncontextmenu = () => {
-			if (index < 2) return;
-			if (channels.chatTabIndex >= index) channels.chatTabIndex -= 1;
-			const clonedTabs = JSON.parse(JSON.stringify(channels.chatTabs));
-			channels.chatTabs = [...clonedTabs.slice(0, index), ...clonedTabs.slice(index + 1)];
-			updateChatTabs(context, channels);
-		};
-	});
-};
-
-const updateToggleIndicator = (active: boolean = true): void => {
-	const toggleIndicator = document.querySelector<HTMLButtonElement>(
-		'[oinky-chat=toggle-indicator]',
-	);
-	if (!toggleIndicator) return;
-	active ? toggleIndicator.classList.remove('hidden') : toggleIndicator.classList.add('hidden');
-};
-
-// #region Handlers
-
-const handleWheel = (event: WheelEvent, context, settings: Settings): void => {
-	// @ts-ignore 2304
-	if (opened_modals.size > 0) return;
-	if (!settings.isExpanded) return;
-	const chatMessageContainer = getMessagesContainer(context);
-	if (!chatMessageContainer) return;
-	const containerRect = chatMessageContainer.getClientRects()[0];
-	const hoveringChat =
-		event.clientX >= containerRect.left &&
-		event.clientX <= containerRect.right &&
-		event.y <= containerRect.bottom &&
-		event.y >= containerRect.top;
-	if (!hoveringChat) return;
-	const targetScrollTop = chatMessageContainer.scrollTop + event.deltaY;
-	const isAtBottom = checkIsAtBottom(
-		targetScrollTop,
-		chatMessageContainer.clientHeight,
-		chatMessageContainer.scrollHeight,
-	);
-	if (isAtBottom) updateToggleIndicator(false);
-	chatMessageContainer.scroll({
-		top: targetScrollTop,
-		behavior: 'smooth',
-	});
-};
-
-const handleKeypress = (event: KeyboardEvent): void => {
-	if (window.has_modal_open()) return;
-	if (!event.key.match(/^[a-zA-Z]$/)) return;
-	const chatInput = document.querySelector<HTMLInputElement>('[oinky-chat=input]');
-	if (!chatInput) return;
-	chatInput.focus();
-};
-
-const handleToggleClick = (context, settings: Settings): void => {
-	const chatMessageContainer = getMessagesContainer(context);
-	if (!chatMessageContainer) return;
-	updateToggleIndicator(false);
-	if (settings.isExpanded) {
-		const isAtBottom = checkIsAtBottom(
-			chatMessageContainer.scrollTop,
-			chatMessageContainer.clientHeight,
-			chatMessageContainer.scrollHeight,
-		);
-		if (!isAtBottom) {
-			chatMessageContainer.scroll({
-				top: chatMessageContainer.scrollHeight,
-				behavior: 'smooth',
-			});
-			return;
-		}
-	}
-	chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
-	settings.isExpanded = !settings.isExpanded;
-	document.querySelectorAll('[oinky-chat-expanded]').forEach((element) => {
-		element.setAttribute('oinky-chat-expanded', `${settings.isExpanded}`);
-	});
-};
-
-const handleChatInputKeydown =
-	(chatInput: HTMLInputElement, channels: Channels) =>
-	(event: KeyboardEvent): void => {
-		if (event.key === 'Enter') {
-			const prefix = channels.chatTabs[channels.chatTabIndex].prefix ?? '';
-			const hasPrefix = typeof prefix === 'string' && prefix.length > 0;
-			const message = chatInput.value;
-			if (message === '') return;
-			sentHistory.unshift(message);
-			sentHistoryIndex = -1;
-			chatInput.value = '';
-			if (message.startsWith('/')) {
-				// @ts-ignore: TS2552
-				Globals.websocket?.send('CHAT=' + message);
-				return;
-			}
-			const messageChunks = chunkMessageBySize(
-				message,
-				hasPrefix ? 100 - prefix.length - 1 : 100,
-			);
-			if (!messageChunks) return;
-			if (messageChunks.length > 2) {
-				// @ts-ignore: TS2552
-				add_to_chat('none', 'none', 'none', 'red', 'Message length too large');
-				return;
-			}
-			messageChunks.forEach((chunk) => {
-				// @ts-ignore: TS2552
-				Globals.websocket?.send('CHAT=' + (hasPrefix ? prefix + ' ' : '') + chunk);
-			});
-			return;
-		}
-		if (event.key.length === 1) {
-			sentHistoryIndex = -1;
-			return;
-		}
-		const offset = { ArrowUp: 1, ArrowDown: -1 }[event.key];
-		if (!offset) return;
-		const historySwappable =
-			(chatInput.selectionStart === 0 && chatInput.selectionEnd === 0) ||
-			(chatInput.selectionStart === 0 && chatInput.selectionEnd === chatInput.value.length);
-		if (!historySwappable) return;
-		sentHistoryIndex = Math.max(Math.min(sentHistoryIndex + offset, sentHistory.length - 1), -1);
-		chatInput.value = sentHistory[sentHistoryIndex] ?? '';
-		chatInput.selectionStart = 0;
-		chatInput.selectionEnd = chatInput.value.length;
-		event.preventDefault();
-	};
-
-const handleAddTabClick = (context, channels: Channels): void => {
-	const modalId = `oinky/${namespace}/add-tab`;
-	const modal = document.querySelector<HTMLDialogElement>('[oinky-chat=add-tab-modal]');
-	const form = document.querySelector<HTMLFormElement>('[oinky-chat=add-tab-modal] form');
-	const input = document.querySelector<HTMLInputElement>('[oinky-chat=add-tab-modal] input');
-	const submitButton = document.querySelector<HTMLButtonElement>(
-		'[oinky-chat=add-tab-modal] button[oinky-modal=submit]',
-	);
-	const cancelButton = document.querySelector<HTMLButtonElement>(
-		'[oinky-chat=add-tab-modal] button[oinky-modal=cancel]',
-	);
-	if (!modal || !form || !input || !submitButton || !cancelButton) return;
-	modal.onclose = () => {
-		// @ts-ignore 2304
-		opened_modals.delete(modalId);
-		modal.open = false;
-	};
-	const handleSubmit = (): void => {
-		modal.close();
-		const username = input.value.trim().toLowerCase();
-		if (username.length < 1) return;
-		channels.chatTabs.push({
-			type: 'pm',
-			prefix: `/pm ${username.replace(' ', '_')}`,
-			name: `@${username}`,
-		});
-		updateChatTabs(context, channels);
-	};
-	form.onsubmit = handleSubmit;
-	submitButton.onclick = handleSubmit;
-	cancelButton.onclick = () => modal.close();
-	input.placeholder = getRandomUsername();
-	input.onkeydown = (event) => {
-		if (event.key !== 'Enter') return;
-		handleSubmit();
-	};
-	input.value = '';
-	// @ts-ignore 2304
-	opened_modals.add(modalId);
-	modal.show();
-};
-
-// #region mounts
-
-const mountChat = (
-	lifecycle: Lifecycle,
-	context: PluginContext,
-	settings: Settings,
-	channels: Channels,
-): void => {
-	const fmmoChat = document.body.querySelector<HTMLDivElement>('#chat-input');
-	if (fmmoChat) {
-		fmmoChat.setAttribute('oinky-hide', 'taskbar');
-		lifecycle.onCleanup(() => fmmoChat.removeAttribute('oinky-hide'));
-	}
-	const fmmoChatInput = document.body.querySelector<HTMLDivElement>('#chat');
-	if (fmmoChatInput) {
-		fmmoChatInput.setAttribute('oinky-hide', 'taskbar');
-		lifecycle.onCleanup(() => fmmoChatInput.removeAttribute('oinky-hide'));
-	}
-	document.addEventListener('keypress', handleKeypress);
-	lifecycle.onCleanup(() => document.removeEventListener('keypress', handleKeypress));
-	const container = context.ui.getContainer('taskbar/chat');
-	if (!container) return;
-	const loginMessages = [...document.querySelectorAll<HTMLSpanElement>('#chat > span')];
-	const currentMessages = [
-		...chatMessages
-			.slice(
-				Math.max(0, chatMessages.length - settings.maxChatLength - loginMessages.length),
-				chatMessages.length,
-			)
-			.map((chatMessage) => {
-				return wrapMessage(
-					renderChatMessage(chatMessage, settings.timestampFormat),
-					settings.isZebraEnabled,
-				);
-			}),
-		...loginMessages.map((rootElement) => {
-			const element = rootElement.cloneNode(true) as HTMLSpanElement;
-			const colorClassName = colorMap[element.style.color] ?? colorMap.white;
-			element.style.color = '';
-			return wrapMessage(
-				mustache.render(chatMessageTemplate, {
-					segments: [element.outerHTML],
-					colorClassName,
-				}),
-				settings.isZebraEnabled,
-			);
-		}),
-	];
-	container.innerHTML = renderChat(
-		context.character.username,
-		currentMessages,
-		channels.chatTabs,
-		channels.chatTabIndex,
-		settings.isExpanded,
-	);
-	lifecycle.onCleanup(() => container.replaceChildren());
-	const messageContainer = getMessagesContainer(context);
-	if (messageContainer) messageContainer.scrollTop = messageContainer.scrollHeight;
-
-	const chatInput = container.querySelector<HTMLInputElement>('[oinky-chat=input]');
-	const toggleButton = container.querySelector<HTMLButtonElement>('[oinky-chat=toggle]');
-	const addTabButton = container.querySelector<HTMLButtonElement>('[oinky-chat=add-tab]');
-	if (!chatInput || !toggleButton || !addTabButton) return;
-	updateChatTabs(context, channels);
-	document.addEventListener('wheel', (event) => handleWheel(event, context, settings));
-	lifecycle.onCleanup(() =>
-		document.removeEventListener('wheel', (event) => handleWheel(event, context, settings)),
-	);
-	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels);
-	toggleButton.onclick = () => handleToggleClick(context, settings);
-	addTabButton.onclick = () => handleAddTabClick(context, channels);
-	mountChatActions(settings);
-};
-
-const mountChatActions = (settings: Settings) => {
-	const modalId = `oinky/${namespace}/`;
-	const activatorButton = document.querySelector<HTMLButtonElement>(
-		'button[oinky-chat=log-activator]',
-	);
-	const modalDialog = document.querySelector<HTMLDialogElement>('dialog[oinky-chat=log-modal]');
-	const logContainer = document.querySelector<HTMLUListElement>('ul[oinky-chat=log-container]');
-	const exportButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=export-log]');
-	const goTopButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-top-log]');
-	const goUpButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-up-log]');
-	const goDownButton = document.querySelector<HTMLButtonElement>('button[oinky-chat=go-down-log]');
-	const goBottomButton = document.querySelector<HTMLButtonElement>(
-		'button[oinky-chat=go-bottom-log]',
-	);
-	if (
-		!activatorButton ||
-		!modalDialog ||
-		!logContainer ||
-		!exportButton ||
-		!goTopButton ||
-		!goUpButton ||
-		!goDownButton ||
-		!goBottomButton
-	)
-		return;
-	activatorButton.onclick = () => {
-		// @ts-ignore 2304
-		opened_modals.add(modalId);
-		logContainer.innerHTML = chatMessages
-			.map((chatMessage) => {
-				return wrapMessage(renderChatMessage(chatMessage, settings.timestampFormat), false);
-			})
-			.join('\n');
-
-		logContainer.scrollTop = logContainer.scrollHeight;
-
-		modalDialog.showModal();
-		modalDialog.onclose = () => {
-			logContainer.replaceChildren();
-			// @ts-ignore 2304
-			opened_modals.delete(modalId);
-		};
-	};
-	goTopButton.onclick = () => {
-		goTopButton.blur();
-		logContainer.scrollTo({ top: 0, behavior: 'smooth' });
-	};
-	goUpButton.onclick = () => {
-		const top = logContainer.scrollTop - logContainer.getBoundingClientRect().height;
-		logContainer.scrollTo({ top, behavior: 'smooth' });
-	};
-	goDownButton.onclick = () => {
-		const top = logContainer.scrollTop + logContainer.getBoundingClientRect().height;
-		logContainer.scrollTo({ top, behavior: 'smooth' });
-	};
-	goBottomButton.onclick = () => {
-		goBottomButton.blur();
-		logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: 'smooth' });
-	};
-	exportButton.onclick = () => {
-		const filename = `FlatMMO Chat ${new Date().toISOString()}.txt`;
-		const contents = logContainer.innerText;
-		ipcRenderer.send('requestFileSave', filename, contents);
-	};
-};
-
-const mountChatMessage = (
-	chatMessage: ChatMessage,
-	context: PluginContext,
-	settings: Settings,
-): void => {
-	storeChatMessage(chatMessage, settings);
-	if (chatMessage.username) usernamesCache.add(chatMessage.username);
-	const messagesContainer = getMessagesContainer(context);
-	const popupsContainer = context.ui.getContainer('chat/popups');
-	if (!messagesContainer || !popupsContainer) return;
-	const isAtBottom = checkIsAtBottom(
-		messagesContainer.scrollTop,
-		messagesContainer.clientHeight,
-		messagesContainer.scrollHeight,
-	);
-	const messageLi = document.createElement('li');
-	const messageBg = getMessageBg(settings.isZebraEnabled);
-	messageLi.className = `p-1 text-shadow-md ${messageBg}`;
-	messageLi.innerHTML = renderChatMessage(chatMessage, settings.timestampFormat);
-	messagesContainer.appendChild(messageLi);
-	// Create and append popup
-	const popupLi = document.createElement('li');
-	popupLi.className = `px-1 py-0.5 mt-1 last:mb-0.5 rounded-box text-shadow-md ${messageBg}`;
-	popupLi.innerHTML = messageLi.innerHTML;
-	popupsContainer.appendChild(popupLi);
-	const popupDuration = Math.max(4000, 4000 * settings.popupDelayMultiplier);
-	context.ui.fadeRemoveElement(popupLi, popupDuration);
-	while (messagesContainer.children.length > settings.maxChatLength) {
-		messagesContainer.children[0].remove();
-	}
-	if (isAtBottom) {
-		messagesContainer.scrollTop = messagesContainer.scrollHeight;
-	}
-	if (!isAtBottom && settings.isExpanded) {
-		updateToggleIndicator(true);
-	}
-};
-
-// #region Plugin
+const colorOptions = Object.entries(daisyUiColors).map(([name, value]) => ({
+	label: formatDaisyUiColorLabel(name),
+	value,
+}));
 
 export const ChatPlugin: Plugin = {
-	namespace: 'core/chat',
+	namespace: 'oinky/chat',
 	name: 'Chat',
 	description: 'A custom chat implementation',
-	init: (lifecycle, context) => {
+	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
+		const colors = context.storages.profile.reactive('colors', initialChatColors);
 		const channels = context.storages.character.reactive('channels', initialChannels);
+		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
+		const wordMatches = context.storages.profile.reactive('keyWords', initialWordMatches);
+		const filters = {
+			wordMatches,
+			muted: mutedPlayers,
+		};
+		const settingsMenu = context.settings.initMenu(lifecycle);
+		const helpers = context.settings.helpers;
 
-		mountChat(lifecycle, context, settings, channels);
+		const messages = context.collections.character<ChatMessage>('messages');
+		setMessagesCollection(messages);
+		await hydrateChatMessages(messages, settings.maxChatLogLength);
+
+		const elements = initChat(lifecycle, context, settings, channels, filters);
+
+		const onSettingsChange = () => {
+			applyChatSettings(elements, settings, filters);
+		};
+		const onColorsChange = () => {
+			applyChatColors(elements.root, colors);
+		};
+		onColorsChange();
+
+		type ChatPluginWindow = { show: () => void; hide: () => void };
+		const bindWindow = (
+			flag: 'logWindowOpen' | 'mutedPlayersWindowOpen' | 'messageScannerWindowOpen',
+			create: (onClose: () => void) => ChatPluginWindow,
+		) => {
+			let api: ChatPluginWindow | undefined;
+			const close = () => {
+				settings[flag] = false;
+				api = undefined;
+			};
+			const show = () => {
+				settings[flag] = true;
+				api ??= create(close);
+				api.show();
+			};
+			return show;
+		};
+
+		const showLogWindow = bindWindow('logWindowOpen', (onClose) =>
+			initChatLogWindow(lifecycle, context, settings, filters, onClose),
+		);
+		const showMutedPlayersWindow = bindWindow('mutedPlayersWindowOpen', (onClose) =>
+			initMutedPlayersWindow(lifecycle, context, mutedPlayers, onClose),
+		);
+		const showMessageScannerWindow = bindWindow('messageScannerWindowOpen', (onClose) =>
+			initMessageScannerWindow(lifecycle, context, wordMatches, onSettingsChange, onClose),
+		);
+
+		const toggleSetting = (
+			label: string,
+			description: string,
+			key: 'enableZebra' | 'enableTimestamp' | 'enableSmoothScroll',
+		) =>
+			helpers.toggle(
+				label,
+				description,
+				() => settings[key],
+				(value) => {
+					settings[key] = value;
+					onSettingsChange();
+				},
+			);
+
+		const numberSetting = (
+			label: string,
+			description: string,
+			key: 'maxChatLength' | 'maxChatLogLength',
+			min: string,
+			max: string,
+		) => ({
+			label,
+			description,
+			reset: (input) => (input.value = String(initialSettings[key])),
+			input: el.input.number``.then((input) => {
+				input.min = min;
+				input.max = max;
+				input.value = settings[key].toString();
+				input.onchange = () => {
+					settings[key] = parseInt(input.value, 10);
+					onSettingsChange();
+				};
+			}),
+		});
+
+		settingsMenu.mountSection('Display', [
+			toggleSetting('Zebra striping', 'Alternate message background colors.', 'enableZebra'),
+			toggleSetting(
+				'Show timestamps',
+				'Show a timestamp before each chat message.',
+				'enableTimestamp',
+			),
+			toggleSetting(
+				'Smooth scrolling',
+				'Animate chat scroll when using the mouse wheel.',
+				'enableSmoothScroll',
+			),
+			{
+				label: 'Yell indicator',
+				description: 'What to display when a player yells.',
+				input: el.select``.then((input) => {
+					input.value = settings.yellIndicator;
+					el.option``.mount(input, 'guy', (option) => {
+						option.textContent = "Lil' Guy";
+						option.value = 'guy';
+						option.selected = settings.yellIndicator === 'guy';
+					});
+					el.option``.mount(input, 'icon', (option) => {
+						option.textContent = 'Icon';
+						option.value = 'icon';
+						option.selected = settings.yellIndicator === 'icon';
+					});
+					el.option``.mount(input, 'text', (option) => {
+						option.textContent = 'Text';
+						option.value = 'text';
+						option.selected = settings.yellIndicator === 'text';
+					});
+					input.onchange = () => {
+						settings.yellIndicator = input.value as 'guy' | 'icon' | 'text';
+						onSettingsChange();
+					};
+				}),
+			},
+			{
+				label: 'Timestamp format',
+				description: el.span``.then((span) => {
+					span.append('date-fns format string for message timestamps. See ');
+					el.a`link link-info`.mount(span, undefined, (anchor) => {
+						anchor.href = 'https://date-fns.org/v4.4.0/docs/format';
+						anchor.target = '_blank';
+						anchor.rel = 'noopener noreferrer';
+						anchor.textContent = 'format docs';
+					});
+					span.append('.');
+				}),
+				specialType: 'selectTextCombo',
+				options: timestampFormatOptions,
+				reset: (input) => (input.value = initialSettings.timestampFormat),
+				input: el.input.text``.then((input) => {
+					input.value = settings.timestampFormat;
+					input.onchange = () => {
+						settings.timestampFormat = input.value;
+						onSettingsChange();
+					};
+				}),
+			},
+			{
+				label: 'Popup duration',
+				description: 'In seconds, how long popup messages stay visible.',
+				valueSuffix: 's',
+				reset: (input) => (input.value = String(initialSettings.popupDuration)),
+				input: el.input.range``.then((input) => {
+					input.min = '2';
+					input.max = '20';
+					input.step = '2';
+					input.value = settings.popupDuration.toString();
+					input.onchange = () => {
+						settings.popupDuration = parseInt(input.value, 10);
+						onSettingsChange();
+					};
+				}),
+			},
+		]);
+
+		settingsMenu.mountSection(
+			'Colors',
+			chatColorMeta.map((meta) => ({
+				label: meta.label,
+				description: meta.description,
+				specialType: 'selectColorCombo' as const,
+				options: colorOptions,
+				reset: (input) => (input.value = initialChatColors[meta.type]),
+				input: el.input.text``.then((input) => {
+					input.value = colors[meta.type];
+					input.onchange = () => {
+						colors[meta.type] = input.value;
+						onColorsChange();
+					};
+				}),
+			})),
+		);
+
+		settingsMenu.mountSection('Limits', [
+			numberSetting(
+				'Visible messages',
+				'Maximum messages shown in the chat window.',
+				'maxChatLength',
+				'10',
+				'2000',
+			),
+			numberSetting(
+				'Chat log length',
+				'Maximum messages kept in the persistent chat log.',
+				'maxChatLogLength',
+				'50',
+				'10000',
+			),
+		]);
+
+		settingsMenu.mountSection('Commands', [
+			helpers.toggle(
+				'Enable commands',
+				'Allow Oinky chat commands and show the commands menu.',
+				() => settings.enableCommands,
+				(value) => {
+					settings.enableCommands = value;
+					onSettingsChange();
+				},
+			),
+			{
+				label: 'Command prefix',
+				description: 'Prefix that opens the chat commands menu.',
+				reset: (input) => (input.value = initialSettings.commandPrefix),
+				input: el.input.text``.then((input) => {
+					input.value = settings.commandPrefix;
+					input.onchange = () => {
+						settings.commandPrefix = input.value.trim();
+					};
+				}),
+			},
+		]);
+
+		settingsMenu.mountSection('Message Scanner', [
+			el.button`btn btn-sm btn-primary search-value`.then((button) => {
+				button.type = 'button';
+				button.textContent = 'Manage message scanner';
+				button.onclick = () => showMessageScannerWindow();
+			}),
+		]);
+
+		const mutedPlayersSectionTitle =
+			el.div`flex gap-1 items-center tooltip tooltip-info tooltip-start tooltip-bottom`.then(
+				(div) => {
+					div.setAttribute(
+						'data-tip',
+						'Muted players are stored globally, not per character or profile.',
+					);
+					el.icon.world`text-info`.mount(div);
+					div.append(document.createTextNode('Muted Players'));
+				},
+			);
+
+		settingsMenu.mountSection(mutedPlayersSectionTitle, [
+			helpers.toggle(
+				'Log muted players messages',
+				'Keep muted players messages in the chat log.',
+				() => mutedPlayers.logMutedMessages,
+				(value) => {
+					mutedPlayers.logMutedMessages = value;
+					onSettingsChange();
+				},
+			),
+			el.button`btn btn-sm btn-primary search-value`.then((button) => {
+				button.type = 'button';
+				button.textContent = 'Manage muted players';
+				button.onclick = () => showMutedPlayersWindow();
+			}),
+		]);
+
+		const hideChatActions = (activator: HTMLElement) => {
+			activator.closest<HTMLElement>('[popover]')?.hidePopover();
+		};
+		elements.settingsActivator.onclick = () => {
+			hideChatActions(elements.settingsActivator);
+			settingsMenu.open();
+		};
+		elements.logActivator.onclick = () => {
+			hideChatActions(elements.logActivator);
+			showLogWindow();
+		};
+		elements.wordMatchesActivator.onclick = () => {
+			hideChatActions(elements.wordMatchesActivator);
+			showMessageScannerWindow();
+		};
+		elements.mutedPlayersActivator.onclick = () => {
+			hideChatActions(elements.mutedPlayersActivator);
+			showMutedPlayersWindow();
+		};
+
+		if (settings.logWindowOpen) showLogWindow();
+		if (settings.mutedPlayersWindowOpen) showMutedPlayersWindow();
+		if (settings.messageScannerWindowOpen) showMessageScannerWindow();
 
 		return {
-			onChatMessage: (chatMessage) => mountChatMessage(chatMessage, context, settings),
-			hookAddToChat: () => false,
+			events: {
+				chatMessage: (chatMessage) => {
+					if (isChatMessageMuted(chatMessage, mutedPlayers)) {
+						if (!mutedPlayers.logMutedMessages) return;
+						storeChatMessage(chatMessage, settings);
+						return;
+					}
+					if (chatMessage.type === 'pm_from' && chatMessage.username) {
+						pmState.latestPmUsername = chatMessage.username;
+					}
+					notifyWordMatches(chatMessage, wordMatches, context.alerts, context.character.username);
+					if (isChatMessageFiltered(chatMessage, wordMatches)) {
+						if (isChatMessageFilteredFromLog(chatMessage, wordMatches)) return;
+						storeChatMessage(chatMessage, settings);
+						return;
+					}
+					mountChatMessage(chatMessage, context, settings, elements, filters);
+				},
+			},
+			hooks: {
+				addToChat: () => false,
+			},
 		};
 	},
 };

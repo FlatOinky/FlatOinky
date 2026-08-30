@@ -10,10 +10,9 @@ import bannerLumberjackSrc from './assets/fmmo_lumberjack.gif';
 import bannerMinerSrc from './assets/fmmo_miner.gif';
 import bannerThiefSrc from './assets/fmmo_thief.gif';
 import bannerWitchSrc from './assets/fmmo_witch.gif';
-import { FMMOCharacter, FMMOWorld } from '.';
 import { transpileHtml, transpileScript, transpileStyle } from './transpilers';
-import { hookedFunctions, initClient } from './client';
-import './assets/main.css';
+import { hookedFunctions, initClient, mutatedFunctions } from './client';
+import './styles.css';
 import { ipcRenderer, reloadWindow, openDevTools } from './client/ipc_renderer';
 
 // TODO: use this api url for greasyfork to get userscripts
@@ -74,7 +73,73 @@ const parseHtmlText = (htmlText: string): Document => {
 	return new DOMParser().parseFromString(htmlText, 'text/html');
 };
 
-const parseCharactersHtmlText = (htmlText: string): FMMOCharacter[] => {
+const FLAT_MMO_ORIGIN = 'https://flatmmo.com';
+
+const isFirstPartyUrl = (url: string): boolean => {
+	if (!url) return true; // inline content has no url
+	try {
+		const { hostname } = new URL(url, FLAT_MMO_ORIGIN);
+		return hostname === 'flatmmo.com' || hostname.endsWith('.flatmmo.com');
+	} catch {
+		return true; // unparseable => treat as relative/first-party
+	}
+};
+
+const toReferenceName = (url: string, index: number, ext: string): string => {
+	if (url === '') return `inline-${index}.${ext}`;
+	try {
+		const name = new URL(url, FLAT_MMO_ORIGIN).pathname.replace(/^\/+/, '');
+		if (name !== '') return name;
+	} catch {
+		// fall through
+	}
+	return `asset-${index}.${ext}`;
+};
+
+type ClientAssetSource = {
+	url: string;
+	content: string;
+};
+
+type ExtractedClientPage = {
+	subsetHtml: string;
+	styles: ClientAssetSource[];
+	scripts: ClientAssetSource[];
+};
+
+/** Pull plain strings out of the parsed play.html so the detached Document can be GC'd. */
+const extractClientPage = (clientDocument: Document): ExtractedClientPage => {
+	const clientHtmlElements = [
+		clientDocument.body.querySelector('#game')?.parentElement,
+		...clientDocument.body.querySelectorAll('.modal'),
+	].filter((element) => element instanceof HTMLElement);
+
+	const styles = Array.from(
+		clientDocument.querySelectorAll<HTMLLinkElement | HTMLStyleElement>(
+			'link[rel=stylesheet], style',
+		),
+	).map((element) => {
+		if (element instanceof HTMLLinkElement) {
+			return { url: element.getAttribute('href') ?? '', content: '' };
+		}
+		return { url: '', content: element.innerHTML };
+	});
+
+	const scripts = Array.from(clientDocument.querySelectorAll<HTMLScriptElement>('script')).map(
+		(element) => {
+			const url = element.getAttribute('src') ?? '';
+			return { url, content: url === '' ? element.innerHTML : '' };
+		},
+	);
+
+	return {
+		subsetHtml: clientHtmlElements.map((element) => element.outerHTML).join('\n'),
+		styles,
+		scripts,
+	};
+};
+
+const parseCharactersHtmlText = (htmlText: string): FMMO.Character[] => {
 	if (typeof htmlText !== 'string' || htmlText.length < 1) return [];
 	const charactersDocument = parseHtmlText(htmlText);
 	const characterElements = charactersDocument.querySelectorAll(
@@ -103,7 +168,7 @@ const renderLoaderPage = (className = ''): string => {
 };
 
 const renderDevtoolButton = (): string => {
-	if (process.env.NODE_ENV !== 'development') return '';
+	if (!import.meta.env.DEV) return '';
 	return `<button type="button" flat-oinky="devtools" class="btn btn-sm btn-ghost">Devtools</button>`;
 };
 
@@ -273,19 +338,13 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	window.setTitle(character.username);
 	rootElement.innerHTML = renderLoaderPage();
 	const clientHtmlText = await ipcRenderer.invoke('getClientHtmlText', character.id, world.id);
-	const clientDocument = parseHtmlText(transpileHtml(clientHtmlText));
+	const { subsetHtml, styles, scripts } = extractClientPage(parseHtmlText(clientHtmlText));
 
 	// Append the necessary html elements to the document
-	const clientHtmlElements = [
-		clientDocument.body.querySelector('#game')?.parentElement,
-		...clientDocument.body.querySelectorAll('.modal'),
-	].filter((element) => element instanceof HTMLElement);
 	const htmlElement = document.createElement('div');
 	htmlElement.setAttribute('fmmo-asset', 'html');
 	htmlElement.style = 'display:contents;';
-	htmlElement.innerHTML = transpileHtml(
-		clientHtmlElements.map((element) => element.outerHTML).join('\n'),
-	);
+	htmlElement.innerHTML = transpileHtml(subsetHtml);
 
 	// Find each of the tables <td> containers and attach attributes to hook onto
 	htmlElement
@@ -308,41 +367,67 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 		});
 
 	// Fetch and append styles to the document
-	const clientStyles = clientDocument.querySelectorAll<HTMLLinkElement | HTMLStyleElement>(
-		'link[rel=stylesheet], style',
-	);
 	const styleContents = await Promise.all(
-		Array.from(clientStyles).map((element) => {
-			if (element instanceof HTMLLinkElement) {
-				return ipcRenderer.invoke('getClientAsset', element.href) as Promise<string>;
+		styles.map(({ url, content }) => {
+			if (url !== '') {
+				return ipcRenderer.invoke('getClientAsset', url) as Promise<string>;
 			}
-			return Promise.resolve(element.innerHTML);
+			return Promise.resolve(content);
 		}),
 	);
 	const styleElement = document.createElement('style');
 	styleElement.setAttribute('fmmo-asset', 'style');
-	styleElement.innerHTML = `@scope (html) to (.flat-oinky) {\n${transpileStyle(styleContents.join('\n'))}\n}`;
+	styleElement.innerHTML = `@layer fmmo { @scope (html) to (.flat-oinky) {\n${transpileStyle(styleContents.join('\n'))}\n}}`;
 
 	// Fetch and append scripts to the document
-	const clientScripts = clientDocument.querySelectorAll<HTMLScriptElement>('script');
 	const scriptContents = await Promise.all(
-		Array.from(clientScripts).map((element) => {
-			if (element.src !== '') {
-				return ipcRenderer.invoke('getClientAsset', element.src) as Promise<string>;
+		scripts.map(({ url, content }) => {
+			if (url !== '') {
+				return ipcRenderer.invoke('getClientAsset', url) as Promise<string>;
 			}
-			return Promise.resolve(element.innerHTML);
+			return Promise.resolve(content);
 		}),
 	);
 	const scriptElement = document.createElement('script');
 	scriptElement.setAttribute('fmmo-asset', 'script');
-	scriptElement.innerHTML = transpileScript(scriptContents.join('\n'), hookedFunctions);
+	scriptElement.innerHTML = transpileScript(
+		scriptContents.join('\n'),
+		hookedFunctions,
+		mutatedFunctions,
+	);
 	document.body.appendChild(htmlElement);
 	document.body.appendChild(styleElement);
 	document.body.appendChild(scriptElement);
 
+	// Manifest of first-party sources for Devtools "Save References". Inline
+	// entries keep their text (cannot be re-fetched); remote entries are URL-only
+	// and resolved in the main process on click. play.html is retained in main.
+	const inline: FMMO.Reference[] = [];
+	const remote: FMMO.ReferenceRemote[] = [];
+
+	styles.forEach(({ url, content }, index) => {
+		if (!isFirstPartyUrl(url)) return;
+		if (url === '') {
+			inline.push({ name: toReferenceName('', index, 'css'), content });
+		} else {
+			remote.push({ name: toReferenceName(url, index, 'css'), url });
+		}
+	});
+
+	scripts.forEach(({ url, content }, index) => {
+		if (!isFirstPartyUrl(url)) return;
+		if (url === '') {
+			inline.push({ name: toReferenceName('', index, 'js'), content });
+		} else {
+			remote.push({ name: toReferenceName(url, index, 'js'), url });
+		}
+	});
+
+	const references: FMMO.ReferenceManifest = { inline, remote };
+
 	// Now that the FlatMMO client has been loaded render the contents for oinky
 	rootElement.innerHTML = renderClientPage();
-	flatOinky.client = initClient(character);
+	flatOinky.client = await initClient(character, references);
 };
 
 // #endregion
@@ -391,13 +476,13 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 				if (worlds.length < 1) {
 					errors.worlds = 'Unable to get worlds';
 				} else {
-					flatOinky.worlds = worlds as FMMOWorld[];
+					flatOinky.worlds = worlds as FMMO.World[];
 				}
 			}
 			const characters = parseCharactersHtmlText(dashboardHtmlText);
 			if (characters.length > 0) {
 				flatOinky.characters = characters;
-				if (process.env.NODE_ENV === 'development') {
+				if (import.meta.env.DEV) {
 					flatOinky.characterIndex = flatOinky.characters.length - 1;
 				}
 			}

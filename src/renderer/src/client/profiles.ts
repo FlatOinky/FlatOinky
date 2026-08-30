@@ -1,16 +1,79 @@
-import { FMMOCharacter } from '..';
+import { ipcStorage } from './ipc_renderer';
+import type { ProfileRow, StorageInitPayload } from './ipc_renderer/ipc_storage';
+import { getInitPayload, replaceClientStorageSettings } from './client_storage';
 
-export const profiles: { id: string; name: string }[] = (() => {
-	const storedProfiles = localStorage.getItem('oinky/profiles');
-	if (!storedProfiles) return [];
-	const profiles = JSON.parse(storedProfiles);
-	if (!Array.isArray(profiles)) return [];
-	return profiles;
-})();
+export type Profiles = {
+	profiles: ProfileRow[];
+	profile: ProfileRow;
+	setProfile: (profileId: number) => Promise<StorageInitPayload['settings'] | null>;
+	createProfile: (name: string) => Promise<ProfileRow | null>;
+	renameProfile: (id: number, name: string) => Promise<ProfileRow | null>;
+	duplicateProfile: (sourceId: number) => Promise<ProfileRow | null>;
+	deleteProfile: (id: number) => Promise<boolean>;
+	refresh: () => Promise<ProfileRow[]>;
+};
 
-if (profiles.length < 1) {
-	profiles.push({ id: 'default', name: 'Default' });
-}
+export const initProfiles = (payload: StorageInitPayload): Profiles => {
+	let profiles = [...payload.profiles];
+	let profile = payload.profile;
 
-export const getProfileKey = (username: FMMOCharacter['username']): string =>
-	localStorage.getItem(`oinky/characters/${username}/profileKey`) ?? profiles[0]?.id ?? 'default';
+	return {
+		get profiles() {
+			return profiles;
+		},
+		get profile() {
+			return profile;
+		},
+		async setProfile(profileId) {
+			const result = await ipcStorage.setCharacterProfile(profileId);
+			if (!result) return null;
+			profiles = result.profiles;
+			profile = result.profile;
+			replaceClientStorageSettings(result.settings);
+			const current = getInitPayload();
+			Object.assign(current, { profile, profiles, settings: result.settings });
+			return result.settings;
+		},
+		async createProfile(name) {
+			const created = await ipcStorage.createProfile(name);
+			if (!created) return null;
+			profiles = await ipcStorage.listProfiles();
+			const current = getInitPayload();
+			Object.assign(current, { profiles });
+			return created;
+		},
+		async renameProfile(id, name) {
+			const renamed = await ipcStorage.renameProfile(id, name);
+			if (!renamed) return null;
+			profiles = await ipcStorage.listProfiles();
+			if (profile.id === renamed.id) profile = renamed;
+			const current = getInitPayload();
+			Object.assign(current, { profiles, profile });
+			return renamed;
+		},
+		async duplicateProfile(sourceId) {
+			const created = await ipcStorage.duplicateProfile(sourceId);
+			if (!created) return null;
+			profiles = await ipcStorage.listProfiles();
+			const current = getInitPayload();
+			Object.assign(current, { profiles });
+			return created;
+		},
+		async deleteProfile(id) {
+			const deleted = await ipcStorage.deleteProfile(id);
+			if (!deleted) return false;
+			profiles = await ipcStorage.listProfiles();
+			const current = getInitPayload();
+			Object.assign(current, { profiles });
+			return true;
+		},
+		async refresh() {
+			profiles = await ipcStorage.listProfiles();
+			const current = getInitPayload();
+			const next = profiles.find((entry) => entry.id === current.profile.id);
+			if (next) profile = next;
+			Object.assign(current, { profiles, profile });
+			return profiles;
+		},
+	};
+};

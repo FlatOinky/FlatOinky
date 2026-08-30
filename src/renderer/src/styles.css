@@ -1,0 +1,289 @@
+@layer theme, fmmo, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+
+@import './styles/flatmmo.css' layer(components);
+@import './styles/windows.css' layer(components);
+@import './styles/chat.css' layer(components);
+@import './styles/search.css' layer(components);
+@import './styles/alerts.css' layer(components);
+
+@layer base {
+	/* Coping the base styles from preflight to .flat-oinky since html/body is no longer the root */
+	.flat-oinky {
+		line-height: 1.5;
+		-webkit-text-size-adjust: 100%;
+		tab-size: 4;
+		font-family: var(
+			--default-font-family,
+			ui-sans-serif,
+			system-ui,
+			sans-serif,
+			'Apple Color Emoji',
+			'Segoe UI Emoji',
+			'Segoe UI Symbol',
+			'Noto Color Emoji'
+		);
+		font-feature-settings: var(--default-font-feature-settings, normal);
+		font-variation-settings: var(--default-font-variation-settings, normal);
+		-webkit-tap-highlight-color: transparent;
+	}
+	.flat-oinky::selection,
+	.flat-oinky *::selection {
+		color: var(--color-accent-content);
+		background-color: var(--color-accent);
+	}
+}
+
+@scope (.flat-oinky) {
+	@import 'tailwindcss/preflight.css' layer(base);
+}
+
+@layer base {
+	@scope (html) to (.flat-oinky) {
+		button {
+			background: rgb(239, 239, 239);
+			color: black;
+		}
+		button:hover {
+			background: rgb(219, 219, 219);
+		}
+	}
+}
+
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Theme ids must match src/renderer/src/plugins/themes.ts */
+@plugin "daisyui" {
+	themes:
+		dark --default,
+		light,
+		flatmmo,
+		flatoinky,
+		cupcake,
+		bumblebee,
+		emerald,
+		corporate,
+		synthwave,
+		retro,
+		cyberpunk,
+		valentine,
+		halloween,
+		garden,
+		forest,
+		aqua,
+		lofi,
+		pastel,
+		fantasy,
+		wireframe,
+		black,
+		luxury,
+		dracula,
+		cmyk,
+		autumn,
+		business,
+		acid,
+		lemonade,
+		night,
+		coffee,
+		winter,
+		dim,
+		nord,
+		sunset,
+		caramellatte,
+		abyss,
+		silk;
+}
+
+/* Colors sampled from Flat MMO UI (cream panels, pink rows, neon status dots) */
+@plugin "daisyui/theme" {
+	name: 'flatmmo';
+	color-scheme: light;
+
+	/* Panel parchment + slot/tab chrome */
+	--color-base-100: #faead6;
+	--color-base-200: #e1e1e1;
+	--color-base-300: #bfbfbf;
+	--color-base-content: #000000;
+
+	/* Incomplete / required list rows */
+	--color-primary: #ffb4b4;
+	--color-primary-content: #313131;
+
+	/* Completed quest row tint */
+	--color-secondary: #d1d4f9;
+	--color-secondary-content: #313131;
+
+	/* Item-count / in-progress yellow */
+	--color-accent: #00ff00;
+	--color-accent-content: #313131;
+
+	/* HUD / dark chrome */
+	--color-neutral: #202020;
+	--color-neutral-content: #ffffff;
+
+	/* Quest/info blue, progress green, status yellow/red */
+	--color-info: #2875ff;
+	--color-info-content: #ffffff;
+	--color-success: #007f00;
+	--color-success-content: #ffffff;
+	--color-warning: #ffff00;
+	--color-warning-content: #313131;
+	--color-error: #ff0000;
+	--color-error-content: #ffffff;
+
+	/* Flat pixel UI: tight radii */
+	--radius-selector: 0.125rem;
+	--radius-field: 0.125rem;
+	--radius-box: 0.15rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 0;
+}
+
+/* Flat MMO palette shifted pinker for Flat Oinky */
+@plugin "daisyui/theme" {
+	name: 'flatoinky';
+	color-scheme: light;
+
+	/* Rose parchment + pink chrome */
+	--color-base-100: #ffe4ec;
+	--color-base-200: #f5c4d0;
+	--color-base-300: #e8a0b4;
+	--color-base-content: #2a1018;
+
+	/* Stronger pink primary */
+	--color-primary: #ff7a96;
+	--color-primary-content: #2a1018;
+
+	/* Soft mauve secondary */
+	--color-secondary: #f0b4d8;
+	--color-secondary-content: #2a1018;
+
+	/* Hot pink accent */
+	--color-accent: #ff4d7a;
+	--color-accent-content: #ffffff;
+
+	/* Deep rose-tinted chrome */
+	--color-neutral: #2a1420;
+	--color-neutral-content: #ffe4ec;
+
+	--color-info: #954cb4;
+	--color-info-content: #ffffff;
+	--color-success: #007f00;
+	--color-success-content: #ffffff;
+	--color-warning: #ffff00;
+	--color-warning-content: #2a1018;
+	--color-error: #ff0000;
+	--color-error-content: #ffffff;
+
+	--radius-selector: 0.125rem;
+	--radius-field: 0.125rem;
+	--radius-box: 0.15rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 0;
+}
+
+@plugin "@iconify/tailwind4";
+
+@config "./tailwind.config.js";
+
+@theme {
+	--animate-fade-out: fadeOut;
+}
+
+@custom-variant engaged {
+	&:is(:hover, :active, :focus) {
+		@slot;
+	}
+}
+
+@custom-variant locked-window {
+	&[oinky-window][locked-window] {
+		@slot;
+	}
+}
+
+@utility pixelated {
+	image-rendering: pixelated;
+}
+
+@utility scrollbar-track-* {
+	--tw-oinky-scrollbar-track-color: --value(--color);
+	--tw-oinky-scrollbar-track-opacity: --modifier(--opacity-*, integer, [integer]);
+	scrollbar-color: color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-thumb-color, black)
+				calc(var(--tw-oinky-scrollbar-thumb-opacity, 100) * 1%),
+			transparent
+		)
+		color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-track-color) calc(var(--tw-oinky-scrollbar-track-opacity, 100) * 1%),
+			transparent
+		);
+}
+
+@utility scrollbar-thumb-* {
+	--tw-oinky-scrollbar-thumb-color: --value(--color);
+	--tw-oinky-scrollbar-thumb-opacity: --modifier(--opacity-*, integer, [integer]);
+	scrollbar-color: color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-thumb-color) calc(var(--tw-oinky-scrollbar-thumb-opacity, 100) * 1%),
+			transparent
+		)
+		color-mix(
+			in oklab,
+			var(--tw-oinky-scrollbar-track-color, white)
+				calc(var(--tw-oinky-scrollbar-track-opacity, 100) * 1%),
+			transparent
+		);
+}
+
+/* replacing tailwind/daisy styles that aren't respecting the .flat-oinky scope */
+
+:root,
+[data-theme] {
+	background: unset;
+	color: unset;
+}
+.flat-oinky,
+.flat-oinky [data-theme] {
+	color: var(--color-base-content);
+}
+
+/* Now onto customizing flat mmo styles for our own sake */
+
+body {
+	position: relative;
+	height: unset;
+}
+
+[fmmo-container] {
+	position: relative;
+}
+
+[oinky-hide] {
+	visibility: hidden !important;
+}
+
+canvas,
+img {
+	image-rendering: pixelated;
+}
+
+@keyframes fadeOut {
+	0% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+/* Note: need to add this since FlatMMO's styles are scoped now */
+body {
+	cursor: url('https://flatmmo.com/images/ui/cursor.png'), auto;
+	background-color: none !important;
+}

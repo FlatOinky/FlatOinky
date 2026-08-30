@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow } from 'electron';
 import { join } from 'path';
 import { is } from '@electron-toolkit/utils';
 import icon from '../../build/icon.png?asset';
+import { watchWindowState } from './app_state';
 
 export function createWindow(): void {
 	// Create the browser window.
@@ -18,6 +19,9 @@ export function createWindow(): void {
 			sandbox: false,
 		},
 	});
+
+	mainWindow.webContents.backgroundThrottling = false;
+	watchWindowState(mainWindow);
 
 	// mainWindow.setIcon(icon);
 

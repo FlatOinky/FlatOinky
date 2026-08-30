@@ -1,3 +1,5 @@
+import type { LogMethod } from './logging';
+
 type ChatMessageBase = {
 	timestamp: Date;
 	color: string;
@@ -26,15 +28,43 @@ type ChatMessageOther = ChatMessageBase & {
 	tag: undefined;
 };
 
-export type ChatMessage = ChatMessageChatter | ChatMessageLevelUp | ChatMessageOther;
+type ChatMessageLog = ChatMessageBase & {
+	type: 'log';
+	level: LogMethod;
+	username: undefined;
+	icon: undefined;
+	tag: undefined;
+};
 
-const sanitizeMessage = (message: string): string =>
+type ChatMessageWelcome = {
+	type: 'welcome';
+	username: undefined;
+	timestamp: Date;
+	element: HTMLElement;
+};
+
+export type ChatMessage =
+	| ChatMessageChatter
+	| ChatMessageLevelUp
+	| ChatMessageOther
+	| ChatMessageLog
+	| ChatMessageWelcome;
+
+export const sanitizeMessage = (message: string): string =>
 	message
 		.replaceAll('&', '&amp;')
 		.replaceAll('<', '&lt;')
 		.replaceAll('>', '&gt;')
 		.replaceAll('"', '&quot;')
 		.replaceAll("'", '&#039;');
+
+export const unescapeMessage = (message: string): string =>
+	message
+		.replaceAll('&amp;', '&')
+		.replaceAll('&lt;', '<')
+		.replaceAll('&gt;', '>')
+		.replaceAll('&quot;', '"')
+		.replaceAll('&#039;', "'");
 
 const determineServerMessageType = (message: string, color: string) => {
 	if (message.startsWith('[server]')) return 'announcement';

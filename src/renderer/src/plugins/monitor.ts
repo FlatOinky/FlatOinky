@@ -1,166 +1,410 @@
-import notificationMp3 from '../assets/notification.mp3';
-import { Plugin, PluginContext } from '../client';
-import trayMenuTemplate from './monitor/monitor_tray_menu.html?raw';
-import craftingActivityTemplate from './monitor/crafting_activity.html?raw';
-import mustache from 'mustache';
-import { createNotification } from '../client/ipc_renderer';
-import numeral from 'numeral';
+import { Lifecycle, Plugin, PluginContext } from '../client';
+import { initialAlertScope } from '../client/alerts';
+import type { SettingsHelpers, SettingsNode } from '../client/settings';
+import * as el from '../client/ui/elements';
 
 // #region Vars
 
-const alertIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M12 5a4 4 0 0 0-8 0v2.379a1.5 1.5 0 0 1-.44 1.06L2.294 9.707a1 1 0 0 0-.293.707V11a1 1 0 0 0 1 1h2a3 3 0 1 0 6 0h2a1 1 0 0 0 1-1v-.586a1 1 0 0 0-.293-.707L12.44 8.44A1.5 1.5 0 0 1 12 7.38V5Zm-5.5 7a1.5 1.5 0 0 0 3 0h-3Z" clip-rule="evenodd" /></svg>`;
+const audioCues = {
+	gemDrop: { file: 'gem.ogg', title: 'Gem Drop' },
+	fallingTree: { file: 'fallingtree.mp3', title: 'Falling Tree' },
+	birdNest: { file: 'birdnest.ogg', title: 'Bird Nest' },
+	alienEncounter: { file: 'alien.mp3', title: 'Alien Encounter' },
+} as const;
+type AudioCueKey = keyof typeof audioCues;
+
+const stateCues = {
+	sleep: { title: 'Sleep' },
+	health: { title: 'Health' },
+	worship: { title: 'Worship' },
+	run: { title: 'Run Energy' },
+} as const;
+type StateCueKey = keyof typeof stateCues;
+
+const soundFileName = (source: string): string =>
+	source.split('?')[0]?.split('#')[0]?.split('/').pop()?.toLowerCase() ?? '';
 
 const initialSettings = {
-	notificationEnabled: true,
-	audioEnabled: true,
-	audioVolume: 0.35,
-};
-type Settings = typeof initialSettings;
-
-const triggerSounds = [
-	{ path: 'sounds/short/gem.ogg', title: 'Gem Drop' },
-	{ path: 'sounds/short/fallingtree.mp3', title: 'Falling Tree' },
-	{ path: 'sounds/short/birdnest.ogg', title: 'Bird Nest' },
-	{ path: 'sounds/alien.mp3', title: 'Alien Encounter' },
-];
-
-// #region renderers
-
-const renderTrayMenu = (settings: Settings): string => {
-	return mustache.render(trayMenuTemplate, {
-		audioVolume: settings.audioVolume,
-		audioChecked: settings.audioEnabled ? 'checked' : '',
-		notificationChecked: settings.notificationEnabled ? 'checked' : '',
-	});
-};
-
-const renderCraftingActivityDetails = (completed: number, total: number, sessionXp: number) =>
-	`
-			<div class="flex gap-1 justify-between items-baseline">
-				<div class="badge badge-xs badge-primary">${completed}/${total}</div>
-				<div class="badge badge-xs badge-secondary">${numeral(sessionXp).format('0,0')}xp</div>
-			</div>
-`.trim();
-
-const renderCraftingActivity = (
-	item: string,
-	completed: number,
-	total: number,
-	sessionXp: number,
-): string => {
-	return mustache.render(craftingActivityTemplate, {
-		item,
-		label: item.replaceAll('_', ' '),
-		details: renderCraftingActivityDetails(completed, total, sessionXp),
-	});
+	afkDetection: {
+		...initialAlertScope,
+		enabled: false,
+		ignoreCrafting: false,
+		afkThreshold: 60,
+	},
+	enableAudioCues: false,
+	audioCues: {
+		gemDrop: { ...initialAlertScope },
+		fallingTree: { ...initialAlertScope },
+		birdNest: { ...initialAlertScope },
+		alienEncounter: { ...initialAlertScope },
+	} satisfies Record<AudioCueKey, typeof initialAlertScope>,
+	enableStateCues: false,
+	stateCues: {
+		sleep: { ...initialAlertScope, threshold: 0 },
+		health: { ...initialAlertScope, threshold: 5 },
+		worship: { ...initialAlertScope, threshold: 3 },
+		run: { ...initialAlertScope, enabled: false, threshold: 10 },
+	} satisfies Record<StateCueKey, typeof initialAlertScope & { threshold: number }>,
 };
 
-// let internalSelf: AlertsPlugin;
+// #region crafting activity
 
-export const notify = (
-	alertAudio: HTMLAudioElement,
-	settings: Settings,
-	title: string,
-	message?: string,
-): void => {
-	if (settings.notificationEnabled) {
-		createNotification(title, message);
-	}
-	if (settings.audioEnabled) {
-		alertAudio.volume = settings.audioVolume;
-		alertAudio.play();
-	}
-};
+const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => {
+	const container = context.ui.taskbar.initActivity(lifecycle, 'crafting');
+	container.className = 'bg-base-100/70 flex items-center py-1 px-1.5 gap-2 rounded-box w-max';
+	container.style.display = 'none';
 
-const mountTrayMenu = (
-	alertAudio: HTMLAudioElement,
-	settings: Settings,
-	context: PluginContext,
-) => {
-	const container = context.ui.taskbar.upsertTrayMenuIcon(
-		'alert',
-		alertIcon,
-		renderTrayMenu(settings),
-	);
-	if (!container) return;
-	const testButton = container.querySelector<HTMLButtonElement>('[oinky-alert-tray-menu=test]');
-	if (testButton) {
-		testButton.onclick = () => {
-			alertAudio.currentTime = 0;
-			notify(alertAudio, settings, 'Test', 'This is a test notification');
-		};
-	}
-	const notificationToggleButton = container.querySelector<HTMLButtonElement>(
-		'[oinky-alert-tray-menu=notification-toggle]',
-	);
-	if (notificationToggleButton) {
-		notificationToggleButton.onclick = () => {
-			settings.notificationEnabled = !settings.notificationEnabled;
-		};
-	}
-	const audioToggleButton = container.querySelector<HTMLButtonElement>(
-		'[oinky-alert-tray-menu=audio-toggle]',
-	);
-	if (audioToggleButton) {
-		audioToggleButton.onclick = () => {
-			settings.audioEnabled = !settings.audioEnabled;
-		};
-	}
-	const audioVolumeSlider = container.querySelector<HTMLInputElement>(
-		'input[oinky-alert-tray-menu=audio-volume]',
-	);
-	if (audioVolumeSlider) {
-		audioVolumeSlider.onchange = () => {
-			settings.audioVolume = parseFloat(audioVolumeSlider.value ?? '0');
-		};
-	}
-	return container;
-};
+	let completedBadge: HTMLDivElement | undefined;
+	let xpBadge: HTMLDivElement | undefined;
 
-const updateCraftingActivity = (
-	context: PluginContext,
-	item: string | null,
-	completed: number,
-	total: number,
-	sessionXp: number,
-) => {
-	const container = context.ui.taskbar.getActivity('crafting');
-	if (!container) return;
-	if (item === null || [completed, total, sessionXp].includes(NaN)) {
-		if (!container.hasAttribute('item-id')) return;
-		container.removeAttribute('item-id');
+	const buildContents = (item: string) => {
 		container.replaceChildren();
-		return;
-	}
-	if (container?.getAttribute('item-id') === item) {
-		const details = container.querySelector('[oinky-monitor-crafting-activity=details]');
-		if (details) details.innerHTML = renderCraftingActivityDetails(completed, total, sessionXp);
-		return;
-	}
-	container.setAttribute('item-id', item);
-	container.innerHTML = renderCraftingActivity(item, completed, total, sessionXp);
+
+		const icon = el.img`size-8 pixelated`.mount(container, 'icon');
+		icon.src = `https://flatmmo.com/images/items/${item}.png`;
+
+		const textColumn = el.div`flex flex-col`.mount(container, 'text-column');
+		const label = el.div`capitalize text-sm`.mount(textColumn, 'label');
+		label.textContent = item.replaceAll('_', ' ');
+
+		const details = el.div`flex gap-1 justify-between items-baseline`.mount(textColumn, 'details');
+		completedBadge = el.div`badge badge-xs badge-primary`.mount(details, 'completed-badge');
+		xpBadge = el.div`badge badge-xs badge-secondary`.mount(details, 'xp-badge');
+
+		const cancelButton =
+			el.button`btn btn-ghost btn-error btn-square btn-sm pointer-events-auto`.mount(
+				container,
+				'cancel-button',
+			);
+		el.icon.x`size-5`.mount(cancelButton, 'icon');
+		cancelButton.onclick = () => Globals.websocket?.send('CANCEL_MAKE_ITEM');
+
+		container.append(icon, textColumn, cancelButton);
+	};
+
+	const update = (item: string | null, completed: number, total: number, sessionXp: number) => {
+		if (item === null || [completed, total, sessionXp].some((value) => Number.isNaN(value))) {
+			container.style.display = 'none';
+			container.removeAttribute('item-id');
+			container.replaceChildren();
+			return;
+		}
+		if (container.getAttribute('item-id') !== item) {
+			container.setAttribute('item-id', item);
+			buildContents(item);
+		}
+		container.style.display = 'flex';
+		if (completedBadge) completedBadge.textContent = `${completed}/${total}`;
+		if (xpBadge) xpBadge.textContent = `${Math.round(sessionXp).toLocaleString()}xp`;
+	};
+
+	return { update };
 };
+
+// #region audio cues
+
+const initAudioCues = (
+	context: PluginContext,
+	scopes: (typeof initialSettings)['audioCues'],
+	helpers: SettingsHelpers,
+) => {
+	const sendAlert = (key: AudioCueKey) => {
+		const scoped = scopes[key];
+		context.alerts.sendFromScope(audioCues[key].title, scoped);
+	};
+
+	const nodes: SettingsNode[] = Object.entries(audioCues).map(([key, cue]) => {
+		const audioCueKey = key as AudioCueKey;
+		const scoped = scopes[audioCueKey];
+		return helpers.cueCard({
+			id: `audio-cue-${audioCueKey}`,
+			title: cue.title,
+			scoped,
+			onTest: () => sendAlert(audioCueKey),
+		});
+	});
+
+	return { sendAlert, nodes };
+};
+
+// #region state cues
+
+const makeStateCueCard = (
+	key: StateCueKey,
+	scoped: (typeof initialSettings)['stateCues'][StateCueKey],
+	helpers: SettingsHelpers,
+	onEnabledOrThresholdChange: () => void,
+	onTest: () => void,
+): Element => {
+	const defaults = initialSettings.stateCues[key];
+	return helpers.cueCard({
+		id: `state-cue-${key}`,
+		title: stateCues[key].title,
+		scoped,
+		onTest,
+		onEnabledChange: onEnabledOrThresholdChange,
+		mountHeaderExtras: (header) => {
+			el.span`text-xs text-base-content/60 shrink-0 search-value`.mount(
+				header,
+				undefined,
+				(span) => {
+					span.textContent = 'Threshold';
+				},
+			);
+
+			const thresholdInput = el.input.number`input input-sm w-20 tabular-nums`.mount(
+				header,
+				'threshold',
+				(input) => {
+					input.min = '0';
+					input.step = '1';
+					input.value = String(scoped.threshold);
+					input.onchange = () => {
+						const next = Math.max(0, Math.trunc(Number(input.value)));
+						scoped.threshold = Number.isFinite(next) ? next : defaults.threshold;
+						input.value = String(scoped.threshold);
+						onEnabledOrThresholdChange();
+					};
+				},
+			);
+			el.button`btn btn-xs btn-square btn-secondary btn-soft opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end`.mount(
+				header,
+				'reset',
+				(resetButton) => {
+					resetButton.type = 'button';
+					resetButton.setAttribute('data-tip', 'Reset to default');
+					el.icon.restore`size-4`.mount(resetButton);
+					resetButton.onclick = () => {
+						thresholdInput.value = String(defaults.threshold);
+						thresholdInput.dispatchEvent(new Event('change'));
+					};
+				},
+			);
+		},
+	});
+};
+
+const initStateCues = (
+	context: PluginContext,
+	scopes: (typeof initialSettings)['stateCues'],
+	helpers: SettingsHelpers,
+	isEnabled: () => boolean,
+) => {
+	const latched = new Set<StateCueKey>();
+	const primed = new Set<StateCueKey>();
+
+	const sendAlert = (key: StateCueKey, value: number) => {
+		const scoped = scopes[key];
+		const title = stateCues[key].title;
+		context.alerts.sendFromScope(
+			title,
+			scoped,
+			`${title} is at ${value} (threshold ${scoped.threshold})`,
+		);
+	};
+
+	const evaluate = (key: StateCueKey, value: number) => {
+		if (!isEnabled()) return;
+		if (!Number.isFinite(value)) return;
+		const scoped = scopes[key];
+		if (value > scoped.threshold) {
+			latched.delete(key);
+			primed.add(key);
+			return;
+		}
+		if (!scoped.enabled || latched.has(key)) return;
+		latched.add(key);
+		if (!primed.has(key)) {
+			primed.add(key);
+			return;
+		}
+		sendAlert(key, value);
+	};
+
+	const resetBaseline = () => primed.clear();
+
+	const nodes: SettingsNode[] = Object.entries(stateCues).map(([key]) => {
+		const stateCueKey = key as StateCueKey;
+		const scoped = scopes[stateCueKey];
+		return makeStateCueCard(
+			stateCueKey,
+			scoped,
+			helpers,
+			() => latched.delete(stateCueKey),
+			() => sendAlert(stateCueKey, scoped.threshold),
+		);
+	});
+
+	return { evaluate, resetBaseline, nodes };
+};
+
+// #region afk detection
+
+const initAfkDetection = (
+	context: PluginContext,
+	scoped: (typeof initialSettings)['afkDetection'],
+	helpers: SettingsHelpers,
+	lifecycle: Lifecycle,
+) => {
+	const defaults = initialSettings.afkDetection;
+	let lastActivityAt = Date.now();
+	let alerted = false;
+
+	const sendAlert = () => {
+		context.alerts.sendFromScope('AFK', scoped, `No activity for ${scoped.afkThreshold}s`);
+	};
+
+	const markActive = () => {
+		lastActivityAt = Date.now();
+		alerted = false;
+	};
+
+	const handleServerCommand = (command: string, values: string[]) => {
+		switch (command) {
+			case 'XP_DROP': {
+				if (!context.isLocalUsername(values[0])) return;
+				if (scoped.ignoreCrafting && values[1] === 'crafting') return;
+				return markActive();
+			}
+			case 'START_CLIENTSIDE_MOVEMENT':
+				if (!context.isLocalUsername(values[0])) return;
+				return markActive();
+			case 'PROGRESS_BAR':
+			case 'SET_PROGRESS_BAR':
+				return markActive();
+		}
+	};
+
+	const intervalId = setInterval(() => {
+		if (!scoped.enabled || alerted) return;
+		if (Date.now() - lastActivityAt < scoped.afkThreshold * 1000) return;
+		alerted = true;
+		sendAlert();
+	}, 1000);
+	lifecycle.onCleanup(() => clearInterval(intervalId));
+
+	const nodes: SettingsNode[] = [
+		helpers.cueCard({
+			id: 'afk-detection',
+			title: 'Afk Detected',
+			scoped,
+			onTest: sendAlert,
+			onEnabledChange: () => {
+				alerted = false;
+			},
+		}),
+		{
+			label: 'AFK threshold',
+			description: 'Seconds without activity before an AFK alert fires.',
+			specialType: 'numberSliderCombo',
+			reset: (input) => {
+				input.value = String(defaults.afkThreshold);
+			},
+			input: el.input.number``.then((input) => {
+				input.min = '5';
+				input.max = '600';
+				input.step = '5';
+				input.value = String(scoped.afkThreshold);
+				input.onchange = () => {
+					const min = 5;
+					const max = 600;
+					const next = Math.trunc(Number(input.value));
+					scoped.afkThreshold = Number.isFinite(next)
+						? Math.min(max, Math.max(min, next))
+						: defaults.afkThreshold;
+					input.value = String(scoped.afkThreshold);
+					alerted = false;
+				};
+			}),
+		},
+		helpers.toggle(
+			'Ignore crafting XP',
+			'Exclude crafting XP drops from counting as activity.',
+			() => scoped.ignoreCrafting,
+			(value) => {
+				scoped.ignoreCrafting = value;
+			},
+		),
+	];
+
+	return { handleServerCommand, nodes };
+};
+
+// #region Plugin
 
 export const MonitorPlugin: Plugin = {
-	namespace: 'core/monitor',
+	namespace: 'oinky/monitor',
 	name: 'Monitor',
+	description:
+		'Desktop/sound alerts for audio cues, low sleep/health/worship/run, AFK detection, and a crafting progress indicator.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('alertSettings', initialSettings);
-		const alertAudio = new Audio(notificationMp3);
-		lifecycle.onCleanup(() => alertAudio.remove());
+		const helpers = context.settings.helpers;
 
-		const container = mountTrayMenu(alertAudio, settings, context);
-		lifecycle.onCleanup(() => container?.remove());
+		const craftingActivity = mountCraftingActivity(lifecycle, context);
+		const audioCuesApi = initAudioCues(context, settings.audioCues, helpers);
+		const stateCuesApi = initStateCues(
+			context,
+			settings.stateCues,
+			helpers,
+			() => settings.enableStateCues,
+		);
+		const afkApi = initAfkDetection(context, settings.afkDetection, helpers, lifecycle);
+
+		const settingsMenu = context.settings.initMenu(lifecycle);
+		settingsMenu.mountSection('Afk Detection', afkApi.nodes);
+		settingsMenu.mountSection('Audio Cues', [
+			helpers.toggle(
+				'Enable audio cues',
+				'Master switch for all audio cue alerts.',
+				() => settings.enableAudioCues,
+				(value) => {
+					settings.enableAudioCues = value;
+				},
+			),
+			...audioCuesApi.nodes,
+		]);
+		settingsMenu.mountSection('State Cues', [
+			helpers.toggle(
+				'Enable state cues',
+				'Master switch for all state cue alerts.',
+				() => settings.enableStateCues,
+				(value) => {
+					settings.enableStateCues = value;
+				},
+			),
+			...stateCuesApi.nodes,
+		]);
+
 		return {
-			hookPlaySound: (url) => {
-				triggerSounds.forEach((triggerSound) => {
-					if (!url.endsWith(triggerSound.path)) return;
-					notify(alertAudio, settings, triggerSound.title);
-				});
+			events: {
+				login: () => stateCuesApi.resetBaseline(),
+				makeUiChange: (item, completed, total, sessionXp) =>
+					craftingActivity.update(item, completed, total, sessionXp),
+				updateSleep: (value) => stateCuesApi.evaluate('sleep', value),
+				updateWorship: (value) => stateCuesApi.evaluate('worship', value),
+				updateHealth: (username, current) => {
+					if (!context.isLocalUsername(username)) return;
+					stateCuesApi.evaluate('health', current);
+				},
+				updateRun: (_enabled, current) => stateCuesApi.evaluate('run', current),
 			},
-			onMakeUiChange: (item, completed, total, sessionXp) =>
-				updateCraftingActivity(context, item, completed, total, sessionXp),
-			hookServerCommand: (command) => command !== 'MAKE_ITEM_UI',
+			hooks: {
+				playSound: (url) => {
+					if (!settings.enableAudioCues) return;
+					const file = soundFileName(url);
+					const cue = Object.entries(audioCues).find(([, audioCue]) => audioCue.file === file);
+					if (!cue) return;
+					const audioCueKey = cue[0] as AudioCueKey;
+					const scoped = settings.audioCues[audioCueKey];
+					if (!scoped.enabled) return;
+					audioCuesApi.sendAlert(audioCueKey);
+				},
+				serverCommand: (command, values) => {
+					afkApi.handleServerCommand(command, values);
+					return command !== 'MAKE_ITEM_UI';
+				},
+			},
 		};
 	},
 };

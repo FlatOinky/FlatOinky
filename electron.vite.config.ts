@@ -11,8 +11,15 @@ const fullReloadAlways: Plugin = {
 };
 
 export default defineConfig({
-	main: {},
-	preload: {},
+	// Main and preload require their `dependencies` from node_modules at runtime
+	// rather than bundling them, so `dependencies` must list exactly what those
+	// two processes need. Renderer-only packages belong in `devDependencies`.
+	main: {
+		build: { externalizeDeps: true },
+	},
+	preload: {
+		build: { externalizeDeps: true },
+	},
 	renderer: {
 		plugins: [tailwindcss(), fullReloadAlways],
 	},

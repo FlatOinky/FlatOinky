@@ -1,6 +1,5 @@
-import mustache from 'mustache';
 import { Lifecycle, Plugin, PluginContext } from '../client';
-import themeSelectorTemplate from './themes/theme_selector.html?raw';
+import * as el from '../client/ui/elements';
 
 const initialSettings = { theme: 'dark' };
 type Settings = typeof initialSettings;
@@ -8,6 +7,8 @@ type Settings = typeof initialSettings;
 const themes = [
 	{ id: 'dark', name: 'Dark (default)' },
 	{ id: 'light', name: 'Light' },
+	{ id: 'flatmmo', name: 'Flat MMO' },
+	{ id: 'flatoinky', name: 'Flat Oinky' },
 	{ id: 'cupcake', name: 'Cupcake' },
 	{ id: 'bumblebee', name: 'Bumblebee' },
 	{ id: 'emerald', name: 'Emerald' },
@@ -43,36 +44,49 @@ const themes = [
 	{ id: 'silk', name: 'Silk' },
 ];
 
-const renderThemeSelector = (options: { id: string; name: string }[]): string => {
-	return mustache.render(themeSelectorTemplate, { options });
-};
-
 const updateTheme = (theme: string) =>
 	document.body.parentElement?.setAttribute('data-theme', theme);
 
-const mountThemeSelector = (lifecycle: Lifecycle, context: PluginContext, settings: Settings) => {
-	const container = context.ui.taskbar.getMenuItem('theme-selector');
-	if (!container) return;
-	container.innerHTML = renderThemeSelector(themes);
-	const themeSelector = container.querySelector<HTMLSelectElement>('select');
-	if (!themeSelector) return;
-	themeSelector.value = settings.theme;
-	themeSelector.onchange = () => {
-		settings.theme = themeSelector.value;
+const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, settings: Settings) => {
+	const root = context.ui.taskbar.initMenuItem(lifecycle, 'theme-selector');
+	const container = el.div`px-2`.mount(root, 'container');
+
+	el.fieldset``.mount(container, 'fieldset', (fieldset) => {
+		const legend = el.legend`fieldset-legend`.mount(fieldset, 'legend');
+		legend.append('Theme ');
+		const tooltip =
+			el.span`tooltip tooltip-info bg-info rounded-selector size-[1lh] text-info-content text-xs`.mount(
+				legend,
+				'tooltip',
+			);
+		tooltip.setAttribute('data-tip', 'Not every theme has colors that work well with the UI');
+		el.icon.infoSmall`size-[1.5lh] m-[-0.25lh]`.mount(tooltip, 'icon');
+	});
+
+	const select = el.select`select select-sm cursor-pointer`.mount(container, 'select');
+	themes.forEach(({ id, name }) => {
+		el.option``.mount(select, id, (option) => {
+			option.value = id;
+			option.textContent = name;
+		});
+	});
+
+	select.value = settings.theme;
+	select.onchange = () => {
+		settings.theme = select.value;
 		updateTheme(settings.theme);
 	};
-	lifecycle.onCleanup(() => container.replaceChildren());
 };
 
 export const ThemesPlugin: Plugin = {
-	namespace: 'core/themes',
+	namespace: 'oinky/themes',
 	name: 'Themes',
 	description: 'Themes for the Flat Oinky UI',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		updateTheme(settings.theme);
 		lifecycle.onCleanup(() => updateTheme('dark'));
-		mountThemeSelector(lifecycle, context, settings);
+		initThemeSelector(lifecycle, context, settings);
 		return {};
 	},
 };

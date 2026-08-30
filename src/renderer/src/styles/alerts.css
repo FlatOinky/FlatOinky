@@ -1,0 +1,29 @@
+@keyframes oinky-screen-flash {
+	0%,
+	49.999% {
+		opacity: 1;
+	}
+	50%,
+	100% {
+		opacity: 0;
+	}
+}
+
+.oinky-flash-layer {
+	mix-blend-mode: hue;
+	opacity: 0;
+	z-index: 1;
+}
+
+.oinky-flash-layer.is-flashing {
+	animation: oinky-screen-flash var(--oinky-flash-period, 2s) steps(1, end) infinite;
+}
+
+.oinky-toast-layer {
+	pointer-events: none;
+	z-index: 30;
+}
+
+.oinky-toast-layer > * {
+	pointer-events: auto;
+}
