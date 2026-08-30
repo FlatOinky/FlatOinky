@@ -34,7 +34,7 @@ const hideUpstreamAudioControls = (lifecycle: Lifecycle) => {
 
 export const AudioPlugin: Plugin = {
 	namespace: 'oinky/audio',
-	name: 'Audio Proxy',
+	name: 'Audio',
 	description:
 		'Play and mix in-game sounds and music, with per-sound volume and a tri-state filter.',
 	init: async (lifecycle, context) => {
