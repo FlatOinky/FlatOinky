@@ -71,6 +71,7 @@ export const TRACK_DISPLAY_NAMES: Record<string, string> = {
 	'fart.dat': 'Greenhouse',
 	'wind.dat': 'Clouds',
 	'tg.dat': 'Thieves Guild',
+	'pmines.dat': 'Prospecting Mines',
 };
 
 // Mirror of upstream ESSENTAIL_SOUNDS in refs/js/ui.js (typo is the game's).
