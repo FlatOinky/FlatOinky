@@ -20,11 +20,7 @@ export const examineItem = (target: ContextTargetOf<'item'>): ContextMenuItem =>
 	subject: target.data.label,
 	order: 110,
 	onSelect: () => {
-		const command =
-			target.subtype === 'bank_withdrawal'
-				? `RIGHT_CLICKED_WITHDRAW_BANK=${target.data.name}`
-				: `RIGHT_CLICKS_ITEM=${target.data.name}`;
-		Globals.websocket?.send(command);
+		Globals.websocket?.send(`RIGHT_CLICKS_ITEM=${target.data.name}`);
 	},
 });
 

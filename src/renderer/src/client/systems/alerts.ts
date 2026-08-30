@@ -77,7 +77,9 @@ const initTrayMenu = (lifecycle: Lifecycle, ui: ClientUI, onTest: () => void) =>
 	volumeInput.min = '0';
 	volumeInput.max = '1';
 	volumeInput.step = '0.05';
-	const percent = el.span`text-xs tabular-nums w-9 text-right text-base-content/70`.mount(volumeRow);
+	const percent = el.span`text-xs tabular-nums w-9 text-right text-base-content/70`.mount(
+		volumeRow,
+	);
 	const updatePercent = () => {
 		percent.textContent = `${Math.round(parseFloat(volumeInput.value) * 100)}%`;
 	};

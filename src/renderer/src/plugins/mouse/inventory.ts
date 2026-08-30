@@ -4,6 +4,16 @@ import { formatItemName } from './targets';
 const withdrawCommand = (): string =>
 	withdraw_as_notes ? 'WITHDRAW_FROM_BANK_NOTES' : 'WITHDRAW_FROM_BANK';
 
+const depositAll = (name: string): void => {
+	Globals.websocket?.send(
+		`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~${get_inventory_item_count(name)}`,
+	);
+};
+
+const withdrawStack = (name: string): void => {
+	Globals.websocket?.send(`RIGHT_CLICKED_WITHDRAW_BANK=${name}`);
+};
+
 const depositAmounts = (name: string, label: string): ContextMenuItem[] => [
 	{
 		action: 'Deposit 50',
@@ -35,7 +45,14 @@ const depositAmounts = (name: string, label: string): ContextMenuItem[] => [
 	},
 ];
 
-const withdrawAmounts = (name: string, label: string): ContextMenuItem[] => [
+const withdrawAmounts = (name: string, label: string, amount: number): ContextMenuItem[] => [
+	{
+		action: 'Withdraw all',
+		subject: label,
+		onSelect: () => {
+			Globals.websocket?.send(`${withdrawCommand()}=${name}~${amount}`);
+		},
+	},
 	{
 		action: 'Withdraw 50',
 		subject: label,
@@ -94,9 +111,7 @@ export const buildItemTarget = (name: string, index: number): ContextTarget => {
 			action: 'Deposit all',
 			subject: label,
 			onSelect: () => {
-				Globals.websocket?.send(
-					`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~${get_inventory_item_count(name)}`,
-				);
+				depositAll(name);
 			},
 		};
 	} else {
@@ -132,10 +147,10 @@ export const buildBankTarget = (name: string, amount: number): ContextTarget => 
 			},
 		},
 		rightClick: {
-			action: 'Withdraw all',
+			action: 'Withdraw',
 			subject: label,
 			onSelect: () => {
-				Globals.websocket?.send(`${withdrawCommand()}=${name}~${amount}`);
+				withdrawStack(name);
 			},
 		},
 	};
@@ -148,7 +163,7 @@ export const inventoryMenuItems = (target: ContextTargetOf<'item'>): ContextMenu
 		case 'bank_deposit':
 			return depositAmounts(name, label);
 		case 'bank_withdrawal':
-			return withdrawAmounts(name, label);
+			return withdrawAmounts(name, label, target.data.amount);
 		case 'inventory':
 			return [
 				{
@@ -173,6 +188,7 @@ export const inventoryMenuItems = (target: ContextTargetOf<'item'>): ContextMenu
 
 export type InventoryTriggerOptions = {
 	isEnabled: () => boolean;
+	swapBankClicks: () => boolean;
 	show: (targets: ContextTarget[], event: MouseEvent) => boolean;
 };
 
@@ -183,36 +199,56 @@ export const initInventoryTrigger = (
 	const inventory = document.getElementById('ui-panel-inventory-content');
 	if (!inventory) return;
 
-	const onContextMenu = (event: MouseEvent) => {
-		if (!options.isEnabled()) return;
+	const inventorySlot = (event: MouseEvent) => {
 		const slot = (event.target as Element | null)?.closest('.item');
 		if (!slot?.parentElement || slot.parentElement !== inventory) return;
 		const name = slot.querySelector('img[data-item-name]')?.getAttribute('data-item-name');
 		if (!name) return;
 		const index = Array.prototype.indexOf.call(inventory.children, slot);
 		if (index < 0) return;
+		return { name, index };
+	};
+
+	const onPointerDown = (event: PointerEvent) => {
+		if (!options.isEnabled()) return;
+		if (!is_bank_open()) return;
+		if (event.button !== 0) return;
+		if (!inventorySlot(event)) return;
+		event.stopPropagation();
+	};
+
+	const onContextMenu = (event: MouseEvent) => {
+		if (!options.isEnabled()) return;
+		const slot = inventorySlot(event);
+		if (!slot) return;
 		event.preventDefault();
 		event.stopPropagation();
-		options.show([buildItemTarget(name, index)], event);
+		if (is_bank_open() && options.swapBankClicks()) {
+			depositAll(slot.name);
+			return;
+		}
+		options.show([buildItemTarget(slot.name, slot.index)], event);
 	};
 
 	const onClick = (event: MouseEvent) => {
 		if (!options.isEnabled()) return;
 		if (!is_bank_open()) return;
-		const slot = (event.target as Element | null)?.closest('.item');
-		if (!slot?.parentElement || slot.parentElement !== inventory) return;
-		const name = slot.querySelector('img[data-item-name]')?.getAttribute('data-item-name');
-		if (!name) return;
+		const slot = inventorySlot(event);
+		if (!slot) return;
 		event.preventDefault();
 		event.stopPropagation();
-		Globals.websocket?.send(
-			`DEPOSIT_TO_BANK=${selected_bank_tab}~${name}~${get_inventory_item_count(name)}`,
-		);
+		if (options.swapBankClicks()) {
+			options.show([buildItemTarget(slot.name, slot.index)], event);
+			return;
+		}
+		depositAll(slot.name);
 	};
 
+	inventory.addEventListener('pointerdown', onPointerDown, true);
 	inventory.addEventListener('click', onClick, true);
 	inventory.addEventListener('contextmenu', onContextMenu, true);
 	lifecycle.onCleanup(() => {
+		inventory.removeEventListener('pointerdown', onPointerDown, true);
 		inventory.removeEventListener('contextmenu', onContextMenu, true);
 		inventory.removeEventListener('click', onClick, true);
 	});
@@ -239,6 +275,10 @@ export const initBankTrigger = (lifecycle: Lifecycle, options: InventoryTriggerO
 		if (!slot) return;
 		event.preventDefault();
 		event.stopPropagation();
+		if (options.swapBankClicks()) {
+			withdrawStack(slot.name);
+			return;
+		}
 		options.show([buildBankTarget(slot.name, slot.amount)], event);
 	};
 
@@ -248,7 +288,11 @@ export const initBankTrigger = (lifecycle: Lifecycle, options: InventoryTriggerO
 		if (!slot) return;
 		event.preventDefault();
 		event.stopPropagation();
-		Globals.websocket?.send(`${withdrawCommand()}=${slot.name}~${slot.amount}`);
+		if (options.swapBankClicks()) {
+			options.show([buildBankTarget(slot.name, slot.amount)], event);
+			return;
+		}
+		withdrawStack(slot.name);
 	};
 
 	storage.addEventListener('click', onClick, true);

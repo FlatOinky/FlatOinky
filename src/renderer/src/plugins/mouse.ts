@@ -8,6 +8,7 @@ const initialSettings = {
 	includeWalkHere: true,
 	collapseTargets: true,
 	showDropIdenticons: false,
+	swapBankClicks: false,
 };
 
 export const MousePlugin: Plugin = {
@@ -24,10 +25,12 @@ export const MousePlugin: Plugin = {
 
 		initInventoryTrigger(lifecycle, {
 			isEnabled: () => settings.enabled,
+			swapBankClicks: () => settings.swapBankClicks,
 			show,
 		});
 		initBankTrigger(lifecycle, {
 			isEnabled: () => settings.enabled,
+			swapBankClicks: () => settings.swapBankClicks,
 			show,
 		});
 
@@ -65,6 +68,14 @@ export const MousePlugin: Plugin = {
 				() => settings.showDropIdenticons,
 				(value) => {
 					settings.showDropIdenticons = value;
+				},
+			),
+			helpers.toggle(
+				'Swap Bank Left and Right Click',
+				'Put the context menu on left click and the deposit/withdraw action on right click.',
+				() => settings.swapBankClicks,
+				(value) => {
+					settings.swapBankClicks = value;
 				},
 			),
 		]);
