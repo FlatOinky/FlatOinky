@@ -252,14 +252,14 @@ const initProspectingTimers = (
 	const helpers = context.settings.helpers;
 	settingsMenu.mountSection('Prospecting Timers', [
 		helpers.toggle(
-			'Enabled',
-			'Show respawn timers on Mine Piles after they start shaking.',
+			'Enable Timers',
+			'Show countdown timers for prospecting Mine Piles.',
 			() => settings.enabled,
 			setEnabled,
 		),
 		helpers.toggle(
-			'Show Radial Progress',
-			'Draw a circular remaining-time ring over each pile.',
+			'Progress bar',
+			'Draw a circular progress bar over each pile.',
 			() => settings.showRadial,
 			(value) => {
 				settings.showRadial = value;
@@ -267,8 +267,7 @@ const initProspectingTimers = (
 			},
 		),
 		{
-			label: 'Timer Display',
-			description: 'How remaining time is shown on each pile.',
+			label: 'Timer display',
 			reset: (input) => {
 				input.value = createSettings().display;
 			},
@@ -302,7 +301,7 @@ const initProspectingTimers = (
 export const ProspectingTimersPlugin: Plugin = {
 	namespace: 'oinky/prospecting_timers',
 	name: 'Prospecting Timers',
-	description: 'Countdown timers on prospecting Mine Piles after they start shaking.',
+	description: 'Countdown timers on prospecting Mine Piles.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', createSettings());
 		settings.display = asDisplayMode(settings.display);
