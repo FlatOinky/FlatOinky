@@ -224,8 +224,8 @@ export const TweaksPlugin: Plugin = {
 
 		settingsMenu.mountSection('Bug Fixes', [
 			helpers.toggle(
-				'Remove object shake',
-				'Stop objects shaking once they are depleted or removed.',
+				'Clear object shake',
+				'Stop objects from shaking once they are depleted.',
 				() => settings.enableObjectShakeCleanup,
 				(value) => {
 					settings.enableObjectShakeCleanup = value;

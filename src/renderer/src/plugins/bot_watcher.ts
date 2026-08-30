@@ -102,8 +102,6 @@ const createBotWatcherSettings = () => ({
 });
 type BotWatcherSettings = ReturnType<typeof createBotWatcherSettings>;
 
-type StormKind = 'scroll' | 'unknown';
-
 type TreeRecord =
 	| { status: 'unknown' }
 	| { status: 'absent' }
@@ -112,7 +110,7 @@ type TreeRecord =
 type StormRecord =
 	| { status: 'unknown' }
 	| { status: 'absent' }
-	| { status: 'present'; startedAt: number; stormKind: StormKind; note?: string };
+	| { status: 'present'; startedAt: number; note?: string };
 
 type SuperStormRecord =
 	| { status: 'unknown' }
@@ -148,7 +146,6 @@ type CategoryView = {
 	summary?: string;
 	detail?: string;
 	countdownMs?: number;
-	badges: string[];
 	hidden?: boolean;
 	isGem?: boolean;
 	dismissible?: boolean;
@@ -388,7 +385,6 @@ const paintIconCircle = (target: IconCircle, phase: Phase, icon: Element, isGem:
 
 type WatcherRow = IconCircle & {
 	root: HTMLElement;
-	badgeRow: HTMLElement;
 	summary: HTMLElement;
 	detail: HTMLElement;
 	countdown: HTMLElement;
@@ -422,7 +418,6 @@ const mountWatcherRow = (container: HTMLElement, id: string, label: string): Wat
 	el.span`font-medium text-sm leading-tight`.mount(header, 'label', (span) => {
 		span.textContent = label;
 	});
-	const badgeRow = el.span`flex gap-1 flex-wrap`.mount(header, 'badges');
 	const summary = el.div`text-xs text-base-content/80 truncate`.mount(text, 'summary');
 	const detail = el.div`text-xs text-base-content/50`.mount(text, 'detail');
 	const countdown = el.div`tabular-nums font-semibold text-sm shrink-0`.mount(root, 'countdown');
@@ -433,7 +428,6 @@ const mountWatcherRow = (container: HTMLElement, id: string, label: string): Wat
 		circle,
 		iconHost,
 		circleSize: 'size-8',
-		badgeRow,
 		summary,
 		detail,
 		countdown,
@@ -443,7 +437,6 @@ const mountWatcherRow = (container: HTMLElement, id: string, label: string): Wat
 
 type WatcherStack = IconCircle & {
 	root: HTMLElement;
-	badgeRow: HTMLElement;
 	summary: HTMLElement;
 	detail: HTMLElement;
 	countdown: HTMLElement;
@@ -459,7 +452,6 @@ const mountWatcherStack = (container: HTMLElement, id: string): WatcherStack => 
 	const wrap = el.div`rounded-full shrink-0`.mount(root, 'aura');
 	const circle = el.div`size-8 rounded-full flex items-center justify-center`.mount(wrap, 'circle');
 	const iconHost = el.span`leading-none`.mount(circle, 'icon');
-	const badgeRow = el.span`flex gap-1 flex-wrap justify-center`.mount(root, 'badges');
 	const summary = el.div`text-xs text-base-content/80 truncate w-full text-center`.mount(
 		root,
 		'summary',
@@ -472,23 +464,11 @@ const mountWatcherStack = (container: HTMLElement, id: string): WatcherStack => 
 		circle,
 		iconHost,
 		circleSize: 'size-8',
-		badgeRow,
 		summary,
 		countdown,
 		detail: document.createElement('div'),
 		dismiss,
 	};
-};
-
-const paintBadges = (row: HTMLElement, labels: string[]) => {
-	row.replaceChildren();
-	for (const label of labels) {
-		const badge = document.createElement('span');
-		badge.className = 'badge badge-xs badge-secondary';
-		badge.textContent = label;
-		row.appendChild(badge);
-	}
-	row.style.display = labels.length > 0 ? 'flex' : 'none';
 };
 
 const paintCountdown = (target: HTMLElement, view: CategoryView, extra = '') => {
@@ -527,8 +507,7 @@ const renderPopupRow = (
 	row.root.style.display = hidden ? 'none' : 'flex';
 	if (hidden) return;
 	paintIconCircle(row, view.phase, icon, !!view.isGem);
-	paintBadges(row.badgeRow, view.badges);
-	const summary = view.summary ?? '';
+	const summary = view.label === CATEGORY_LABELS.storm ? '' : (view.summary ?? '');
 	row.summary.textContent = summary;
 	row.summary.title = summary;
 	row.summary.style.display = summary ? 'block' : 'none';
@@ -548,7 +527,6 @@ const renderWindowStack = (
 	stack.root.style.display = hidden ? 'none' : 'flex';
 	if (hidden) return;
 	paintIconCircle(stack, view.phase, icon, !!view.isGem);
-	paintBadges(stack.badgeRow, view.badges);
 	const summary = view.summary ?? '';
 	stack.summary.textContent = summary;
 	stack.summary.title = summary;
@@ -706,11 +684,9 @@ const initBotWatcher = (
 		const startedAt = stamp ? parseUtcClock(stamp[1], now) : undefined;
 		if (startedAt === undefined && !stamp) return;
 		const previous = state.storm.status;
-		const previousKind = state.storm.status === 'present' ? state.storm.stormKind : undefined;
 		state.storm = {
 			status: 'present',
 			startedAt: startedAt ?? now,
-			stormKind: previousKind === 'scroll' ? 'scroll' : 'unknown',
 			note: state.storm.status === 'present' ? state.storm.note : undefined,
 		};
 		if (previous !== 'present') fireOnce('storm');
@@ -827,7 +803,6 @@ const initBotWatcher = (
 			state.storm = {
 				status: 'present',
 				startedAt: startedAt ?? now,
-				stormKind: 'scroll',
 			};
 			if (previous !== 'present') fireOnce('storm');
 			return;
@@ -883,25 +858,23 @@ const initBotWatcher = (
 
 	const treeView = (now: number): CategoryView => {
 		if (state.tree.status === 'unknown') {
-			return { phase: 'unknown', label: 'Evil Tree', badges: [], detail: UNKNOWN_WAITING };
+			return { phase: 'unknown', label: 'Evil Tree', detail: UNKNOWN_WAITING };
 		}
 		if (state.tree.status === 'absent') {
-			return { phase: 'absent', label: 'Evil Tree', badges: [], summary: 'None' };
+			return { phase: 'absent', label: 'Evil Tree', summary: 'None' };
 		}
 		const setAt = asEpoch(state.tree.setAt, now);
 		if (setAt === undefined) {
-			return { phase: 'active', label: 'Evil Tree', badges: [], summary: state.tree.location };
+			return { phase: 'active', label: 'Evil Tree', summary: state.tree.location };
 		}
 		const remaining = remainingUntil(hourLater(setAt), now);
 		if (remaining <= 0) {
-			return { phase: 'absent', label: 'Evil Tree', badges: [], summary: 'None' };
+			return { phase: 'absent', label: 'Evil Tree', summary: 'None' };
 		}
 		return {
 			phase: 'active',
 			label: 'Evil Tree',
-			badges: [],
 			summary: state.tree.location,
-			detail: 'remaining',
 			countdownMs: remaining,
 		};
 	};
@@ -909,14 +882,13 @@ const initBotWatcher = (
 	const meteorView = (now: number): CategoryView => {
 		const meteor = getCurrentMeteor();
 		if (!meteor) {
-			return { phase: 'unknown', label: 'Meteor', badges: [], detail: UNKNOWN_WAITING };
+			return { phase: 'unknown', label: 'Meteor', detail: UNKNOWN_WAITING };
 		}
 		const setAt = asEpoch(meteor.setAt, now);
 		if (setAt === undefined) {
 			return {
 				phase: 'active',
 				label: 'Meteor',
-				badges: [],
 				isGem: meteor.isGem,
 				summary: meteor.location,
 			};
@@ -927,7 +899,6 @@ const initBotWatcher = (
 		return {
 			phase: stale ? 'stale' : 'active',
 			label: 'Meteor',
-			badges: [],
 			isGem: meteor.isGem,
 			summary: meteor.location,
 			detail: stale ? `May have moved · set ${formatUtcClock(setAt)}` : undefined,
@@ -937,47 +908,41 @@ const initBotWatcher = (
 
 	const alienView = (now: number): CategoryView => {
 		if (!state.alien) {
-			return { phase: 'absent', label: 'Alien', badges: [], hidden: true };
+			return { phase: 'absent', label: 'Alien', hidden: true };
 		}
 		const remaining = remainingUntil(state.alien.hourBucket + ALIEN_MS, now);
 		if (remaining <= 0) {
-			return { phase: 'absent', label: 'Alien', badges: [], hidden: true };
+			return { phase: 'absent', label: 'Alien', hidden: true };
 		}
 		const location = alienLocation(state.alien.hourBucket);
 		return {
 			phase: 'active',
 			label: 'Alien',
-			badges: [],
 			summary: location ?? 'Location not called out yet',
-			detail: 'remaining',
 			countdownMs: remaining,
 		};
 	};
 
 	const stormView = (now: number): CategoryView => {
 		if (state.storm.status === 'unknown') {
-			return { phase: 'unknown', label: 'Storm', badges: [], detail: UNKNOWN_WAITING };
+			return { phase: 'unknown', label: CATEGORY_LABELS.storm, detail: UNKNOWN_WAITING };
 		}
 		if (state.storm.status === 'absent') {
-			return { phase: 'absent', label: 'Storm', badges: [], summary: 'No' };
+			return { phase: 'absent', label: CATEGORY_LABELS.storm, summary: 'No' };
 		}
-		const badges: string[] = state.storm.stormKind === 'scroll' ? ['Scroll'] : [];
 		const remaining = remainingUntil(hourLater(state.storm.startedAt), now);
 		if (remaining <= 0) {
 			return {
 				phase: 'stale',
-				label: 'Storm',
-				badges,
-				summary: state.storm.note,
+				label: CATEGORY_LABELS.storm,
+				summary: 'storm scroll',
 				detail: `Ended ${formatUtcClock(hourLater(state.storm.startedAt))}`,
 			};
 		}
 		return {
 			phase: 'active',
-			label: 'Storm',
-			badges,
-			summary: state.storm.note,
-			detail: 'remaining',
+			label: CATEGORY_LABELS.storm,
+			summary: 'storm scroll',
 			countdownMs: remaining,
 		};
 	};
@@ -987,7 +952,6 @@ const initBotWatcher = (
 			return {
 				phase: state.superStorm.status === 'absent' ? 'absent' : 'unknown',
 				label: 'Super Storm',
-				badges: [],
 				hidden: true,
 			};
 		}
@@ -996,7 +960,6 @@ const initBotWatcher = (
 		return {
 			phase: 'active',
 			label: 'Super Storm',
-			badges: [],
 			summary: state.superStorm.note,
 			countdownMs: elapsed,
 			dismissible: true,
@@ -1006,7 +969,7 @@ const initBotWatcher = (
 
 	const ancientView = (now: number): CategoryView => {
 		if (state.ancient.status === 'unknown') {
-			return { phase: 'unknown', label: 'Ancient Ore', badges: [], detail: UNKNOWN_WAITING };
+			return { phase: 'unknown', label: 'Ancient Ore', detail: UNKNOWN_WAITING };
 		}
 		if (state.ancient.status === 'up') {
 			const upAt = asEpoch(state.ancient.observedAt, now);
@@ -1017,7 +980,6 @@ const initBotWatcher = (
 			return {
 				phase: stale ? 'stale' : 'active',
 				label: 'Ancient Ore',
-				badges: [],
 				summary: stale ? 'Ancient Up?' : 'Ancient Up',
 				detail: '',
 				countdownMs: elapsed,
@@ -1032,7 +994,6 @@ const initBotWatcher = (
 				return {
 					phase: 'absent',
 					label: 'Ancient Ore',
-					badges: [],
 					summary: 'No',
 					detail: `Up by ~${formatUtcClock(hourLater(state.ancient.observedAt))}`,
 					countdownMs: remaining,
@@ -1041,7 +1002,6 @@ const initBotWatcher = (
 			return {
 				phase: 'stale',
 				label: 'Ancient Ore',
-				badges: [],
 				summary: 'No',
 				detail: 'Respawn should have happened',
 			};
@@ -1049,7 +1009,6 @@ const initBotWatcher = (
 		return {
 			phase: 'absent',
 			label: 'Ancient Ore',
-			badges: [],
 			summary: 'No',
 			detail: 'Respawn unknown',
 		};
@@ -1092,7 +1051,6 @@ const initBotWatcher = (
 	const unknownView = (): CategoryView => ({
 		phase: 'unknown',
 		label: 'Waiting for !s',
-		badges: [],
 		detail: 'Ask in chat to refresh',
 	});
 
@@ -1195,9 +1153,9 @@ const initBotWatcher = (
 					tree: mountWatcherRow(list, 'tree', 'Evil Tree'),
 					meteor: mountWatcherRow(list, 'meteor', 'Meteor'),
 					alien: mountWatcherRow(list, 'alien', 'Alien'),
-					storm: mountWatcherRow(list, 'storm', 'Storm'),
+					storm: mountWatcherRow(list, 'storm', CATEGORY_LABELS.storm),
 					superStorm: mountWatcherRow(list, 'superStorm', 'Super Storm'),
-					ancient: mountWatcherRow(list, 'ancient', 'Ancient'),
+					ancient: mountWatcherRow(list, 'ancient', CATEGORY_LABELS.ancient),
 				},
 			};
 		}
@@ -1287,9 +1245,9 @@ const initBotWatcher = (
 			tree: mountWatcherRow(list, 'tree', 'Evil Tree'),
 			meteor: mountWatcherRow(list, 'meteor', 'Meteor'),
 			alien: mountWatcherRow(list, 'alien', 'Alien'),
-			storm: mountWatcherRow(list, 'storm', 'Storm'),
+			storm: mountWatcherRow(list, 'storm', CATEGORY_LABELS.storm),
 			superStorm: mountWatcherRow(list, 'superStorm', 'Super Storm'),
-			ancient: mountWatcherRow(list, 'ancient', 'Ancient'),
+			ancient: mountWatcherRow(list, 'ancient', CATEGORY_LABELS.ancient),
 		};
 		const footer = el.div`text-xs text-base-content/50 pt-1`.mount(body, 'footer');
 		el.button`btn btn-sm btn-primary w-full`.mount(body, 'open-window', (button) => {

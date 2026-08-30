@@ -604,8 +604,8 @@ export const MetricsPlugin: Plugin = {
 
 		settingsMenu.mountSection('Display', [
 			{
-				label: 'Show total XP',
-				description: 'Show the combined total XP chart in the metrics window.',
+				label: 'Total XP chart',
+				description: 'Show the combined total XP chart.',
 				specialType: 'toggle',
 				input: el.input.checkbox``.then((input) => {
 					showTotalCheckbox = input;
@@ -614,8 +614,8 @@ export const MetricsPlugin: Plugin = {
 				}),
 			},
 			helpers.toggle(
-				'Show inactive skills',
-				'Keep skill charts visible after they stop gaining XP.',
+				'Inactive skills',
+				'Keep skill charts visible after they stop gaining XP for a while.',
 				() => settings.metricsWindow.showInactiveSkills,
 				(value) => {
 					settings.metricsWindow.showInactiveSkills = value;
@@ -632,8 +632,7 @@ export const MetricsPlugin: Plugin = {
 				},
 			),
 			{
-				label: 'Chart color',
-				description: 'Color of the XP rate line charts.',
+				label: 'Chart line color',
 				specialType: 'selectColorCombo',
 				options: Object.entries(daisyUiColors).map(([name, value]) => ({
 					label: formatDaisyUiColorLabel(name),
@@ -649,8 +648,7 @@ export const MetricsPlugin: Plugin = {
 				}),
 			},
 			{
-				label: 'XP Rate',
-				description: 'The type of XP rate to display.',
+				label: 'XP rate type',
 				input: el.select``.then((input) => {
 					input.value = settings.xpRateType;
 					el.option``.mount(input, 'hr', (option) => {

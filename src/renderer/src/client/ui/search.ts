@@ -67,8 +67,8 @@ export const mountSearchBar = (
 	barParent: Element,
 	searchContainer: Element,
 ) => {
-	const searchBar = el.div`join p-1`.mount(barParent, 'search');
-	const searchInput = el.input.text`join-item input block input-xs w-full`.mount(
+	const searchBar = el.div`flex gap-1 p-1`.mount(barParent, 'search');
+	const searchInput = el.input.text`input block input-xs w-full`.mount(
 		searchBar,
 		undefined,
 		(input) => {
@@ -78,8 +78,8 @@ export const mountSearchBar = (
 	const search = makeSearch(searchInput, searchContainer);
 	lifecycle.onCleanup(search.disconnect);
 
-	el.button`join-item btn btn-xs btn-square`.mount(searchBar, undefined, (button) => {
-		el.icon.x`size-4`.mount(button);
+	el.button`btn btn-xs btn-square`.mount(searchBar, undefined, (button) => {
+		el.icon.x`size-3`.mount(button);
 		button.onclick = () => {
 			searchInput.value = '';
 			searchInput.dispatchEvent(new Event('input'));
