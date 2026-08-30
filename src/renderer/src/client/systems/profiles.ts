@@ -31,6 +31,14 @@ export const initProfilesSystem = (
 			container,
 			'plugins',
 		);
+	el.h2`text-lg font-bold tracking-tight text-base-content/90 px-1`.mount(
+		pluginsColumn,
+		'heading',
+		(heading) => {
+			heading.textContent = 'Plugins';
+		},
+	);
+	const pluginsList = el.div`flex flex-col gap-1`.mount(pluginsColumn, 'list');
 
 	const profilesListContainer =
 		el.ul`h-1 grow shrink overflow-y-auto scrollbar-thumb-base-content/50 scrollbar-track-base-200/70`.mount(
@@ -188,40 +196,61 @@ export const initProfilesSystem = (
 		updateControls();
 	};
 
-	const renderPlugins = () => {
-		pluginsColumn.replaceChildren();
-		el.h2`text-lg font-bold tracking-tight text-base-content/90 px-1`.mount(
-			pluginsColumn,
-			'heading',
-			(heading) => {
-				heading.textContent = 'Plugins';
-			},
+	type PluginRow = {
+		update: () => void;
+		remove: () => void;
+	};
+	const pluginRows: Record<string, PluginRow> = {};
+
+	const initPluginRow = (plugin: (typeof plugins.registry)[string]): PluginRow => {
+		const rowLifecycle = lifecycle.spawnLifecycle();
+		const row = el.div`flex flex-col gap-0.5 py-1.5 px-1`.init(
+			rowLifecycle,
+			pluginsList,
+			plugin.namespace,
 		);
-		const list = el.div`flex flex-col gap-1`.mount(pluginsColumn, 'list');
-		for (const plugin of Object.values(plugins.registry)) {
-			el.div`flex flex-col gap-0.5 py-1.5 px-1`.mount(list, plugin.namespace, (row) => {
-				const header = el.div`flex gap-2 items-center`.mount(row, 'header');
-				const toggle = el.input.checkbox``.mount(header, 'toggle');
-				toggle.classList = 'toggle toggle-sm';
-				toggle.id = `profiles-plugin-${plugin.namespace.replaceAll('/', '-')}`;
-				toggle.checked = plugins.isEnabled(plugin.namespace);
-				toggle.onchange = () => {
-					void plugins.setEnabled(plugin.namespace, toggle.checked);
-				};
-				el.label`font-medium text-sm cursor-pointer`.mount(header, 'label', (label) => {
-					label.htmlFor = toggle.id;
-					label.textContent = plugin.name;
-				});
-				if (plugin.description) {
-					el.div`text-xs text-base-content/60 font-normal`.mount(
-						row,
-						'description',
-						(description) => {
-							description.textContent = plugin.description ?? '';
-						},
-					);
-				}
+		const header = el.div`flex gap-2 items-center`.mount(row, 'header');
+		const toggle = el.input.checkbox``.mount(header, 'toggle');
+		toggle.classList = 'toggle toggle-sm';
+		toggle.id = `profiles-plugin-${plugin.namespace.replaceAll('/', '-')}`;
+		toggle.onchange = () => {
+			void plugins.setEnabled(plugin.namespace, toggle.checked);
+		};
+		el.label`font-medium text-sm cursor-pointer`.mount(header, 'label', (label) => {
+			label.htmlFor = toggle.id;
+			label.textContent = plugin.name;
+		});
+		if (plugin.description) {
+			el.div`text-xs text-base-content/60 font-normal`.mount(row, 'description', (description) => {
+				description.textContent = plugin.description ?? '';
 			});
+		}
+		rowLifecycle.onCleanup(() => delete pluginRows[plugin.namespace]);
+
+		const update = () => {
+			toggle.checked = plugins.isEnabled(plugin.namespace);
+		};
+		update();
+
+		return {
+			update,
+			remove: () => rowLifecycle.cleanup(),
+		};
+	};
+
+	const renderPlugins = () => {
+		const keep: string[] = [];
+		for (const plugin of Object.values(plugins.registry)) {
+			keep.push(plugin.namespace);
+			const existing = pluginRows[plugin.namespace];
+			if (existing) {
+				existing.update();
+			} else {
+				pluginRows[plugin.namespace] = initPluginRow(plugin);
+			}
+		}
+		for (const namespace in pluginRows) {
+			if (!keep.includes(namespace)) pluginRows[namespace].remove();
 		}
 	};
 
@@ -240,9 +269,6 @@ export const initProfilesSystem = (
 		renderProfiles();
 		renderPlugins();
 		renderProfileSelect();
-		if (profilesWindow) {
-			profilesWindow.window.body.replaceChildren(container);
-		}
 	};
 
 	const createProfilesWindow = () => {
@@ -373,6 +399,6 @@ export const initProfilesSystem = (
 		})();
 	};
 
-	lifecycle.onCleanup(plugins.subscribe(render));
+	lifecycle.onCleanup(plugins.subscribe(renderPlugins));
 	render();
 };
