@@ -393,14 +393,14 @@ const makeSwapToggle = (
 	onIcon: Element,
 	offIcon: Element,
 	tip: string,
-	tipAlign = 'tooltip-start',
+	tipAlign = 'tooltip-start tooltip-top',
 	container?: Element,
 	id?: string,
 ): Element => {
 	// DaisyUI's btn press style uses `translate: 0 .5px`, which expands scroll
 	// overflow on the last row of a list and flashes a scrollbar — cancel it.
 	const toggle =
-		el.label`swap btn btn-sm btn-square btn-soft tooltip tooltip-top ${tipAlign} active:translate-none has-checked:btn-success not-has-checked:btn-error`.mount(
+		el.label`swap btn btn-sm btn-square btn-soft tooltip ${tipAlign} active:translate-none has-checked:btn-success not-has-checked:btn-error`.mount(
 			container,
 			id,
 		);
@@ -457,7 +457,7 @@ const makeAlertTestButton = (onTest: () => void): Element =>
 const makeAlertChannelToggles = (
 	inputs: AlertChannelInputs,
 	onTest: () => void,
-	tipAlign = 'tooltip-start',
+	tipAlign = 'tooltip-start tooltip-top',
 ): Element => {
 	const row = el.div`flex items-center w-full`.element;
 	const join = el.div`join flex-1 min-w-0 w-full`.mount(row);

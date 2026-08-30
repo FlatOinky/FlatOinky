@@ -146,6 +146,9 @@ export const initialSettings = {
 	yellIndicator: 'guy' as 'guy' | 'icon' | 'text',
 	enableCommands: true,
 	commandPrefix: '/',
+	logWindowOpen: false,
+	mutedPlayersWindowOpen: false,
+	messageScannerWindowOpen: false,
 };
 export type Settings = typeof initialSettings;
 
@@ -194,11 +197,4 @@ export type ChatElements = {
 	settingsActivator: HTMLButtonElement;
 	mutedPlayersActivator: HTMLButtonElement;
 	wordMatchesActivator: HTMLButtonElement;
-	logModal: HTMLDialogElement;
-	logContainer: HTMLUListElement;
-	logGoTop: HTMLButtonElement;
-	logGoUp: HTMLButtonElement;
-	logGoDown: HTMLButtonElement;
-	logGoBottom: HTMLButtonElement;
-	logExport: HTMLButtonElement;
 };

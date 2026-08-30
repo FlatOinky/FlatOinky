@@ -13,7 +13,6 @@ import {
 	mountChatInput,
 	sendChatLine,
 } from './chat_input';
-import { mountChatLog, wireChatLog } from './chat_log';
 import {
 	checkIsAtBottom,
 	createWelcomeChatMessage,
@@ -86,12 +85,12 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 	dropdown.id = 'oinky-chat-actions';
 	dropdown.style.setProperty('position-anchor', '--oinky-chat-actions-toggle');
 
-	const [logActivator, settingsActivator, mutedPlayersActivator, wordMatchesActivator] = (
+	const [logActivator, mutedPlayersActivator, wordMatchesActivator, settingsActivator] = (
 		[
-			['log-activator', 'Open Chat Log'],
-			['settings-activator', 'Open Settings'],
+			['log-activator', 'Chat Log'],
 			['muted-players-activator', 'Muted Players'],
-			['word-matches-activator', 'Word Matches'],
+			['word-matches-activator', 'Message Scanner'],
+			['settings-activator', 'Open Settings'],
 		] as const
 	).map(([id, label]) => {
 		const item = el.li``.mount(dropdown, `${id}-item`);
@@ -177,7 +176,6 @@ export const initChat = (
 	const addTabRefs = mountAddTabModal(root);
 	const { logActivator, settingsActivator, mutedPlayersActivator, wordMatchesActivator } =
 		mountChatActionsDropdown(root);
-	const logRefs = mountChatLog(root);
 
 	const stickiness: ChatStickiness = { isSticky: true };
 	const elements: ChatElements = {
@@ -199,7 +197,6 @@ export const initChat = (
 		wordMatchesActivator,
 		mutedPlayersActivator,
 		...addTabRefs,
-		...logRefs,
 	};
 
 	const commandContext: ChatCommandContext = {
@@ -272,7 +269,6 @@ export const initChat = (
 		handleAddTabClick(elements, channels, context);
 	};
 	updateChatTabs(tabsContainer, channels, inputLabel);
-	wireChatLog(elements, settings, filters, context.ipc);
 	elements.commandsButton.classList.toggle('hidden', !settings.enableCommands);
 
 	return elements;

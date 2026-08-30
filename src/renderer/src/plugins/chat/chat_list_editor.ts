@@ -9,46 +9,61 @@ export type ListEditorOptions<TItem> = {
 	add: (value: string) => boolean;
 	remove: (item: TItem) => void;
 	renderItem: (body: HTMLElement, item: TItem, refresh: () => void) => void;
-	/** When false, show a plain max-height list instead of a DaisyUI collapse. */
-	collapsible?: boolean;
-	/** Optional buttons above the list, e.g. import/export. */
+	/** Optional buttons below the add form, e.g. import/export. */
 	actions?: (container: HTMLElement, refresh: () => void) => void;
+	/** Extra controls between the add input and the Add button. */
+	addRowExtras?: (form: HTMLElement) => void;
 	onChange?: () => void;
 };
 
 export const createListEditor = <TItem>(options: ListEditorOptions<TItem>): Element =>
 	el.div`flex flex-col gap-3 w-full`.then((root) => {
 		let refreshList = (): void => {};
-		const collapsible = options.collapsible ?? true;
+
+		el.form`flex gap-2 items-center w-full`.mount(root, undefined, (form) => {
+			const label = el.label`input input-sm flex-1 min-w-0`.mount(form);
+			const addInput = el.input.text``.mount(label, undefined, (input) => {
+				input.name = 'item';
+				input.placeholder = options.placeholder;
+				input.maxLength = options.maxLength;
+				input.autocomplete = 'off';
+			});
+			options.addRowExtras?.(form);
+			el.button`btn btn-sm btn-ghost btn-success border-base-content/20`.mount(
+				form,
+				undefined,
+				(button) => {
+					button.type = 'submit';
+					button.textContent = 'Add';
+				},
+			);
+			form.onsubmit = (event) => {
+				event.preventDefault();
+				if (!options.add(addInput.value)) return;
+				addInput.value = '';
+				refreshList();
+				options.onChange?.();
+			};
+		});
+
+		const listTitle = el.div`collapse-title min-h-0 py-2 px-3 text-sm font-medium search-value`
+			.element;
+		const list = el.ul`flex flex-col gap-1 w-full`.element;
+		el.div`collapse collapse-arrow border border-base-content/20 rounded-box`.mount(
+			root,
+			undefined,
+			(collapse) => {
+				el.input.checkbox``.mount(collapse);
+				collapse.append(listTitle);
+				el.div`collapse-content px-3`.mount(collapse, undefined, (content) => {
+					content.append(list);
+				});
+			},
+		);
 
 		if (options.actions) {
 			el.div`flex gap-2 flex-wrap`.mount(root, undefined, (actions) => {
 				options.actions?.(actions, () => refreshList());
-			});
-		}
-
-		const listTitle = el.div`text-sm font-medium search-value`.element;
-		const list =
-			el.ul`flex flex-col gap-1 w-full max-h-64 overflow-y-auto scrollbar-thumb-base-content/50 scrollbar-track-base-200/70 p-3`
-				.element;
-
-		if (collapsible) {
-			listTitle.classList = 'collapse-title min-h-0 py-2 px-3 text-sm font-medium search-value';
-			el.div`collapse collapse-arrow border border-base-content/20 rounded-box`.mount(
-				root,
-				undefined,
-				(collapse) => {
-					el.input.checkbox``.mount(collapse);
-					collapse.append(listTitle);
-					el.div`collapse-content px-3`.mount(collapse, undefined, (content) => {
-						content.append(list);
-					});
-				},
-			);
-		} else {
-			root.append(listTitle);
-			el.div`border border-base-content/20 rounded-box`.mount(root, undefined, (frame) => {
-				frame.append(list);
 			});
 		}
 
@@ -77,31 +92,6 @@ export const createListEditor = <TItem>(options: ListEditorOptions<TItem>): Elem
 				});
 			}
 		};
-
-		el.form`join w-full`.mount(root, undefined, (form) => {
-			const label = el.label`input input-sm join-item flex-1 min-w-0 w-full`.mount(form);
-			const addInput = el.input.text``.mount(label, undefined, (input) => {
-				input.name = 'item';
-				input.placeholder = options.placeholder;
-				input.maxLength = options.maxLength;
-				input.autocomplete = 'off';
-			});
-			el.button`btn btn-sm btn-ghost btn-success border-base-content/20 join-item`.mount(
-				form,
-				undefined,
-				(button) => {
-					button.type = 'submit';
-					button.textContent = 'Add';
-				},
-			);
-			form.onsubmit = (event) => {
-				event.preventDefault();
-				if (!options.add(addInput.value)) return;
-				addInput.value = '';
-				refreshList();
-				options.onChange?.();
-			};
-		});
 
 		refreshList();
 	});

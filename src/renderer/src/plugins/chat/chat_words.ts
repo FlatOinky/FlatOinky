@@ -1,17 +1,15 @@
-import { ChatMessage, unescapeMessage } from '../../client';
+import { ChatMessage, Lifecycle, PluginContext, unescapeMessage } from '../../client';
 import type { Alerts } from '../../client/alerts';
-import type { SettingsHelpers } from '../../client/settings';
 import * as el from '../../client/ui/elements';
-import { createListEditor } from './chat_list_editor';
 import { MutedPlayers } from './chat_muted';
 
 export type WordMatchType = 'visible' | 'highlight' | 'collapse' | 'filter';
 
 export const wordMatchTypeOptions: ReadonlyArray<{ label: string; value: WordMatchType }> = [
-	{ label: 'Normal', value: 'visible' },
 	{ label: 'Highlight', value: 'highlight' },
 	{ label: 'Collapse', value: 'collapse' },
 	{ label: 'Hide', value: 'filter' },
+	{ label: 'No Change', value: 'visible' },
 ];
 
 export type WordMatchEntry = {
@@ -28,7 +26,7 @@ export type WordMatchEntry = {
 
 export const initialWordMatchEntry: WordMatchEntry = {
 	word: '',
-	type: 'visible',
+	type: 'highlight',
 	logMessages: true,
 	enableNotification: false,
 	enableAudio: false,
@@ -47,13 +45,53 @@ export type ChatFilters = {
 	muted: MutedPlayers;
 };
 
-type SwapToggle = SettingsHelpers['swapToggle'];
+export type ChatMessageScannerWindowApi = {
+	show: () => void;
+	hide: () => void;
+};
 
 const wordMatchTypePrecedence: Record<WordMatchType, number> = {
 	filter: 4,
 	collapse: 3,
 	highlight: 2,
 	visible: 1,
+};
+
+const defaultWordMatchTypeSettings: Record<
+	WordMatchType,
+	Pick<
+		WordMatchEntry,
+		'logMessages' | 'enableNotification' | 'enableAudio' | 'enableFlash' | 'enableToast'
+	>
+> = {
+	highlight: {
+		logMessages: true,
+		enableNotification: false,
+		enableAudio: false,
+		enableFlash: true,
+		enableToast: true,
+	},
+	collapse: {
+		logMessages: true,
+		enableNotification: false,
+		enableAudio: false,
+		enableFlash: false,
+		enableToast: false,
+	},
+	filter: {
+		logMessages: false,
+		enableNotification: false,
+		enableAudio: false,
+		enableFlash: false,
+		enableToast: false,
+	},
+	visible: {
+		logMessages: true,
+		enableNotification: false,
+		enableAudio: false,
+		enableFlash: false,
+		enableToast: false,
+	},
 };
 
 const normalizeWord = (value: string): string => value.trim();
@@ -71,20 +109,22 @@ const entryWord = (entry: { word?: string }): string => normalizeWord(entry.word
 const entryType = (entry: WordMatchEntry): WordMatchType =>
 	entry.type ?? initialWordMatchEntry.type;
 
+const typeSettingsOf = (entry: WordMatchEntry) => defaultWordMatchTypeSettings[entryType(entry)];
+
 const entryLogMessages = (entry: WordMatchEntry): boolean =>
-	entry.logMessages ?? initialWordMatchEntry.logMessages;
+	entry.logMessages ?? typeSettingsOf(entry).logMessages;
 
 const entryEnableNotification = (entry: WordMatchEntry): boolean =>
-	entry.enableNotification ?? initialWordMatchEntry.enableNotification;
+	entry.enableNotification ?? typeSettingsOf(entry).enableNotification;
 
 const entryEnableAudio = (entry: WordMatchEntry): boolean =>
-	entry.enableAudio ?? initialWordMatchEntry.enableAudio;
+	entry.enableAudio ?? typeSettingsOf(entry).enableAudio;
 
 const entryEnableFlash = (entry: WordMatchEntry): boolean =>
-	entry.enableFlash ?? initialWordMatchEntry.enableFlash;
+	entry.enableFlash ?? typeSettingsOf(entry).enableFlash;
 
 const entryEnableToast = (entry: WordMatchEntry): boolean =>
-	entry.enableToast ?? initialWordMatchEntry.enableToast;
+	entry.enableToast ?? typeSettingsOf(entry).enableToast;
 
 const entryRegex = (entry: WordMatchEntry): boolean => entry.regex ?? initialWordMatchEntry.regex;
 
@@ -224,7 +264,12 @@ const updateWordMatchEntry = (
 	);
 };
 
-const addWordMatchEntry = (wordMatches: WordMatches, value: string): boolean => {
+const addWordMatchEntry = (
+	wordMatches: WordMatches,
+	value: string,
+	regex: boolean,
+	type: WordMatchType,
+): boolean => {
 	const trimmed = normalizeWord(value);
 	if (!trimmed) return false;
 	const entries = wordMatchEntries(wordMatches);
@@ -233,9 +278,23 @@ const addWordMatchEntry = (wordMatches: WordMatches, value: string): boolean => 
 		...entries,
 		{
 			...initialWordMatchEntry,
+			...defaultWordMatchTypeSettings[type],
 			word: trimmed,
+			regex,
+			type,
 		},
 	];
+	return true;
+};
+
+const renameWordMatchEntry = (wordMatches: WordMatches, from: string, to: string): boolean => {
+	const trimmed = normalizeWord(to);
+	if (!trimmed) return false;
+	const entries = wordMatchEntries(wordMatches);
+	if (from.toLowerCase() !== trimmed.toLowerCase() && hasWord(entries, trimmed)) return false;
+	wordMatches.entries = entries.map((entry) =>
+		entry.word === from ? { ...entry, word: trimmed } : entry,
+	);
 	return true;
 };
 
@@ -280,134 +339,306 @@ export const notifyWordMatches = (
 	}
 };
 
-export const createWordMatchesSettingsNode = (
+const fillTypeSelect = (select: HTMLSelectElement, value: WordMatchType): void => {
+	for (const option of wordMatchTypeOptions) {
+		el.option``.mount(select, undefined, (opt) => {
+			opt.value = option.value;
+			opt.textContent = option.label;
+		});
+	}
+	select.value = value;
+};
+
+const createMessageScannerEditor = (
 	wordMatches: WordMatches,
+	context: PluginContext,
 	onChange: (() => void) | undefined,
-	swapToggle: SwapToggle,
-): Element =>
-	createListEditor({
-		title: (count) => `Matches (${count})`,
-		placeholder: 'Word or phrase',
-		maxLength: 64,
-		removeTitle: (entry) => `Remove ${entry.word}`,
-		getItems: () => wordMatchEntries(wordMatches),
-		add: (value) => addWordMatchEntry(wordMatches, value),
-		remove: (entry) => removeWordMatchEntry(wordMatches, entry.word),
-		collapsible: false,
-		onChange,
-		renderItem: (body, entry) => {
-			el.div`flex gap-2 items-center flex-wrap w-full`.mount(body, undefined, (row) => {
-				el.span`font-medium text-sm flex-1 min-w-0 truncate search-value`.mount(
-					row,
-					undefined,
-					(label) => {
-						label.textContent = entry.word;
-						label.title = entry.word;
-					},
-				);
+): Element => {
+	const helpers = context.settings.helpers;
+	let editingWord: string | null = null;
 
-				el.select`select select-sm w-28 shrink-0`.mount(row, undefined, (select) => {
-					for (const option of wordMatchTypeOptions) {
-						el.option``.mount(select, undefined, (opt) => {
-							opt.value = option.value;
-							opt.textContent = option.label;
-						});
-					}
-					select.value = entryType(entry);
-					select.onchange = () => {
-						updateWordMatchEntry(wordMatches, entry.word, {
-							type: select.value as WordMatchType,
-						});
-						onChange?.();
-					};
-				});
+	return el.div`flex flex-col gap-3 w-full`.then((root) => {
+		el.div`text-sm text-base-content/80`.mount(root, undefined, (message) => {
+			message.textContent =
+				'Messages will be matched against the given word, phrase, or regular expression. Each entry can be configured to save matched messages to the chat log and the alert channels to be fired.';
+		});
+		const addRegexInput = el.input.checkbox``.element;
+		const addTypeSelect = el.select`select select-sm w-28 shrink-0`.element;
+		fillTypeSelect(addTypeSelect, wordMatchTypeOptions[0]!.value);
 
-				row.append(
-					swapToggle(
-						el.input.checkbox``.then((input) => {
-							input.checked = entryLogMessages(entry);
-							input.onchange = () => {
-								updateWordMatchEntry(wordMatches, entry.word, {
-									logMessages: input.checked,
-								});
-								onChange?.();
-							};
-						}),
+		el.form`flex gap-2 items-center w-full`.mount(root, undefined, (form) => {
+			form.append(addTypeSelect);
+			helpers.swapToggle(
+				addRegexInput,
+				el.icon.regex`size-4`.element,
+				el.icon.regexOff`size-4`.element,
+				'Match as regular expression',
+				'tooltip-start tooltip-bottom',
+				form,
+			);
+			const label = el.label`input input-sm flex-1 min-w-0`.mount(form);
+			const addInput = el.input.text``.mount(label, undefined, (input) => {
+				input.name = 'item';
+				input.placeholder = 'Word or phrase';
+				input.maxLength = 64;
+				input.autocomplete = 'off';
+			});
+			el.button`btn btn-sm btn-ghost btn-success border-base-content/20`.mount(
+				form,
+				undefined,
+				(button) => {
+					button.type = 'submit';
+					button.textContent = 'Add';
+				},
+			);
+			form.onsubmit = (event) => {
+				event.preventDefault();
+				if (
+					!addWordMatchEntry(
+						wordMatches,
+						addInput.value,
+						addRegexInput.checked,
+						addTypeSelect.value as WordMatchType,
+					)
+				) {
+					return;
+				}
+				addInput.value = '';
+				refreshLists();
+				onChange?.();
+			};
+		});
+
+		const lists: Record<WordMatchType, HTMLUListElement> = {
+			visible: el.ul`flex flex-col gap-1 w-full`.element,
+			highlight: el.ul`flex flex-col gap-1 w-full`.element,
+			collapse: el.ul`flex flex-col gap-1 w-full`.element,
+			filter: el.ul`flex flex-col gap-1 w-full`.element,
+		};
+		const titles: Record<WordMatchType, HTMLElement> = {
+			visible: el.div`collapse-title min-h-0 py-2 px-3 text-sm font-medium`.element,
+			highlight: el.div`collapse-title min-h-0 py-2 px-3 text-sm font-medium`.element,
+			collapse: el.div`collapse-title min-h-0 py-2 px-3 text-sm font-medium`.element,
+			filter: el.div`collapse-title min-h-0 py-2 px-3 text-sm font-medium`.element,
+		};
+
+		for (const option of wordMatchTypeOptions) {
+			el.div`collapse collapse-arrow border border-base-content/20 rounded-box`.mount(
+				root,
+				undefined,
+				(collapse) => {
+					el.input.checkbox``.mount(collapse);
+					collapse.append(titles[option.value]);
+					el.div`collapse-content px-3`.mount(collapse, undefined, (content) => {
+						content.append(lists[option.value]);
+					});
+				},
+			);
+		}
+
+		const mountAlertControls = (row: HTMLElement, entry: WordMatchEntry) => {
+			const logInput = el.input.checkbox``.then((input) => {
+				input.checked = entryLogMessages(entry);
+				input.onchange = () => {
+					updateWordMatchEntry(wordMatches, entry.word, { logMessages: input.checked });
+					onChange?.();
+				};
+			});
+			const notificationInput = el.input.checkbox``.then((input) => {
+				input.checked = entryEnableNotification(entry);
+				input.onchange = () => {
+					updateWordMatchEntry(wordMatches, entry.word, { enableNotification: input.checked });
+				};
+			});
+			const audioInput = el.input.checkbox``.then((input) => {
+				input.checked = entryEnableAudio(entry);
+				input.onchange = () => {
+					updateWordMatchEntry(wordMatches, entry.word, { enableAudio: input.checked });
+				};
+			});
+			const flashInput = el.input.checkbox``.then((input) => {
+				input.checked = entryEnableFlash(entry);
+				input.onchange = () => {
+					updateWordMatchEntry(wordMatches, entry.word, { enableFlash: input.checked });
+				};
+			});
+			const toastInput = el.input.checkbox``.then((input) => {
+				input.checked = entryEnableToast(entry);
+				input.onchange = () => {
+					updateWordMatchEntry(wordMatches, entry.word, { enableToast: input.checked });
+				};
+			});
+			el.div`flex items-center gap-1 shrink-0`.mount(row, undefined, (controls) => {
+				controls.append(
+					helpers.swapToggle(
+						logInput,
 						el.icon.messages`size-4`.element,
 						el.icon.messagesOff`size-4`.element,
 						'Keep in chat log',
 						'tooltip-end',
 					),
-					swapToggle(
-						el.input.checkbox``.then((input) => {
-							input.checked = entryEnableNotification(entry);
-							input.onchange = () => {
-								updateWordMatchEntry(wordMatches, entry.word, {
-									enableNotification: input.checked,
-								});
-							};
-						}),
-						el.icon.notification`size-4`.element,
-						el.icon.notificationOff`size-4`.element,
-						'Desktop notifications',
-						'tooltip-end',
-					),
-					swapToggle(
-						el.input.checkbox``.then((input) => {
-							input.checked = entryEnableAudio(entry);
-							input.onchange = () => {
-								updateWordMatchEntry(wordMatches, entry.word, {
-									enableAudio: input.checked,
-								});
-							};
-						}),
-						el.icon.volume`size-4`.element,
-						el.icon.volumeOff`size-4`.element,
-						'Alert sound',
-						'tooltip-end',
-					),
-					swapToggle(
-						el.input.checkbox``.then((input) => {
-							input.checked = entryEnableFlash(entry);
-							input.onchange = () => {
-								updateWordMatchEntry(wordMatches, entry.word, {
-									enableFlash: input.checked,
-								});
-							};
-						}),
-						el.icon.bulb`size-4`.element,
-						el.icon.bulbOff`size-4`.element,
-						'Screen flash',
-						'tooltip-end',
-					),
-					swapToggle(
-						el.input.checkbox``.then((input) => {
-							input.checked = entryEnableToast(entry);
-							input.onchange = () => {
-								updateWordMatchEntry(wordMatches, entry.word, {
-									enableToast: input.checked,
-								});
-							};
-						}),
-						el.icon.bread`size-4`.element,
-						el.icon.breadOff`size-4`.element,
-						'Toast',
-						'tooltip-end',
-					),
-					swapToggle(
-						el.input.checkbox``.then((input) => {
-							input.checked = entryRegex(entry);
-							input.onchange = () => {
-								updateWordMatchEntry(wordMatches, entry.word, { regex: input.checked });
-								onChange?.();
-							};
-						}),
-						el.icon.regex`size-4`.element,
-						el.icon.regexOff`size-4`.element,
-						'Match as regular expression',
-						'tooltip-end',
-					),
 				);
+				el.div`w-min`.mount(controls, undefined, (alerts) => {
+					alerts.append(
+						helpers.alertChannelToggles(
+							{ notificationInput, audioInput, flashInput, toastInput },
+							() => {
+								context.alerts.send(entry.word, {
+									message: 'Test',
+									notification: notificationInput.checked,
+									audio: audioInput.checked,
+									flash: flashInput.checked,
+									toast: toastInput.checked,
+								});
+							},
+						),
+					);
+				});
 			});
+		};
+
+		const renderDisplayRow = (row: HTMLElement, entry: WordMatchEntry) => {
+			el.button`btn btn-ghost btn-error btn-square btn-xs shrink-0 active:translate-none`.mount(
+				row,
+				undefined,
+				(button) => {
+					button.type = 'button';
+					button.title = `Remove ${entry.word}`;
+					el.icon.x`size-4`.mount(button);
+					button.onclick = () => {
+						removeWordMatchEntry(wordMatches, entry.word);
+						if (editingWord === entry.word) editingWord = null;
+						refreshLists();
+						onChange?.();
+					};
+				},
+			);
+			el.button`btn btn-ghost btn-square btn-xs shrink-0 active:translate-none`.mount(
+				row,
+				undefined,
+				(button) => {
+					button.type = 'button';
+					button.title = `Edit ${entry.word}`;
+					el.icon.pencil`size-4`.mount(button);
+					button.onclick = () => {
+						editingWord = entry.word;
+						refreshLists();
+					};
+				},
+			);
+			if (entryRegex(entry)) {
+				el.icon.regex`size-4 shrink-0`.mount(row);
+			}
+			el.span`flex-1 min-w-0 truncate search-value`.mount(row, undefined, (text) => {
+				text.textContent = entry.word;
+				text.title = entry.word;
+				text.classList.toggle('font-mono', entryRegex(entry));
+			});
+			mountAlertControls(row, entry);
+		};
+
+		const renderEditRow = (row: HTMLElement, entry: WordMatchEntry) => {
+			const typeSelect = el.select`select select-sm w-28 shrink-0`.mount(row);
+			fillTypeSelect(typeSelect, entryType(entry));
+			const regexInput = el.input.checkbox``.then((input) => {
+				input.checked = entryRegex(entry);
+			});
+			helpers.swapToggle(
+				regexInput,
+				el.icon.regex`size-4`.element,
+				el.icon.regexOff`size-4`.element,
+				'Match as regular expression',
+				'tooltip-start',
+				row,
+			);
+			const label = el.label`input input-sm flex-1 min-w-0`.mount(row);
+			const wordInput = el.input.text`min-w-0 search-value`.mount(label, undefined, (input) => {
+				input.value = entry.word;
+				input.maxLength = 64;
+				input.autocomplete = 'off';
+			});
+			wordInput.classList.toggle('font-mono', entryRegex(entry));
+			regexInput.onchange = () => {
+				wordInput.classList.toggle('font-mono', regexInput.checked);
+			};
+			el.button`btn btn-sm btn-ghost btn-success border-base-content/20`.mount(
+				row,
+				undefined,
+				(button) => {
+					button.type = 'button';
+					button.textContent = 'Done';
+					button.onclick = () => {
+						if (!renameWordMatchEntry(wordMatches, entry.word, wordInput.value)) {
+							wordInput.value = entry.word;
+							return;
+						}
+						const nextWord = normalizeWord(wordInput.value);
+						const nextType = typeSelect.value as WordMatchType;
+						const typeChanged = nextType !== entryType(entry);
+						updateWordMatchEntry(wordMatches, nextWord, {
+							regex: regexInput.checked,
+							type: nextType,
+							...(typeChanged ? defaultWordMatchTypeSettings[nextType] : {}),
+						});
+						editingWord = null;
+						refreshLists();
+						onChange?.();
+					};
+				},
+			);
+		};
+
+		const refreshLists = () => {
+			for (const option of wordMatchTypeOptions) {
+				const items = wordMatchEntries(wordMatches).filter(
+					(entry) => entryType(entry) === option.value,
+				);
+				titles[option.value].textContent = `${option.label} (${items.length})`;
+				const list = lists[option.value];
+				list.replaceChildren();
+				for (const item of items) {
+					el.li`flex items-center gap-2 flex-wrap`.mount(list, undefined, (row) => {
+						if (editingWord === item.word) renderEditRow(row, item);
+						else renderDisplayRow(row, item);
+					});
+				}
+			}
+		};
+
+		refreshLists();
+	});
+};
+
+export const initMessageScannerWindow = (
+	parentLifecycle: Lifecycle,
+	context: PluginContext,
+	wordMatches: WordMatches,
+	onChange: (() => void) | undefined,
+	onClose: () => void,
+): ChatMessageScannerWindowApi => {
+	const lifecycle = parentLifecycle.spawnLifecycle();
+	const window = context.ui.windows.initWindow(lifecycle, {
+		id: 'chat-message-scanner',
+		title: 'Message Scanner',
+		icon: el.icon.messageReport``.element,
+		storage: context.storages.profile,
+		lockable: false,
+		initialState: {
+			width: 640,
+			height: 520,
+			top: 72,
+			left: 72,
+		},
+		onClose,
+		onPreMount: (mounted) => {
+			mounted.body.className = 'flex flex-col min-h-0 h-full overflow-y-auto p-3';
 		},
 	});
+
+	window.body.append(createMessageScannerEditor(wordMatches, context, onChange));
+
+	return {
+		show: () => window.showWindow(),
+		hide: () => window.hideWindow(),
+	};
+};

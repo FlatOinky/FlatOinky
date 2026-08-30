@@ -8,11 +8,8 @@ import {
 	setMessagesCollection,
 	storeChatMessage,
 } from './chat/chat_messages';
-import {
-	createMutedPlayersSettingsNode,
-	initialMutedPlayers,
-	isChatMessageMuted,
-} from './chat/chat_muted';
+import { initChatLogWindow } from './chat/chat_log';
+import { initialMutedPlayers, initMutedPlayersWindow, isChatMessageMuted } from './chat/chat_muted';
 import { initChat } from './chat/chat_panel';
 import { hydrateChatMessages, pmState } from './chat/chat_state';
 import {
@@ -23,8 +20,8 @@ import {
 	timestampFormatOptions,
 } from './chat/chat_types';
 import {
-	createWordMatchesSettingsNode,
 	initialWordMatches,
+	initMessageScannerWindow,
 	isChatMessageFiltered,
 	isChatMessageFilteredFromLog,
 	notifyWordMatches,
@@ -95,6 +92,34 @@ export const ChatPlugin: Plugin = {
 			applyChatColors(elements.root, colors);
 		};
 		onColorsChange();
+
+		type ChatPluginWindow = { show: () => void; hide: () => void };
+		const bindWindow = (
+			flag: 'logWindowOpen' | 'mutedPlayersWindowOpen' | 'messageScannerWindowOpen',
+			create: (onClose: () => void) => ChatPluginWindow,
+		) => {
+			let api: ChatPluginWindow | undefined;
+			const close = () => {
+				settings[flag] = false;
+				api = undefined;
+			};
+			const show = () => {
+				settings[flag] = true;
+				api ??= create(close);
+				api.show();
+			};
+			return show;
+		};
+
+		const showLogWindow = bindWindow('logWindowOpen', (onClose) =>
+			initChatLogWindow(lifecycle, context, settings, filters, onClose),
+		);
+		const showMutedPlayersWindow = bindWindow('mutedPlayersWindowOpen', (onClose) =>
+			initMutedPlayersWindow(lifecycle, context, mutedPlayers, onClose),
+		);
+		const showMessageScannerWindow = bindWindow('messageScannerWindowOpen', (onClose) =>
+			initMessageScannerWindow(lifecycle, context, wordMatches, onSettingsChange, onClose),
+		);
 
 		const toggleSetting = (
 			label: string,
@@ -269,12 +294,12 @@ export const ChatPlugin: Plugin = {
 			},
 		]);
 
-		const wordMatchesSection = settingsMenu.mountSection('Word Matches', [
-			createWordMatchesSettingsNode(
-				wordMatches,
-				onSettingsChange,
-				context.settings.helpers.swapToggle,
-			),
+		settingsMenu.mountSection('Message Scanner', [
+			el.button`btn btn-sm btn-primary search-value`.then((button) => {
+				button.type = 'button';
+				button.textContent = 'Manage message scanner';
+				button.onclick = () => showMessageScannerWindow();
+			}),
 		]);
 
 		const mutedPlayersSectionTitle =
@@ -289,37 +314,52 @@ export const ChatPlugin: Plugin = {
 				},
 			);
 
-		const mutedPlayersSection = settingsMenu.mountSection(mutedPlayersSectionTitle, [
+		settingsMenu.mountSection(mutedPlayersSectionTitle, [
 			helpers.toggle(
-				'Discard muted messages',
-				'Drop muted players messages entirely instead of keeping them in the chat log.',
-				() => mutedPlayers.discardMessages,
+				'Log muted players messages',
+				'Keep muted players messages in the chat log.',
+				() => mutedPlayers.logMutedMessages,
 				(value) => {
-					mutedPlayers.discardMessages = value;
+					mutedPlayers.logMutedMessages = value;
 					onSettingsChange();
 				},
 			),
-			createMutedPlayersSettingsNode(mutedPlayers),
+			el.button`btn btn-sm btn-primary search-value`.then((button) => {
+				button.type = 'button';
+				button.textContent = 'Manage muted players';
+				button.onclick = () => showMutedPlayersWindow();
+			}),
 		]);
 
+		const hideChatActions = (activator: HTMLElement) => {
+			activator.closest<HTMLElement>('[popover]')?.hidePopover();
+		};
 		elements.settingsActivator.onclick = () => {
-			elements.settingsActivator.closest<HTMLElement>('[popover]')?.hidePopover();
+			hideChatActions(elements.settingsActivator);
 			settingsMenu.open();
 		};
+		elements.logActivator.onclick = () => {
+			hideChatActions(elements.logActivator);
+			showLogWindow();
+		};
 		elements.wordMatchesActivator.onclick = () => {
-			elements.wordMatchesActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-			wordMatchesSection.open();
+			hideChatActions(elements.wordMatchesActivator);
+			showMessageScannerWindow();
 		};
 		elements.mutedPlayersActivator.onclick = () => {
-			elements.mutedPlayersActivator.closest<HTMLElement>('[popover]')?.hidePopover();
-			mutedPlayersSection.open();
+			hideChatActions(elements.mutedPlayersActivator);
+			showMutedPlayersWindow();
 		};
+
+		if (settings.logWindowOpen) showLogWindow();
+		if (settings.mutedPlayersWindowOpen) showMutedPlayersWindow();
+		if (settings.messageScannerWindowOpen) showMessageScannerWindow();
 
 		return {
 			events: {
 				chatMessage: (chatMessage) => {
 					if (isChatMessageMuted(chatMessage, mutedPlayers)) {
-						if (mutedPlayers.discardMessages) return;
+						if (!mutedPlayers.logMutedMessages) return;
 						storeChatMessage(chatMessage, settings);
 						return;
 					}

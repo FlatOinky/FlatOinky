@@ -1,12 +1,17 @@
-import { ChatMessage } from '../../client';
+import type { ChatMessage, Lifecycle, PluginContext } from '../../client';
 import * as el from '../../client/ui/elements';
 import { createListEditor } from './chat_list_editor';
 
 export const initialMutedPlayers = {
 	usernames: [] as string[],
-	discardMessages: true,
+	logMutedMessages: false,
 };
 export type MutedPlayers = typeof initialMutedPlayers;
+
+export type ChatMutedPlayersWindowApi = {
+	show: () => void;
+	hide: () => void;
+};
 
 const mutedChatTypes = new Set(['local', 'yell', 'pm_from', 'pm_to']);
 
@@ -26,7 +31,7 @@ export const isChatMessageMutedFromLog = (
 	chatMessage: ChatMessage,
 	mutedPlayers: MutedPlayers,
 ): boolean =>
-	isChatMessageMuted(chatMessage, mutedPlayers) && (mutedPlayers.discardMessages ?? true);
+	isChatMessageMuted(chatMessage, mutedPlayers) && !(mutedPlayers.logMutedMessages ?? false);
 
 const isValidMuteUsername = (username: string): boolean =>
 	username.length >= 3 && username.length <= 12;
@@ -53,7 +58,7 @@ const removeMutedPlayer = (mutedPlayers: MutedPlayers, username: string): void =
 	mutedPlayers.usernames = mutedUsernames(mutedPlayers).filter((entry) => entry !== username);
 };
 
-export const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Element =>
+const createMutedPlayersEditor = (mutedPlayers: MutedPlayers): Element =>
 	createListEditor({
 		title: (count) => `Muted players (${count})`,
 		placeholder: 'Username',
@@ -68,34 +73,51 @@ export const createMutedPlayersSettingsNode = (mutedPlayers: MutedPlayers): Elem
 			});
 		},
 		actions: (actions, refresh) => {
-			el.button`btn btn-sm btn-ghost border-base-content/20 tooltip tooltip-start`.mount(
-				actions,
-				undefined,
-				(button) => {
-					button.type = 'button';
-					button.setAttribute(
-						'data-tip',
-						"Updates Flat Oinky's muted players list from Flat MMO with missing names",
-					);
-					button.textContent = 'Import from Flat MMO';
-					button.onclick = () => {
-						importMutedPlayersFromGame(mutedPlayers);
-						refresh();
-					};
-				},
-			);
-			el.button`btn btn-sm btn-ghost border-base-content/20 tooltip tooltip-start`.mount(
-				actions,
-				undefined,
-				(button) => {
-					button.type = 'button';
-					button.setAttribute(
-						'data-tip',
-						"Updates Flat MMO's muted players list from Flat Oinky with missing names",
-					);
-					button.textContent = 'Export to Flat MMO';
-					button.onclick = () => exportMutedPlayersToGame(mutedPlayers);
-				},
-			);
+			el.button`btn btn-sm btn-ghost border-base-content/20`.mount(actions, undefined, (button) => {
+				button.type = 'button';
+				button.textContent = 'Import from Flat MMO';
+				button.onclick = () => {
+					importMutedPlayersFromGame(mutedPlayers);
+					refresh();
+				};
+			});
+			el.button`btn btn-sm btn-ghost border-base-content/20`.mount(actions, undefined, (button) => {
+				button.type = 'button';
+				button.textContent = 'Export to Flat MMO';
+				button.onclick = () => exportMutedPlayersToGame(mutedPlayers);
+			});
 		},
 	});
+
+export const initMutedPlayersWindow = (
+	parentLifecycle: Lifecycle,
+	context: PluginContext,
+	mutedPlayers: MutedPlayers,
+	onClose: () => void,
+): ChatMutedPlayersWindowApi => {
+	const lifecycle = parentLifecycle.spawnLifecycle();
+	const window = context.ui.windows.initWindow(lifecycle, {
+		id: 'chat-muted-players',
+		title: 'Muted players',
+		icon: el.icon.moodSilence``.element,
+		storage: context.storages.profile,
+		lockable: false,
+		initialState: {
+			width: 420,
+			height: 480,
+			top: 72,
+			left: 72,
+		},
+		onClose,
+		onPreMount: (mounted) => {
+			mounted.body.className = 'flex flex-col min-h-0 h-full overflow-y-auto p-3';
+		},
+	});
+
+	window.body.append(createMutedPlayersEditor(mutedPlayers));
+
+	return {
+		show: () => window.showWindow(),
+		hide: () => window.hideWindow(),
+	};
+};
