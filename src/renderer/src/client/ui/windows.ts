@@ -144,7 +144,7 @@ type WindowOptions = {
 export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: TaskbarApi) => {
 	const container = document.createElement('section');
 	container.setAttribute('oinky', 'windows');
-	container.className = 'absolute inset-0 pointer-events-none';
+	container.className = 'absolute inset-0 pointer-events-none z-0';
 	lifecycle.onCleanup(() => container.remove());
 	root.appendChild(container);
 
