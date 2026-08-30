@@ -13,6 +13,8 @@ export type ManagedIntervalOptions = {
 
 export type ClientTimers = ReturnType<typeof initTimers>;
 
+const STALE_GRACE_MS = 300;
+
 export const initTimers = (parentLifecycle: Lifecycle, appState: AppState) => {
 	const initInterval = (lifecycle: Lifecycle, options: ManagedIntervalOptions) => {
 		let baseInterval = options.interval;
@@ -22,6 +24,7 @@ export const initTimers = (parentLifecycle: Lifecycle, appState: AppState) => {
 		let disposed = false;
 		let generation = 0;
 		let stoppedAt = Date.now();
+		let lastRanAt = Date.now();
 		let runningPeriod: number | undefined;
 
 		const clearTimer = () => {
@@ -45,8 +48,10 @@ export const initTimers = (parentLifecycle: Lifecycle, appState: AppState) => {
 			clearTimer();
 			runningPeriod = period;
 			options.onStart?.(Date.now() - stoppedAt);
+			lastRanAt = Date.now();
 			timerId = setInterval(() => {
 				if (disposed || !wantedRunning || token !== generation) return;
+				lastRanAt = Date.now();
 				options.onTick();
 			}, period);
 		};
@@ -54,12 +59,14 @@ export const initTimers = (parentLifecycle: Lifecycle, appState: AppState) => {
 		const shouldRun = () =>
 			!disposed && wantedRunning && !(stopWhileSuspended && appState.activity === 'suspended');
 
+		const isStale = () => Date.now() - lastRanAt > baseInterval + STALE_GRACE_MS;
+
 		const sync = () => {
 			if (!shouldRun()) {
 				halt();
 				return;
 			}
-			if (timerId !== undefined && runningPeriod === baseInterval) return;
+			if (timerId !== undefined && runningPeriod === baseInterval && !isStale()) return;
 			halt();
 			arm(baseInterval);
 		};
@@ -81,6 +88,17 @@ export const initTimers = (parentLifecycle: Lifecycle, appState: AppState) => {
 			if (wantedRunning) sync();
 		};
 
+		const onWindowFocus = () => {
+			if (!document.hidden) sync();
+		};
+		window.addEventListener('focus', onWindowFocus);
+		document.addEventListener('visibilitychange', onWindowFocus);
+		document.addEventListener('resume', onWindowFocus);
+		lifecycle.onCleanup(() => {
+			window.removeEventListener('focus', onWindowFocus);
+			document.removeEventListener('visibilitychange', onWindowFocus);
+			document.removeEventListener('resume', onWindowFocus);
+		});
 		lifecycle.onCleanup(() => {
 			disposed = true;
 			wantedRunning = false;
