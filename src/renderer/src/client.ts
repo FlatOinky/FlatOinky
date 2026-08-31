@@ -674,13 +674,14 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		]);
 	const settings = initSettings(lifecycle, ui, clientStorage);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
+	const pluginsRef: { current?: ClientPlugins } = {};
+	const logging = initLogging(loggingStorage, () => pluginsRef.current?.api.events.chatMessage);
 	const appState = await initAppState(lifecycle);
-	const timers = initTimers(lifecycle, appState);
+	const timers = initTimers(lifecycle, appState, logging.createLogger('Timers'));
 
 	let alerts: Alerts | undefined;
 	let contextMenu: ContextMenu | undefined;
 	let recordServerCommand = (_raw: string) => {};
-	const logging = initLogging(loggingStorage, () => plugins.api.events.chatMessage);
 	const context = createContext(
 		character,
 		ui,
@@ -693,6 +694,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		() => contextMenu,
 	);
 	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage, logging.createLogger);
+	pluginsRef.current = plugins;
 	const hooks = createClientHooks(plugins, (raw) => recordServerCommand(raw));
 	const mutators = createClientMutators(plugins);
 

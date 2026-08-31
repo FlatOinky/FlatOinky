@@ -61,9 +61,10 @@ Layout under `src/`:
   are getters that throw if accessed before those systems are initialized. `log` is a
   `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace); plugin
   contexts prefix messages with `[plugin.name]`. `timers.initInterval(lifecycle, options)`
-  starts a managed interval that stops across OS sleep and stays at its set period
-  otherwise; `onStart` runs on every restart so consumers can rebuild derived
-  state. `isLocalUsername` is case-insensitive against `character.username` and
+  starts a managed interval (`options.name` is optional, for timer logs) that stops
+  across OS sleep and stays at its set period otherwise; `onStart` runs on every
+  restart so consumers can rebuild derived state. A shared watchdog re-arms stalled
+  intervals. `isLocalUsername` is case-insensitive against `character.username` and
   `Globals.local_username`. `getLocalPlayer` looks up `players[Globals.local_username]`.
   HTML entity helpers `sanitizeMessage` / `unescapeMessage` are exported from
   `client.ts`, not the context.

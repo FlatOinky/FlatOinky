@@ -11,7 +11,7 @@ const MIN_UPDATE_INTERVAL = 0.1;
 const MAX_TIME_SPAN = 10;
 const RECENT_WINDOW_PERCENTAGE = 0.35;
 const MAX_XP_DROPS = Math.ceil(
-	(MAX_TIME_SPAN * 60 * 1000 * (1 + RECENT_WINDOW_PERCENTAGE)) / MIN_UPDATE_INTERVAL,
+	(MAX_TIME_SPAN * 60 * 1000 * (1 + RECENT_WINDOW_PERCENTAGE)) / (MIN_UPDATE_INTERVAL * 1000),
 );
 
 const daisyUiColors = {
@@ -577,6 +577,7 @@ export const MetricsPlugin: Plugin = {
 		};
 
 		const updateLoop = context.timers.initInterval(lifecycle, {
+			name: 'metrics',
 			interval: settings.updateInterval * 1000,
 			onStart: () => rebuildTrackers(),
 			onTick: () => {
@@ -588,6 +589,7 @@ export const MetricsPlugin: Plugin = {
 				}
 			},
 		});
+		updateLoop.start();
 
 		refreshMetrics = () => {
 			toggleChart.lineGraph.svg.remove();
@@ -774,8 +776,7 @@ export const MetricsPlugin: Plugin = {
 
 		return {
 			events: {
-				startup: async () => {
-					await new Promise((resolve) => setTimeout(resolve, 1000));
+				startup: () => {
 					updateLoop.start();
 				},
 				xpDrop: ({ username, skill, xp }) => {

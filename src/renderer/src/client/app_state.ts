@@ -13,10 +13,11 @@ const deriveActivity = (payload: AppStatePayload, documentHidden: boolean): AppA
 
 export const initAppState = async (lifecycle: Lifecycle) => {
 	const listeners = new Set<(activity: AppActivity) => void>();
-	let payload: AppStatePayload = await getAppState();
-	let activity = deriveActivity(payload, document.hidden);
+	let payload: AppStatePayload | undefined;
+	let activity: AppActivity = 'active';
 
 	const publish = () => {
+		if (!payload) return;
 		const next = deriveActivity(payload, document.hidden);
 		if (next === activity) return;
 		activity = next;
@@ -34,9 +35,20 @@ export const initAppState = async (lifecycle: Lifecycle) => {
 		}),
 	);
 
-	const onVisibilityChange = () => publish();
-	document.addEventListener('visibilitychange', onVisibilityChange);
-	lifecycle.onCleanup(() => document.removeEventListener('visibilitychange', onVisibilityChange));
+	const snapshot = await getAppState();
+	payload ??= snapshot;
+	activity = deriveActivity(payload, document.hidden);
+
+	const refresh = () => {
+		publish();
+		void getAppState().then(applyPayload);
+	};
+	window.addEventListener('focus', refresh);
+	document.addEventListener('visibilitychange', refresh);
+	lifecycle.onCleanup(() => {
+		window.removeEventListener('focus', refresh);
+		document.removeEventListener('visibilitychange', refresh);
+	});
 
 	return {
 		get activity() {
