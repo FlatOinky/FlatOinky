@@ -149,8 +149,8 @@ const parseCharactersHtmlText = (htmlText: string): FMMO.Character[] => {
 	return [...characterElements.values()]
 		.map((element) => ({
 			id: element.getAttribute('onclick')?.slice(17, -1) ?? '',
-			username: element.querySelector('h2')?.innerText ?? '',
-			level: element.children?.[2].textContent?.slice(8) ?? '',
+			username: element.querySelector('h2')?.innerText.trim() ?? '',
+			level: element.children?.[3].textContent?.slice(7) ?? '',
 		}))
 		.filter(({ id, username }) => id.length > 0 && username.length > 0);
 };
@@ -483,7 +483,7 @@ if (flatOinky.characters === null && flatOinky.worlds === null) {
 			if (characters.length > 0) {
 				flatOinky.characters = characters;
 				if (import.meta.env.DEV) {
-					flatOinky.characterIndex = flatOinky.characters.length - 1;
+					// flatOinky.characterIndex = flatOinky.characters.length - 1;
 				}
 			}
 		})

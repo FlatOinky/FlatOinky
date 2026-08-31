@@ -22,7 +22,7 @@ export const getDashboardHtmlText = async (): Promise<string> => {
 	if (!response.ok) throw new Error('getDashboardHtmlText: response not ok');
 	const text = await response.text();
 	if (!text.includes('<html ')) throw new Error('getDashboardHtmlText: no html tag');
-	if (!text.includes('logout-link'))
+	if (!text.includes('logout.php'))
 		throw new Error('getDashboardHtmlText: no logout link, not signed in');
 	return text;
 };
