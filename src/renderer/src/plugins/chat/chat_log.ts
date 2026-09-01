@@ -1,6 +1,6 @@
 import type { Lifecycle, PluginContext } from '../../client';
 import * as el from '../../client/ui/elements';
-import { getMessageBg, renderMessageLi } from './chat_messages';
+import { renderMessageLis } from './chat_messages';
 import { isChatMessageMutedFromLog } from './chat_muted';
 import { chatMessages } from './chat_state';
 import { Settings } from './chat_types';
@@ -79,11 +79,7 @@ export const initChatLogWindow = (
 				!isChatMessageMutedFromLog(chatMessage, filters.muted) &&
 				!isChatMessageFilteredFromLog(chatMessage, filters.wordMatches),
 		);
-		logContainer.replaceChildren(
-			...logMessages.map((chatMessage) =>
-				renderMessageLi(chatMessage, settings, getMessageBg(false), filters),
-			),
-		);
+		logContainer.replaceChildren(...renderMessageLis(logMessages, settings, filters, false));
 		logContainer.scrollTop = logContainer.scrollHeight;
 	};
 

@@ -10,6 +10,7 @@ import { chatMessages, usernamesCache } from './chat_state';
 import {
 	ChatColors,
 	ChatElements,
+	ChatStickiness,
 	chatColorClassMap,
 	chatColorMeta,
 	chatLogLevelColorClassMap,
@@ -241,43 +242,114 @@ export const createPopupLi = (
 		},
 	);
 
+const collapsedStacks = new WeakMap<HTMLLIElement, ChatMessage[]>();
+
+type ChatMessageRenderSettings = Pick<
+	Settings,
+	'enableTimestamp' | 'timestampFormat' | 'yellIndicator'
+>;
+
+const collapsedButtonLabel = (messages: ChatMessage[]): string => {
+	if (messages.length === 1) {
+		const username = messages[0].username;
+		return `${username ? `${username}: ` : ''}click to show`;
+	}
+	return `${messages.length} collapsed messages, click to show`;
+};
+
+const collapsedStackButton = (li: HTMLLIElement): HTMLButtonElement | null =>
+	li.querySelector('button');
+
+const syncCollapsedButtonLabel = (li: HTMLLIElement): void => {
+	const messages = collapsedStacks.get(li);
+	const button = collapsedStackButton(li);
+	if (!messages || !button) return;
+	button.textContent = collapsedButtonLabel(messages);
+};
+
+const pinScrollIfSticky = (
+	container: HTMLElement | null,
+	stickiness: ChatStickiness | undefined,
+	wasSticky: boolean,
+): void => {
+	if (!container || !wasSticky) return;
+	container.scrollTop = container.scrollHeight;
+	if (stickiness) stickiness.isSticky = true;
+};
+
 const createCollapsedMessageLi = (
-	chatMessage: ChatMessage,
-	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat' | 'yellIndicator'>,
+	messages: ChatMessage[],
+	settings: ChatMessageRenderSettings,
 	bgClass: string,
 	filters: ChatFilters,
+	stickiness?: ChatStickiness,
 ): HTMLLIElement => {
 	return el.li`${bgClass}`.then((li) => {
+		collapsedStacks.set(li, messages);
 		el.button`-my-1 mx-1 px-1 py-px btn btn-ghost btn-xs justify-start opacity-70 hover:opacity-100 pointer-events-auto`.mount(
 			li,
 			undefined,
 			(button) => {
 				button.type = 'button';
-				button.textContent = chatMessage.username ? `${chatMessage.username}: ` : '';
-				button.textContent += 'click to show';
+				button.textContent = collapsedButtonLabel(messages);
 				button.onclick = () => {
-					li.classList.add('p-1');
-					li.replaceChildren(createChatMessageContent(chatMessage, settings, filters));
+					const parent = li.parentElement;
+					const wasSticky = stickiness
+						? stickiness.isSticky
+						: parent
+							? checkIsAtBottom(parent)
+							: false;
+					const stack = collapsedStacks.get(li) ?? messages;
+					li.replaceWith(
+						...stack.map((chatMessage) =>
+							createMessageLi(
+								createChatMessageContent(chatMessage, settings, filters),
+								bgClass,
+								isChatMessageHighlighted(chatMessage, filters.wordMatches),
+							),
+						),
+					);
+					pinScrollIfSticky(parent, stickiness, wasSticky);
 				};
 			},
 		);
 	});
 };
 
-export const renderMessageLi = (
-	chatMessage: ChatMessage,
-	settings: Pick<Settings, 'enableTimestamp' | 'timestampFormat' | 'yellIndicator'>,
-	bgClass: string,
+export const renderMessageLis = (
+	chatMessages: ChatMessage[],
+	settings: ChatMessageRenderSettings,
 	filters: ChatFilters,
-): HTMLLIElement => {
-	if (isChatMessageCollapsed(chatMessage, filters.wordMatches)) {
-		return createCollapsedMessageLi(chatMessage, settings, bgClass, filters);
+	enableZebra: boolean,
+	stickiness?: ChatStickiness,
+): HTMLLIElement[] => {
+	const nodes: HTMLLIElement[] = [];
+	for (let index = 0; index < chatMessages.length;) {
+		if (isChatMessageCollapsed(chatMessages[index], filters.wordMatches)) {
+			const group: ChatMessage[] = [];
+			while (
+				index < chatMessages.length &&
+				isChatMessageCollapsed(chatMessages[index], filters.wordMatches)
+			) {
+				group.push(chatMessages[index]);
+				index += 1;
+			}
+			nodes.push(
+				createCollapsedMessageLi(group, settings, getMessageBg(enableZebra), filters, stickiness),
+			);
+			continue;
+		}
+		const chatMessage = chatMessages[index];
+		nodes.push(
+			createMessageLi(
+				createChatMessageContent(chatMessage, settings, filters),
+				getMessageBg(enableZebra),
+				isChatMessageHighlighted(chatMessage, filters.wordMatches),
+			),
+		);
+		index += 1;
 	}
-	return createMessageLi(
-		createChatMessageContent(chatMessage, settings, filters),
-		bgClass,
-		isChatMessageHighlighted(chatMessage, filters.wordMatches),
-	);
+	return nodes;
 };
 
 export const updateToggleIndicator = (
@@ -310,8 +382,12 @@ export const applyChatSettings = (
 
 	messageBgTickTock = false;
 	messagesContainer.replaceChildren(
-		...getVisibleChatMessages(settings, filters).map((chatMessage) =>
-			renderMessageLi(chatMessage, settings, getMessageBg(settings.enableZebra), filters),
+		...renderMessageLis(
+			getVisibleChatMessages(settings, filters),
+			settings,
+			filters,
+			settings.enableZebra,
+			stickiness,
 		),
 	);
 
@@ -333,15 +409,27 @@ export const mountChatMessage = (
 		usernamesCache.add(chatMessage.username);
 	}
 	const { messagesContainer, popupsContainer, stickiness } = elements;
-	const messageBg = getMessageBg(settings.enableZebra);
 	const collapsed = isChatMessageCollapsed(chatMessage, filters.wordMatches);
 	const highlighted = isChatMessageHighlighted(chatMessage, filters.wordMatches);
 
 	if (collapsed) {
-		messagesContainer.appendChild(
-			createCollapsedMessageLi(chatMessage, settings, messageBg, filters),
-		);
+		const last = messagesContainer.lastElementChild;
+		if (last instanceof HTMLLIElement && collapsedStacks.has(last)) {
+			collapsedStacks.get(last)?.push(chatMessage);
+			syncCollapsedButtonLabel(last);
+		} else {
+			messagesContainer.appendChild(
+				createCollapsedMessageLi(
+					[chatMessage],
+					settings,
+					getMessageBg(settings.enableZebra),
+					filters,
+					stickiness,
+				),
+			);
+		}
 	} else {
+		const messageBg = getMessageBg(settings.enableZebra);
 		const content = createChatMessageContent(chatMessage, settings, filters);
 		messagesContainer.appendChild(createMessageLi(content, messageBg, highlighted));
 

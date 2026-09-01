@@ -16,9 +16,8 @@ import {
 import {
 	checkIsAtBottom,
 	createWelcomeChatMessage,
-	getMessageBg,
 	getVisibleChatMessages,
-	renderMessageLi,
+	renderMessageLis,
 	updateToggleIndicator,
 } from './chat_messages';
 import { chatMessages } from './chat_state';
@@ -218,11 +217,15 @@ export const initChat = (
 		);
 	}
 
-	getVisibleChatMessages(settings, filters).forEach((chatMessage) => {
-		messagesContainer.appendChild(
-			renderMessageLi(chatMessage, settings, getMessageBg(settings.enableZebra), filters),
-		);
-	});
+	messagesContainer.append(
+		...renderMessageLis(
+			getVisibleChatMessages(settings, filters),
+			settings,
+			filters,
+			settings.enableZebra,
+			stickiness,
+		),
+	);
 	messagesContainer.scrollTop = messagesContainer.scrollHeight;
 	stickiness.isSticky = true;
 
