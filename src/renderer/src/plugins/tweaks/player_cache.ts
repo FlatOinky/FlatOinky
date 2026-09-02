@@ -68,9 +68,6 @@ const showHair = (username: string): boolean => {
 
 // #region compositeStore
 
-// FlatMMO declares `class Map` at the top level of maps.js, which lands in the
-// global lexical scope and shadows the built-in Map for renderer modules too.
-// Plain objects are used for every keyed lookup here to stay clear of it.
 const createCompositeStore = () => {
 	let composites: Record<string, HTMLCanvasElement> = {};
 	let compositeKeys: string[] = [];

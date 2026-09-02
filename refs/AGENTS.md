@@ -83,7 +83,9 @@ Top level:
 - `loop.js` — client tick loop (`one_tick`) and animation-driven sound.
 - `items.js` — inventory/items, sell prices, collection log, trade inventory.
 - `bank.js` — bank UI and bank/inventory item models.
-- `maps.js` — map data and ground items (`GroundItem`).
+- `maps.js` — map data and ground items (`GroundItem`). Declares `class Map`;
+  Flat Oinky rewrites that to `GameMap` in `transpileScript` so it does not
+  shadow the built-in `Map`.
 - `map_objects.js` — interactable multi-layer map objects (`MapObject`).
 - `tiles.js` — map tile rendering (`Tile`).
 - `npcs.js` — NPC model + combat stats (`NPC`).

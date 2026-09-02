@@ -23,8 +23,10 @@ const UNWANTED_SNIPPETS: ReadonlyArray<{ pattern: string; replacement: string }>
 	},
 ];
 
+// FlatMMO's maps.js declares `class Map`, which would shadow the builtin. Rename
+// declaration and construction/instanceof sites so injected scripts keep `Map`.
 const renameGameMapClassReferences = (input: string): string => {
-	return input.replaceAll(/(class|new|instanceof) Map/g, '$1 GameMap');
+	return input.replaceAll(/(class|new|instanceof)\s+Map\b/g, '$1 GameMap');
 };
 
 const removeUnwantedSnippets = (input: string): string => {
