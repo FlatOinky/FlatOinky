@@ -140,10 +140,10 @@ const pendingSettings = new Map<string, PendingSettingsDocument>();
 let settingsFlushTimer: ReturnType<typeof setTimeout> | undefined;
 let settingsFirstPendingAt: number | undefined;
 
-const pendingSettingsKey = (scope: Scope, context: string, namespace: string): string =>
-	JSON.stringify([scope.kind, getScopeId(scope), context, namespace]);
-
-const flushPendingSettings = (): void => {
+/**
+ * Flush all pending setting updates to the database.
+ */
+export const flushSettings = (): void => {
 	if (settingsFlushTimer !== undefined) {
 		clearTimeout(settingsFlushTimer);
 		settingsFlushTimer = undefined;
@@ -167,11 +167,11 @@ const scheduleSettingsFlush = (): void => {
 		Math.max(0, SETTINGS_WRITE_MAX_WAIT_MS - (now - settingsFirstPendingAt)),
 	);
 	if (settingsFlushTimer !== undefined) clearTimeout(settingsFlushTimer);
-	settingsFlushTimer = setTimeout(flushPendingSettings, wait);
+	settingsFlushTimer = setTimeout(flushSettings, wait);
 };
 
 const getPendingDocument = (scope: Scope, context: string, namespace: string): object => {
-	const key = pendingSettingsKey(scope, context, namespace);
+	const key = JSON.stringify([scope.kind, getScopeId(scope), context, namespace]);
 	const existing = pendingSettings.get(key);
 	if (existing) return existing.document;
 	const document = readDocument(scope, context, namespace);
@@ -181,14 +181,14 @@ const getPendingDocument = (scope: Scope, context: string, namespace: string): o
 
 app.on('will-quit', () => {
 	try {
-		flushPendingSettings();
+		flushSettings();
 	} catch (error) {
 		console.warn('Failed to flush pending settings:', error);
 	}
 });
 
 export const loadSettings = (scope: Scope): DocumentRows => {
-	flushPendingSettings();
+	flushSettings();
 	return loadDocuments(scope);
 };
 
@@ -378,7 +378,7 @@ const uniqueProfileName = (base: string): string => {
 };
 
 export const duplicateProfile = (sourceId: number): ProfileRow => {
-	flushPendingSettings();
+	flushSettings();
 	const db = getDatabase();
 	const source = db.prepare('SELECT id, name FROM profiles WHERE id = ?').get(sourceId) as
 		| ProfileRow
@@ -401,7 +401,7 @@ export const duplicateProfile = (sourceId: number): ProfileRow => {
 };
 
 export const deleteProfile = (id: number): void => {
-	flushPendingSettings();
+	flushSettings();
 	const profiles = listProfiles();
 	if (profiles.length <= 1) throw new Error('Cannot delete the last profile');
 	const target = profiles.find((entry) => entry.id === id);

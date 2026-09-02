@@ -34,7 +34,10 @@ client.
 ## 3. Project structure and key files
 
 - `src/main/` — Electron main process.
-  - `index.ts` — app entry / window bootstrap.
+  - `index.ts` — app entry / window bootstrap. Production takes a single-instance
+    lock so a second launch opens another window in the same process; development
+    does not take the lock, so a prod instance and a `pnpm dev` instance cannot
+    intercept each other.
   - `ipc_main.ts` — IPC handlers (login, worlds, client HTML/assets, storage/profiles,
     file save, notifications, saveReferences from a ReferenceManifest, window reload,
     asset-cache clear, openDevTools, updater check/download/install/channel, and
@@ -109,7 +112,12 @@ sections for always-on systems use `core/systems`), and per-scope append-only
 namespace as `oinky/<name>/<collection>`). `client`, `notifications` (alerts), `logging`, and
 `plugins` use profile storage; `updater` and `devtools` use global storage. Collections
 are read with `fetch(quantity)`, written with `append(value, max?)`, and cleared with
-`clear(match?)` (optional field match via `json_extract`).
+`clear(match?)` (optional field match via `json_extract`). Multiple windows share one
+main process and the same SQLite files. Settings writes are broadcast to other windows
+that share the scope (global to all sessions, profile by `profileId`, character by
+`characterId`); each window applies the same dot-prop key/value locally without
+echoing the write back. Overlay window geometry (`window/*` keys) is not synced.
+Collections are not synced across windows.
 
 ## 4. Safety and permission boundaries
 

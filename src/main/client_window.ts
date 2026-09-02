@@ -3,6 +3,7 @@ import { join } from 'path';
 import { is } from '@electron-toolkit/utils';
 import icon from '../../build/icon.png?asset';
 import { watchWindowState } from './app_state';
+import { flushSettings } from './storage';
 
 export function createWindow(): void {
 	// Create the browser window.
@@ -55,6 +56,12 @@ export function createWindow(): void {
 	// mainWindow.loadURL('https://flatmmo.com/play.php');
 
 	mainWindow.on('close', () => {
-		if (BrowserWindow.getAllWindows().length === 1) app.exit();
+		if (BrowserWindow.getAllWindows().length !== 1) return;
+		try {
+			flushSettings();
+		} catch (error) {
+			console.warn('Failed to flush pending settings:', error);
+		}
+		app.exit();
 	});
 }
