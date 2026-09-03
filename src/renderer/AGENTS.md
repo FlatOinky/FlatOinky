@@ -121,7 +121,7 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    - `namespace: 'oinky/<name>'`, `name`, optional `description`
    - `init(lifecycle, context)` → `PluginCallbacks` (may be async)
    - optional `onRemoteSettings: 'restart'` when live-applying another window's
-     settings is impractical (chat, audio, and metrics use this)
+     settings is impractical (chat and metrics use this)
    - optional `settingsMenu?: () => HTMLElement`
 2. Re-export it from [src/plugins.ts](src/plugins.ts). `client.ts` registers and
    starts every enabled export from that barrel (per-profile toggles live in the

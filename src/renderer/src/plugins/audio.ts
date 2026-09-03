@@ -37,7 +37,6 @@ export const AudioPlugin: Plugin = {
 	name: 'Audio',
 	description:
 		'Play and mix in-game sounds and music, with per-sound volume and a tri-state filter.',
-	onRemoteSettings: 'restart',
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialAudioSettings);
 		const registry = await createAudioRegistry(context.collections.profile<AudioPlay>('plays'));
@@ -84,6 +83,13 @@ export const AudioPlugin: Plugin = {
 			music.update();
 			sound.update();
 		});
+
+		const applyAudioSettings = () => {
+			engine.refreshMusic();
+			sync.reconcile();
+			notify();
+		};
+		lifecycle.onCleanup(context.storages.profile.subscribe('settings', applyAudioSettings));
 
 		lifecycle.onCleanup(() => {
 			registry.flush();
