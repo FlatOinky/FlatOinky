@@ -5,6 +5,8 @@ export const usernamesCache = new Set<string>();
 
 export const chatMessages: ChatMessage[] = [];
 
+let chatMessagesHydrated = false;
+
 export const pmState = {
 	latestPmUsername: undefined as string | undefined,
 };
@@ -26,6 +28,7 @@ export const hydrateChatMessages = async (
 	collection: Collection<ChatMessage>,
 	max: number,
 ): Promise<void> => {
+	if (chatMessagesHydrated) return;
 	chatMessages.length = 0;
 	usernamesCache.clear();
 	const fetched = await collection.fetch(Math.max(1, max));
@@ -35,4 +38,5 @@ export const hydrateChatMessages = async (
 		chatMessages.push(message);
 		if (message.username) usernamesCache.add(message.username);
 	}
+	chatMessagesHydrated = true;
 };

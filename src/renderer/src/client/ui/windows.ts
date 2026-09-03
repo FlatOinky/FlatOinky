@@ -197,7 +197,6 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		const onPointerDown = () => focusWindow(id);
 		windowFrame.addEventListener('pointerdown', onPointerDown);
 		lifecycle.onCleanup(() => {
-			windowState.open = false;
 			windowFrame.removeEventListener('pointerdown', onPointerDown);
 			windowFrames[id] = undefined;
 		});
@@ -436,10 +435,13 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			updateWindowFramePosition(windowFrame, windowState);
 		});
 
-		initMenuItem('close', el.icon.x`size-4`.element, 'Close', () => {
+		const closeByUser = () => {
+			windowState.open = false;
 			lifecycle.cleanup();
 			options.onClose?.();
-		});
+		};
+
+		initMenuItem('close', el.icon.x`size-4`.element, 'Close', closeByUser);
 
 		const syncWindowChrome = () => {
 			windowButton.classList.toggle('btn-soft', windowState.minimized);
@@ -478,13 +480,9 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		const windowClosers = windowFrame.querySelectorAll<HTMLInputElement>(
 			'button[oinky-window=close]',
 		);
-		windowClosers.forEach(
-			(windowCloser) =>
-				(windowCloser.onclick = () => {
-					lifecycle.cleanup();
-					options.onClose?.();
-				}),
-		);
+		windowClosers.forEach((windowCloser) => {
+			windowCloser.onclick = closeByUser;
+		});
 
 		const windowMinimizers = windowFrame.querySelectorAll<HTMLButtonElement>(
 			'button[oinky-window=minimize]',

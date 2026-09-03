@@ -76,6 +76,7 @@ export const initChatLogWindow = (
 	const render = () => {
 		const logMessages = chatMessages.filter(
 			(chatMessage) =>
+				(settings.welcomeMessages !== 'hide' || chatMessage.type !== 'welcome') &&
 				!isChatMessageMutedFromLog(chatMessage, filters.muted) &&
 				!isChatMessageFilteredFromLog(chatMessage, filters.wordMatches),
 		);

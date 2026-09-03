@@ -219,6 +219,42 @@ const selectColorComboUi = new WeakMap<
 		options: SettingsNodeOption[];
 	}
 >();
+const selectColorComboInputs = new Set<SettingsInput>();
+let themeColorObserver: MutationObserver | undefined;
+
+const syncSelectColorComboFromText = (input: SettingsInput) => {
+	const ui = selectColorComboUi.get(input);
+	if (!ui) return;
+	const text = input.value;
+	const match = ui.options.find((opt) => opt.value === text);
+	const cssColor = match?.value ?? text;
+	ui.trigger.classList.toggle('italic', !match);
+	const context = ui.container.isConnected ? ui.container : document.documentElement;
+	const hex = cssColorToHex(cssColor, context);
+	if (ui.colorInput.value !== hex) ui.colorInput.value = hex;
+};
+
+const pruneSelectColorComboInputs = () => {
+	for (const input of selectColorComboInputs) {
+		if (input.isConnected) continue;
+		selectColorComboInputs.delete(input);
+	}
+	if (selectColorComboInputs.size > 0) return;
+	themeColorObserver?.disconnect();
+	themeColorObserver = undefined;
+};
+
+const ensureThemeColorObserver = () => {
+	if (themeColorObserver) return;
+	themeColorObserver = new MutationObserver(() => {
+		pruneSelectColorComboInputs();
+		for (const input of selectColorComboInputs) syncSelectColorComboFromText(input);
+	});
+	themeColorObserver.observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ['data-theme'],
+	});
+};
 
 const makeSelectColorComboChild = (
 	node: SettingsInputBase & {
@@ -288,18 +324,10 @@ const makeSelectColorComboChild = (
 	colorInput.oninput = () => writeTextValue(colorInput.value);
 	colorInput.onchange = () => writeTextValue(colorInput.value);
 
-	const syncFromText = () => {
-		const ui = selectColorComboUi.get(node.input);
-		if (!ui) return;
-		const text = node.input.value;
-		const match = ui.options.find((opt) => opt.value === text);
-		const cssColor = match?.value ?? text;
-		ui.trigger.classList.toggle('italic', !match);
-		const context = ui.container.isConnected ? ui.container : document.documentElement;
-		const hex = cssColorToHex(cssColor, context);
-		if (ui.colorInput.value !== hex) ui.colorInput.value = hex;
-	};
+	const syncFromText = () => syncSelectColorComboFromText(node.input);
 	selectColorComboUi.set(node.input, { colorInput, trigger, container, options });
+	selectColorComboInputs.add(node.input);
+	ensureThemeColorObserver();
 	if (!boundSelectColorComboInputs.has(node.input)) {
 		boundSelectColorComboInputs.add(node.input);
 		node.input.addEventListener('input', syncFromText);

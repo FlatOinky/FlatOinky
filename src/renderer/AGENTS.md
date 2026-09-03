@@ -142,7 +142,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      `lifecycle.onCleanup`. Overlay window geometry and per-window UI flags live under
      `window/${id}` (plus `window/chat-panel` for the chat panel). Those keys are not
      broadcast; use `windows.initWindow` (which persists `WindowState.open`) and
-     `windows.isOpen(storage, id)` to restore a window after mount. Do not store
+     `windows.isOpen(storage, id)` to restore a window after mount. `open` is cleared on
+     user close, not when a plugin lifecycle tears the window down. Do not store
      open/closed or expanded flags in synced settings. Plugin storages use context
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
      `systems` with bare namespaces (`client`, `updater`, `notifications` (alerts;
@@ -184,7 +185,8 @@ onEnabledChange?, mountHeaderExtras? })` builds a per-cue `AlertScope` card.
      `initWindowButton`, plus `elements` (e.g. `chatContainer`)
    - Windows: `windows.initWindow(lifecycle, { id, title, storage, ... })` persists
      `WindowState` (including `open`) under `window/${id}`; `windows.isOpen(storage, id)`
-     reads that flag before the window exists
+     reads that flag before the window exists. `open` is cleared on user close, not when
+     a plugin lifecycle tears the window down (so settings restarts can restore it).
    - `graphs.mountLineGraph` and helpers from `ui_utils`
 6. **IPC** — `context.ipc.saveFile(filename, contents)` for save-as dialogs. Do not
    import `ipcRenderer` from plugins.

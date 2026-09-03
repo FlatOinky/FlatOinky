@@ -143,6 +143,7 @@ export const initialSettings = {
 	enableTimestamp: true,
 	timestampFormat: 'h:mmaaa',
 	yellIndicator: 'guy' as 'guy' | 'icon' | 'text',
+	welcomeMessages: 'show' as 'show' | 'collapse' | 'hide',
 	enableCommands: true,
 	commandPrefix: '/',
 };

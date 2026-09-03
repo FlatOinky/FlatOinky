@@ -85,6 +85,7 @@ export const createWelcomeChatMessage = (loginSpan: HTMLSpanElement): ChatMessag
 export const getVisibleChatMessages = (settings: Settings, filters: ChatFilters): ChatMessage[] => {
 	const visible = chatMessages.filter(
 		(chatMessage) =>
+			(settings.welcomeMessages !== 'hide' || chatMessage.type !== 'welcome') &&
 			!isChatMessageMuted(chatMessage, filters.muted) &&
 			!isChatMessageFiltered(chatMessage, filters.wordMatches),
 	);
@@ -246,15 +247,22 @@ const collapsedStacks = new WeakMap<HTMLLIElement, ChatMessage[]>();
 
 type ChatMessageRenderSettings = Pick<
 	Settings,
-	'enableTimestamp' | 'timestampFormat' | 'yellIndicator'
+	'enableTimestamp' | 'timestampFormat' | 'yellIndicator' | 'welcomeMessages'
 >;
 
 const collapsedButtonLabel = (messages: ChatMessage[]): string => {
-	if (messages.length === 1) {
-		const username = messages[0].username;
-		return `${username ? `${username}: ` : ''}click to show`;
+	const welcomeMessages = messages.filter((message) => message.type === 'welcome');
+	const tags = [
+		welcomeMessages.length > 0 && `welcome message${welcomeMessages.length > 1 ? 's' : ''}`,
+		...Array.from(new Set(messages.map((message) => message.username))).filter(
+			(username) => typeof username === 'string' && username.length > 0,
+		),
+	].filter((tag) => typeof tag === 'string' && tag.length > 0);
+
+	if (tags.length > 0) {
+		return `${tags.join(', ')}, click to show (${messages.length})`;
 	}
-	return `${messages.length} collapsed messages, click to show`;
+	return `click to show (${messages.length})`;
 };
 
 const collapsedStackButton = (li: HTMLLIElement): HTMLButtonElement | null =>
@@ -325,6 +333,17 @@ export const renderMessageLis = (
 ): HTMLLIElement[] => {
 	const nodes: HTMLLIElement[] = [];
 	for (let index = 0; index < chatMessages.length;) {
+		if (settings.welcomeMessages === 'collapse' && chatMessages[index].type === 'welcome') {
+			const group: ChatMessage[] = [];
+			while (index < chatMessages.length && chatMessages[index].type === 'welcome') {
+				group.push(chatMessages[index]);
+				index += 1;
+			}
+			nodes.push(
+				createCollapsedMessageLi(group, settings, getMessageBg(enableZebra), filters, stickiness),
+			);
+			continue;
+		}
 		if (isChatMessageCollapsed(chatMessages[index], filters.wordMatches)) {
 			const group: ChatMessage[] = [];
 			while (

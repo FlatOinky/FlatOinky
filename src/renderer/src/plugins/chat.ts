@@ -148,6 +148,21 @@ export const ChatPlugin: Plugin = {
 		});
 
 		settingsMenu.mountSection('Display', [
+			helpers.select({
+				label: 'Welcome messages',
+				description: 'How login welcome lines appear in chat.',
+				options: [
+					{ label: 'Show', value: 'show' },
+					{ label: 'Collapse', value: 'collapse' },
+					{ label: 'Hide', value: 'hide' },
+				],
+				get: () => settings.welcomeMessages,
+				set: (value) => {
+					settings.welcomeMessages = value;
+					onSettingsChange();
+				},
+				default: initialSettings.welcomeMessages,
+			}),
 			toggleSetting('Zebra striping', 'Alternate message background colors.', 'enableZebra'),
 			toggleSetting(
 				'Show timestamps',
