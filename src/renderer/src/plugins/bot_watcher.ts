@@ -19,7 +19,8 @@ const UTC_STAMP = /\[(\d{1,2}:\d{2})\s*UTC\]/i;
 const TRAILING_UTC_STAMP = /\[(\d{1,2}:\d{2})\s*UTC\]\s*$/i;
 const STATUS_LABELS = ['Tree', 'Storm', 'Meteor', 'Bondfire', 'Ancient'] as const;
 type StatusLabel = (typeof STATUS_LABELS)[number];
-const PLAYER_COMMAND = /^!(sm|st|gm|gemmeteor|rt|resettree|alien|superstorm)(?:\s+(.*))?$/i;
+const PLAYER_COMMAND =
+	/^!(sm|setmeteor|st|settree|gm|gemmeteor|rt|resettree|alien|superstorm)(?:\s+(.*))?$/i;
 const WATCHABLE_CHAT_TYPES = ['local', 'yell', 'pm_to', 'pm_from'] as const;
 const CATEGORY_KEYS = ['tree', 'meteor', 'alien', 'storm', 'superStorm', 'ancient'] as const;
 type CategoryKey = (typeof CATEGORY_KEYS)[number];
@@ -827,12 +828,14 @@ const initBotWatcher = (
 		const command = match[1].toLowerCase();
 		const rest = (match[2] ?? '').trim();
 		switch (command) {
-			case 'sm': {
+			case 'sm':
+			case 'setmeteor': {
 				if (!rest) return;
 				pendingSm = { location: rest, at: now, silent };
 				return;
 			}
-			case 'st': {
+			case 'st':
+			case 'settree': {
 				if (!rest) return;
 				pendingSt = { location: rest, at: now, silent };
 				return;
