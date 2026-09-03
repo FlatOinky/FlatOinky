@@ -44,7 +44,7 @@ const themes = [
 	{ id: 'silk', name: 'Silk' },
 ];
 
-const updateTheme = (theme: string) =>
+const setDocumentTheme = (theme: string) =>
 	document.body.parentElement?.setAttribute('data-theme', theme);
 
 const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, settings: Settings) => {
@@ -71,22 +71,29 @@ const initThemeSelector = (lifecycle: Lifecycle, context: PluginContext, setting
 		});
 	});
 
-	select.value = settings.theme;
-	select.onchange = () => {
-		settings.theme = select.value;
-		updateTheme(settings.theme);
+	const setTheme = (theme: string) => {
+		if (select.value !== theme) select.value = theme;
+		if (settings.theme !== theme) settings.theme = theme;
+		setDocumentTheme(theme);
 	};
+
+	setTheme(settings.theme);
+	select.onchange = () => setTheme(select.value);
+	lifecycle.onCleanup(() => setDocumentTheme('dark'));
+
+	return { setTheme };
 };
 
 export const ThemesPlugin: Plugin = {
 	namespace: 'oinky/themes',
 	name: 'Themes',
-	description: 'Themes for the Flat Oinky UI',
+	description: 'Color themes for Flat Oinky UI',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
-		updateTheme(settings.theme);
-		lifecycle.onCleanup(() => updateTheme('dark'));
-		initThemeSelector(lifecycle, context, settings);
+		const themeSelector = initThemeSelector(lifecycle, context, settings);
+		context.storages.profile.subscribe<string>('settings.theme', (_keys, value) =>
+			themeSelector.setTheme(value ?? 'dark'),
+		);
 		return {};
 	},
 };
