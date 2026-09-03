@@ -59,7 +59,7 @@ export const initDevtoolsSystem = async (
 	references: FMMO.ReferenceManifest,
 	setRecordServerCommand: (fn: (raw: string) => void) => void,
 ): Promise<void> => {
-	const storage = await createGlobalStorage('systems', 'devtools');
+	const storage = await createGlobalStorage('systems', 'devtools', lifecycle);
 	const settings = storage.reactive('settings', initialSettings);
 	let devtoolsLifecycle: Lifecycle | null = null;
 	const serverCommands: string[] = [];

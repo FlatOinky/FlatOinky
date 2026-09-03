@@ -17,6 +17,19 @@ export const initProfiles = (payload: StorageInitPayload): Profiles => {
 	let profiles = [...payload.profiles];
 	let profile = payload.profile;
 
+	const applyProfiles = (next: ProfileRow[]): void => {
+		profiles = next;
+		const current = getInitPayload();
+		const nextCurrent = next.find((entry) => entry.id === profile.id);
+		if (nextCurrent) profile = nextCurrent;
+		Object.assign(current, { profiles, profile });
+	};
+
+	ipcStorage.onProfilesChanged((next) => {
+		if (!Array.isArray(next)) return;
+		applyProfiles(next);
+	});
+
 	return {
 		get profiles() {
 			return profiles;

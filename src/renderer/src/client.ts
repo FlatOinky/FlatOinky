@@ -141,12 +141,13 @@ const createPluginContext = async (
 	namespace: string,
 	title: string,
 	createLogger: (prefix?: string) => Logger,
+	lifecycle: Lifecycle,
 ) => {
 	return {
 		...context,
 		log: createLogger(title),
 		settings: settings.setupPluginApi(namespace, title),
-		storages: await createPluginStorages(namespace),
+		storages: await createPluginStorages(namespace, lifecycle),
 		collections: createPluginCollections(namespace) as PluginCollections,
 	};
 };
@@ -355,6 +356,7 @@ const initPlugins = (
 			namespace,
 			plugin.name,
 			createLogger,
+			pluginLifecycle,
 		);
 		const callbacks = await plugin.init(pluginLifecycle, pluginContext);
 		const instance = {
@@ -370,9 +372,8 @@ const initPlugins = (
 		instances[namespace]?.lifecycle.cleanup();
 	};
 
-	const setEnabled = async (namespace: string, enabled: boolean) => {
+	const applyEnabled = async (namespace: string, enabled: boolean) => {
 		if (!(namespace in registry)) return;
-		pluginsStorage.set(['enabled', namespace], enabled);
 		if (enabled) {
 			const instance = await startPlugin(namespace);
 			if (startedUp) instance?.callbacks.events?.startup?.();
@@ -380,6 +381,12 @@ const initPlugins = (
 			stopPlugin(namespace);
 		}
 		notify();
+	};
+
+	const setEnabled = async (namespace: string, enabled: boolean) => {
+		if (!(namespace in registry)) return;
+		pluginsStorage.set(['enabled', namespace], enabled);
+		await applyEnabled(namespace, enabled);
 	};
 
 	const startEnabled = async () => {
@@ -512,6 +519,7 @@ const initPlugins = (
 		stopPlugin,
 		isEnabled,
 		setEnabled,
+		applyEnabled,
 		startEnabled,
 		restart,
 		subscribe,
@@ -665,12 +673,12 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	const profiles = initProfiles(storagePayload);
 	const [clientStorage, updaterStorage, alertsStorage, pluginsStorage, loggingStorage] =
 		await Promise.all([
-			createProfileStorage('systems', 'client'),
-			createGlobalStorage('systems', 'updater'),
+			createProfileStorage('systems', 'client', lifecycle),
+			createGlobalStorage('systems', 'updater', lifecycle),
 			// Namespace stays `notifications` so existing profile settings still load.
-			createProfileStorage('systems', 'notifications'),
-			createProfileStorage('systems', 'plugins'),
-			createProfileStorage('systems', 'logging'),
+			createProfileStorage('systems', 'notifications', lifecycle),
+			createProfileStorage('systems', 'plugins', lifecycle),
+			createProfileStorage('systems', 'logging', lifecycle),
 		]);
 	const settings = initSettings(lifecycle, ui, clientStorage);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
@@ -704,6 +712,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		updater,
 		alertsStorage,
 		clientStorage,
+		pluginsStorage,
 		setAlerts: (next) => {
 			alerts = next;
 		},

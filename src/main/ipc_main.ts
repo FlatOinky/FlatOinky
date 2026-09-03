@@ -1,4 +1,4 @@
-import { app, ipcMain, Notification, dialog } from 'electron';
+import { app, ipcMain, Notification, dialog, webContents } from 'electron';
 import * as storage from './storage';
 import * as flatMmo from './flat_mmo';
 import * as updater from './updater';
@@ -166,6 +166,44 @@ export const ipcMainSetup = (): void => {
 		}
 	};
 
+	const isWindowGeometryKey = (key: StorageKey): boolean => {
+		const first = typeof key === 'string' ? key : key[0];
+		return typeof first === 'string' && first.startsWith('window/');
+	};
+
+	const sendToSession = (id: number, channel: string, ...args: unknown[]): void => {
+		const contents = webContents.fromId(id);
+		if (!contents || contents.isDestroyed()) return;
+		contents.send(channel, ...args);
+	};
+
+	const broadcastSettingsChanged = (
+		senderId: number,
+		kind: storage.ScopeKind,
+		context: string,
+		namespace: string,
+		key: StorageKey,
+		value: unknown,
+	): void => {
+		if (isWindowGeometryKey(key)) return;
+		const senderSession = sessions.get(senderId);
+		if (!senderSession) return;
+		for (const [id, session] of sessions) {
+			if (id === senderId) continue;
+			if (kind === 'profile' && session.profileId !== senderSession.profileId) continue;
+			if (kind === 'character' && session.characterId !== senderSession.characterId) continue;
+			sendToSession(id, 'storage:settingsChanged', kind, context, namespace, key, value);
+		}
+	};
+
+	const broadcastProfilesChanged = (senderId: number): void => {
+		const profiles = storage.listProfiles();
+		for (const [id] of sessions) {
+			if (id === senderId) continue;
+			sendToSession(id, 'storage:profilesChanged', profiles);
+		}
+	};
+
 	ipcMain.handle('storage:init', (event, characterName: string) => {
 		if (typeof characterName !== 'string' || characterName.length < 1) return null;
 		const character = storage.upsertCharacter(characterName);
@@ -211,6 +249,7 @@ export const ipcMainSetup = (): void => {
 			const scope = resolveScope(session, kind);
 			if (!scope) return;
 			storage.updateSettings(scope, context, namespace, key, value);
+			broadcastSettingsChanged(event.sender.id, kind, context, namespace, key, value);
 		},
 	);
 
@@ -278,31 +317,37 @@ export const ipcMainSetup = (): void => {
 
 	ipcMain.handle('storage:listProfiles', () => storage.listProfiles());
 
-	ipcMain.handle('storage:createProfile', (_event, name: string) => {
+	ipcMain.handle('storage:createProfile', (event, name: string) => {
 		if (typeof name !== 'string' || name.trim().length < 1) return null;
 		try {
-			return storage.createProfile(name);
+			const created = storage.createProfile(name);
+			broadcastProfilesChanged(event.sender.id);
+			return created;
 		} catch (error) {
 			console.warn(error);
 			return null;
 		}
 	});
 
-	ipcMain.handle('storage:renameProfile', (_event, profileId: number, name: string) => {
+	ipcMain.handle('storage:renameProfile', (event, profileId: number, name: string) => {
 		if (typeof profileId !== 'number' || !Number.isInteger(profileId)) return null;
 		if (typeof name !== 'string' || name.trim().length < 1) return null;
 		try {
-			return storage.renameProfile(profileId, name);
+			const renamed = storage.renameProfile(profileId, name);
+			broadcastProfilesChanged(event.sender.id);
+			return renamed;
 		} catch (error) {
 			console.warn(error);
 			return null;
 		}
 	});
 
-	ipcMain.handle('storage:duplicateProfile', (_event, sourceId: number) => {
+	ipcMain.handle('storage:duplicateProfile', (event, sourceId: number) => {
 		if (typeof sourceId !== 'number' || !Number.isInteger(sourceId)) return null;
 		try {
-			return storage.duplicateProfile(sourceId);
+			const created = storage.duplicateProfile(sourceId);
+			broadcastProfilesChanged(event.sender.id);
+			return created;
 		} catch (error) {
 			console.warn(error);
 			return null;
@@ -313,9 +358,12 @@ export const ipcMainSetup = (): void => {
 		if (typeof profileId !== 'number' || !Number.isInteger(profileId)) return false;
 		const session = sessions.get(event.sender.id);
 		if (!session) return false;
-		if (session.profileId === profileId) return false;
+		for (const entry of sessions.values()) {
+			if (entry.profileId === profileId) return false;
+		}
 		try {
 			storage.deleteProfile(profileId);
+			broadcastProfilesChanged(event.sender.id);
 			return true;
 		} catch (error) {
 			console.warn(error);

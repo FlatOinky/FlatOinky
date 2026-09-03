@@ -66,7 +66,7 @@ client.
     to add their own sections.
   - `client/client_storage.ts` — reactive settings storage scoped to global, profile,
     or character, plus append-only collections (`fetch` / `append`), persisted over
-    IPC into SQLite.
+    IPC into SQLite. `subscribe` fires for changes applied from other windows.
   - `client/profiles.ts` — profile list and per-character profile mapping (SQLite).
   - `client/chat_message.ts` — `ChatMessage` types and parse/create helpers
     (re-exported from `client.ts`).

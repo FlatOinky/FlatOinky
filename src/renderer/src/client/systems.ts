@@ -22,6 +22,7 @@ export type SystemsContext = {
 	updater: Updater;
 	alertsStorage: ClientStorage;
 	clientStorage: ClientStorage;
+	pluginsStorage: ClientStorage;
 	setAlerts: (alerts: Alerts) => void;
 	setContextMenu: (contextMenu: ContextMenu) => void;
 	setRecordServerCommand: (fn: (raw: string) => void) => void;
@@ -40,6 +41,7 @@ export const initSystems = async (
 		updater,
 		alertsStorage,
 		clientStorage,
+		pluginsStorage,
 		setAlerts,
 		setContextMenu,
 		setRecordServerCommand,
@@ -87,7 +89,7 @@ export const initSystems = async (
 		await startSystems();
 	};
 
-	initProfilesSystem(lifecycle, ui, profiles, plugins, clientStorage, {
+	initProfilesSystem(lifecycle, ui, profiles, plugins, clientStorage, pluginsStorage, {
 		restartSystems,
 		restartPlugins: () => plugins.restart(),
 	});

@@ -1,6 +1,7 @@
 import * as dot from 'dot-prop';
 import { ipcStorage } from './ipc_renderer';
 import type { ScopeKind, StorageContext, StorageInitPayload } from './ipc_renderer/ipc_storage';
+import type { Lifecycle } from '../client';
 
 type JSONData =
 	| boolean
@@ -18,10 +19,14 @@ export type StorageData = {
 };
 
 export type ClientStorage = {
-	get: (keys: string | readonly (string | number)[]) => unknown;
-	set: (keys: string | readonly (string | number)[], value: unknown) => void;
-	delete: (keys: string | readonly (string | number)[]) => void;
-	reactive: <T extends object>(keys: string | readonly (string | number)[], defaults: T) => T;
+	get: (property: string | readonly (string | number)[]) => unknown;
+	set: (property: string | readonly (string | number)[], value: unknown) => void;
+	delete: (property: string | readonly (string | number)[]) => void;
+	reactive: <T extends object>(property: string | readonly (string | number)[], defaults: T) => T;
+	subscribe: <T>(
+		dotPath: string,
+		callback: (keys: (string | number)[], value: T | undefined) => void,
+	) => () => void;
 };
 
 // #region state
@@ -29,6 +34,15 @@ export type ClientStorage = {
 let state: StorageData | undefined;
 let statePromise: Promise<StorageData> | undefined;
 let initPayload: StorageInitPayload | undefined;
+let remoteUnsubscribe: (() => void) | undefined;
+
+type StorageChangeListener<T> = {
+	path: readonly (string | number)[];
+	callback: (keys: (string | number)[], value: T | undefined) => void;
+};
+
+// oxlint-disable-next-line typescript/no-explicit-any
+const listeners = new Set<StorageChangeListener<any>>();
 
 export const getInitPayload = (): StorageInitPayload => {
 	if (!initPayload) throw new Error('Storage has not been initialized');
@@ -44,6 +58,10 @@ export const initClientStorage = async (characterName: string): Promise<StorageI
 		character: (payload.settings.character ?? {}) as StorageData['character'],
 	};
 	statePromise = Promise.resolve(state);
+	remoteUnsubscribe?.();
+	remoteUnsubscribe = ipcStorage.onSettingsChanged((kind, context, namespace, key, value) => {
+		applyRemoteSettings(kind, context, namespace, key, value);
+	});
 	return payload;
 };
 
@@ -89,6 +107,55 @@ const routeUpdate = (path: readonly (string | number | symbol)[], value: unknown
 	if (key.length !== rest.length) return;
 	if (key.length < 1) return;
 	ipcStorage.updateSettings(root as ScopeKind, context, namespace, key, value);
+};
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isPrefix = (
+	base: readonly (string | number)[],
+	path: readonly (string | number)[],
+): boolean => base.length <= path.length && base.every((segment, index) => segment === path[index]);
+
+const notifyListeners = (path: readonly (string | number)[], value: unknown): void => {
+	for (const listener of listeners) {
+		if (!isPrefix(listener.path, path)) continue;
+		listener.callback(path.slice(listener.path.length), value);
+	}
+};
+
+const applyAtPath = (path: (string | number)[], value: unknown): void => {
+	if (!state) return;
+	if (value === undefined) {
+		dot.deleteProperty(state, path);
+		return;
+	}
+	if (isPlainObject(value)) {
+		const existing = dot.getProperty(state, path);
+		if (isPlainObject(existing)) {
+			for (const key of Object.keys(existing)) {
+				if (!(key in value)) delete existing[key];
+			}
+			Object.assign(existing, value);
+			return;
+		}
+	}
+	dot.setProperty(state, path, value);
+};
+
+const applyRemoteSettings = (
+	kind: ScopeKind,
+	context: string,
+	namespace: string,
+	key: StorageKey,
+	value: unknown,
+): void => {
+	if (!state) return;
+	const rest = Array.isArray(key) ? [...key] : [key];
+	if (rest.length < 1) return;
+	const path = [kind, context, namespace, ...rest];
+	applyAtPath(path, value);
+	notifyListeners(path, value);
 };
 
 // #region proxy
@@ -140,6 +207,7 @@ const deepProxy = <T extends object>(
 const wrapStorageData = (
 	state: StorageData,
 	basePath: readonly (string | number)[],
+	rootLifecycle: Lifecycle,
 ): ClientStorage => {
 	const resolve = (property: string | readonly (string | number)[]): (string | number)[] => [
 		...basePath,
@@ -169,28 +237,46 @@ const wrapStorageData = (
 			}
 			return deepProxy(target, (keys, value) => routeUpdate(keys, value), path, clone(defaults));
 		},
+		subscribe<T>(dotPath, callback, parentLifecycle = rootLifecycle) {
+			const lifecycle = parentLifecycle.spawnLifecycle();
+			const path = resolve(dot.parsePath(dotPath));
+			const listener: StorageChangeListener<T> = { path, callback };
+			listeners.add(listener);
+			lifecycle.onCleanup(() => listeners.delete(listener));
+			return lifecycle.cleanup;
+		},
 	};
 };
 
-export const createGlobalStorage = async (context: StorageContext | string, namespace: string) => {
-	return wrapStorageData(await getState(), ['global', context, namespace]);
+export const createGlobalStorage = async (
+	context: StorageContext | string,
+	namespace: string,
+	lifecycle: Lifecycle,
+) => {
+	return wrapStorageData(await getState(), ['global', context, namespace], lifecycle);
 };
 
-export const createProfileStorage = async (context: StorageContext | string, namespace: string) => {
-	return wrapStorageData(await getState(), ['profile', context, namespace]);
+export const createProfileStorage = async (
+	context: StorageContext | string,
+	namespace: string,
+	lifecycle: Lifecycle,
+) => {
+	return wrapStorageData(await getState(), ['profile', context, namespace], lifecycle);
 };
 
 export const createCharacterStorage = async (
 	context: StorageContext | string,
 	namespace: string,
+	lifecycle: Lifecycle,
 ) => {
-	return wrapStorageData(await getState(), ['character', context, namespace]);
+	return wrapStorageData(await getState(), ['character', context, namespace], lifecycle);
 };
 
 // #region factory
 
 export const createPluginStorages = async (
 	namespace: string,
+	lifecycle: Lifecycle,
 ): Promise<{
 	global: ClientStorage;
 	profile: ClientStorage;
@@ -199,9 +285,9 @@ export const createPluginStorages = async (
 	const state = await getState();
 	const context: StorageContext = 'plugins';
 	return {
-		global: wrapStorageData(state, ['global', context, namespace]),
-		profile: wrapStorageData(state, ['profile', context, namespace]),
-		character: wrapStorageData(state, ['character', context, namespace]),
+		global: wrapStorageData(state, ['global', context, namespace], lifecycle),
+		profile: wrapStorageData(state, ['profile', context, namespace], lifecycle),
+		character: wrapStorageData(state, ['character', context, namespace], lifecycle),
 	};
 };
 

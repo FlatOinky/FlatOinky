@@ -1,5 +1,6 @@
 import type { ClientPlugins, Lifecycle } from '../../client';
 import type { ClientStorage } from '../client_storage';
+import { ipcStorage } from '../ipc_renderer';
 import type { ProfileRow } from '../ipc_renderer/ipc_storage';
 import type { Profiles } from '../profiles';
 import type { ClientUI } from '../ui';
@@ -18,6 +19,7 @@ export const initProfilesSystem = (
 	profiles: Profiles,
 	plugins: ClientPlugins,
 	storage: ClientStorage,
+	pluginsStorage: ClientStorage,
 	{ restartSystems, restartPlugins }: ProfilesSystemControls,
 ): void => {
 	const container = el.div`grid grid-cols-[auto_1fr] gap-2 h-full`.element;
@@ -400,5 +402,21 @@ export const initProfilesSystem = (
 	};
 
 	lifecycle.onCleanup(plugins.subscribe(renderPlugins));
+	lifecycle.onCleanup(
+		pluginsStorage.subscribe<boolean>('enabled', (keys, value) => {
+			if (typeof value !== 'boolean') return;
+			const namespace = keys[0];
+			if (typeof namespace !== 'string') return;
+			void plugins.applyEnabled(namespace, value);
+		}),
+	);
+	lifecycle.onCleanup(
+		ipcStorage.onProfilesChanged(() => {
+			if (!profiles.profiles.some((entry) => entry.id === selectedId)) {
+				selectedId = profiles.profile.id;
+			}
+			render();
+		}),
+	);
 	render();
 };

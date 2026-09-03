@@ -82,3 +82,31 @@ export const setCharacterProfile = async (
 	profiles: ProfileRow[];
 	settings: StorageInitPayload['settings'];
 } | null> => await ipcRenderer.invoke('storage:setCharacterProfile', profileId);
+
+export const onSettingsChanged = (
+	listener: (
+		kind: ScopeKind,
+		context: string,
+		namespace: string,
+		key: StorageKey,
+		value: unknown,
+	) => void,
+): (() => void) =>
+	ipcRenderer.on(
+		'storage:settingsChanged',
+		(
+			_event,
+			kind: ScopeKind,
+			context: string,
+			namespace: string,
+			key: StorageKey,
+			value: unknown,
+		) => {
+			listener(kind, context, namespace, key, value);
+		},
+	);
+
+export const onProfilesChanged = (listener: (profiles: ProfileRow[]) => void): (() => void) =>
+	ipcRenderer.on('storage:profilesChanged', (_event, profiles: ProfileRow[]) => {
+		listener(profiles);
+	});

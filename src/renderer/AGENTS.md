@@ -131,7 +131,11 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    - `character` — one character only
 
      Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC into
-     SQLite automatically. Do not re-save manually. Plugin storages use context
+     SQLite automatically. Do not re-save manually. `.subscribe(listener)` runs when
+     another window applies a change under this storage's namespace
+     (`listener(keys, value)`; `value` is `undefined` on delete). Register the
+     unsubscribe with `lifecycle.onCleanup`. Overlay window geometry (`window/*` keys)
+     is not synced across app windows. Plugin storages use context
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
      `systems` with bare namespaces (`client`, `updater`, `notifications` (alerts;
      namespace name kept for compatibility),
