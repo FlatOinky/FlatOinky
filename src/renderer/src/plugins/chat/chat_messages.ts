@@ -443,7 +443,7 @@ export const mountChatMessage = (
 	}
 	if (stickiness.isSticky) {
 		messagesContainer.scrollTop = messagesContainer.scrollHeight;
-	} else if (settings.isExpanded) {
+	} else if (elements.panel.expanded) {
 		updateToggleIndicator(elements.toggleIndicator, true);
 	}
 };

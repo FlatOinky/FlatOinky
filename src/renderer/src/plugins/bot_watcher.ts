@@ -85,7 +85,6 @@ const asWindowStyle = (value: string): WindowStyle => (value === 'row' ? 'row' :
 
 const createBotWatcherSettings = () => ({
 	enabled: true,
-	windowOpen: false,
 	windowStyle: DEFAULT_WINDOW_STYLE as WindowStyle,
 	trackedBot: DEFAULT_BOT_NAME,
 	categories: { ...DEFAULT_CATEGORIES },
@@ -1182,7 +1181,6 @@ const initBotWatcher = (
 	};
 
 	const setWindowStyle = (value: WindowStyle) => {
-		if (windowStyle() === value) return;
 		settings.windowStyle = value;
 		applyWindowStyle();
 	};
@@ -1195,9 +1193,7 @@ const initBotWatcher = (
 			storage: context.storages.profile,
 			icon: el.icon.binoculars``.element,
 			initialState: { width: 224, height: 104, top: 76, left: 188 },
-			onClose: () => {
-				settings.windowOpen = false;
-			},
+			onClose: () => {},
 		});
 		const items = mountWindowItems(window.body);
 		const created: WatcherWindow = {
@@ -1214,13 +1210,11 @@ const initBotWatcher = (
 	};
 
 	const closeWatcherWindow = () => {
-		settings.windowOpen = false;
 		watcherWindow?.lifecycle.cleanup();
 	};
 
 	const showWatcherWindow = () => {
 		if (!settings.enabled) return;
-		settings.windowOpen = true;
 		watcherWindow ??= createWindow();
 		watcherWindow.window.showWindow();
 		paintWindow(Date.now());
@@ -1274,7 +1268,7 @@ const initBotWatcher = (
 
 	if (settings.enabled) {
 		mountTray();
-		if (settings.windowOpen) showWatcherWindow();
+		if (context.ui.windows.isOpen(context.storages.profile, 'bot-watcher')) showWatcherWindow();
 	}
 
 	const intervalId = setInterval(() => {
@@ -1309,41 +1303,24 @@ const initBotWatcher = (
 			'Parse chat for world-event commands and responses.',
 			() => settings.enabled,
 			setEnabled,
+			true,
 		),
-		{
+		helpers.select({
 			label: 'Window Style',
-			reset: (input) => {
-				input.value = DEFAULT_WINDOW_STYLE;
-			},
-			input: el.select``.then((input) => {
-				for (const value of WINDOW_STYLES) {
-					el.option``.mount(input, value, (option) => {
-						option.textContent = WINDOW_STYLE_LABELS[value];
-						option.value = value;
-						option.selected = windowStyle() === value;
-					});
-				}
-				input.value = windowStyle();
-				input.onchange = () => {
-					setWindowStyle(asWindowStyle(input.value));
-				};
-			}),
-		},
-		{
+			options: WINDOW_STYLES.map((value) => ({ label: WINDOW_STYLE_LABELS[value], value })),
+			get: () => windowStyle(),
+			set: (value) => setWindowStyle(asWindowStyle(value)),
+			default: DEFAULT_WINDOW_STYLE,
+		}),
+		helpers.text({
 			label: 'Tracked Bot',
 			description: 'Username of the bot to track in chat and PMs.',
-			reset: (input) => {
-				input.value = DEFAULT_BOT_NAME;
+			get: () => settings.trackedBot,
+			set: (value) => {
+				settings.trackedBot = value.trim() || DEFAULT_BOT_NAME;
 			},
-			input: el.input.text``.then((input) => {
-				input.value = settings.trackedBot;
-				input.onchange = () => {
-					const next = input.value.trim() || DEFAULT_BOT_NAME;
-					settings.trackedBot = next;
-					input.value = next;
-				};
-			}),
-		},
+			default: DEFAULT_BOT_NAME,
+		}),
 	];
 
 	const categoryNodes = Object.fromEntries(
@@ -1358,6 +1335,7 @@ const initBotWatcher = (
 						settings.categories[key] = value;
 						paintAll(Date.now());
 					},
+					DEFAULT_CATEGORIES[key],
 				),
 				...ALERTS_BY_CATEGORY[key].map((alertKey) =>
 					helpers.cueCard({
@@ -1383,7 +1361,9 @@ export const BotWatcherPlugin: Plugin = {
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', createBotWatcherSettings());
 		const api = initBotWatcher(lifecycle, context, settings);
-		const settingsMenu = context.settings.initMenu(lifecycle);
+		const settingsMenu = context.settings.initMenu(lifecycle, {
+			storage: context.storages.profile,
+		});
 		settingsMenu.mountSection('Bot Watcher', api.watcherNodes);
 		for (const key of CATEGORY_KEYS) {
 			settingsMenu.mountSection(CATEGORY_LABELS[key], api.categoryNodes[key]);

@@ -135,9 +135,10 @@ const makeStateCueCard = (
 	helpers: SettingsHelpers,
 	onEnabledOrThresholdChange: () => void,
 	onTest: () => void,
-): Element => {
+): SettingsNode => {
 	const defaults = initialSettings.stateCues[key];
-	return helpers.cueCard({
+	let thresholdInput: HTMLInputElement | undefined;
+	const card = helpers.cueCard({
 		id: `state-cue-${key}`,
 		title: stateCues[key].title,
 		scoped,
@@ -152,7 +153,7 @@ const makeStateCueCard = (
 				},
 			);
 
-			const thresholdInput = el.input.number`input input-sm w-20 tabular-nums`.mount(
+			thresholdInput = el.input.number`input input-sm w-20 tabular-nums`.mount(
 				header,
 				'threshold',
 				(input) => {
@@ -175,13 +176,20 @@ const makeStateCueCard = (
 					resetButton.setAttribute('data-tip', 'Reset to default');
 					el.icon.restore`size-4`.mount(resetButton);
 					resetButton.onclick = () => {
-						thresholdInput.value = String(defaults.threshold);
-						thresholdInput.dispatchEvent(new Event('change'));
+						thresholdInput!.value = String(defaults.threshold);
+						thresholdInput!.dispatchEvent(new Event('change'));
 					};
 				},
 			);
 		},
 	});
+	return {
+		element: card.element,
+		sync: () => {
+			card.sync?.();
+			if (thresholdInput) thresholdInput.value = String(scoped.threshold);
+		},
+	};
 };
 
 const initStateCues = (
@@ -293,30 +301,23 @@ const initAfkDetection = (
 				alerted = false;
 			},
 		}),
-		{
+		helpers.numberSlider({
 			label: 'AFK threshold',
 			description: 'Seconds without activity before an AFK alert fires.',
-			specialType: 'numberSliderCombo',
-			reset: (input) => {
-				input.value = String(defaults.afkThreshold);
+			valueSuffix: 's',
+			get: () => scoped.afkThreshold,
+			set: (value) => {
+				const next = Math.trunc(value);
+				scoped.afkThreshold = Number.isFinite(next)
+					? Math.min(600, Math.max(5, next))
+					: defaults.afkThreshold;
+				alerted = false;
 			},
-			input: el.input.number``.then((input) => {
-				input.min = '5';
-				input.max = '600';
-				input.step = '5';
-				input.value = String(scoped.afkThreshold);
-				input.onchange = () => {
-					const min = 5;
-					const max = 600;
-					const next = Math.trunc(Number(input.value));
-					scoped.afkThreshold = Number.isFinite(next)
-						? Math.min(max, Math.max(min, next))
-						: defaults.afkThreshold;
-					input.value = String(scoped.afkThreshold);
-					alerted = false;
-				};
-			}),
-		},
+			default: defaults.afkThreshold,
+			min: 5,
+			max: 600,
+			step: 5,
+		}),
 		helpers.toggle(
 			'Ignore crafting XP',
 			'Exclude crafting XP drops from counting as activity.',
@@ -324,6 +325,7 @@ const initAfkDetection = (
 			(value) => {
 				scoped.ignoreCrafting = value;
 			},
+			defaults.ignoreCrafting,
 		),
 	];
 
@@ -351,7 +353,9 @@ export const MonitorPlugin: Plugin = {
 		);
 		const afkApi = initAfkDetection(context, settings.afkDetection, helpers, lifecycle);
 
-		const settingsMenu = context.settings.initMenu(lifecycle);
+		const settingsMenu = context.settings.initMenu(lifecycle, {
+			storage: context.storages.profile,
+		});
 		settingsMenu.mountSection('Afk Detection', afkApi.nodes);
 		settingsMenu.mountSection('Audio Cues', [
 			helpers.toggle(
@@ -361,6 +365,7 @@ export const MonitorPlugin: Plugin = {
 				(value) => {
 					settings.enableAudioCues = value;
 				},
+				initialSettings.enableAudioCues,
 			),
 			...audioCuesApi.nodes,
 		]);
@@ -372,6 +377,7 @@ export const MonitorPlugin: Plugin = {
 				(value) => {
 					settings.enableStateCues = value;
 				},
+				initialSettings.enableStateCues,
 			),
 			...stateCuesApi.nodes,
 		]);

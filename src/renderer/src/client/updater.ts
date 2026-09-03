@@ -191,11 +191,13 @@ export const initUpdater = (
 		getState: (): UpdateState => state,
 		getChannel,
 		setChannel: (channel: UpdateChannel): void => {
+			if (getChannel() === channel) return;
 			storage.set('channel', channel);
 			silent = false;
 			setState({ name: 'checking' });
 			setUpdateChannel(channel);
 		},
+		onSettings: (listener: () => void): (() => void) => storage.subscribe('', () => listener()),
 		subscribe: (listener: (state: UpdateState) => void): (() => void) => {
 			listeners.add(listener);
 			listener(state);

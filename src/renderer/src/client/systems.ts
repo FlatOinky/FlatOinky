@@ -65,7 +65,7 @@ export const initSystems = async (
 
 		const alerts = initAlerts(systems, alertsStorage, { root: ui.root, appState });
 		setAlerts(alerts);
-		initAlertsSystem(systems, ui, alerts, settingsMenu);
+		initAlertsSystem(systems, ui, alerts, settingsMenu, alertsStorage);
 
 		const contextMenu = initContextMenu(systems, ui.root, (target) =>
 			plugins.api.contextMenu.buildItems(target),

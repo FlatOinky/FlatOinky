@@ -120,6 +120,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
 1. Create `src/plugins/<name>.ts` exporting a `Plugin`:
    - `namespace: 'oinky/<name>'`, `name`, optional `description`
    - `init(lifecycle, context)` → `PluginCallbacks` (may be async)
+   - optional `onRemoteSettings: 'restart'` when live-applying another window's
+     settings is impractical (chat, audio, and metrics use this)
    - optional `settingsMenu?: () => HTMLElement`
 2. Re-export it from [src/plugins.ts](src/plugins.ts). `client.ts` registers and
    starts every enabled export from that barrel (per-profile toggles live in the
@@ -131,11 +133,17 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    - `character` — one character only
 
      Use `.reactive(key, defaults)` and mutate the proxy; writes persist over IPC into
-     SQLite automatically. Do not re-save manually. `.subscribe(listener)` runs when
-     another window applies a change under this storage's namespace
-     (`listener(keys, value)`; `value` is `undefined` on delete). Register the
-     unsubscribe with `lifecycle.onCleanup`. Overlay window geometry (`window/*` keys)
-     is not synced across app windows. Plugin storages use context
+     SQLite automatically. Do not re-save manually. `.synced(key, defaults, onChange)`
+     is `reactive` plus a namespace-relative `subscribe` at that path, so you do not
+     pair the two by hand. `.subscribe(dotPath, callback)` is remote-only and
+     prefix-matched: it fires when another window applies a change under this storage's
+     namespace (`callback(keys, value)`; `value` is `undefined` on delete). An empty
+     `dotPath` (`''`) means this namespace root. Register the unsubscribe with
+     `lifecycle.onCleanup`. Overlay window geometry and per-window UI flags live under
+     `window/${id}` (plus `window/chat-panel` for the chat panel). Those keys are not
+     broadcast; use `windows.initWindow` (which persists `WindowState.open`) and
+     `windows.isOpen(storage, id)` to restore a window after mount. Do not store
+     open/closed or expanded flags in synced settings. Plugin storages use context
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
      `systems` with bare namespaces (`client`, `updater`, `notifications` (alerts;
      namespace name kept for compatibility),
@@ -150,23 +158,33 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
        Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
        `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
        rendering.
-4. **Settings** — `context.settings.initMenu(lifecycle)` then
-   `mountSection(title, nodes)`. `title` is a string or an `Element` (the sidebar nav
-   falls back to that element's text). Nodes are plain `Element`s or
-   `{ label, description, tooltip, reset, input, specialType }` where `specialType` is
-   one of `toggle`, `swap`, `textarea`, `select`, `selectTextCombo`, `selectColorCombo`,
-   `numberSliderCombo`, `labelSteppedRange`, `alertVolume`, or `alertControls`
-   (see [src/client/settings.ts](src/client/settings.ts)). Helpers on
-   `context.settings.helpers` include `toggle(label, description, get, set)` and
-   `cueCard({ id, title, scoped, onTest, onEnabledChange?, mountHeaderExtras? })` for
-   per-cue `AlertScope` cards. `context.alerts.sendFromScope(title, scoped,
-message?)` maps an `AlertScope` onto `send`. Always-on systems share a single
-   `core/systems` settings entry titled System via `setupSystemApi()`.
+4. **Settings** — `context.settings.initMenu(lifecycle, { storage? })` then
+   `mountSection(title, nodes)`. Passing `storage` subscribes at that namespace root
+   and calls `refresh()` on remote change, which walks nodes and runs each `sync`.
+   `title` is a string or an `Element` (the sidebar nav falls back to that element's
+   text). Prefer bound factories on `context.settings.helpers`: `toggle(label,
+description, get, set, default?)`, plus `select`, `text`, `number`, `range`,
+   `numberSlider`, `steppedRange`, `color`, `selectText`, `alertVolume`, and
+   `alertControls`, each taking `{ label, description?, get, set, default? }` (and
+   type-specific fields). Factories generate the input, `reset`, and `sync` from those
+   accessors. `set` must apply side effects even when storage already equals the new
+   value (remote apply mutates first, then refresh). The per-node `sync` field is an
+   escape hatch when a widget cannot be expressed as get/set (alerts tray peers,
+   metrics interval presets). Nodes may also be a plain `Element`, a hand-built
+   `{ label, input, reset?, sync?, specialType? }`, or `{ element, sync? }`
+   (`cueCard` returns the last). `cueCard({ id, title, scoped, onTest,
+onEnabledChange?, mountHeaderExtras? })` builds a per-cue `AlertScope` card.
+   `context.alerts.sendFromScope(title, scoped, message?)` maps an `AlertScope` onto
+   `send`. Always-on systems share a single `core/systems` settings entry titled System
+   via `setupSystemApi()`; do not bind one storage on that menu (sections use mixed
+   storages — subscribe per section and `section.refresh()`).
 5. **UI** — on `context.ui`:
    - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
      `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,
      `initWindowButton`, plus `elements` (e.g. `chatContainer`)
-   - Windows: `windows.initWindow(lifecycle, { id, title, storage, ... })`
+   - Windows: `windows.initWindow(lifecycle, { id, title, storage, ... })` persists
+     `WindowState` (including `open`) under `window/${id}`; `windows.isOpen(storage, id)`
+     reads that flag before the window exists
    - `graphs.mountLineGraph` and helpers from `ui_utils`
 6. **IPC** — `context.ipc.saveFile(filename, contents)` for save-as dialogs. Do not
    import `ipcRenderer` from plugins.
@@ -182,7 +200,7 @@ export const ExamplePlugin: Plugin = {
 	description: 'Minimal plugin skeleton',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', { enabled: true });
-		const menu = context.settings.initMenu(lifecycle);
+		const menu = context.settings.initMenu(lifecycle, { storage: context.storages.profile });
 		menu.mountSection('General', [
 			context.settings.helpers.toggle(
 				'Enabled',
@@ -191,6 +209,7 @@ export const ExamplePlugin: Plugin = {
 				(value) => {
 					settings.enabled = value;
 				},
+				true,
 			),
 		]);
 		lifecycle.onCleanup(() => {

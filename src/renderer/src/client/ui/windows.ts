@@ -128,6 +128,7 @@ type WindowState = {
 	left: number;
 	locked: boolean;
 	minimized: boolean;
+	open: boolean;
 };
 
 type WindowOptions = {
@@ -171,9 +172,11 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			top: 256,
 			locked: false,
 			minimized: false,
+			open: false,
 			...(options.initialState ?? {}),
 		};
 		const windowState = storage.reactive<WindowState>(`window/${id}`, defaultWindowState);
+		windowState.open = true;
 		if (!lockable) {
 			windowState.locked = false;
 		}
@@ -194,6 +197,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		const onPointerDown = () => focusWindow(id);
 		windowFrame.addEventListener('pointerdown', onPointerDown);
 		lifecycle.onCleanup(() => {
+			windowState.open = false;
 			windowFrame.removeEventListener('pointerdown', onPointerDown);
 			windowFrames[id] = undefined;
 		});
@@ -529,5 +533,10 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	return {
 		container,
 		initWindow,
+		isOpen: (storage: ClientStorage, id: string): boolean => {
+			const state = storage.get(`window/${id}`);
+			if (!state || typeof state !== 'object') return false;
+			return (state as WindowState).open === true;
+		},
 	};
 };

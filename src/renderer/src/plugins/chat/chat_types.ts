@@ -135,7 +135,6 @@ export const initialChannels = {
 export type Channels = typeof initialChannels;
 
 export const initialSettings = {
-	isExpanded: true,
 	enableZebra: false,
 	enableSmoothScroll: true,
 	maxChatLength: 100,
@@ -146,11 +145,11 @@ export const initialSettings = {
 	yellIndicator: 'guy' as 'guy' | 'icon' | 'text',
 	enableCommands: true,
 	commandPrefix: '/',
-	logWindowOpen: false,
-	mutedPlayersWindowOpen: false,
-	messageScannerWindowOpen: false,
 };
 export type Settings = typeof initialSettings;
+
+export const initialPanelState = { expanded: true };
+export type ChatPanelState = typeof initialPanelState;
 
 const timestampFormatSample = new Date(
 	2020 + Math.floor(Math.random() * 10),
@@ -186,6 +185,7 @@ export type ChatElements = {
 	messagesContainer: HTMLUListElement;
 	popupsContainer: HTMLUListElement;
 	stickiness: ChatStickiness;
+	panel: ChatPanelState;
 	tabsContainer: HTMLDivElement;
 	addTabButton: HTMLButtonElement;
 	addTabModal: HTMLDialogElement;

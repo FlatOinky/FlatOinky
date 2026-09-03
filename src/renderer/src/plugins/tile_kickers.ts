@@ -1,5 +1,4 @@
 import { Lifecycle, Plugin, PluginContext, PluginMutator } from '../client';
-import * as el from '../client/ui/elements';
 
 const FPS = 60;
 const CACHE_CAP = 128;
@@ -306,7 +305,9 @@ export const TileKickersPlugin: Plugin = {
 
 		syncChaos();
 
-		const settingsMenu = context.settings.initMenu(lifecycle);
+		const settingsMenu = context.settings.initMenu(lifecycle, {
+			storage: context.storages.profile,
+		});
 		const helpers = context.settings.helpers;
 		settingsMenu.mountSection('Tile Kickers', [
 			helpers.toggle(
@@ -317,32 +318,24 @@ export const TileKickersPlugin: Plugin = {
 					settings.enabled = value;
 					syncChaos();
 				},
+				initialSettings.enabled,
 			),
-			{
+			helpers.numberSlider({
 				label: 'Lead time',
 				tooltip:
 					"This is a guess based on the player's speed and the server's lag, very imprecise.",
-				specialType: 'numberSliderCombo',
 				valueSuffix: 's',
-				reset: (input) => {
-					input.value = String(initialSettings.leadTime);
+				get: () => settings.leadTime,
+				set: (value) => {
+					settings.leadTime = Number.isFinite(value)
+						? Math.min(3, Math.max(0.25, value))
+						: initialSettings.leadTime;
 				},
-				input: el.input.number``.then((input) => {
-					input.min = '0.25';
-					input.max = '3';
-					input.step = '0.25';
-					input.value = String(settings.leadTime);
-					input.onchange = () => {
-						const min = 0.25;
-						const max = 3;
-						const next = Number(input.value);
-						settings.leadTime = Number.isFinite(next)
-							? Math.min(max, Math.max(min, next))
-							: initialSettings.leadTime;
-						input.value = String(settings.leadTime);
-					};
-				}),
-			},
+				default: initialSettings.leadTime,
+				min: 0.25,
+				max: 3,
+				step: 0.25,
+			}),
 			helpers.toggle(
 				'Chaos mode',
 				'',
@@ -351,6 +344,7 @@ export const TileKickersPlugin: Plugin = {
 					settings.chaosMode = value;
 					syncChaos();
 				},
+				initialSettings.chaosMode,
 			),
 		]);
 

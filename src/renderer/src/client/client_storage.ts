@@ -23,6 +23,11 @@ export type ClientStorage = {
 	set: (property: string | readonly (string | number)[], value: unknown) => void;
 	delete: (property: string | readonly (string | number)[]) => void;
 	reactive: <T extends object>(property: string | readonly (string | number)[], defaults: T) => T;
+	synced: <T extends object>(
+		property: string | readonly (string | number)[],
+		defaults: T,
+		onChange: () => void,
+	) => T;
 	subscribe: <T>(
 		dotPath: string,
 		callback: (keys: (string | number)[], value: T | undefined) => void,
@@ -237,9 +242,16 @@ const wrapStorageData = (
 			}
 			return deepProxy(target, (keys, value) => routeUpdate(keys, value), path, clone(defaults));
 		},
+		synced(property, defaults, onChange) {
+			const proxy = this.reactive(property, defaults);
+			this.subscribe(Array.isArray(property) ? property.join('.') : String(property), () =>
+				onChange(),
+			);
+			return proxy;
+		},
 		subscribe<T>(dotPath, callback, parentLifecycle = rootLifecycle) {
 			const lifecycle = parentLifecycle.spawnLifecycle();
-			const path = resolve(dot.parsePath(dotPath));
+			const path = dotPath ? resolve(dot.parsePath(dotPath)) : [...basePath];
 			const listener: StorageChangeListener<T> = { path, callback };
 			listeners.add(listener);
 			lifecycle.onCleanup(() => listeners.delete(listener));

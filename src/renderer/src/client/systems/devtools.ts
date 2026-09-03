@@ -3,7 +3,12 @@ import { createGlobalStorage } from '../client_storage';
 import { openDevTools, saveReferences } from '../ipc_renderer';
 import type { Logging } from '../logging';
 import { logLevelLabels, logLevels } from '../logging';
-import { mountSettingsMenuNode, type SettingsMenu, type SettingsNode } from '../settings';
+import {
+	mountSettingsMenuNode,
+	settingsHelpers,
+	type SettingsMenu,
+	type SettingsNode,
+} from '../settings';
 import type { ClientUI } from '../ui';
 import * as el from '../ui/elements';
 
@@ -17,37 +22,30 @@ const logLevelSteps = logLevels.map((level) => logLevelLabels[level]);
 
 const loggingNodes = (logging: Logging): SettingsNode[] => {
 	const { settings, initialSettings: loggingDefaults } = logging;
+	const helpers = settingsHelpers;
 	return [
-		{
+		helpers.steppedRange({
 			label: 'Chat Log Level',
-			specialType: 'labelSteppedRange' as const,
 			compact: true,
-			steps: logLevelSteps,
-			reset: (input) => {
-				input.value = String(logLevels.indexOf(loggingDefaults.chatLevel));
+			steps: logLevels,
+			labels: logLevelSteps,
+			get: () => settings.chatLevel,
+			set: (value) => {
+				settings.chatLevel = value;
 			},
-			input: el.input.range``.then((input) => {
-				input.value = String(logLevels.indexOf(settings.chatLevel));
-				input.onchange = () => {
-					settings.chatLevel = logLevels[Number(input.value)] ?? loggingDefaults.chatLevel;
-				};
-			}),
-		},
-		{
+			default: loggingDefaults.chatLevel,
+		}),
+		helpers.steppedRange({
 			label: 'Console Log Level',
-			specialType: 'labelSteppedRange' as const,
 			compact: true,
-			steps: logLevelSteps,
-			reset: (input) => {
-				input.value = String(logLevels.indexOf(loggingDefaults.consoleLevel));
+			steps: logLevels,
+			labels: logLevelSteps,
+			get: () => settings.consoleLevel,
+			set: (value) => {
+				settings.consoleLevel = value;
 			},
-			input: el.input.range``.then((input) => {
-				input.value = String(logLevels.indexOf(settings.consoleLevel));
-				input.onchange = () => {
-					settings.consoleLevel = logLevels[Number(input.value)] ?? loggingDefaults.consoleLevel;
-				};
-			}),
-		},
+			default: loggingDefaults.consoleLevel,
+		}),
 	];
 };
 
@@ -127,20 +125,19 @@ export const initDevtoolsSystem = async (
 
 	syncDevtoolsMenu();
 
+	const helpers = settingsHelpers;
 	const devtoolsMenu = settingsMenu.mountSection('Devtools', [
-		{
-			label: 'Enable Devtools',
-			description:
-				'Show the Devtools tray, including logging controls, Open DevTools, and Save References.',
-			specialType: 'toggle',
-			input: el.input.checkbox``.then((input) => {
-				input.checked = settings.enabledDevtools;
-				input.onchange = () => {
-					settings.enabledDevtools = input.checked;
-					syncDevtoolsMenu();
-				};
-			}),
-		},
+		helpers.toggle(
+			'Enable Devtools',
+			'Show the Devtools tray, including logging controls, Open DevTools, and Save References.',
+			() => settings.enabledDevtools,
+			(value) => {
+				settings.enabledDevtools = value;
+				syncDevtoolsMenu();
+			},
+			false,
+		),
 	]);
+	lifecycle.onCleanup(storage.subscribe('settings', () => devtoolsMenu.refresh()));
 	lifecycle.onCleanup(devtoolsMenu.remove);
 };

@@ -12,7 +12,6 @@ export type AudioSettings = {
 	musicEnabled: boolean;
 	musicVolume: number;
 	musicRepeat: boolean;
-	windowOpen: boolean;
 	sounds: Record<string, AudioOverride>;
 	tracks: Record<string, AudioOverride>;
 };
@@ -39,7 +38,6 @@ export const initialAudioSettings: AudioSettings = {
 	musicEnabled: true,
 	musicVolume: VOLUME_RANGE.default,
 	musicRepeat: false,
-	windowOpen: false,
 	sounds: {},
 	tracks: {},
 };

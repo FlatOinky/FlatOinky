@@ -1,8 +1,8 @@
 import type { Lifecycle } from '../../client';
 import type { ClientStorage } from '../client_storage';
+import { settingsHelpers } from '../settings';
 import type { SettingsMenu } from '../settings';
 import type { ClientUI } from '../ui';
-import * as el from '../ui/elements';
 
 const OPACITY_MIN = 0;
 const OPACITY_MAX = 100;
@@ -40,44 +40,34 @@ export const initWindowsSystem = (
 	applyOpacity();
 	lifecycle.onCleanup(() => ui.root.style.removeProperty(LOCKED_OPACITY_PROPERTY));
 
+	const helpers = settingsHelpers;
 	const windowsMenu = settingsMenu.mountSection('Windows', [
-		{
+		helpers.numberSlider({
 			label: 'Base Opacity',
-			specialType: 'numberSliderCombo',
-			reset: (input) => {
-				input.value = String(defaults.baseOpacity);
+			get: () => settings.baseOpacity,
+			set: (value) => {
+				settings.baseOpacity = clampOpacity(value);
+				applyOpacity();
 			},
-			input: el.input.number``.then((input) => {
-				input.min = String(OPACITY_MIN);
-				input.max = String(OPACITY_MAX);
-				input.step = String(OPACITY_STEP);
-				input.value = String(settings.baseOpacity);
-				input.onchange = () => {
-					settings.baseOpacity = clampOpacity(Number(input.value));
-					input.value = String(settings.baseOpacity);
-					applyOpacity();
-				};
-			}),
-		},
-		{
+			default: defaults.baseOpacity,
+			min: OPACITY_MIN,
+			max: OPACITY_MAX,
+			step: OPACITY_STEP,
+		}),
+		helpers.numberSlider({
 			label: 'Locked Opacity',
-			specialType: 'numberSliderCombo',
-			reset: (input) => {
-				input.value = String(defaults.lockedOpacity);
+			get: () => settings.lockedOpacity,
+			set: (value) => {
+				settings.lockedOpacity = clampOpacity(value);
+				applyOpacity();
 			},
-			input: el.input.number``.then((input) => {
-				input.min = String(OPACITY_MIN);
-				input.max = String(OPACITY_MAX);
-				input.step = String(OPACITY_STEP);
-				input.value = String(settings.lockedOpacity);
-				input.onchange = () => {
-					settings.lockedOpacity = clampOpacity(Number(input.value));
-					input.value = String(settings.lockedOpacity);
-					applyOpacity();
-				};
-			}),
-		},
+			default: defaults.lockedOpacity,
+			min: OPACITY_MIN,
+			max: OPACITY_MAX,
+			step: OPACITY_STEP,
+		}),
 	]);
+	lifecycle.onCleanup(clientStorage.subscribe('windows', () => windowsMenu.refresh()));
 
 	lifecycle.onCleanup(windowsMenu.remove);
 };

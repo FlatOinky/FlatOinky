@@ -237,6 +237,8 @@ export type Plugin = {
 	namespace: string;
 	name: string;
 	description?: string;
+	/** Rebuild the plugin when another window changes its storage. */
+	onRemoteSettings?: 'restart';
 	init: (
 		lifecycle: Lifecycle,
 		context: PluginContext,
@@ -335,6 +337,24 @@ const initPlugins = (
 
 	const isEnabled = (namespace: string) => pluginsStorage.get(['enabled', namespace]) !== false;
 
+	const exclusiveTasks = new Map<string, Promise<void>>();
+	const runExclusive = (namespace: string, task: () => Promise<void>): Promise<void> => {
+		const next = (exclusiveTasks.get(namespace) ?? Promise.resolve()).then(task, task);
+		exclusiveTasks.set(
+			namespace,
+			next.catch(() => {}),
+		);
+		return next;
+	};
+
+	const restartTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	const cancelSettingsRestart = (namespace: string) => {
+		const timer = restartTimers.get(namespace);
+		if (timer === undefined) return;
+		clearTimeout(timer);
+		restartTimers.delete(namespace);
+	};
+
 	const registerPlugin = (plugin: Plugin) => {
 		if (plugin.namespace in registry) return;
 		registry[plugin.namespace] = plugin;
@@ -359,6 +379,26 @@ const initPlugins = (
 			pluginLifecycle,
 		);
 		const callbacks = await plugin.init(pluginLifecycle, pluginContext);
+		if (plugin.onRemoteSettings === 'restart') {
+			const onChange = () => {
+				cancelSettingsRestart(namespace);
+				restartTimers.set(
+					namespace,
+					setTimeout(() => {
+						restartTimers.delete(namespace);
+						void runExclusive(namespace, async () => {
+							stopPlugin(namespace);
+							const instance = await startPlugin(namespace);
+							if (startedUp) instance?.callbacks.events?.startup?.();
+							notify();
+						});
+					}, 50),
+				);
+			};
+			pluginLifecycle.onCleanup(pluginContext.storages.global.subscribe('', onChange));
+			pluginLifecycle.onCleanup(pluginContext.storages.profile.subscribe('', onChange));
+			pluginLifecycle.onCleanup(pluginContext.storages.character.subscribe('', onChange));
+		}
 		const instance = {
 			callbacks,
 			lifecycle: pluginLifecycle,
@@ -374,13 +414,16 @@ const initPlugins = (
 
 	const applyEnabled = async (namespace: string, enabled: boolean) => {
 		if (!(namespace in registry)) return;
-		if (enabled) {
-			const instance = await startPlugin(namespace);
-			if (startedUp) instance?.callbacks.events?.startup?.();
-		} else {
-			stopPlugin(namespace);
-		}
-		notify();
+		cancelSettingsRestart(namespace);
+		await runExclusive(namespace, async () => {
+			if (enabled) {
+				const instance = await startPlugin(namespace);
+				if (startedUp) instance?.callbacks.events?.startup?.();
+			} else {
+				stopPlugin(namespace);
+			}
+			notify();
+		});
 	};
 
 	const setEnabled = async (namespace: string, enabled: boolean) => {

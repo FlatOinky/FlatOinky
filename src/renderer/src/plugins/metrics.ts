@@ -51,7 +51,6 @@ const initialSettings = {
 	updateInterval: 1,
 	chartColor: 'var(--color-accent)',
 	metricsWindow: {
-		isOpen: false,
 		showTotal: true,
 		showInactiveSkills: false,
 		keepControlButtons: false,
@@ -484,6 +483,7 @@ export const MetricsPlugin: Plugin = {
 	namespace: 'oinky/metrics',
 	name: 'Metrics',
 	description: 'Track your XP gains and display them in a window.',
+	onRemoteSettings: 'restart',
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const settingsMenu = context.settings.initMenu(lifecycle);
@@ -499,12 +499,11 @@ export const MetricsPlugin: Plugin = {
 		}
 
 		let windowMetrics: ReturnType<typeof initMetricsWindow> | undefined;
-		let showTotalCheckbox: HTMLInputElement | undefined;
 		let refreshMetrics = () => {};
 
 		const setShowTotal = (show: boolean) => {
 			settings.metricsWindow.showTotal = show;
-			if (showTotalCheckbox) showTotalCheckbox.checked = show;
+			showTotalCheckbox.checked = show;
 			if (show) windowMetrics?.ensureSkillMounted('total');
 			windowMetrics?.skillCharts.forEach((chart) => chart.syncShowTotal());
 		};
@@ -524,7 +523,6 @@ export const MetricsPlugin: Plugin = {
 		};
 
 		const createWindowMetrics = () => {
-			if (!settings.metricsWindow.isOpen) return;
 			const newWindow = initMetricsWindow(
 				lifecycle,
 				context,
@@ -532,9 +530,7 @@ export const MetricsPlugin: Plugin = {
 				settings,
 				activeSkillCharts,
 				sessionTotals,
-				() => {
-					settings.metricsWindow.isOpen = false;
-				},
+				() => {},
 				() => setShowTotal(false),
 				scrubXp,
 			);
@@ -544,11 +540,14 @@ export const MetricsPlugin: Plugin = {
 			return newWindow;
 		};
 		const refreshWindowMetrics = () => {
+			const wasOpen = windowMetrics !== undefined;
 			windowMetrics?.lifecycle.cleanup();
-			windowMetrics ??= createWindowMetrics();
+			if (wasOpen) windowMetrics ??= createWindowMetrics();
 		};
 
-		windowMetrics ??= createWindowMetrics();
+		if (context.ui.windows.isOpen(context.storages.profile, 'metrics')) {
+			windowMetrics ??= createWindowMetrics();
+		}
 
 		const widget = context.ui.taskbar.initWidget(lifecycle, 'metrics');
 
@@ -561,7 +560,6 @@ export const MetricsPlugin: Plugin = {
 			if (windowMetrics?.window.state.minimized === false) {
 				windowMetrics?.window.hideWindow();
 			} else {
-				settings.metricsWindow.isOpen = true;
 				windowMetrics ??= createWindowMetrics();
 				windowMetrics?.window.showWindow();
 			}
@@ -604,17 +602,17 @@ export const MetricsPlugin: Plugin = {
 			windowMetrics?.skillCharts.forEach((chart) => chart.skillChart.setColor(settings.chartColor));
 		};
 
+		const showTotalNode = helpers.toggle(
+			'Total XP chart',
+			'Show the combined total XP chart.',
+			() => settings.metricsWindow.showTotal,
+			setShowTotal,
+			initialSettings.metricsWindow.showTotal,
+		);
+		const showTotalCheckbox = showTotalNode.input as HTMLInputElement;
+
 		settingsMenu.mountSection('Display', [
-			{
-				label: 'Total XP chart',
-				description: 'Show the combined total XP chart.',
-				specialType: 'toggle',
-				input: el.input.checkbox``.then((input) => {
-					showTotalCheckbox = input;
-					input.checked = settings.metricsWindow.showTotal;
-					input.onchange = () => setShowTotal(input.checked);
-				}),
-			},
+			showTotalNode,
 			helpers.toggle(
 				'Inactive skills',
 				'Keep skill charts visible after they stop gaining XP for a while.',
@@ -623,6 +621,7 @@ export const MetricsPlugin: Plugin = {
 					settings.metricsWindow.showInactiveSkills = value;
 					windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
 				},
+				initialSettings.metricsWindow.showInactiveSkills,
 			),
 			helpers.toggle(
 				'Keep control buttons',
@@ -632,42 +631,33 @@ export const MetricsPlugin: Plugin = {
 					settings.metricsWindow.keepControlButtons = value;
 					windowMetrics?.skillCharts.forEach((chart) => chart.syncVisibility());
 				},
+				initialSettings.metricsWindow.keepControlButtons,
 			),
-			{
+			helpers.color({
 				label: 'Chart line color',
-				specialType: 'selectColorCombo',
 				options: Object.entries(daisyUiColors).map(([name, value]) => ({
 					label: formatDaisyUiColorLabel(name),
 					value,
 				})),
-				reset: (input) => (input.value = initialSettings.chartColor),
-				input: el.input.text``.then((input) => {
-					input.value = settings.chartColor;
-					input.onchange = () => {
-						settings.chartColor = input.value;
-						applyChartColors();
-					};
-				}),
-			},
-			{
+				get: () => settings.chartColor,
+				set: (value) => {
+					settings.chartColor = value;
+					applyChartColors();
+				},
+				default: initialSettings.chartColor,
+			}),
+			helpers.select({
 				label: 'XP rate type',
-				input: el.select``.then((input) => {
-					input.value = settings.xpRateType;
-					el.option``.mount(input, 'hr', (option) => {
-						option.textContent = 'per hour';
-						option.value = 'hr';
-						option.selected = settings.xpRateType === 'hr';
-					});
-					el.option``.mount(input, 'min', (option) => {
-						option.textContent = 'per minute';
-						option.value = 'min';
-						option.selected = settings.xpRateType === 'min';
-					});
-					input.onchange = () => {
-						settings.xpRateType = input.value as 'hr' | 'min';
-					};
-				}),
-			},
+				options: [
+					{ label: 'per hour', value: 'hr' },
+					{ label: 'per minute', value: 'min' },
+				],
+				get: () => settings.xpRateType,
+				set: (value) => {
+					settings.xpRateType = value;
+				},
+				default: initialSettings.xpRateType,
+			}),
 		]);
 
 		let timeSpanInput: HTMLInputElement | undefined;
@@ -707,6 +697,7 @@ export const MetricsPlugin: Plugin = {
 						initialSettings.timeSpan,
 						initialSettings.updateInterval,
 					)),
+				sync: () => syncIntervalPresetSelect(),
 				input: el.select``.then((input) => {
 					intervalPresetSelect = input;
 					for (const preset of intervalPresets) {
@@ -741,6 +732,9 @@ export const MetricsPlugin: Plugin = {
 				description: 'In minutes, the duration of the time window to be displayed.',
 				valueSuffix: 'm',
 				reset: (input) => (input.value = String(initialSettings.timeSpan)),
+				sync: (input) => {
+					input.value = String(settings.timeSpan);
+				},
 				input: el.input.range``.then((input) => {
 					timeSpanInput = input;
 					input.min = '1';
@@ -759,6 +753,9 @@ export const MetricsPlugin: Plugin = {
 				description: 'In seconds, the interval at which the metrics will be captured and updated.',
 				valueSuffix: 's',
 				reset: (input) => (input.value = String(initialSettings.updateInterval)),
+				sync: (input) => {
+					input.value = String(settings.updateInterval);
+				},
 				input: el.input.range``.then((input) => {
 					updateIntervalInput = input;
 					input.min = '0.1';

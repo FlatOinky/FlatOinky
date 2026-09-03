@@ -37,6 +37,7 @@ export const AudioPlugin: Plugin = {
 	name: 'Audio',
 	description:
 		'Play and mix in-game sounds and music, with per-sound volume and a tri-state filter.',
+	onRemoteSettings: 'restart',
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialAudioSettings);
 		const registry = await createAudioRegistry(context.collections.profile<AudioPlay>('plays'));
@@ -64,12 +65,10 @@ export const AudioPlugin: Plugin = {
 
 		const closeWindow = () => {
 			if (audioWindow) paints.delete(audioWindow.schedule);
-			settings.windowOpen = false;
 			audioWindow = undefined;
 		};
 
 		const showWindow = () => {
-			settings.windowOpen = true;
 			audioWindow ??= initAudioWindow(lifecycle, context, registry, deps, closeWindow);
 			paints.add(audioWindow.schedule);
 			audioWindow.show();
@@ -91,10 +90,10 @@ export const AudioPlugin: Plugin = {
 			paints.clear();
 		});
 
-		if (settings.windowOpen) showWindow();
+		if (context.ui.windows.isOpen(context.storages.profile, 'audio')) showWindow();
 
 		const settingsMenu = context.settings.initMenu(lifecycle);
-		settingsMenu.mountSection('Controls', [globalControls]);
+		settingsMenu.mountSection('Controls', [{ element: globalControls, sync: notify }]);
 		settingsMenu.mountSection('Individual volumes', [
 			el.button`btn btn-sm btn-primary search-value`.then((button) => {
 				button.type = 'button';

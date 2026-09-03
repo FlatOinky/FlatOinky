@@ -183,7 +183,9 @@ export const TweaksPlugin: Plugin = {
 	description: 'Optional visual and gameplay tweaks for Flat Oinky',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
-		const settingsMenu = context.settings.initMenu(lifecycle);
+		const settingsMenu = context.settings.initMenu(lifecycle, {
+			storage: context.storages.profile,
+		});
 		const helpers = context.settings.helpers;
 		let dynamicCanvasLifecycle: Lifecycle | null = null;
 		let darkenSkyLifecycle: Lifecycle | null = null;
@@ -191,15 +193,40 @@ export const TweaksPlugin: Plugin = {
 		const playerCache = initPlayerCache(lifecycle, context, () => settings.enablePlayerRenderCache);
 
 		const syncDynamicCanvas = () => {
+			if (settings.enableDynamicCanvas_beta) {
+				dynamicCanvasLifecycle ??= initDynamicCanvas(lifecycle, context.canvas);
+				return;
+			}
 			dynamicCanvasLifecycle?.cleanup();
 			dynamicCanvasLifecycle = null;
-			if (!settings.enableDynamicCanvas_beta) return;
-			dynamicCanvasLifecycle = initDynamicCanvas(lifecycle, context.canvas);
 		};
 
 		const syncParticleReduction = () => {
 			applySnowReduction(settings.particleReduction);
 			if (settings.particleReduction === 'full') sweepParticles();
+		};
+
+		const applyDarkenSky = () => {
+			const shouldDim = current_map === 'm1000_999_sky' && settings.enableDarkenSky;
+			if (!shouldDim) {
+				darkenSkyLifecycle?.cleanup();
+				darkenSkyLifecycle = null;
+				return;
+			}
+			if (darkenSkyLifecycle) return;
+			darkenSkyLifecycle = lifecycle.spawnLifecycle();
+			context.canvas.style.filter = 'brightness(0.5)';
+			darkenSkyLifecycle.onCleanup(() => {
+				context.canvas.style.filter = '';
+				darkenSkyLifecycle = null;
+			});
+		};
+
+		const applyTweaks = () => {
+			syncDynamicCanvas();
+			syncParticleReduction();
+			applyDarkenSky();
+			if (!settings.enablePlayerRenderCache) playerCache.clear();
 		};
 
 		settingsMenu.mountSection('Cosmetic', [
@@ -209,7 +236,9 @@ export const TweaksPlugin: Plugin = {
 				() => settings.enableDarkenSky,
 				(value) => {
 					settings.enableDarkenSky = value;
+					applyTweaks();
 				},
+				initialSettings.enableDarkenSky,
 			),
 			helpers.toggle(
 				'Dynamic Canvas (Beta)',
@@ -217,8 +246,9 @@ export const TweaksPlugin: Plugin = {
 				() => settings.enableDynamicCanvas_beta,
 				(value) => {
 					settings.enableDynamicCanvas_beta = value;
-					syncDynamicCanvas();
+					applyTweaks();
 				},
+				initialSettings.enableDynamicCanvas_beta,
 			),
 		]);
 
@@ -230,6 +260,7 @@ export const TweaksPlugin: Plugin = {
 				(value) => {
 					settings.enableObjectShakeCleanup = value;
 				},
+				initialSettings.enableObjectShakeCleanup,
 			),
 			helpers.toggle(
 				'Clear Stuck Projectiles',
@@ -238,6 +269,7 @@ export const TweaksPlugin: Plugin = {
 				(value) => {
 					settings.enableProjectileCleanup = value;
 				},
+				initialSettings.enableProjectileCleanup,
 			),
 			el.div`flex items-center justify-between gap-2`.then((container) => {
 				el.div`flex flex-col gap-0.5`.mount(container, undefined, (text) => {
@@ -266,8 +298,9 @@ export const TweaksPlugin: Plugin = {
 				() => settings.enablePlayerRenderCache,
 				(value) => {
 					settings.enablePlayerRenderCache = value;
-					if (!value) playerCache.clear();
+					applyTweaks();
 				},
+				initialSettings.enablePlayerRenderCache,
 			),
 			helpers.toggle(
 				"Hide Other Players' XP Drops",
@@ -276,43 +309,28 @@ export const TweaksPlugin: Plugin = {
 				(value) => {
 					settings.hideOtherPlayerDrops = value;
 				},
+				initialSettings.hideOtherPlayerDrops,
 			),
-			{
+			helpers.steppedRange({
 				label: 'Particle Reduction',
 				description: 'Reduce snow overlay density and cap concurrent particle effects.',
-				specialType: 'labelSteppedRange' as const,
-				steps: particleLevelSteps,
-				reset: (input) => {
-					input.value = String(particleLevels.indexOf(initialSettings.particleReduction));
+				steps: particleLevels,
+				labels: particleLevelSteps,
+				get: () => settings.particleReduction,
+				set: (value) => {
+					settings.particleReduction = value;
+					applyTweaks();
 				},
-				input: el.input.range``.then((input) => {
-					input.value = String(particleLevels.indexOf(settings.particleReduction));
-					input.onchange = () => {
-						settings.particleReduction =
-							particleLevels[Number(input.value)] ?? initialSettings.particleReduction;
-						syncParticleReduction();
-					};
-				}),
-			},
+				default: initialSettings.particleReduction,
+			}),
 		]);
 
-		syncDynamicCanvas();
-		syncParticleReduction();
+		applyTweaks();
 		lifecycle.onCleanup(() => applySnowReduction('none'));
 
 		return {
 			events: {
-				setMap: (map) => {
-					if (darkenSkyLifecycle) darkenSkyLifecycle.cleanup();
-					if (map !== 'm1000_999_sky') return;
-					if (!settings.enableDarkenSky) return;
-					darkenSkyLifecycle = lifecycle.spawnLifecycle();
-					context.canvas.style.filter = 'brightness(0.5)';
-					darkenSkyLifecycle.onCleanup(() => {
-						context.canvas.style.filter = '';
-						darkenSkyLifecycle = null;
-					});
-				},
+				setMap: () => applyDarkenSky(),
 				objectDepleted: (object) => {
 					if (!settings.enableObjectShakeCleanup) return;
 					object_paint_shake.delete(object.uuid);

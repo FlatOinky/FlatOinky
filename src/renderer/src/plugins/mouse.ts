@@ -34,7 +34,9 @@ export const MousePlugin: Plugin = {
 			show,
 		});
 
-		const settingsMenu = context.settings.initMenu(lifecycle);
+		const settingsMenu = context.settings.initMenu(lifecycle, {
+			storage: context.storages.profile,
+		});
 		settingsMenu.mountSection('Context Menu', [
 			helpers.toggle(
 				'Enable Context Menu',
@@ -44,6 +46,7 @@ export const MousePlugin: Plugin = {
 					settings.enabled = value;
 					if (!value) context.contextMenu.close();
 				},
+				initialSettings.enabled,
 			),
 			// TODO: decide if this is even useful
 			// helpers.toggle(
@@ -61,6 +64,7 @@ export const MousePlugin: Plugin = {
 				(value) => {
 					settings.collapseTargets = value;
 				},
+				initialSettings.collapseTargets,
 			),
 			helpers.toggle(
 				'Ground Item Identicons',
@@ -69,6 +73,7 @@ export const MousePlugin: Plugin = {
 				(value) => {
 					settings.showDropIdenticons = value;
 				},
+				initialSettings.showDropIdenticons,
 			),
 			helpers.toggle(
 				'Swap Bank Left and Right Click',
@@ -77,6 +82,7 @@ export const MousePlugin: Plugin = {
 				(value) => {
 					settings.swapBankClicks = value;
 				},
+				initialSettings.swapBankClicks,
 			),
 		]);
 

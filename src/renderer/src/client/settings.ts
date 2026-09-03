@@ -9,7 +9,7 @@ import { mountSearchBar } from './ui/search';
 type SettingsRegistry = [namespace: string, title: string, sections: SettingsSection[]][];
 type SettingsSection = { title: string | Element; nodes: SettingsNode[] };
 type SettingsInput = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-type SettingsNodeOption = { label: string; value: string };
+export type SettingsNodeOption = { label: string; value: string };
 type SettingsNodeBase<TResetInputs extends SettingsInput[] = SettingsInput[]> = {
 	label?: string;
 	description?: string | Element;
@@ -19,6 +19,8 @@ type SettingsNodeBase<TResetInputs extends SettingsInput[] = SettingsInput[]> = 
 	compact?: boolean;
 	/** Restore defaults; input/change fire automatically for each input this changes. */
 	reset?: (...inputs: TResetInputs) => void;
+	/** Copy current storage into the input; input/change fire if the value changed. */
+	sync?: (...inputs: TResetInputs) => void;
 };
 type SettingsInputBase = SettingsNodeBase<[SettingsInput]> & { input: SettingsInput };
 type SettingsInputNode =
@@ -42,7 +44,17 @@ export type SettingsAlertControlsNode = SettingsNodeBase<
 		specialType: 'alertControls';
 		onTest: () => void;
 	};
-export type SettingsNode = Element | SettingsInputNode | SettingsAlertControlsNode;
+export type SettingsElementNode = { element: Element; sync?: () => void };
+export type SettingsNode =
+	| Element
+	| SettingsInputNode
+	| SettingsAlertControlsNode
+	| SettingsElementNode;
+
+const isElementNode = (node: SettingsNode): node is SettingsElementNode =>
+	typeof node === 'object' && node !== null && !(node instanceof Element) && 'element' in node;
+
+type MenuInitOptions = { storage?: ClientStorage };
 
 // #region setupPluginApi
 
@@ -54,7 +66,7 @@ const setupPluginApi = (
 	pluginTitle: string,
 ) => ({
 	helpers: settingsHelpers,
-	initMenu: (lifecycle: Lifecycle) => {
+	initMenu: (lifecycle: Lifecycle, options?: MenuInitOptions) => {
 		const entry: SettingsRegistry[number] = [pluginNamespace, pluginTitle, []];
 		registry.push(entry);
 		updateVisuals();
@@ -63,6 +75,14 @@ const setupPluginApi = (
 			if (namespaceIndex >= 0) registry.splice(namespaceIndex, 1);
 			updateVisuals();
 		});
+		const refresh = () => {
+			for (const section of entry[2]) {
+				for (const node of section.nodes) applySync(node);
+			}
+		};
+		if (options?.storage) {
+			lifecycle.onCleanup(options.storage.subscribe('', () => refresh()));
+		}
 		return {
 			mountSection: (title: SettingsSection['title'], nodes: SettingsNode[]) => {
 				const section: SettingsSection = { title, nodes };
@@ -77,9 +97,13 @@ const setupPluginApi = (
 						entry[2].splice(index, 1);
 						updateVisuals();
 					},
+					refresh: () => {
+						for (const node of section.nodes) applySync(node);
+					},
 				};
 			},
 			open: () => openSection(pluginNamespace),
+			refresh,
 		};
 	},
 });
@@ -501,11 +525,43 @@ const makeAlertChannelToggles = (
 	return row;
 };
 
+type BoundBase = {
+	label: string;
+	description?: string | Element;
+	tooltip?: string;
+	compact?: boolean;
+	valuePrefix?: string;
+	valueSuffix?: string;
+};
+
+type BoundField<T> = BoundBase & {
+	get: () => T;
+	set: (value: T) => void;
+	default?: T;
+};
+
+const fillSelect = (
+	select: HTMLSelectElement,
+	options: ReadonlyArray<SettingsNodeOption>,
+	value: string,
+) => {
+	for (const opt of options) {
+		el.option``.mount(select, undefined, (option) => {
+			option.value = opt.value;
+			option.textContent = opt.label;
+		});
+	}
+	select.value = value;
+};
+
+const asCheckbox = (input: SettingsInput): HTMLInputElement => input as HTMLInputElement;
+
 const makeToggle = (
 	label: string,
 	description: string,
 	get: () => boolean,
 	set: (value: boolean) => void,
+	defaultValue?: boolean,
 ): SettingsInputNode => ({
 	label,
 	description,
@@ -514,7 +570,344 @@ const makeToggle = (
 		input.checked = get();
 		input.onchange = () => set(input.checked);
 	}),
+	sync: (input) => {
+		asCheckbox(input).checked = get();
+	},
+	...(defaultValue === undefined
+		? {}
+		: {
+				reset: (input: SettingsInput) => {
+					asCheckbox(input).checked = defaultValue;
+				},
+			}),
 });
+
+const makeSelect = <T extends string>(
+	options: BoundField<T> & { options: SettingsNodeOption[] },
+): SettingsInputNode => ({
+	label: options.label,
+	description: options.description,
+	tooltip: options.tooltip,
+	compact: options.compact,
+	specialType: 'select',
+	input: el.select``.then((select) => {
+		fillSelect(select, options.options, options.get());
+		select.onchange = () => options.set(select.value as T);
+	}),
+	sync: (input) => {
+		input.value = options.get();
+	},
+	...(options.default === undefined
+		? {}
+		: { reset: (input: SettingsInput) => (input.value = options.default as T) }),
+});
+
+const makeText = (
+	options: BoundField<string> & { inputType?: 'text' | 'url' },
+): SettingsInputNode => {
+	const inputType = options.inputType ?? 'text';
+	const input =
+		inputType === 'url'
+			? el.input.url``.then((field) => {
+					field.value = options.get();
+					field.onchange = () => {
+						if (!field.checkValidity()) return;
+						options.set(field.value);
+					};
+				})
+			: el.input.text``.then((field) => {
+					field.value = options.get();
+					field.onchange = () => options.set(field.value);
+				});
+	return {
+		label: options.label,
+		description: options.description,
+		tooltip: options.tooltip,
+		compact: options.compact,
+		valuePrefix: options.valuePrefix,
+		valueSuffix: options.valueSuffix,
+		input,
+		sync: (field) => {
+			field.value = options.get();
+		},
+		...(options.default === undefined
+			? {}
+			: { reset: (field: SettingsInput) => (field.value = options.default as string) }),
+	};
+};
+
+const makeNumber = (
+	options: BoundField<number> & { min?: number; max?: number; step?: number },
+): SettingsInputNode => ({
+	label: options.label,
+	description: options.description,
+	tooltip: options.tooltip,
+	compact: options.compact,
+	valuePrefix: options.valuePrefix,
+	valueSuffix: options.valueSuffix,
+	input: el.input.number``.then((input) => {
+		if (options.min !== undefined) input.min = String(options.min);
+		if (options.max !== undefined) input.max = String(options.max);
+		if (options.step !== undefined) input.step = String(options.step);
+		input.value = String(options.get());
+		input.onchange = () => {
+			const next = Number(input.value);
+			if (!Number.isFinite(next)) return;
+			options.set(next);
+			input.value = String(options.get());
+		};
+	}),
+	sync: (input) => {
+		input.value = String(options.get());
+	},
+	...(options.default === undefined
+		? {}
+		: { reset: (input: SettingsInput) => (input.value = String(options.default)) }),
+});
+
+const makeRange = (
+	options: BoundField<number> & { min: number; max: number; step?: number },
+): SettingsInputNode => ({
+	label: options.label,
+	description: options.description,
+	tooltip: options.tooltip,
+	compact: options.compact,
+	valuePrefix: options.valuePrefix,
+	valueSuffix: options.valueSuffix,
+	input: el.input.range``.then((input) => {
+		input.min = String(options.min);
+		input.max = String(options.max);
+		if (options.step !== undefined) input.step = String(options.step);
+		input.value = String(options.get());
+		input.oninput = () => options.set(Number(input.value));
+		input.onchange = () => {
+			options.set(Number(input.value));
+			input.value = String(options.get());
+		};
+	}),
+	sync: (input) => {
+		input.value = String(options.get());
+	},
+	...(options.default === undefined
+		? {}
+		: { reset: (input: SettingsInput) => (input.value = String(options.default)) }),
+});
+
+const makeNumberSlider = (
+	options: BoundField<number> & { min: number; max: number; step?: number },
+): SettingsInputNode => ({
+	label: options.label,
+	description: options.description,
+	tooltip: options.tooltip,
+	compact: options.compact,
+	valuePrefix: options.valuePrefix,
+	valueSuffix: options.valueSuffix,
+	specialType: 'numberSliderCombo',
+	input: el.input.number``.then((input) => {
+		input.min = String(options.min);
+		input.max = String(options.max);
+		if (options.step !== undefined) input.step = String(options.step);
+		input.value = String(options.get());
+		input.onchange = () => {
+			const next = Number(input.value);
+			if (!Number.isFinite(next)) return;
+			options.set(next);
+			input.value = String(options.get());
+		};
+	}),
+	sync: (input) => {
+		input.value = String(options.get());
+	},
+	...(options.default === undefined
+		? {}
+		: { reset: (input: SettingsInput) => (input.value = String(options.default)) }),
+});
+
+const makeSteppedRange = <T extends string>(
+	options: BoundField<T> & { steps: readonly T[]; labels?: readonly string[]; compact?: boolean },
+): SettingsInputNode => {
+	const indexOf = (value: T) => {
+		const index = options.steps.indexOf(value);
+		return index < 0 ? 0 : index;
+	};
+	return {
+		label: options.label,
+		description: options.description,
+		tooltip: options.tooltip,
+		compact: options.compact,
+		specialType: 'labelSteppedRange',
+		steps: [...(options.labels ?? options.steps)],
+		input: el.input.range``.then((input) => {
+			input.value = String(indexOf(options.get()));
+			input.onchange = () => {
+				options.set(options.steps[Number(input.value)] ?? options.get());
+			};
+		}),
+		sync: (input) => {
+			input.value = String(indexOf(options.get()));
+		},
+		...(options.default === undefined
+			? {}
+			: {
+					reset: (input: SettingsInput) => {
+						input.value = String(indexOf(options.default as T));
+					},
+				}),
+	};
+};
+
+const makeColor = (
+	options: BoundField<string> & { options: SettingsNodeOption[] },
+): SettingsInputNode => ({
+	label: options.label,
+	description: options.description,
+	tooltip: options.tooltip,
+	compact: options.compact,
+	specialType: 'selectColorCombo',
+	options: options.options,
+	input: el.input.text``.then((input) => {
+		input.value = options.get();
+		input.onchange = () => options.set(input.value);
+	}),
+	sync: (input) => {
+		input.value = options.get();
+	},
+	...(options.default === undefined
+		? {}
+		: { reset: (input: SettingsInput) => (input.value = options.default as string) }),
+});
+
+const makeSelectText = (
+	options: BoundField<string> & { options: SettingsNodeOption[] },
+): SettingsInputNode => ({
+	label: options.label,
+	description: options.description,
+	tooltip: options.tooltip,
+	compact: options.compact,
+	specialType: 'selectTextCombo',
+	options: options.options,
+	input: el.input.text``.then((input) => {
+		input.value = options.get();
+		input.onchange = () => options.set(input.value);
+	}),
+	sync: (input) => {
+		input.value = options.get();
+	},
+	...(options.default === undefined
+		? {}
+		: { reset: (input: SettingsInput) => (input.value = options.default as string) }),
+});
+
+const makeBoundAlertVolume = (
+	options: BoundField<number> & { min?: number; max?: number; step?: number },
+): SettingsInputNode => ({
+	label: options.label,
+	description: options.description,
+	tooltip: options.tooltip,
+	specialType: 'alertVolume',
+	input: el.input.range``.then((input) => {
+		input.min = String(options.min ?? 0);
+		input.max = String(options.max ?? 1);
+		input.step = String(options.step ?? 0.05);
+		input.value = String(options.get());
+		input.oninput = () => options.set(Number(input.value));
+		input.onchange = () => {
+			options.set(Number(input.value));
+			input.value = String(options.get());
+		};
+	}),
+	sync: (input) => {
+		input.value = String(options.get());
+	},
+	...(options.default === undefined
+		? {}
+		: { reset: (input: SettingsInput) => (input.value = String(options.default)) }),
+});
+
+type AlertChannelValues = {
+	enableNotification: boolean;
+	enableAudio: boolean;
+	enableFlash: boolean;
+	enableToast: boolean;
+};
+
+const makeBoundAlertControls = (
+	options: BoundBase & {
+		get: () => AlertChannelValues;
+		set: (value: AlertChannelValues) => void;
+		default?: AlertChannelValues;
+		onTest: () => void;
+	},
+): SettingsAlertControlsNode => {
+	const writeInputs = (
+		notification: HTMLInputElement,
+		audio: HTMLInputElement,
+		flash: HTMLInputElement,
+		toast: HTMLInputElement,
+		value: AlertChannelValues,
+	) => {
+		notification.checked = value.enableNotification;
+		audio.checked = value.enableAudio;
+		flash.checked = value.enableFlash;
+		toast.checked = value.enableToast;
+	};
+	const readInputs = (
+		notification: HTMLInputElement,
+		audio: HTMLInputElement,
+		flash: HTMLInputElement,
+		toast: HTMLInputElement,
+	): AlertChannelValues => ({
+		enableNotification: notification.checked,
+		enableAudio: audio.checked,
+		enableFlash: flash.checked,
+		enableToast: toast.checked,
+	});
+	const current = options.get();
+	const notificationInput = el.input.checkbox``.then((input) => {
+		input.checked = current.enableNotification;
+		input.onchange = () =>
+			options.set(readInputs(notificationInput, audioInput, flashInput, toastInput));
+	});
+	const audioInput = el.input.checkbox``.then((input) => {
+		input.checked = current.enableAudio;
+		input.onchange = () =>
+			options.set(readInputs(notificationInput, audioInput, flashInput, toastInput));
+	});
+	const flashInput = el.input.checkbox``.then((input) => {
+		input.checked = current.enableFlash;
+		input.onchange = () =>
+			options.set(readInputs(notificationInput, audioInput, flashInput, toastInput));
+	});
+	const toastInput = el.input.checkbox``.then((input) => {
+		input.checked = current.enableToast;
+		input.onchange = () =>
+			options.set(readInputs(notificationInput, audioInput, flashInput, toastInput));
+	});
+	return {
+		label: options.label,
+		description: options.description,
+		tooltip: options.tooltip,
+		specialType: 'alertControls',
+		notificationInput,
+		audioInput,
+		flashInput,
+		toastInput,
+		onTest: options.onTest,
+		sync: (notification, audio, flash, toast) =>
+			writeInputs(notification, audio, flash, toast, options.get()),
+		...(options.default === undefined
+			? {}
+			: {
+					reset: (
+						notification: HTMLInputElement,
+						audio: HTMLInputElement,
+						flash: HTMLInputElement,
+						toast: HTMLInputElement,
+					) =>
+						writeInputs(notification, audio, flash, toast, options.default as AlertChannelValues),
+				}),
+	};
+};
 
 type CueCardOptions = {
 	id: string;
@@ -532,56 +925,76 @@ const makeCueCard = ({
 	onTest,
 	onEnabledChange,
 	mountHeaderExtras,
-}: CueCardOptions): Element =>
-	el.div`border border-base-content/20 rounded-box p-3 flex flex-col gap-2`.then((card) => {
-		const header = el.div`flex gap-2 items-center`.mount(card, 'header');
-
-		const enabledInput = el.input.checkbox``.then((input) => {
-			input.checked = scoped.enabled;
-			input.onchange = () => {
-				scoped.enabled = input.checked;
-				onEnabledChange?.();
-			};
-		});
-		enabledInput.classList = 'toggle toggle-sm';
-		enabledInput.id = `${id}-enabled`;
-		header.appendChild(enabledInput);
-		el.label`font-medium text-sm cursor-pointer search-value`.mount(header, undefined, (label) => {
-			label.htmlFor = enabledInput.id;
-			label.textContent = title;
-		});
-
-		if (mountHeaderExtras) {
-			el.span`flex-1 min-w-0`.mount(header);
-			mountHeaderExtras(header);
-		}
-
-		el.div`flex items-center w-full`.mount(card, 'alerts', (alerts) => {
-			alerts.appendChild(
-				makeAlertChannelToggles(
-					{
-						notificationInput: el.input.checkbox``.then((input) => {
-							input.checked = scoped.enableNotification;
-							input.onchange = () => (scoped.enableNotification = input.checked);
-						}),
-						audioInput: el.input.checkbox``.then((input) => {
-							input.checked = scoped.enableAudio;
-							input.onchange = () => (scoped.enableAudio = input.checked);
-						}),
-						flashInput: el.input.checkbox``.then((input) => {
-							input.checked = scoped.enableFlash ?? false;
-							input.onchange = () => (scoped.enableFlash = input.checked);
-						}),
-						toastInput: el.input.checkbox``.then((input) => {
-							input.checked = scoped.enableToast ?? true;
-							input.onchange = () => (scoped.enableToast = input.checked);
-						}),
-					},
-					onTest,
-				),
-			);
-		});
+}: CueCardOptions): SettingsElementNode => {
+	const enabledInput = el.input.checkbox``.then((input) => {
+		input.checked = scoped.enabled;
+		input.onchange = () => {
+			scoped.enabled = input.checked;
+			onEnabledChange?.();
+		};
 	});
+	const notificationInput = el.input.checkbox``.then((input) => {
+		input.checked = scoped.enableNotification;
+		input.onchange = () => (scoped.enableNotification = input.checked);
+	});
+	const audioInput = el.input.checkbox``.then((input) => {
+		input.checked = scoped.enableAudio;
+		input.onchange = () => (scoped.enableAudio = input.checked);
+	});
+	const flashInput = el.input.checkbox``.then((input) => {
+		input.checked = scoped.enableFlash ?? false;
+		input.onchange = () => (scoped.enableFlash = input.checked);
+	});
+	const toastInput = el.input.checkbox``.then((input) => {
+		input.checked = scoped.enableToast ?? true;
+		input.onchange = () => (scoped.enableToast = input.checked);
+	});
+	const card = el.div`border border-base-content/20 rounded-box p-3 flex flex-col gap-2`.then(
+		(root) => {
+			const header = el.div`flex gap-2 items-center`.mount(root, 'header');
+			enabledInput.classList = 'toggle toggle-sm';
+			enabledInput.id = `${id}-enabled`;
+			header.appendChild(enabledInput);
+			el.label`font-medium text-sm cursor-pointer search-value`.mount(
+				header,
+				undefined,
+				(label) => {
+					label.htmlFor = enabledInput.id;
+					label.textContent = title;
+				},
+			);
+			if (mountHeaderExtras) {
+				el.span`flex-1 min-w-0`.mount(header);
+				mountHeaderExtras(header);
+			}
+			el.div`flex items-center w-full`.mount(root, 'alerts', (alerts) => {
+				alerts.appendChild(
+					makeAlertChannelToggles(
+						{
+							notificationInput,
+							audioInput,
+							flashInput,
+							toastInput,
+						},
+						onTest,
+					),
+				);
+			});
+		},
+	);
+	const cueInputs = [enabledInput, notificationInput, audioInput, flashInput, toastInput] as const;
+	return {
+		element: card,
+		sync: () =>
+			dispatchChanged(cueInputs, () => {
+				enabledInput.checked = scoped.enabled;
+				notificationInput.checked = scoped.enableNotification;
+				audioInput.checked = scoped.enableAudio;
+				flashInput.checked = scoped.enableFlash ?? false;
+				toastInput.checked = scoped.enableToast ?? true;
+			}),
+	};
+};
 
 /** Reusable DOM builders exposed to plugins via `context.settings.helpers`. */
 export const settingsHelpers = {
@@ -589,6 +1002,16 @@ export const settingsHelpers = {
 	alertChannelToggles: makeAlertChannelToggles,
 	alertTestButton: makeAlertTestButton,
 	toggle: makeToggle,
+	select: makeSelect,
+	text: makeText,
+	number: makeNumber,
+	range: makeRange,
+	numberSlider: makeNumberSlider,
+	steppedRange: makeSteppedRange,
+	color: makeColor,
+	selectText: makeSelectText,
+	alertVolume: makeBoundAlertVolume,
+	alertControls: makeBoundAlertControls,
 	cueCard: makeCueCard,
 };
 export type SettingsHelpers = typeof settingsHelpers;
@@ -739,7 +1162,8 @@ const dispatchChanged = (inputs: readonly SettingsInput[], action: () => void) =
 	});
 };
 
-const applyReset = (node: Exclude<SettingsNode, Element>) => {
+const applyReset = (node: SettingsNode) => {
+	if (node instanceof Element || isElementNode(node)) return;
 	if (node.specialType === 'alertControls') {
 		const inputs = [
 			node.notificationInput,
@@ -752,9 +1176,27 @@ const applyReset = (node: Exclude<SettingsNode, Element>) => {
 	dispatchChanged([node.input], () => node.reset?.(node.input));
 };
 
+const applySync = (node: SettingsNode) => {
+	if (node instanceof Element) return;
+	if (isElementNode(node)) {
+		node.sync?.();
+		return;
+	}
+	if (node.specialType === 'alertControls') {
+		const inputs = [
+			node.notificationInput,
+			node.audioInput,
+			node.flashInput,
+			node.toastInput,
+		] as const;
+		return dispatchChanged(inputs, () => node.sync?.(...inputs));
+	}
+	dispatchChanged([node.input], () => node.sync?.(node.input));
+};
+
 const mountNodeHeader = (
 	container: HTMLElement,
-	node: Exclude<SettingsNode, Element>,
+	node: SettingsInputNode | SettingsAlertControlsNode,
 	leading?: Element,
 	trailing?: Element[],
 ) => {
@@ -834,6 +1276,10 @@ const mountAlertControlsNode = (container: HTMLElement, node: SettingsAlertContr
 export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode) => {
 	if (node instanceof Element) {
 		container.appendChild(node);
+		return;
+	}
+	if (isElementNode(node)) {
+		container.appendChild(node.element);
 		return;
 	}
 	if (node.specialType === 'alertControls') {

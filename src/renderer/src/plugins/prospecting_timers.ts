@@ -248,14 +248,18 @@ const initProspectingTimers = (
 		overlay?.paint();
 	};
 
-	const settingsMenu = context.settings.initMenu(lifecycle);
+	const settingsMenu = context.settings.initMenu(lifecycle, {
+		storage: context.storages.profile,
+	});
 	const helpers = context.settings.helpers;
+	const defaults = createSettings();
 	settingsMenu.mountSection('Prospecting Timers', [
 		helpers.toggle(
 			'Enable Timers',
 			'Show countdown timers for prospecting Mine Piles.',
 			() => settings.enabled,
 			setEnabled,
+			defaults.enabled,
 		),
 		helpers.toggle(
 			'Progress bar',
@@ -265,28 +269,18 @@ const initProspectingTimers = (
 				settings.showRadial = value;
 				overlay?.paint();
 			},
+			defaults.showRadial,
 		),
-		{
+		helpers.select({
 			label: 'Timer display',
-			reset: (input) => {
-				input.value = createSettings().display;
+			options: displayModes.map((value) => ({ label: DISPLAY_LABELS[value], value })),
+			get: () => asDisplayMode(settings.display),
+			set: (value) => {
+				settings.display = asDisplayMode(value);
+				overlay?.paint();
 			},
-			input: el.select``.then((input) => {
-				for (const value of displayModes) {
-					el.option``.mount(input, value, (option) => {
-						option.textContent = DISPLAY_LABELS[value];
-						option.value = value;
-						option.selected = asDisplayMode(settings.display) === value;
-					});
-				}
-				input.value = asDisplayMode(settings.display);
-				input.onchange = () => {
-					settings.display = asDisplayMode(input.value);
-					input.value = settings.display;
-					overlay?.paint();
-				};
-			}),
-		},
+			default: defaults.display,
+		}),
 	]);
 
 	return {

@@ -16,6 +16,7 @@ import {
 	chatColorMeta,
 	initialChannels,
 	initialChatColors,
+	initialPanelState,
 	initialSettings,
 	timestampFormatOptions,
 } from './chat/chat_types';
@@ -66,8 +67,10 @@ export const ChatPlugin: Plugin = {
 	namespace: 'oinky/chat',
 	name: 'Chat',
 	description: 'A custom chat implementation',
+	onRemoteSettings: 'restart',
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
+		const panel = context.storages.profile.reactive('window/chat-panel', initialPanelState);
 		const colors = context.storages.profile.reactive('colors', initialChatColors);
 		const channels = context.storages.character.reactive('channels', initialChannels);
 		const mutedPlayers = context.storages.global.reactive('mutedPlayers', initialMutedPlayers);
@@ -83,7 +86,7 @@ export const ChatPlugin: Plugin = {
 		setMessagesCollection(messages);
 		await hydrateChatMessages(messages, settings.maxChatLogLength);
 
-		const elements = initChat(lifecycle, context, settings, channels, filters);
+		const elements = initChat(lifecycle, context, settings, channels, filters, panel);
 
 		const onSettingsChange = () => {
 			applyChatSettings(elements, settings, filters);
@@ -94,30 +97,26 @@ export const ChatPlugin: Plugin = {
 		onColorsChange();
 
 		type ChatPluginWindow = { show: () => void; hide: () => void };
-		const bindWindow = (
-			flag: 'logWindowOpen' | 'mutedPlayersWindowOpen' | 'messageScannerWindowOpen',
-			create: (onClose: () => void) => ChatPluginWindow,
-		) => {
+		const bindWindow = (id: string, create: (onClose: () => void) => ChatPluginWindow) => {
 			let api: ChatPluginWindow | undefined;
 			const close = () => {
-				settings[flag] = false;
 				api = undefined;
 			};
 			const show = () => {
-				settings[flag] = true;
 				api ??= create(close);
 				api.show();
 			};
+			if (context.ui.windows.isOpen(context.storages.profile, id)) show();
 			return show;
 		};
 
-		const showLogWindow = bindWindow('logWindowOpen', (onClose) =>
+		const showLogWindow = bindWindow('chat-log', (onClose) =>
 			initChatLogWindow(lifecycle, context, settings, filters, onClose),
 		);
-		const showMutedPlayersWindow = bindWindow('mutedPlayersWindowOpen', (onClose) =>
+		const showMutedPlayersWindow = bindWindow('chat-muted-players', (onClose) =>
 			initMutedPlayersWindow(lifecycle, context, mutedPlayers, onClose),
 		);
-		const showMessageScannerWindow = bindWindow('messageScannerWindowOpen', (onClose) =>
+		const showMessageScannerWindow = bindWindow('chat-message-scanner', (onClose) =>
 			initMessageScannerWindow(lifecycle, context, wordMatches, onSettingsChange, onClose),
 		);
 
@@ -134,27 +133,18 @@ export const ChatPlugin: Plugin = {
 					settings[key] = value;
 					onSettingsChange();
 				},
+				initialSettings[key],
 			);
 
-		const numberSetting = (
-			label: string,
-			description: string,
-			key: 'maxChatLength' | 'maxChatLogLength',
-			min: string,
-			max: string,
-		) => ({
-			label,
-			description,
-			reset: (input) => (input.value = String(initialSettings[key])),
-			input: el.input.number``.then((input) => {
-				input.min = min;
-				input.max = max;
-				input.value = settings[key].toString();
-				input.onchange = () => {
-					settings[key] = parseInt(input.value, 10);
-					onSettingsChange();
-				};
-			}),
+		const timestampDescription = el.span``.then((span) => {
+			span.append('date-fns format string for message timestamps. See ');
+			el.a`link link-info`.mount(span, undefined, (anchor) => {
+				anchor.href = 'https://date-fns.org/v4.4.0/docs/format';
+				anchor.target = '_blank';
+				anchor.rel = 'noopener noreferrer';
+				anchor.textContent = 'format docs';
+			});
+			span.append('.');
 		});
 
 		settingsMenu.mountSection('Display', [
@@ -169,106 +159,89 @@ export const ChatPlugin: Plugin = {
 				'Animate chat scroll when using the mouse wheel.',
 				'enableSmoothScroll',
 			),
-			{
+			helpers.select({
 				label: 'Yell indicator',
 				description: 'What to display when a player yells.',
-				input: el.select``.then((input) => {
-					input.value = settings.yellIndicator;
-					el.option``.mount(input, 'guy', (option) => {
-						option.textContent = "Lil' Guy";
-						option.value = 'guy';
-						option.selected = settings.yellIndicator === 'guy';
-					});
-					el.option``.mount(input, 'icon', (option) => {
-						option.textContent = 'Icon';
-						option.value = 'icon';
-						option.selected = settings.yellIndicator === 'icon';
-					});
-					el.option``.mount(input, 'text', (option) => {
-						option.textContent = 'Text';
-						option.value = 'text';
-						option.selected = settings.yellIndicator === 'text';
-					});
-					input.onchange = () => {
-						settings.yellIndicator = input.value as 'guy' | 'icon' | 'text';
-						onSettingsChange();
-					};
-				}),
-			},
-			{
+				options: [
+					{ label: "Lil' Guy", value: 'guy' },
+					{ label: 'Icon', value: 'icon' },
+					{ label: 'Text', value: 'text' },
+				],
+				get: () => settings.yellIndicator,
+				set: (value) => {
+					settings.yellIndicator = value;
+					onSettingsChange();
+				},
+				default: initialSettings.yellIndicator,
+			}),
+			helpers.selectText({
 				label: 'Timestamp format',
-				description: el.span``.then((span) => {
-					span.append('date-fns format string for message timestamps. See ');
-					el.a`link link-info`.mount(span, undefined, (anchor) => {
-						anchor.href = 'https://date-fns.org/v4.4.0/docs/format';
-						anchor.target = '_blank';
-						anchor.rel = 'noopener noreferrer';
-						anchor.textContent = 'format docs';
-					});
-					span.append('.');
-				}),
-				specialType: 'selectTextCombo',
+				description: timestampDescription,
 				options: timestampFormatOptions,
-				reset: (input) => (input.value = initialSettings.timestampFormat),
-				input: el.input.text``.then((input) => {
-					input.value = settings.timestampFormat;
-					input.onchange = () => {
-						settings.timestampFormat = input.value;
-						onSettingsChange();
-					};
-				}),
-			},
-			{
+				get: () => settings.timestampFormat,
+				set: (value) => {
+					settings.timestampFormat = value;
+					onSettingsChange();
+				},
+				default: initialSettings.timestampFormat,
+			}),
+			helpers.range({
 				label: 'Popup duration',
 				description: 'In seconds, how long popup messages stay visible.',
 				valueSuffix: 's',
-				reset: (input) => (input.value = String(initialSettings.popupDuration)),
-				input: el.input.range``.then((input) => {
-					input.min = '2';
-					input.max = '20';
-					input.step = '2';
-					input.value = settings.popupDuration.toString();
-					input.onchange = () => {
-						settings.popupDuration = parseInt(input.value, 10);
-						onSettingsChange();
-					};
-				}),
-			},
+				get: () => settings.popupDuration,
+				set: (value) => {
+					settings.popupDuration = value;
+				},
+				default: initialSettings.popupDuration,
+				min: 2,
+				max: 20,
+				step: 2,
+			}),
 		]);
 
 		settingsMenu.mountSection(
 			'Colors',
-			chatColorMeta.map((meta) => ({
-				label: meta.label,
-				description: meta.description,
-				specialType: 'selectColorCombo' as const,
-				options: colorOptions,
-				reset: (input) => (input.value = initialChatColors[meta.type]),
-				input: el.input.text``.then((input) => {
-					input.value = colors[meta.type];
-					input.onchange = () => {
-						colors[meta.type] = input.value;
+			chatColorMeta.map((meta) =>
+				helpers.color({
+					label: meta.label,
+					description: meta.description,
+					options: colorOptions,
+					get: () => colors[meta.type],
+					set: (value) => {
+						colors[meta.type] = value;
 						onColorsChange();
-					};
+					},
+					default: initialChatColors[meta.type],
 				}),
-			})),
+			),
 		);
 
 		settingsMenu.mountSection('Limits', [
-			numberSetting(
-				'Visible messages',
-				'Maximum messages shown in the chat window.',
-				'maxChatLength',
-				'10',
-				'2000',
-			),
-			numberSetting(
-				'Chat log length',
-				'Maximum messages kept in the persistent chat log.',
-				'maxChatLogLength',
-				'50',
-				'10000',
-			),
+			helpers.number({
+				label: 'Visible messages',
+				description: 'Maximum messages shown in the chat window.',
+				get: () => settings.maxChatLength,
+				set: (value) => {
+					settings.maxChatLength = value;
+					onSettingsChange();
+				},
+				default: initialSettings.maxChatLength,
+				min: 10,
+				max: 2000,
+			}),
+			helpers.number({
+				label: 'Chat log length',
+				description: 'Maximum messages kept in the persistent chat log.',
+				get: () => settings.maxChatLogLength,
+				set: (value) => {
+					settings.maxChatLogLength = value;
+					onSettingsChange();
+				},
+				default: initialSettings.maxChatLogLength,
+				min: 50,
+				max: 10000,
+			}),
 		]);
 
 		settingsMenu.mountSection('Commands', [
@@ -280,18 +253,17 @@ export const ChatPlugin: Plugin = {
 					settings.enableCommands = value;
 					onSettingsChange();
 				},
+				initialSettings.enableCommands,
 			),
-			{
+			helpers.text({
 				label: 'Command prefix',
 				description: 'Prefix that opens the chat commands menu.',
-				reset: (input) => (input.value = initialSettings.commandPrefix),
-				input: el.input.text``.then((input) => {
-					input.value = settings.commandPrefix;
-					input.onchange = () => {
-						settings.commandPrefix = input.value.trim();
-					};
-				}),
-			},
+				get: () => settings.commandPrefix,
+				set: (value) => {
+					settings.commandPrefix = value.trim();
+				},
+				default: initialSettings.commandPrefix,
+			}),
 		]);
 
 		settingsMenu.mountSection('Message Scanner', [
@@ -323,6 +295,7 @@ export const ChatPlugin: Plugin = {
 					mutedPlayers.logMutedMessages = value;
 					onSettingsChange();
 				},
+				initialMutedPlayers.logMutedMessages,
 			),
 			el.button`btn btn-sm btn-primary search-value`.then((button) => {
 				button.type = 'button';
@@ -350,10 +323,6 @@ export const ChatPlugin: Plugin = {
 			hideChatActions(elements.mutedPlayersActivator);
 			showMutedPlayersWindow();
 		};
-
-		if (settings.logWindowOpen) showLogWindow();
-		if (settings.mutedPlayersWindowOpen) showMutedPlayersWindow();
-		if (settings.messageScannerWindowOpen) showMessageScannerWindow();
 
 		return {
 			events: {

@@ -22,7 +22,13 @@ import {
 } from './chat_messages';
 import { chatMessages } from './chat_state';
 import { handleAddTabClick, mountAddTabModal, mountChatTabs, updateChatTabs } from './chat_tabs';
-import { Channels, ChatElements, ChatStickiness, Settings } from './chat_types';
+import {
+	Channels,
+	ChatElements,
+	ChatPanelState,
+	ChatStickiness,
+	Settings,
+} from './chat_types';
 import { ChatFilters } from './chat_words';
 
 const hideUpstreamChatNode = (lifecycle: Lifecycle, selector: string): void => {
@@ -32,7 +38,7 @@ const hideUpstreamChatNode = (lifecycle: Lifecycle, selector: string): void => {
 	lifecycle.onCleanup(() => node.removeAttribute('oinky-hide'));
 };
 
-const mountToggleButton = (root: HTMLElement, settings: Settings) => {
+const mountToggleButton = (root: HTMLElement, panel: ChatPanelState) => {
 	const toggleButton =
 		el.label`absolute right-full btn btn-sm engaged:btn-secondary btn-square m-1 indicator swap`.mount(
 			root,
@@ -44,7 +50,7 @@ const mountToggleButton = (root: HTMLElement, settings: Settings) => {
 	const toggleCheckbox = el.input.checkbox`hidden`.mount(
 		toggleButton,
 		'checkbox',
-		(toggleCheckbox) => (toggleCheckbox.checked = settings.isExpanded),
+		(toggleCheckbox) => (toggleCheckbox.checked = panel.expanded),
 	);
 
 	const toggleIndicator = el.div`indicator-item status status-warning hidden`.mount(
@@ -106,9 +112,14 @@ const mountChatActionsDropdown = (root: HTMLElement) => {
 	};
 };
 
-const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settings): void => {
+const handleWheel = (
+	event: WheelEvent,
+	elements: ChatElements,
+	settings: Settings,
+	panel: ChatPanelState,
+): void => {
 	if (opened_modals.size > 0) return;
-	if (!settings.isExpanded) return;
+	if (!panel.expanded) return;
 	const chatMessageContainer = elements.messagesContainer;
 	const containerRect = chatMessageContainer.getClientRects()[0];
 	if (!containerRect) return;
@@ -130,10 +141,14 @@ const handleWheel = (event: WheelEvent, elements: ChatElements, settings: Settin
 	});
 };
 
-const handleToggleChange = (elements: ChatElements, settings: Settings): void => {
+const handleToggleChange = (
+	elements: ChatElements,
+	settings: Settings,
+	panel: ChatPanelState,
+): void => {
 	const chatMessageContainer = elements.messagesContainer;
 	updateToggleIndicator(elements.toggleIndicator, false);
-	if (settings.isExpanded) {
+	if (panel.expanded) {
 		if (!elements.stickiness.isSticky) {
 			elements.toggleCheckbox.checked = true;
 			elements.stickiness.isSticky = true;
@@ -146,7 +161,7 @@ const handleToggleChange = (elements: ChatElements, settings: Settings): void =>
 	}
 	chatMessageContainer.scrollTop = chatMessageContainer.scrollHeight;
 	elements.stickiness.isSticky = true;
-	settings.isExpanded = elements.toggleCheckbox.checked;
+	panel.expanded = elements.toggleCheckbox.checked;
 };
 
 export const initChat = (
@@ -155,6 +170,7 @@ export const initChat = (
 	settings: Settings,
 	channels: Channels,
 	filters: ChatFilters,
+	panel: ChatPanelState,
 ): ChatElements => {
 	hideUpstreamChatNode(lifecycle, '#chat-input');
 	hideUpstreamChatNode(lifecycle, '#chat');
@@ -164,7 +180,7 @@ export const initChat = (
 	// plugin cleanup so a profile-swap restart does not stack duplicate UI.
 	lifecycle.onCleanup(() => root.replaceChildren());
 
-	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(root, settings);
+	const { toggleButton, toggleCheckbox, toggleIndicator } = mountToggleButton(root, panel);
 	const { inputLabel, chatInput, commandsButton } = mountChatInput(
 		root,
 		context.character.username,
@@ -189,6 +205,7 @@ export const initChat = (
 		messagesContainer,
 		popupsContainer,
 		stickiness,
+		panel,
 		tabsContainer,
 		addTabButton,
 		logActivator,
@@ -240,7 +257,7 @@ export const initChat = (
 	messagesContainer.addEventListener('scroll', onMessagesScroll, { passive: true });
 	lifecycle.onCleanup(() => messagesContainer.removeEventListener('scroll', onMessagesScroll));
 
-	const wheelHandler = (event: WheelEvent) => handleWheel(event, elements, settings);
+	const wheelHandler = (event: WheelEvent) => handleWheel(event, elements, settings, panel);
 	document.addEventListener('wheel', wheelHandler);
 	lifecycle.onCleanup(() => document.removeEventListener('wheel', wheelHandler));
 
@@ -266,7 +283,7 @@ export const initChat = (
 		}
 		chatInput.focus();
 	};
-	toggleCheckbox.onchange = () => handleToggleChange(elements, settings);
+	toggleCheckbox.onchange = () => handleToggleChange(elements, settings, panel);
 	addTabButton.onclick = () => {
 		addTabButton.blur();
 		handleAddTabClick(elements, channels, context);
