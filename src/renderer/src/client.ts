@@ -206,6 +206,11 @@ export type PluginMutators = {
 	playerAnimation?: PluginMutator<[username: string, slot?: string], FMMO.AnimationSheet | null>;
 };
 
+export type PluginSocketHooks = {
+	send?: (message: string) => PluginHookResult;
+	onmessage?: (message: string) => PluginHookResult;
+};
+
 export type PluginContextMenu = {
 	[K in ContextTargetType]?: (target: ContextTargetOf<K>) => ContextMenuItem[];
 };
@@ -214,6 +219,7 @@ export type PluginCallbacks = {
 	events?: PluginEvents;
 	hooks?: PluginHooks;
 	mutators?: PluginMutators;
+	socketHooks?: PluginSocketHooks;
 	contextMenu?: PluginContextMenu;
 };
 
@@ -228,6 +234,7 @@ export type PluginsApi = {
 	events: Required<PluginEvents>;
 	hooks: Required<PluginHooks>;
 	mutators: MutatorDispatchers<PluginMutators>;
+	socketHooks: Required<PluginSocketHooks>;
 	contextMenu: {
 		buildItems: (target: ContextTarget) => ContextMenuItem[];
 	};
@@ -536,6 +543,12 @@ const initPlugins = (
 				dispatchHook((instance) => instance.callbacks.hooks?.mouseClick?.(event)),
 		},
 		mutators,
+		socketHooks: {
+			send: (message) =>
+				dispatchHook((instance) => instance.callbacks.socketHooks?.send?.(message)),
+			onmessage: (message) =>
+				dispatchHook((instance) => instance.callbacks.socketHooks?.onmessage?.(message)),
+		},
 		contextMenu: {
 			buildItems: (target) => {
 				const items: ContextMenuItem[] = [];
@@ -583,7 +596,7 @@ export const hookedFunctions = [
 	'mouse_click_handler',
 ] as const;
 
-export const mutatedFunctions = ['get_player_animation'] as const;
+export const mutatedFunctions = ['connect_to_websocket', 'get_player_animation'] as const;
 
 export type ClientHooks = ReturnType<typeof createClientHooks>;
 
@@ -691,10 +704,40 @@ const createClientHooks = (plugins: ClientPlugins, recordServerCommand: (raw: st
 
 export type ClientMutators = ReturnType<typeof createClientMutators>;
 
+const instrumentedWebsockets = new WeakSet<WebSocket>();
+
+const connectWebsocketHooks = (plugins: ClientPlugins, ws: WebSocket | null) => {
+	if (!ws || instrumentedWebsockets.has(ws)) return;
+	instrumentedWebsockets.add(ws);
+
+	const boundSend = ws.send.bind(ws);
+	ws.send = (data) => {
+		if (typeof data === 'string') {
+			const tracked = data.startsWith('CONNECT=') ? 'CONNECT=<scrubbed>' : data;
+			const resume = plugins.api.socketHooks.send(tracked) ?? true;
+			if (!resume) return;
+		}
+		boundSend(data);
+	};
+
+	const originalOnmessage = ws.onmessage;
+	ws.onmessage = (event) => {
+		if (typeof event.data === 'string') {
+			const resume = plugins.api.socketHooks.onmessage(event.data) ?? true;
+			if (!resume) return;
+		}
+		return originalOnmessage?.call(ws, event);
+	};
+};
+
 const createClientMutators = (plugins: ClientPlugins) =>
 	({
 		get get_player_animation() {
 			return plugins.api.mutators.playerAnimation;
+		},
+		connect_to_websocket: (original: () => void) => {
+			original();
+			connectWebsocketHooks(plugins, Globals.websocket);
 		},
 	}) satisfies Record<(typeof mutatedFunctions)[number], unknown>;
 
@@ -788,6 +831,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		pluginsApi: plugins.api,
 		profiles,
 		handleBeforeConnect: () => {
+			connectWebsocketHooks(plugins, Globals.websocket);
 			plugins.markStartedUp();
 			plugins.api.events.startup();
 		},
