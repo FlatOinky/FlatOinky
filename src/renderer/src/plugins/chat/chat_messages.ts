@@ -292,9 +292,9 @@ const createCollapsedMessageLi = (
 	filters: ChatFilters,
 	stickiness?: ChatStickiness,
 ): HTMLLIElement => {
-	return el.li`${bgClass}`.then((li) => {
+	return el.li`${bgClass} group`.then((li) => {
 		collapsedStacks.set(li, messages);
-		el.button`-my-1 mx-1 px-1 py-px btn btn-ghost btn-xs justify-start opacity-70 hover:opacity-100 pointer-events-auto`.mount(
+		el.button`btn p-px mx-1 -my-1.5 group-last:mb-0 btn-ghost btn-xs justify-start opacity-70 hover:opacity-100 pointer-events-auto`.mount(
 			li,
 			undefined,
 			(button) => {
