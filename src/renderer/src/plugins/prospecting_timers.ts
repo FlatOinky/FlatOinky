@@ -151,7 +151,7 @@ const mountOverlay = (
 	state: TimerState,
 ) => {
 	const overlay = parent.spawnLifecycle();
-	const layer = el.div`absolute inset-0 pointer-events-none`.init(
+	const layer = el.div`absolute inset-0 pointer-events-none z-0`.init(
 		overlay,
 		context.ui.root,
 		'prospecting-timers',
