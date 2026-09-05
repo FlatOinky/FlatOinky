@@ -25,7 +25,7 @@ export type SystemsContext = {
 	pluginsStorage: ClientStorage;
 	setAlerts: (alerts: Alerts) => void;
 	setContextMenu: (contextMenu: ContextMenu) => void;
-	setRecordServerCommand: (fn: (raw: string) => void) => void;
+	setRecordSocketMessage: (fn: (direction: 'send' | 'receive', message: string) => void) => void;
 	profiles: Profiles;
 	plugins: ClientPlugins;
 	logging: Logging;
@@ -44,7 +44,7 @@ export const initSystems = async (
 		pluginsStorage,
 		setAlerts,
 		setContextMenu,
-		setRecordServerCommand,
+		setRecordSocketMessage,
 		profiles,
 		plugins,
 		logging,
@@ -79,7 +79,7 @@ export const initSystems = async (
 			settingsMenu,
 			logging,
 			references,
-			setRecordServerCommand,
+			setRecordSocketMessage,
 		);
 	};
 

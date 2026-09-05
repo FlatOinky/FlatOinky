@@ -34,10 +34,11 @@ On click, the main process assembles the archive from:
 - the last `play.html` retained when `getClientHtmlText` ran (avoids re-POSTing `play.php`),
 - the inline entries from the manifest,
 - a fresh `getClientAsset` fetch for each remote URL (with a per-asset error placeholder),
-- `server_commands-<ISO>.txt` — last 1000 inbound `server_command` raw strings captured
-  while Devtools was enabled (one per line, prefixed with an ISO-8601 UTC timestamp;
-  empty if none). The filename stamp is ISO-8601 with `:` replaced by `-` so successive
-  unpacks into `refs/` do not overwrite earlier dumps.
+- `socket_messages-<ISO>.txt` — last 1000 websocket string frames captured while
+  Devtools was enabled (one per line: ISO-8601 UTC timestamp, `send` or `receive`, then
+  the message; empty if none). Outbound `CONNECT=` payloads are stored as
+  `CONNECT=<scrubbed>`. The filename stamp is ISO-8601 with `:` replaced by `-` so
+  successive unpacks into `refs/` do not overwrite earlier dumps.
 
 `Globals.connect_str` is scrubbed in main before packing.
 
@@ -62,9 +63,9 @@ Top level:
 - `inline-0.js` — inline reload/navigation guard extracted from the page.
 - `inline-23.js` — inline bootstrap: sets `Globals.connect_str` and calls `connect(...)` /
   `position_chat()`.
-- `server_commands-<ISO>.txt` — session-captured inbound `server_command` strings (last
-  1000, only while Devtools was enabled; each line is `ISO-8601 timestamp` then the raw
-  command). Filename is timestamped so multiple unpacks accumulate.
+- `socket_messages-<ISO>.txt` — session-captured websocket string frames (last 1000,
+  only while Devtools was enabled; each line is `ISO-8601 timestamp` then `send` or
+  `receive` then the message). Filename is timestamped so multiple unpacks accumulate.
 - `flat-mmo-references.tar.gz` — the original archive the above were extracted from.
 
 `js/` — external client scripts:

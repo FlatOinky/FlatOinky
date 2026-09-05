@@ -16,7 +16,7 @@ const initialSettings = {
 	enabledDevtools: false,
 };
 
-const MAX_SERVER_COMMANDS = 1000;
+const MAX_SOCKET_MESSAGES = 5000;
 
 const logLevelSteps = logLevels.map((level) => logLevelLabels[level]);
 
@@ -55,24 +55,24 @@ export const initDevtoolsSystem = async (
 	settingsMenu: SettingsMenu,
 	logging: Logging,
 	references: FMMO.ReferenceManifest,
-	setRecordServerCommand: (fn: (raw: string) => void) => void,
+	setRecordSocketMessage: (fn: (direction: 'send' | 'receive', message: string) => void) => void,
 ): Promise<void> => {
 	const storage = await createGlobalStorage('systems', 'devtools', lifecycle);
 	const settings = storage.reactive('settings', initialSettings);
 	let devtoolsLifecycle: Lifecycle | null = null;
-	const serverCommands: string[] = [];
-	const recordServerCommand = (raw: string) => {
+	const socketMessages: string[] = [];
+	const recordSocketMessage = (direction: 'send' | 'receive', message: string) => {
 		if (!settings.enabledDevtools) return;
-		serverCommands.push(`${new Date().toISOString()} ${raw}`);
-		if (serverCommands.length > MAX_SERVER_COMMANDS) {
-			serverCommands.splice(0, serverCommands.length - MAX_SERVER_COMMANDS);
+		socketMessages.push(`${new Date().toISOString()} ${direction} ${message}`);
+		if (socketMessages.length > MAX_SOCKET_MESSAGES) {
+			socketMessages.splice(0, socketMessages.length - MAX_SOCKET_MESSAGES);
 		}
 	};
-	setRecordServerCommand(recordServerCommand);
+	setRecordSocketMessage(recordSocketMessage);
 	lifecycle.onCleanup(() => {
 		logging.setEnabled(false);
-		serverCommands.length = 0;
-		setRecordServerCommand(() => {});
+		socketMessages.length = 0;
+		setRecordSocketMessage(() => {});
 	});
 
 	const syncDevtoolsMenu = () => {
@@ -80,7 +80,7 @@ export const initDevtoolsSystem = async (
 		devtoolsLifecycle = null;
 		logging.setEnabled(settings.enabledDevtools);
 		if (!settings.enabledDevtools) {
-			serverCommands.length = 0;
+			socketMessages.length = 0;
 			return;
 		}
 		devtoolsLifecycle = lifecycle.spawnLifecycle();
@@ -113,8 +113,8 @@ export const initDevtoolsSystem = async (
 						inline: [
 							...references.inline,
 							{
-								name: `server_commands-${stamp}.txt`,
-								content: serverCommands.join('\n'),
+								name: `socket_messages-${stamp}.txt`,
+								content: socketMessages.join('\n'),
 							},
 						],
 					});

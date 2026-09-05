@@ -600,7 +600,7 @@ export const mutatedFunctions = ['connect_to_websocket', 'get_player_animation']
 
 export type ClientHooks = ReturnType<typeof createClientHooks>;
 
-const createClientHooks = (plugins: ClientPlugins, recordServerCommand: (raw: string) => void) => {
+const createClientHooks = (plugins: ClientPlugins) => {
 	const handleServerCommandAsync = async (
 		command: string,
 		values: string[],
@@ -689,7 +689,6 @@ const createClientHooks = (plugins: ClientPlugins, recordServerCommand: (raw: st
 	};
 	return {
 		server_command: (command: string, values: string[], rawCommand: string) => {
-			recordServerCommand(rawCommand);
 			handleServerCommandAsync(command, values, rawCommand);
 			return plugins.api.hooks.serverCommand(command, values, rawCommand);
 		},
@@ -706,7 +705,11 @@ export type ClientMutators = ReturnType<typeof createClientMutators>;
 
 const instrumentedWebsockets = new WeakSet<WebSocket>();
 
-const connectWebsocketHooks = (plugins: ClientPlugins, ws: WebSocket | null) => {
+const connectWebsocketHooks = (
+	plugins: ClientPlugins,
+	ws: WebSocket | null,
+	recordSocketMessage: (direction: 'send' | 'receive', message: string) => void,
+) => {
 	if (!ws || instrumentedWebsockets.has(ws)) return;
 	instrumentedWebsockets.add(ws);
 
@@ -716,6 +719,7 @@ const connectWebsocketHooks = (plugins: ClientPlugins, ws: WebSocket | null) => 
 			const tracked = data.startsWith('CONNECT=') ? 'CONNECT=<scrubbed>' : data;
 			const resume = plugins.api.socketHooks.send(tracked) ?? true;
 			if (!resume) return;
+			recordSocketMessage('send', tracked);
 		}
 		boundSend(data);
 	};
@@ -723,6 +727,7 @@ const connectWebsocketHooks = (plugins: ClientPlugins, ws: WebSocket | null) => 
 	const originalOnmessage = ws.onmessage;
 	ws.onmessage = (event) => {
 		if (typeof event.data === 'string') {
+			recordSocketMessage('receive', event.data);
 			const resume = plugins.api.socketHooks.onmessage(event.data) ?? true;
 			if (!resume) return;
 		}
@@ -730,14 +735,17 @@ const connectWebsocketHooks = (plugins: ClientPlugins, ws: WebSocket | null) => 
 	};
 };
 
-const createClientMutators = (plugins: ClientPlugins) =>
+const createClientMutators = (
+	plugins: ClientPlugins,
+	recordSocketMessage: (direction: 'send' | 'receive', message: string) => void,
+) =>
 	({
 		get get_player_animation() {
 			return plugins.api.mutators.playerAnimation;
 		},
 		connect_to_websocket: (original: () => void) => {
 			original();
-			connectWebsocketHooks(plugins, Globals.websocket);
+			connectWebsocketHooks(plugins, Globals.websocket, recordSocketMessage);
 		},
 	}) satisfies Record<(typeof mutatedFunctions)[number], unknown>;
 
@@ -775,7 +783,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 
 	let alerts: Alerts | undefined;
 	let contextMenu: ContextMenu | undefined;
-	let recordServerCommand = (_raw: string) => {};
+	let recordSocketMessage = (_direction: 'send' | 'receive', _message: string) => {};
 	const context = createContext(
 		character,
 		ui,
@@ -789,8 +797,10 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	);
 	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage, logging.createLogger);
 	pluginsRef.current = plugins;
-	const hooks = createClientHooks(plugins, (raw) => recordServerCommand(raw));
-	const mutators = createClientMutators(plugins);
+	const hooks = createClientHooks(plugins);
+	const mutators = createClientMutators(plugins, (direction, message) =>
+		recordSocketMessage(direction, message),
+	);
 
 	await initSystems(lifecycle, {
 		ui,
@@ -805,8 +815,8 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		setContextMenu: (next) => {
 			contextMenu = next;
 		},
-		setRecordServerCommand: (next) => {
-			recordServerCommand = next;
+		setRecordSocketMessage: (next) => {
+			recordSocketMessage = next;
 		},
 		profiles,
 		plugins,
@@ -831,7 +841,9 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		pluginsApi: plugins.api,
 		profiles,
 		handleBeforeConnect: () => {
-			connectWebsocketHooks(plugins, Globals.websocket);
+			connectWebsocketHooks(plugins, Globals.websocket, (direction, message) =>
+				recordSocketMessage(direction, message),
+			);
 			plugins.markStartedUp();
 			plugins.api.events.startup();
 		},
