@@ -1,6 +1,6 @@
 import { Plugin, type ContextTarget } from '../client';
 import { initBankTrigger, initInventoryTrigger, inventoryMenuItems } from './mouse/inventory';
-import { examineItem, flatstatsItem, lookupItem, wikiItem } from './mouse/links';
+import { examineItem, flatstatsItem, lookupItem, tradeItem, wikiItem } from './mouse/links';
 import { collectTargets } from './mouse/targets';
 
 const initialSettings = {
@@ -105,7 +105,11 @@ export const MousePlugin: Plugin = {
 			},
 			contextMenu: {
 				npc: (target) => [wikiItem(target.data.label)],
-				player: (target) => [lookupItem(target.data.username), flatstatsItem(target.data.username)],
+				player: (target) => [
+					lookupItem(target.data.username),
+					flatstatsItem(target.data.username),
+					tradeItem(target.data.username),
+				],
 				item: (target) => [
 					...inventoryMenuItems(target),
 					wikiItem(target.data.label, 100),

@@ -39,3 +39,11 @@ export const flatstatsItem = (username: string): ContextMenuItem => ({
 		openExternal(`https://flatstats.ravenwoodsoftware.org/player/${encodeURIComponent(username)}`);
 	},
 });
+
+export const tradeItem = (username: string): ContextMenuItem => ({
+	action: 'Trade',
+	subject: username,
+	onSelect: () => {
+		Globals.websocket?.send(`SEND_TRADE_REQUEST=${username}`);
+	},
+});
