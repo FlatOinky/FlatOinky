@@ -14,6 +14,7 @@ declare global {
 		reloadWindow: () => void;
 		// FlatMMO global that repositions the chat overlay relative to the canvas
 		position_chat?: () => void;
+		open_key_bindings_modal?: () => void;
 		flatOinky: {
 			page: string;
 			worlds: FMMO.World[] | null;
@@ -36,6 +37,14 @@ declare global {
 	function add_player_chat_over_head(username: string, message: string);
 	function search_bank(input: HTMLInputElement);
 	function has_modal_open(): boolean;
+	function has_npc_chat_message_modal_open(): boolean;
+	function has_npc_chat_options_modal_open(): boolean;
+	function close_modal(id: string): void;
+	function close_bank(): void;
+	function close_global_market(): void;
+	function request_focus_chatbox(): void;
+	function request_unfocus_chatbox(): void;
+	function open_key_bindings_modal(): void;
 	function toggle_sound(): void;
 	function toggle_music(): void;
 	function add_to_chat(

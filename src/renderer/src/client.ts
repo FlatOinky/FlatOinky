@@ -20,6 +20,7 @@ import { getAppVersion, saveFile } from './client/ipc_renderer';
 import { initLogging, type Logger, type LogLevel, type LogMethod } from './client/logging';
 import { initTimers, type ClientTimers } from './client/timers';
 import type { Alerts } from './client/alerts';
+import type { Keybinds } from './client/keybinds';
 import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
 import { initSystems } from './client/systems';
@@ -35,6 +36,7 @@ export type {
 	ContextTargetOf,
 	ContextTargetType,
 } from './client/context_menu';
+export type { Keybinds, Keycombo } from './client/keybinds';
 
 export type Lifecycle = ReturnType<typeof initLifecycle>;
 
@@ -93,6 +95,7 @@ const createContext = (
 	timers: ClientTimers,
 	getAlerts: () => Alerts | undefined,
 	getContextMenu: () => ContextMenu | undefined,
+	getKeybinds: () => Keybinds | undefined,
 ) => {
 	const isLocalUsername = (username?: string) => {
 		if (!username) return false;
@@ -127,6 +130,11 @@ const createContext = (
 			const contextMenu = getContextMenu();
 			if (!contextMenu) throw new Error('Context menu has not been initialized');
 			return contextMenu;
+		},
+		get keybinds() {
+			const keybinds = getKeybinds();
+			if (!keybinds) throw new Error('Keybinds have not been initialized');
+			return keybinds;
 		},
 	};
 };
@@ -200,6 +208,9 @@ export type PluginHooks = {
 	playTrack?: (url: string) => PluginHookResult;
 	pauseTrack?: () => PluginHookResult;
 	mouseClick?: (event: MouseEvent) => PluginHookResult;
+	keydownListener?: (event: KeyboardEvent) => PluginHookResult;
+	keypressListener?: (event: KeyboardEvent) => PluginHookResult;
+	keyupListener?: (event: KeyboardEvent) => PluginHookResult;
 };
 
 export type PluginMutators = {
@@ -541,6 +552,12 @@ const initPlugins = (
 			pauseTrack: () => dispatchHook((instance) => instance.callbacks.hooks?.pauseTrack?.()),
 			mouseClick: (event) =>
 				dispatchHook((instance) => instance.callbacks.hooks?.mouseClick?.(event)),
+			keydownListener: (event) =>
+				dispatchHook((instance) => instance.callbacks.hooks?.keydownListener?.(event)),
+			keypressListener: (event) =>
+				dispatchHook((instance) => instance.callbacks.hooks?.keypressListener?.(event)),
+			keyupListener: (event) =>
+				dispatchHook((instance) => instance.callbacks.hooks?.keyupListener?.(event)),
 		},
 		mutators,
 		socketHooks: {
@@ -594,6 +611,9 @@ export const hookedFunctions = [
 	'play_track',
 	'pause_track',
 	'mouse_click_handler',
+	'keydown_listener',
+	'keypress_listener',
+	'keyup_listener',
 ] as const;
 
 export const mutatedFunctions = ['connect_to_websocket', 'get_player_animation'] as const;
@@ -698,6 +718,9 @@ const createClientHooks = (plugins: ClientPlugins) => {
 		play_track: (url: string) => plugins.api.hooks.playTrack(url),
 		pause_track: () => plugins.api.hooks.pauseTrack(),
 		mouse_click_handler: (event: MouseEvent) => plugins.api.hooks.mouseClick(event),
+		keydown_listener: (event: KeyboardEvent) => plugins.api.hooks.keydownListener(event),
+		keypress_listener: (event: KeyboardEvent) => plugins.api.hooks.keypressListener(event),
+		keyup_listener: (event: KeyboardEvent) => plugins.api.hooks.keyupListener(event),
 	} satisfies Record<(typeof hookedFunctions)[number], unknown>;
 };
 
@@ -765,15 +788,22 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		getAppVersion(),
 	]);
 	const profiles = initProfiles(storagePayload);
-	const [clientStorage, updaterStorage, alertsStorage, pluginsStorage, loggingStorage] =
-		await Promise.all([
-			createProfileStorage('systems', 'client', lifecycle),
-			createGlobalStorage('systems', 'updater', lifecycle),
-			// Namespace stays `notifications` so existing profile settings still load.
-			createProfileStorage('systems', 'notifications', lifecycle),
-			createProfileStorage('systems', 'plugins', lifecycle),
-			createProfileStorage('systems', 'logging', lifecycle),
-		]);
+	const [
+		clientStorage,
+		updaterStorage,
+		alertsStorage,
+		pluginsStorage,
+		loggingStorage,
+		keybindsStorage,
+	] = await Promise.all([
+		createProfileStorage('systems', 'client', lifecycle),
+		createGlobalStorage('systems', 'updater', lifecycle),
+		// Namespace stays `notifications` so existing profile settings still load.
+		createProfileStorage('systems', 'notifications', lifecycle),
+		createProfileStorage('systems', 'plugins', lifecycle),
+		createProfileStorage('systems', 'logging', lifecycle),
+		createProfileStorage('systems', 'keybinds', lifecycle),
+	]);
 	const settings = initSettings(lifecycle, ui, clientStorage);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
 	const pluginsRef: { current?: ClientPlugins } = {};
@@ -783,6 +813,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 
 	let alerts: Alerts | undefined;
 	let contextMenu: ContextMenu | undefined;
+	let keybinds: Keybinds | undefined;
 	let recordSocketMessage = (_direction: 'send' | 'receive', _message: string) => {};
 	const context = createContext(
 		character,
@@ -794,6 +825,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		timers,
 		() => alerts,
 		() => contextMenu,
+		() => keybinds,
 	);
 	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage, logging.createLogger);
 	pluginsRef.current = plugins;
@@ -809,11 +841,15 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		alertsStorage,
 		clientStorage,
 		pluginsStorage,
+		keybindsStorage,
 		setAlerts: (next) => {
 			alerts = next;
 		},
 		setContextMenu: (next) => {
 			contextMenu = next;
+		},
+		setKeybinds: (next) => {
+			keybinds = next;
 		},
 		setRecordSocketMessage: (next) => {
 			recordSocketMessage = next;

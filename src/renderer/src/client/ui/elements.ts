@@ -175,6 +175,7 @@ export const select = setupHTMLElement('select');
 export const option = setupHTMLElement('option');
 export const label = setupHTMLElement('label');
 export const span = setupHTMLElement('span');
+export const kbd = setupHTMLElement('kbd');
 export const h1 = setupHTMLElement('h1');
 export const h2 = setupHTMLElement('h2');
 export const h3 = setupHTMLElement('h3');
@@ -269,6 +270,7 @@ export const icon = {
 	highlightOff: setupIconElement('icon-[tabler--highlight-off]'),
 	infoCircleFilled: setupIconElement('icon-[tabler--info-circle-filled]'),
 	infoSmall: setupIconElement('icon-[tabler--info-small]'),
+	keyboard: setupIconElement('icon-[tabler--keyboard]'),
 	lock: setupIconElement('icon-[tabler--lock]'),
 	lockOpen: setupIconElement('icon-[tabler--lock-open]'),
 	menu: setupIconElement('icon-[tabler--menu-2]'),

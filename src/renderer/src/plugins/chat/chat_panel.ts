@@ -22,13 +22,7 @@ import {
 } from './chat_messages';
 import { chatMessages } from './chat_state';
 import { handleAddTabClick, mountAddTabModal, mountChatTabs, updateChatTabs } from './chat_tabs';
-import {
-	Channels,
-	ChatElements,
-	ChatPanelState,
-	ChatStickiness,
-	Settings,
-} from './chat_types';
+import { Channels, ChatElements, ChatPanelState, ChatStickiness, Settings } from './chat_types';
 import { ChatFilters } from './chat_words';
 
 const hideUpstreamChatNode = (lifecycle: Lifecycle, selector: string): void => {
@@ -185,6 +179,8 @@ export const initChat = (
 		root,
 		context.character.username,
 	);
+	context.keybinds.setChatInput(chatInput);
+	lifecycle.onCleanup(() => context.keybinds.setChatInput(null));
 	const commandsMenu = mountCommandsMenu(root, '--oinky-chat-commands-toggle');
 	const { messagesContainer, popupsContainer } = mountMessagesRegion(root);
 	const { tabsContainer, addTabButton } = mountChatTabs(root);

@@ -87,9 +87,12 @@ client.
     `suspended` from main `appState` plus `document.visibilitychange`.
   - `client/timers.ts` — `initTimers` factory backing `PluginContext.timers`
     (`initInterval` with stop/start, suspend/resume, and rebuild-on-start).
+  - `client/keybinds.ts` and `client/keybinds/` — keybind registry, combo capture,
+    activity HUD, and chat-input focus (no dispatch while the chat input is focused) backing
+    `PluginContext.keybinds`.
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
     window appearance settings, alerts tray/settings, context
-    menu, updates UI, devtools including logging, profiles); never toggleable. Systems other than profiles live on a restartable child
+    menu, updates UI, keybinds, devtools including logging, profiles); never toggleable. Systems other than profiles live on a restartable child
     lifecycle rebuilt on profile swap. Profiles owns the Profiles & Plugins tray
     window (profile CRUD plus per-profile plugin enable toggles).
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and
@@ -106,10 +109,11 @@ characters, character↔profile mappings, per-scope `*_settings` documents keyed
 `context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
 `<name>` for client internals — including `client`, `updater`, `notifications`
 (alerts; namespace name kept for compatibility),
-`logging`, `devtools`, and `plugins` for the per-profile enabled-plugin map; settings
+`logging`, `devtools`, `keybinds`, and `plugins` for the per-profile enabled-plugin map; settings
 sections for always-on systems use `core/systems`), and per-scope append-only
 `*_collections` rows keyed the same way (plugins fold a collection name into the
-namespace as `oinky/<name>/<collection>`). `client`, `notifications` (alerts), `logging`, and
+namespace as `oinky/<name>/<collection>`). `client`, `notifications` (alerts), `logging`,
+`keybinds`, and
 `plugins` use profile storage; `updater` and `devtools` use global storage. Collections
 are read with `fetch(quantity)`, written with `append(value, max?)`, and cleared with
 `clear(match?)` (optional field match via `json_extract`). Multiple windows share one

@@ -40,11 +40,11 @@ Layout under `src/`:
 - `styles.css` + `styles/` — Tailwind/DaisyUI entry and component CSS
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
 - `client/systems/` — always-on features (app menu, windows, alerts,
-  updates, context menu, devtools including logging, profiles). Systems other than profiles live on a restartable
+  updates, context menu, keybinds, devtools including logging, profiles). Systems other than profiles live on a restartable
   child lifecycle rebuilt on profile swap; the profiles system owns the Profiles &
   Plugins tray window and drives that restart.
 - `plugins/` — toggleable plugins (`tweaks`, `chat`, `monitor`, `metrics`, `themes`,
-  `mouse`, …)
+  `mouse`, `keybinds`, …)
 - `templates/`, `assets/`
 
 ## Client vs plugins
@@ -55,10 +55,15 @@ Layout under `src/`:
   reaches the client only through `PluginContext`.
 - **`PluginContext` is the third-party contract.** Anything a plugin needs must be
   reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `alerts`,
-  `contextMenu`, `log`, `settings`, `storages`, `collections`, `timers`,
+  `contextMenu`, `keybinds`, `log`, `settings`, `storages`, `collections`, `timers`,
   `isLocalUsername`, `getPlayer`, `getLocalPlayer`). System-only APIs (`updater`,
-  openDevTools, saveReferences) stay off the context. `alerts` and `contextMenu`
-  are getters that throw if accessed before those systems are initialized. `log` is a
+  openDevTools, saveReferences) stay off the context. `alerts`, `contextMenu`, and
+  `keybinds` are getters that throw if accessed before those systems are initialized.
+  Plugins register keybinds with `context.keybinds.initGroup(lifecycle, namespace, name)`
+  then `register(key, name, callback, requestKeycombo?)`. Chat (or another plugin) may
+  `setChatInput` an input; the Keybinds plugin's **Snap to chat** bind focuses it (Enter
+  by default). While that input is focused, the keybinds system does not dispatch or
+  record held combos. `log` is a
   `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace); plugin
   contexts prefix messages with `[plugin.name]`. `timers.initInterval(lifecycle, options)`
   starts a managed interval (`options.name` is optional, for timer logs) that stops
@@ -76,7 +81,7 @@ Layout under `src/`:
   match so the game calls `window.flatOinky.client.mutators.<fn>(original, …args)` when
   a plugin has registered a mutator, otherwise the original. `hookedFunctions`
   (`server_command`, `add_to_chat`, `play_sound`, `play_track`, `pause_track`,
-  `mouse_click_handler`) then wraps
+  `mouse_click_handler`, `keydown_listener`, `keypress_listener`, `keyup_listener`) then wraps
   each match so the game calls `window.flatOinky.client.hooks.<fn>` first; returning
   `false` suppresses the inner call. A name may appear in either list or both — when
   both, the mutator pass runs first and the hook pass nests around it (veto, then
@@ -148,7 +153,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
      `systems` with bare namespaces (`client`, `updater`, `notifications` (alerts;
      namespace name kept for compatibility),
-     `logging`, `devtools`, `plugins` for the enabled-plugin map). Logging emit is
+     `logging`, `devtools`, `keybinds`, `plugins` for the enabled-plugin map). `keybinds`
+     uses profile storage. Logging emit is
      gated by the Devtools enable toggle.
 
      **Collections** — `context.collections.global | profile | character(name)` for

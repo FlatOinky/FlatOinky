@@ -3,6 +3,7 @@ import type { AppState } from './app_state';
 import type { ClientStorage } from './client_storage';
 import type { ContextMenu } from './context_menu';
 import { initContextMenu } from './context_menu';
+import { initKeybinds, type Keybinds } from './keybinds';
 import type { Logging } from './logging';
 import { initAlerts, type Alerts } from './alerts';
 import type { Profiles } from './profiles';
@@ -12,6 +13,7 @@ import type { Updater } from './updater';
 import { initAppSystem } from './systems/app';
 import { initDevtoolsSystem } from './systems/devtools';
 import { initAlertsSystem } from './systems/alerts';
+import { initKeybindsSystem } from './systems/keybinds';
 import { initProfilesSystem } from './systems/profiles';
 import { initUpdatesSystem } from './systems/updates';
 import { initWindowsSystem } from './systems/windows';
@@ -23,8 +25,10 @@ export type SystemsContext = {
 	alertsStorage: ClientStorage;
 	clientStorage: ClientStorage;
 	pluginsStorage: ClientStorage;
+	keybindsStorage: ClientStorage;
 	setAlerts: (alerts: Alerts) => void;
 	setContextMenu: (contextMenu: ContextMenu) => void;
+	setKeybinds: (keybinds: Keybinds) => void;
 	setRecordSocketMessage: (fn: (direction: 'send' | 'receive', message: string) => void) => void;
 	profiles: Profiles;
 	plugins: ClientPlugins;
@@ -42,8 +46,10 @@ export const initSystems = async (
 		alertsStorage,
 		clientStorage,
 		pluginsStorage,
+		keybindsStorage,
 		setAlerts,
 		setContextMenu,
+		setKeybinds,
 		setRecordSocketMessage,
 		profiles,
 		plugins,
@@ -62,6 +68,10 @@ export const initSystems = async (
 
 		initAppSystem(systems, ui);
 		initWindowsSystem(systems, ui, clientStorage, settingsMenu);
+
+		const keybinds = initKeybinds(systems, keybindsStorage, ui.root);
+		setKeybinds(keybinds);
+		initKeybindsSystem(systems, ui, keybinds, settingsMenu, keybindsStorage);
 
 		const alerts = initAlerts(systems, alertsStorage, { root: ui.root, appState });
 		setAlerts(alerts);
