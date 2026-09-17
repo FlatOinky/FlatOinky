@@ -113,7 +113,10 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 	let chatInputFocusHandler: (() => void) | undefined;
 	let openWindowHandler: (() => void) | undefined;
 
+	let overlappingCache: Set<string> | undefined;
+
 	const notifyChange = () => {
+		overlappingCache = undefined;
 		for (const listener of changeListeners) listener();
 	};
 
@@ -158,6 +161,7 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 	};
 
 	const overlappingCombos = (): Set<string> => {
+		if (overlappingCache) return overlappingCache;
 		const counts = new Map<string, number>();
 		for (const group of groups.values()) {
 			for (const registration of group.registrations.values()) {
@@ -170,6 +174,7 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		for (const [combo, count] of counts) {
 			if (count > 1) overlapping.add(combo);
 		}
+		overlappingCache = overlapping;
 		return overlapping;
 	};
 

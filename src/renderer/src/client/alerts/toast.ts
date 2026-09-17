@@ -47,7 +47,7 @@ export const initToasts = (
 		if (!entries.has(entry)) return;
 		entries.delete(entry);
 		if (entry.timeoutId !== undefined) clearTimeout(entry.timeoutId);
-		fadeRemoveElement(entry.element);
+		fadeRemoveElement(entry.element, 0, 200, lifecycle);
 	};
 
 	const pause = (entry: ToastEntry) => {

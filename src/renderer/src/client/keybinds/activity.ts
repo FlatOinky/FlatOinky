@@ -62,7 +62,7 @@ export const initKeybindActivity = (
 		const next = mountActivityBox(host, true);
 		renderComboChips(fired.combo, 'xs', next.chips);
 		next.name.textContent = fired.name;
-		fadeRemoveElement(next.box, KEYBIND_ACTIVITY_MS);
+		fadeRemoveElement(next.box, KEYBIND_ACTIVITY_MS, 200, lifecycle);
 	};
 
 	lifecycle.onCleanup(

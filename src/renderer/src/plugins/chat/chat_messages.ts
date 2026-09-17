@@ -2,7 +2,7 @@ import { formatDate } from 'date-fns';
 import yellIconSrc from '../../assets/yell.png';
 import pmToIconSrc from '../../assets/pm_to.png';
 import pmFromIconSrc from '../../assets/pm_from.png';
-import { ChatMessage, PluginContext } from '../../client';
+import { ChatMessage, PluginContext, type Lifecycle } from '../../client';
 import type { Collection } from '../../client/client_storage';
 import * as el from '../../client/ui/elements';
 import { closeCommandMenu } from './chat_commands';
@@ -422,6 +422,7 @@ export const mountChatMessage = (
 	settings: Settings,
 	elements: ChatElements,
 	filters: ChatFilters,
+	lifecycle: Lifecycle,
 ): void => {
 	storeChatMessage(chatMessage, settings);
 	if (chatMessage.type !== 'welcome' && chatMessage.username) {
@@ -449,12 +450,23 @@ export const mountChatMessage = (
 		}
 	} else {
 		const messageBg = getMessageBg(settings.enableZebra);
-		const content = createChatMessageContent(chatMessage, settings, filters);
-		messagesContainer.appendChild(createMessageLi(content, messageBg, highlighted));
+		messagesContainer.appendChild(
+			createMessageLi(
+				createChatMessageContent(chatMessage, settings, filters),
+				messageBg,
+				highlighted,
+			),
+		);
 
-		const popupLi = createPopupLi(content.cloneNode(true) as HTMLElement, messageBg, highlighted);
-		popupsContainer.appendChild(popupLi);
-		context.ui.fadeRemoveElement(popupLi, settings.popupDuration * 1000);
+		if (settings.popupDuration > 0) {
+			const popupLi = createPopupLi(
+				createChatMessageContent(chatMessage, settings, filters),
+				messageBg,
+				highlighted,
+			);
+			popupsContainer.appendChild(popupLi);
+			context.ui.fadeRemoveElement(popupLi, settings.popupDuration * 1000, 200, lifecycle);
+		}
 	}
 
 	while (messagesContainer.children.length > settings.maxChatLength) {

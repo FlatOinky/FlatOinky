@@ -356,7 +356,7 @@ export const ChatPlugin: Plugin = {
 						storeChatMessage(chatMessage, settings);
 						return;
 					}
-					mountChatMessage(chatMessage, context, settings, elements, filters);
+					mountChatMessage(chatMessage, context, settings, elements, filters, lifecycle);
 				},
 			},
 			hooks: {

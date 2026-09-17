@@ -4,19 +4,25 @@ import * as el from './elements';
 
 // #region makeSearch
 
+type SearchRecord = { item: Element; textContent: string };
+
+const collectSearchRecords = (searchContainer: Element): SearchRecord[] =>
+	Array.from(searchContainer.querySelectorAll('.search-item')).map((item) => ({
+		item,
+		textContent: Array.from(item.querySelectorAll('.search-value'))
+			.map((value) => value.textContent ?? '')
+			.join(' '),
+	}));
+
 export const makeSearch = (searchInput: HTMLInputElement, searchContainer: Element) => {
-	type SearchRecord = { item: Element; textContent: string };
 	let searchFuse: Fuse<SearchRecord> | undefined;
 
 	const rebuildCache = () => {
-		const searchRecords = Array.from(searchContainer.querySelectorAll('.search-item')).map(
-			(item) => ({
-				item,
-				textContent: Array.from(item.querySelectorAll('.search-value'))
-					.map((value) => value.textContent ?? '')
-					.join(' '),
-			}),
-		);
+		const searchRecords = collectSearchRecords(searchContainer);
+		if (searchFuse) {
+			searchFuse.setCollection(searchRecords);
+			return;
+		}
 		searchFuse = new Fuse(searchRecords, {
 			keys: ['textContent'],
 			tokenMatch: 'all',
@@ -39,26 +45,23 @@ export const makeSearch = (searchInput: HTMLInputElement, searchContainer: Eleme
 		});
 	};
 
-	let rebuildScheduled = false;
-	const scheduleRebuild = () => {
-		if (rebuildScheduled) return;
-		rebuildScheduled = true;
-		queueMicrotask(() => {
-			rebuildScheduled = false;
-			rebuildCache();
-			applySearch();
-		});
+	const reindex = () => {
+		rebuildCache();
+		applySearch();
 	};
 
-	const observer = new MutationObserver(scheduleRebuild);
-	observer.observe(searchContainer, { childList: true, subtree: true });
 	searchInput.oninput = applySearch;
 	rebuildCache();
 
 	return {
-		disconnect: () => observer.disconnect(),
+		reindex,
+		disconnect: () => {
+			searchFuse = undefined;
+		},
 	};
 };
+
+export type SearchIndex = ReturnType<typeof makeSearch>;
 
 // #region mountSearchBar
 
@@ -78,7 +81,7 @@ export const mountSearchBar = (
 	const search = makeSearch(searchInput, searchContainer);
 	lifecycle.onCleanup(search.disconnect);
 
-	el.button`btn btn-xs btn-square`.mount(searchBar, undefined, (button) => {
+	el.button`btn btn-xs btn-square`.mount(searchBar, 'clear', (button) => {
 		el.icon.x`size-3`.mount(button);
 		button.onclick = () => {
 			searchInput.value = '';
@@ -87,5 +90,5 @@ export const mountSearchBar = (
 		};
 	});
 
-	return { searchBar, searchInput };
+	return { searchBar, searchInput, search };
 };

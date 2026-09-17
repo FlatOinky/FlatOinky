@@ -1387,6 +1387,42 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 const sectionTitleText = (title: SettingsSection['title']) =>
 	typeof title === 'string' ? title : (title.textContent ?? '');
 
+const syncElementChildren = (parent: Element, children: Element[]): void => {
+	for (const child of children) parent.append(child);
+	if (children.length === 0) {
+		parent.replaceChildren();
+		return;
+	}
+	while (parent.lastElementChild && parent.lastElementChild !== children[children.length - 1]) {
+		parent.lastElementChild.remove();
+	}
+};
+
+type MountedSettingsSection = {
+	section: SettingsSection;
+	container: HTMLElement;
+	divider: HTMLElement;
+	navButton: HTMLButtonElement;
+	nodes: Map<SettingsNode, HTMLElement>;
+};
+
+type MountedSettingsPlugin = {
+	namespace: string;
+	sectionBlock: HTMLElement;
+	navGroup: HTMLElement;
+	heading: HTMLElement;
+	navButton: HTMLButtonElement;
+	sections: Map<SettingsSection, MountedSettingsSection>;
+};
+
+const setSectionOinkyId = (
+	namespace: string,
+	container: HTMLElement,
+	sectionIndex: number,
+): void => {
+	container.setAttribute('oinky', `settings/sections/${namespace}/${sectionIndex}`);
+};
+
 const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 	const container =
 		el.div`grid grid-cols-[minmax(128px,max-content)_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`.init(
@@ -1401,71 +1437,172 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 		);
 	const sectionsEl = el.div`flex-1 flex flex-col gap-12 overflow-y-auto overflow-x-hidden search`;
 	const sectionsContainer = sectionsEl.mount(container, 'sections');
-	mountSearchBar(lifecycle, container, sectionsContainer);
+	const { search } = mountSearchBar(lifecycle, container, sectionsContainer);
+
+	const plugins = new Map<string, MountedSettingsPlugin>();
+
+	const mountPlugin = (namespace: string, pluginTitle: string): MountedSettingsPlugin => {
+		const orderLast = namespace === 'core/systems';
+		const sectionBlock =
+			el.div`${orderLast ? 'flex flex-col gap-6 order-last' : 'flex flex-col gap-6'}`.mount(
+				sectionsContainer,
+				namespace,
+			);
+		sectionBlock.classList.add('search-item');
+		const heading =
+			el.h2`text-2xl font-bold tracking-tight text-base-content/90 search-value`.mount(
+				sectionBlock,
+				'heading',
+				(header) => {
+					header.textContent = pluginTitle;
+				},
+			);
+		const navGroup = el.div`${orderLast ? 'flex flex-col order-last' : 'flex flex-col'}`.mount(
+			navContainer,
+			namespace,
+		);
+		const navButton =
+			el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm`.mount(
+				navGroup,
+				'group',
+				(button) => {
+					button.textContent = pluginTitle;
+					button.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
+				},
+			);
+		return {
+			namespace,
+			sectionBlock,
+			navGroup,
+			heading,
+			navButton,
+			sections: new Map(),
+		};
+	};
+
+	const mountSection = (
+		plugin: MountedSettingsPlugin,
+		section: SettingsSection,
+		sectionIndex: number,
+	): MountedSettingsSection => {
+		const container = el.div`flex flex-col gap-2 search-item`.mount(
+			plugin.sectionBlock,
+			String(sectionIndex),
+		);
+		const divider =
+			el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
+				container,
+				'divider',
+				(elDivider) => {
+					if (typeof section.title === 'string') {
+						elDivider.textContent = section.title;
+					} else {
+						elDivider.replaceChildren(section.title);
+					}
+				},
+			);
+		const navButton =
+			el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
+				plugin.navGroup,
+				String(sectionIndex),
+				(header) => {
+					header.textContent = sectionTitleText(section.title);
+					header.onclick = () => container.scrollIntoView({ behavior: 'smooth' });
+				},
+			);
+		return { section, container, divider, navButton, nodes: new Map() };
+	};
+
+	const syncSectionTitle = (mounted: MountedSettingsSection, section: SettingsSection): void => {
+		if (typeof section.title === 'string') {
+			if (mounted.divider.textContent !== section.title)
+				mounted.divider.textContent = section.title;
+		} else if (mounted.divider.firstChild !== section.title) {
+			mounted.divider.replaceChildren(section.title);
+		}
+		const navText = sectionTitleText(section.title);
+		if (mounted.navButton.textContent !== navText) mounted.navButton.textContent = navText;
+	};
+
+	const syncSectionNodes = (mounted: MountedSettingsSection, nodes: SettingsNode[]): void => {
+		const seen = new Set<SettingsNode>();
+		const nodeContainers: HTMLElement[] = [mounted.divider];
+		for (const node of nodes) {
+			seen.add(node);
+			let nodeContainer = mounted.nodes.get(node);
+			if (!nodeContainer) {
+				nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1 search-item`.mount(
+					mounted.container,
+				);
+				mountSettingsMenuNode(nodeContainer, node);
+				mounted.nodes.set(node, nodeContainer);
+			}
+			nodeContainers.push(nodeContainer);
+		}
+		for (const [node, nodeContainer] of mounted.nodes) {
+			if (seen.has(node)) continue;
+			nodeContainer.remove();
+			mounted.nodes.delete(node);
+		}
+		syncElementChildren(mounted.container, nodeContainers);
+	};
 
 	const update = () => {
-		sectionsContainer.replaceChildren();
-		navContainer.replaceChildren();
-		registry
-			.filter(([, , sections]) => sections.length > 0)
-			.forEach(([pluginNamespace, pluginTitle, sections]) => {
-				const sectionBlock =
-					el.div`${pluginNamespace === 'core/systems' ? 'flex flex-col gap-6 order-last' : 'flex flex-col gap-6'}`.mount(
-						sectionsContainer,
-						pluginNamespace,
-					);
-				sectionBlock.classList.add('search-item');
-				el.h2`text-2xl font-bold tracking-tight text-base-content/90 search-value`.mount(
-					sectionBlock,
-					undefined,
-					(header) => (header.textContent = pluginTitle),
-				);
-				const navGroup =
-					el.div`${pluginNamespace === 'core/systems' ? 'flex flex-col order-last' : 'flex flex-col'}`.mount(
-						navContainer,
-						pluginNamespace,
-					);
-				el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm`.mount(
-					navGroup,
-					undefined,
-					(navButton) => {
-						navButton.textContent = pluginTitle;
-						navButton.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
-					},
-				);
+		const visible = registry.filter(([, , sections]) => sections.length > 0);
+		const visibleNamespaces = new Set(visible.map(([namespace]) => namespace));
+		for (const [namespace, plugin] of plugins) {
+			if (visibleNamespaces.has(namespace)) continue;
+			plugin.sectionBlock.remove();
+			plugin.navGroup.remove();
+			plugins.delete(namespace);
+		}
 
-				sections.forEach((section, sectionIndex) => {
-					const sectionContainer = el.div`flex flex-col gap-2 search-item`.mount(
-						sectionBlock,
-						String(sectionIndex),
-					);
-					el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
-						sectionContainer,
-						undefined,
-						(divider) => {
-							if (typeof section.title === 'string') {
-								divider.textContent = section.title;
-							} else {
-								divider.replaceChildren(section.title);
-							}
-						},
-					);
-					el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
-						navGroup,
-						undefined,
-						(header) => {
-							header.textContent = sectionTitleText(section.title);
-							header.onclick = () => sectionContainer.scrollIntoView({ behavior: 'smooth' });
-						},
-					);
-					section.nodes.forEach((node) => {
-						const nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1 search-item`.mount(
-							sectionContainer,
-						);
-						mountSettingsMenuNode(nodeContainer, node);
-					});
-				});
+		const sectionBlocks: HTMLElement[] = [];
+		const navGroups: HTMLElement[] = [];
+
+		for (const [namespace, pluginTitle, sections] of visible) {
+			let plugin = plugins.get(namespace);
+			if (!plugin) {
+				plugin = mountPlugin(namespace, pluginTitle);
+				plugins.set(namespace, plugin);
+			} else {
+				if (plugin.heading.textContent !== pluginTitle) plugin.heading.textContent = pluginTitle;
+				if (plugin.navButton.textContent !== pluginTitle)
+					plugin.navButton.textContent = pluginTitle;
+			}
+
+			const seenSections = new Set<SettingsSection>();
+			const sectionContainers: HTMLElement[] = [plugin.heading];
+			const navButtons: HTMLElement[] = [plugin.navButton];
+			sections.forEach((section, sectionIndex) => {
+				seenSections.add(section);
+				let mountedSection = plugin.sections.get(section);
+				if (!mountedSection) {
+					mountedSection = mountSection(plugin, section, sectionIndex);
+					plugin.sections.set(section, mountedSection);
+				} else {
+					setSectionOinkyId(plugin.namespace, mountedSection.container, sectionIndex);
+					syncSectionTitle(mountedSection, section);
+				}
+				syncSectionNodes(mountedSection, section.nodes);
+				sectionContainers.push(mountedSection.container);
+				navButtons.push(mountedSection.navButton);
 			});
+			for (const [section, mountedSection] of plugin.sections) {
+				if (seenSections.has(section)) continue;
+				mountedSection.container.remove();
+				mountedSection.navButton.remove();
+				plugin.sections.delete(section);
+			}
+			syncElementChildren(plugin.sectionBlock, sectionContainers);
+			syncElementChildren(plugin.navGroup, navButtons);
+			sectionBlocks.push(plugin.sectionBlock);
+			navGroups.push(plugin.navGroup);
+		}
+
+		syncElementChildren(sectionsContainer, sectionBlocks);
+		syncElementChildren(navContainer, navGroups);
+		search.reindex();
 	};
 
 	return { container, navContainer, sectionsContainer, update };
@@ -1478,6 +1615,7 @@ const initSettingsWindow = (
 	ui: ClientUi,
 	storage: ClientStorage,
 	container: HTMLElement,
+	onVisible?: () => void,
 ) => {
 	const lifecycle = parentLifecycle.spawnLifecycle();
 	const window = ui.windows.initWindow(lifecycle, {
@@ -1486,6 +1624,7 @@ const initSettingsWindow = (
 		icon: ui.el.icon.settings``.element,
 		storage,
 		lockable: false,
+		onVisible,
 	});
 	window.body.replaceChildren(container);
 
@@ -1502,10 +1641,45 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 	const settingsMenu = initSettingsMenu(lifecycle, registry);
 
 	let settingsWindow: ReturnType<typeof initSettingsWindow> | undefined;
+	let dirty = true;
+	let visualsScheduled = false;
+
+	const isSettingsVisible = () =>
+		settingsWindow !== undefined && settingsWindow.window.state.minimized === false;
+
+	const flushVisuals = (force = false) => {
+		visualsScheduled = false;
+		if (!force && !isSettingsVisible()) {
+			dirty = true;
+			return;
+		}
+		if (!force && !dirty) return;
+		dirty = false;
+		settingsMenu.update();
+		if (settingsWindow && settingsMenu.container.parentElement !== settingsWindow.window.body) {
+			settingsWindow.window.body.replaceChildren(settingsMenu.container);
+		}
+	};
+
+	const updateVisuals = () => {
+		dirty = true;
+		if (visualsScheduled) return;
+		visualsScheduled = true;
+		queueMicrotask(() => flushVisuals());
+	};
+
 	const createSettingsWindow = () => {
-		const newWindow = initSettingsWindow(lifecycle, ui, storage, settingsMenu.container);
+		const newWindow = initSettingsWindow(lifecycle, ui, storage, settingsMenu.container, () =>
+			flushVisuals(),
+		);
 		newWindow.lifecycle.onCleanup(() => (settingsWindow = undefined));
 		return newWindow;
+	};
+
+	const showSettingsWindow = () => {
+		settingsWindow ??= createSettingsWindow();
+		if (dirty || visualsScheduled) flushVisuals(true);
+		settingsWindow.window.showWindow();
 	};
 
 	const trayButton = ui.taskbar.initTrayButton(lifecycle, 'settings', {
@@ -1514,29 +1688,14 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 	});
 	trayButton.onclick = () => {
 		if (settingsWindow?.window.state.minimized === false) {
-			settingsWindow?.window.hideWindow();
-		} else {
-			settingsWindow ??= createSettingsWindow();
-			settingsWindow?.window.showWindow();
+			settingsWindow.window.hideWindow();
+			return;
 		}
-	};
-
-	let visualsScheduled = false;
-	const flushVisuals = () => {
-		visualsScheduled = false;
-		settingsMenu.update();
-		settingsWindow?.window.body.replaceChildren(settingsMenu.container);
-	};
-	const updateVisuals = () => {
-		if (visualsScheduled) return;
-		visualsScheduled = true;
-		queueMicrotask(flushVisuals);
+		showSettingsWindow();
 	};
 
 	const openSection = (namespace: string, section?: SettingsSection) => {
-		if (visualsScheduled) flushVisuals();
-		settingsWindow ??= createSettingsWindow();
-		settingsWindow.window.showWindow();
+		showSettingsWindow();
 		const namespaceIndex = registry.findIndex(([ns]) => ns === namespace);
 		if (namespaceIndex < 0) return;
 		const sectionIndex = section ? registry[namespaceIndex][2].indexOf(section) : -1;

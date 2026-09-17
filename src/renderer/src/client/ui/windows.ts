@@ -138,6 +138,7 @@ type WindowOptions = {
 	initialState?: Partial<WindowState>;
 	onPreMount?: (window: { state: WindowState; body: HTMLElement; frame: HTMLElement }) => void;
 	onClose?: () => void;
+	onVisible?: () => void;
 	icon?: Element;
 	lockable?: boolean;
 };
@@ -163,7 +164,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 
 	// #region > windowFrame
 	const initWindow = (lifecycle: Lifecycle, options: WindowOptions) => {
-		const { id, title, storage, onPreMount, icon } = options;
+		const { id, title, storage, onPreMount, onVisible, icon } = options;
 		const lockable = options.lockable !== false;
 		const defaultWindowState: WindowState = {
 			width: 640,
@@ -373,6 +374,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		}
 
 		const windowButtonIcon = icon ?? el.icon.appWindow``.element;
+		const revealIfVisible = () => {
+			if (windowState.minimized) return;
+			focusWindow(id);
+			onVisible?.();
+		};
+
 		const {
 			button: windowButton,
 			menu,
@@ -382,7 +389,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			icon: windowButtonIcon,
 			onClick: () => {
 				toggleWindowVisibility(windowFrame, windowState);
-				if (!windowState.minimized) focusWindow(id);
+				revealIfVisible();
 				syncWindowChrome();
 			},
 		});
@@ -413,7 +420,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			windowState.minimized ? 'Expand' : 'Minimize',
 			() => {
 				toggleWindowVisibility(windowFrame, windowState);
-				if (!windowState.minimized) focusWindow(id);
+				revealIfVisible();
 				syncWindowChrome();
 			},
 		);
@@ -491,7 +498,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			windowMinimizer.onclick = () => {
 				windowState.minimized = !windowState.minimized;
 				updateWindowFrameMinimized(windowFrame, windowState);
-				if (!windowState.minimized) focusWindow(id);
+				revealIfVisible();
 				syncWindowChrome();
 			};
 		});
@@ -515,12 +522,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			},
 			showWindow: () => {
 				showWindow(windowFrame, windowState);
-				focusWindow(id);
+				revealIfVisible();
 				syncWindowChrome();
 			},
 			toggleWindowVisibility: () => {
 				toggleWindowVisibility(windowFrame, windowState);
-				if (!windowState.minimized) focusWindow(id);
+				revealIfVisible();
 				syncWindowChrome();
 			},
 			forceWindowUpdate: () => forceWindowUpdate(windowFrame, windowState),

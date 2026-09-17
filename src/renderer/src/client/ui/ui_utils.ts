@@ -49,12 +49,23 @@ export const bindRangePeers = (
 	}
 };
 
-export const fadeRemoveElement = (element: HTMLElement, delay = 0, duration = 200) => {
-	setTimeout(() => {
+export const fadeRemoveElement = (
+	element: HTMLElement,
+	delay = 0,
+	duration = 200,
+	lifecycle?: Lifecycle,
+) => {
+	let fadeId: ReturnType<typeof setTimeout> | undefined;
+	const delayId = setTimeout(() => {
 		element.style.animationDuration = `${duration}ms`;
 		element.classList.add('animate-fade-out');
-		setTimeout(() => element.remove(), duration);
+		fadeId = setTimeout(() => element.remove(), duration);
 	}, delay);
+	lifecycle?.onCleanup(() => {
+		clearTimeout(delayId);
+		if (fadeId !== undefined) clearTimeout(fadeId);
+		element.remove();
+	});
 };
 
 export const getParentOinkyId = (element: Element | null | undefined): string => {

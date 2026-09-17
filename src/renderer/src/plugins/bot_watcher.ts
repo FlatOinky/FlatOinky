@@ -358,6 +358,22 @@ const categoryIcon = (key: CategoryKey, isGem: boolean): Element => {
 	return icon;
 };
 
+type CategoryIcons = Record<CategoryKey, Element> & { unknown: Element; meteorGem: Element };
+
+const makeCategoryIcons = (): CategoryIcons => ({
+	unknown: el.icon.questionMark`size-4`.element,
+	tree: categoryIcon('tree', false),
+	meteor: categoryIcon('meteor', false),
+	meteorGem: categoryIcon('meteor', true),
+	alien: categoryIcon('alien', false),
+	storm: categoryIcon('storm', false),
+	superStorm: categoryIcon('superStorm', false),
+	ancient: categoryIcon('ancient', false),
+});
+
+const iconForView = (icons: CategoryIcons, key: CategoryKey, isGem: boolean): Element =>
+	key === 'meteor' && isGem ? icons.meteorGem : icons[key];
+
 const viewHidden = (view: CategoryView, empty: boolean, enabled = true): boolean => {
 	if (!enabled) return true;
 	if (empty) return true;
@@ -380,7 +396,7 @@ const paintIconCircle = (target: IconCircle, phase: Phase, icon: Element, isGem:
 	else target.wrap.style.removeProperty('--aura-radius');
 	const tone = isGem ? GEM_CIRCLE : PHASE_CIRCLE[phase];
 	target.circle.className = `${target.circleSize} rounded-full flex items-center justify-center ${tone}`;
-	target.iconHost.replaceChildren(icon);
+	if (target.iconHost.firstElementChild !== icon) target.iconHost.replaceChildren(icon);
 };
 
 type WatcherRow = IconCircle & {
@@ -1063,6 +1079,7 @@ const initBotWatcher = (
 		window: ReturnType<typeof context.ui.windows.initWindow>;
 		unknown: WatcherItem;
 		items: Record<CategoryKey, WatcherItem>;
+		icons: CategoryIcons;
 	};
 	let watcherWindow: WatcherWindow | undefined;
 
@@ -1074,6 +1091,7 @@ const initBotWatcher = (
 		unknown: WatcherRow;
 		rows: Record<CategoryKey, WatcherRow>;
 		footer: HTMLElement;
+		icons: CategoryIcons;
 	};
 	let watcherTray: WatcherTray | undefined;
 
@@ -1096,19 +1114,15 @@ const initBotWatcher = (
 
 	const paintPopup = (now: number) => {
 		if (!watcherTray) return;
+		if (!watcherTray.trayMenu.matches(':popover-open')) return;
 		const { views, empty } = snapshotViews(now);
-		renderPopupRow(
-			watcherTray.unknown,
-			unknownView(),
-			el.icon.questionMark`size-4`.element,
-			!empty,
-		);
+		renderPopupRow(watcherTray.unknown, unknownView(), watcherTray.icons.unknown, !empty);
 		for (const key of CATEGORY_KEYS) {
 			const view = views[key];
 			renderPopupRow(
 				watcherTray.rows[key],
 				view,
-				categoryIcon(key, !!view.isGem),
+				iconForView(watcherTray.icons, key, !!view.isGem),
 				viewHidden(view, empty, settings.categories[key] !== false),
 				dismissFor(key),
 			);
@@ -1124,13 +1138,13 @@ const initBotWatcher = (
 		if (watcherWindow.window.state.minimized) return;
 		const { views, empty } = snapshotViews(now);
 		const paintItem = windowStyle() === 'row' ? renderPopupRow : renderWindowStack;
-		paintItem(watcherWindow.unknown, unknownView(), el.icon.questionMark`size-4`.element, !empty);
+		paintItem(watcherWindow.unknown, unknownView(), watcherWindow.icons.unknown, !empty);
 		for (const key of CATEGORY_KEYS) {
 			const view = views[key];
 			paintItem(
 				watcherWindow.items[key],
 				view,
-				categoryIcon(key, !!view.isGem),
+				iconForView(watcherWindow.icons, key, !!view.isGem),
 				viewHidden(view, empty, settings.categories[key] !== false),
 				dismissFor(key),
 			);
@@ -1204,6 +1218,7 @@ const initBotWatcher = (
 			window,
 			unknown: items.unknown,
 			items: items.items,
+			icons: makeCategoryIcons(),
 		};
 		child.onCleanup(() => {
 			if (watcherWindow === created) watcherWindow = undefined;
@@ -1251,8 +1266,20 @@ const initBotWatcher = (
 			button.textContent = 'Open window';
 			button.onclick = () => showWatcherWindow();
 		});
-		const created: WatcherTray = { lifecycle: child, trayMenu, unknown, rows, footer };
+		const created: WatcherTray = {
+			lifecycle: child,
+			trayMenu,
+			unknown,
+			rows,
+			footer,
+			icons: makeCategoryIcons(),
+		};
+		const onToggle = () => {
+			if (trayMenu.matches(':popover-open')) paintPopup(Date.now());
+		};
+		trayMenu.addEventListener('toggle', onToggle);
 		child.onCleanup(() => {
+			trayMenu.removeEventListener('toggle', onToggle);
 			if (watcherTray === created) watcherTray = undefined;
 		});
 		watcherTray = created;
