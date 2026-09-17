@@ -42,20 +42,21 @@ export const KeybindsPlugin: Plugin = {
 
 		const group = context.keybinds.initGroup(lifecycle, FMMO_KEYBINDS_GROUP_ID, 'Flat MMO');
 
-		group.register('shortcutF1', 'Run worship', () => sendShortcut(1), { keys: ['F1'] });
+		group.register('shortcutF1', 'Toggle Run', () => sendShortcut(1), { keys: ['F1'] });
 		group.register('shortcutF2', 'Eat food', () => sendShortcut(2), { keys: ['F2'] });
 		group.register('shortcutF3', 'Light fire', () => sendShortcut(3), { keys: ['F3'] });
-		group.register('shortcutF4', 'Shortcut F4', () => sendShortcut(4), { keys: ['F4'] });
-		group.register('shortcutF6', 'Equipment preset F6', () => sendShortcut(6), { keys: ['F6'] });
-		group.register('shortcutF7', 'Equipment preset F7', () => sendShortcut(7), { keys: ['F7'] });
-		group.register('shortcutF8', 'Equipment preset F8', () => sendShortcut(8), { keys: ['F8'] });
-		group.register('shortcutF9', 'Badge F9', () => sendShortcut(9), { keys: ['F9'] });
-		group.register('shortcutF10', 'Badge F10', () => sendShortcut(10), { keys: ['F10'] });
-		group.register('shortcutF11', 'Badge F11', () => sendShortcut(11), { keys: ['F11'] });
+		group.register('shortcutF4', 'F4', () => sendShortcut(4), { keys: ['F4'] });
+		group.register('shortcutF5', 'F5', () => sendShortcut(5), { keys: ['F5'] });
+		group.register('shortcutF6', 'Equipment A', () => sendShortcut(6), { keys: ['F6'] });
+		group.register('shortcutF7', 'Equipment B', () => sendShortcut(7), { keys: ['F7'] });
+		group.register('shortcutF8', 'Equipment C', () => sendShortcut(8), { keys: ['F8'] });
+		group.register('shortcutF9', 'Badge A', () => sendShortcut(9), { keys: ['F9'] });
+		group.register('shortcutF10', 'Badge B', () => sendShortcut(10), { keys: ['F10'] });
+		group.register('shortcutF11', 'Badge C', () => sendShortcut(11), { keys: ['F11'] });
 
 		group.register(
 			'escape',
-			'Close windows',
+			'Exit',
 			() => {
 				let closed = false;
 				for (const id of [...opened_modals]) {
@@ -96,16 +97,16 @@ export const KeybindsPlugin: Plugin = {
 		);
 
 		group.register('dialogOption1', 'Dialog option 1', () => clickDialogOption(0), {
-			keys: ['Digit1'],
+			keys: ['Space', 'Digit1'],
 		});
 		group.register('dialogOption2', 'Dialog option 2', () => clickDialogOption(1), {
-			keys: ['Digit2'],
+			keys: ['Space', 'Digit2'],
 		});
 		group.register('dialogOption3', 'Dialog option 3', () => clickDialogOption(2), {
-			keys: ['Digit3'],
+			keys: ['Space', 'Digit3'],
 		});
 		group.register('dialogOption4', 'Dialog option 4', () => clickDialogOption(3), {
-			keys: ['Digit4'],
+			keys: ['Space', 'Digit4'],
 		});
 
 		return {
