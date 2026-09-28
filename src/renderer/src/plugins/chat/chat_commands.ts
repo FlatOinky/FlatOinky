@@ -246,6 +246,16 @@ const collectionsCommand: ChatCommand = {
 	},
 };
 
+const teleportsCommand: ChatCommand = {
+	name: 'Teleports',
+	description: 'Open the teleports book menu',
+	aliases: ['teleports', 'tb'],
+	execute: true,
+	run: (_args, context) => {
+		context.send('', '/tb');
+	},
+};
+
 const dounbotCommands: ChatCommand[] = [
 	{
 		name: 'Bot: Check Statuses',
@@ -363,6 +373,7 @@ const dounbotCommands: ChatCommand[] = [
 
 export const chatCommands: ChatCommand[] = [
 	collectionsCommand,
+	teleportsCommand,
 	helpCommand,
 	replyCommand,
 	replyTabCommand,
