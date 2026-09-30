@@ -59,8 +59,10 @@ Layout under `src/`:
   `isLocalUsername`, `getPlayer`, `getLocalPlayer`). System-only APIs (`updater`,
   openDevTools, saveReferences) stay off the context. `alerts`, `contextMenu`, and
   `keybinds` are getters that throw if accessed before those systems are initialized.
-  Plugins register keybinds with `context.keybinds.initGroup(lifecycle, namespace, name)`
-  then `register(key, name, callback, requestKeycombo?)`. Chat (or another plugin) may
+  Plugins register keybinds with `context.keybinds.initGroup(lifecycle, groupId, name)`
+  using a **relative** `groupId`; the stored id is `<plugin namespace>/<group>` (e.g.
+  `oinky/fmmo_keybinds/actions`). Then `register(key, name, callback, requestKeycombo?)`.
+  Chat (or another plugin) may
   `setChatInput` an input; the Keybinds plugin's **Snap to chat** bind focuses it (Enter
   by default). While that input is focused, the keybinds system does not dispatch or
   record held combos. `log` is a

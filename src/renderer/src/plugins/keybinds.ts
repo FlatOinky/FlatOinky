@@ -1,5 +1,4 @@
 import { Plugin, type Lifecycle } from '../client';
-import { FMMO_KEYBINDS_GROUP_ID } from '../client/keybinds';
 
 const hideUpstreamKeybinds = (lifecycle: Lifecycle) => {
 	const node = document.querySelector<HTMLElement>('#loot-key-bindings');
@@ -28,8 +27,8 @@ const clickDialogOption = (index: number): boolean => {
 };
 
 export const KeybindsPlugin: Plugin = {
-	namespace: 'oinky/keybinds',
-	name: 'FMMO Keybinds',
+	namespace: 'oinky/fmmo_keybinds',
+	name: 'Flat MMO Keybinds',
 	description: 'Overrides the default Flat MMO keybinds and the Fkey Shortcuts window.',
 	init: (lifecycle, context) => {
 		hideUpstreamKeybinds(lifecycle);
@@ -40,38 +39,50 @@ export const KeybindsPlugin: Plugin = {
 			window.open_key_bindings_modal = originalOpen;
 		});
 
-		const group = context.keybinds.initGroup(lifecycle, FMMO_KEYBINDS_GROUP_ID, 'Flat MMO');
+		const actions = context.keybinds.initGroup(lifecycle, 'actions', 'Actions');
+		actions.register('shortcutF1', 'Toggle Run', () => sendShortcut(1), { keys: ['Digit1'] });
+		actions.register('shortcutF2', 'Eat food', () => sendShortcut(2), { keys: ['Digit2'] });
+		actions.register('shortcutF3', 'Light fire', () => sendShortcut(3), { keys: ['Digit3'] });
+		actions.register('shortcutF4', 'F4', () => sendShortcut(4), { keys: ['Digit4'] });
+		actions.register('shortcutF5', 'F5', () => sendShortcut(5), { keys: ['Digit5'] });
+		actions.register('shortcutF6', 'Equipment A', () => sendShortcut(6), {
+			keys: ['Shift', 'Digit1'],
+		});
+		actions.register('shortcutF7', 'Equipment B', () => sendShortcut(7), {
+			keys: ['Shift', 'Digit2'],
+		});
+		actions.register('shortcutF8', 'Equipment C', () => sendShortcut(8), {
+			keys: ['Shift', 'Digit3'],
+		});
+		actions.register('shortcutF9', 'Badge A', () => sendShortcut(9), { keys: ['Shift', 'Digit4'] });
+		actions.register('shortcutF10', 'Badge B', () => sendShortcut(10), {
+			keys: ['Shift', 'Digit5'],
+		});
+		actions.register('shortcutF11', 'Badge C', () => sendShortcut(11), {
+			keys: ['Shift', 'Digit6'],
+		});
 
-		group.register('shortcutF1', 'Toggle Run', () => sendShortcut(1), { keys: ['F1'] });
-		group.register('shortcutF2', 'Eat food', () => sendShortcut(2), { keys: ['F2'] });
-		group.register('shortcutF3', 'Light fire', () => sendShortcut(3), { keys: ['F3'] });
-		group.register('shortcutF4', 'F4', () => sendShortcut(4), { keys: ['F4'] });
-		group.register('shortcutF5', 'F5', () => sendShortcut(5), { keys: ['F5'] });
-		group.register('shortcutF6', 'Equipment A', () => sendShortcut(6), { keys: ['F6'] });
-		group.register('shortcutF7', 'Equipment B', () => sendShortcut(7), { keys: ['F7'] });
-		group.register('shortcutF8', 'Equipment C', () => sendShortcut(8), { keys: ['F8'] });
-		group.register('shortcutF9', 'Badge A', () => sendShortcut(9), { keys: ['F9'] });
-		group.register('shortcutF10', 'Badge B', () => sendShortcut(10), { keys: ['F10'] });
-		group.register('shortcutF11', 'Badge C', () => sendShortcut(11), { keys: ['F11'] });
-
-		group.register(
+		const nav = context.keybinds.initGroup(lifecycle, 'nav', 'Window nav');
+		nav.register(
 			'escape',
 			'Exit',
 			() => {
-				let closed = false;
-				for (const id of [...opened_modals]) {
-					close_modal(id);
-					closed = true;
+				if (opened_modals.size > 0 || has_modal_open()) {
+					for (const id of [...opened_modals]) close_modal(id);
+					return;
 				}
-				if (!closed) {
+				if (is_bank_open()) {
 					close_bank();
-					close_global_market();
+					return;
 				}
+				close_global_market();
+				const focused = context.ui.windows.getFocusedWindow();
+				if (!focused || focused.state.locked || focused.state.minimized) return;
+				focused.hideWindow();
 			},
 			{ keys: ['Escape'] },
 		);
-
-		group.register(
+		nav.register(
 			'snapChatInput',
 			'Focus chat',
 			() => {
@@ -85,7 +96,8 @@ export const KeybindsPlugin: Plugin = {
 			{ keys: ['Enter'] },
 		);
 
-		group.register(
+		const dialog = context.keybinds.initGroup(lifecycle, 'dialog', 'Dialog');
+		dialog.register(
 			'npcContinue',
 			'Dialog continue',
 			() => {
@@ -95,17 +107,16 @@ export const KeybindsPlugin: Plugin = {
 			},
 			{ keys: ['Space'] },
 		);
-
-		group.register('dialogOption1', 'Dialog option 1', () => clickDialogOption(0), {
+		dialog.register('dialogOption1', 'Dialog option 1', () => clickDialogOption(0), {
 			keys: ['Space', 'Digit1'],
 		});
-		group.register('dialogOption2', 'Dialog option 2', () => clickDialogOption(1), {
+		dialog.register('dialogOption2', 'Dialog option 2', () => clickDialogOption(1), {
 			keys: ['Space', 'Digit2'],
 		});
-		group.register('dialogOption3', 'Dialog option 3', () => clickDialogOption(2), {
+		dialog.register('dialogOption3', 'Dialog option 3', () => clickDialogOption(2), {
 			keys: ['Space', 'Digit3'],
 		});
-		group.register('dialogOption4', 'Dialog option 4', () => clickDialogOption(3), {
+		dialog.register('dialogOption4', 'Dialog option 4', () => clickDialogOption(3), {
 			keys: ['Space', 'Digit4'],
 		});
 

@@ -151,14 +151,34 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	root.appendChild(container);
 
 	const windowFrames: Partial<{ [windowId: string]: HTMLElement }> = {};
+	const liveWindows = new Map<string, { id: string; state: WindowState; hideWindow: () => void }>();
 	let focusSequence = 0;
+	let focusedId: string | undefined;
 
 	const focusWindow = (id: string) => {
 		const frame = windowFrames[id];
 		if (!frame) return;
 		focusSequence += 1;
 		frame.style.zIndex = String(focusSequence);
+		focusedId = id;
 	};
+
+	const getFocusedWindow = () => {
+		if (!focusedId) return undefined;
+		const live = liveWindows.get(focusedId);
+		if (!live || live.state.minimized) return undefined;
+		return live;
+	};
+
+	const onDocumentPointerDown = (event: PointerEvent) => {
+		const target = event.target;
+		if (target instanceof Element && target.closest('[oinky-window="root"]')) return;
+		focusedId = undefined;
+	};
+	document.addEventListener('pointerdown', onDocumentPointerDown, true);
+	lifecycle.onCleanup(() => {
+		document.removeEventListener('pointerdown', onDocumentPointerDown, true);
+	});
 
 	// #region > utils
 
@@ -200,6 +220,8 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		lifecycle.onCleanup(() => {
 			windowFrame.removeEventListener('pointerdown', onPointerDown);
 			windowFrames[id] = undefined;
+			liveWindows.delete(id);
+			if (focusedId === id) focusedId = undefined;
 		});
 
 		const handleGeometryDrag = (
@@ -507,7 +529,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		updateWindowFrame(windowFrame, windowState);
 		container.appendChild(windowFrame);
 		lifecycle.onCleanup(() => container.removeChild(windowFrame));
-		return {
+		const api = {
 			lifecycle,
 			frame: windowFrame,
 			body: windowBody,
@@ -533,11 +555,14 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			forceWindowUpdate: () => forceWindowUpdate(windowFrame, windowState),
 			closeWindow: () => closeWindow(windowFrame),
 		};
+		liveWindows.set(id, { id, state: windowState, hideWindow: api.hideWindow });
+		return api;
 	};
 
 	return {
 		container,
 		initWindow,
+		getFocusedWindow,
 		isOpen: (storage: ClientStorage, id: string): boolean => {
 			const state = storage.get(`window/${id}`);
 			if (!state || typeof state !== 'object') return false;

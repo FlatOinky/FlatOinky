@@ -20,7 +20,7 @@ import { getAppVersion, saveFile } from './client/ipc_renderer';
 import { initLogging, type Logger, type LogLevel, type LogMethod } from './client/logging';
 import { initTimers, type ClientTimers } from './client/timers';
 import type { Alerts } from './client/alerts';
-import type { Keybinds } from './client/keybinds';
+import { createPluginKeybinds, type Keybinds } from './client/keybinds';
 import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
 import { initSystems } from './client/systems';
@@ -157,6 +157,7 @@ const createPluginContext = async (
 		settings: settings.setupPluginApi(namespace, title),
 		storages: await createPluginStorages(namespace, lifecycle),
 		collections: createPluginCollections(namespace) as PluginCollections,
+		keybinds: createPluginKeybinds(context.keybinds, namespace, title),
 	};
 };
 

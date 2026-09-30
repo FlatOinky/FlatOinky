@@ -1,9 +1,10 @@
 import type { Lifecycle } from '../../client';
 import {
-	FMMO_KEYBINDS_GROUP_ID,
+	isFmmoKeybindsGroup,
 	keybindActivityDefaults,
 	serializeKeycombo,
 	type KeybindGroupView,
+	type KeybindPluginView,
 	type Keybinds,
 } from '../keybinds';
 import { initKeybindActivity } from '../keybinds/activity';
@@ -37,14 +38,19 @@ type MountedBindRow = {
 
 type MountedGroup = {
 	id: string;
+	container: HTMLElement;
+	divider: HTMLElement;
+	navButton: HTMLButtonElement;
+	rows: Map<string, MountedBindRow>;
+};
+
+type MountedPlugin = {
+	id: string;
 	sectionBlock: HTMLElement;
 	navGroup: HTMLElement;
 	heading: HTMLElement;
 	navButton: HTMLButtonElement;
-	sectionContainer: HTMLElement;
-	divider: HTMLElement;
-	bindsNav: HTMLButtonElement;
-	rows: Map<string, MountedBindRow>;
+	groups: Map<string, MountedGroup>;
 };
 
 export const initKeybindsSystem = (
@@ -77,6 +83,11 @@ export const initKeybindsSystem = (
 			},
 			keybindActivityDefaults.showKeybindActivity,
 		),
+		el.button`btn btn-sm btn-primary search-value`.then((button) => {
+			button.type = 'button';
+			button.textContent = 'Manage keybinds';
+			button.onclick = () => showWindow();
+		}),
 	]);
 	lifecycle.onCleanup(storage.subscribe('settings', () => keybindsSettings.refresh()));
 	lifecycle.onCleanup(keybindsSettings.remove);
@@ -93,7 +104,7 @@ export const initKeybindsSystem = (
 	const sectionsContainer = sectionsEl.mount(container, 'sections');
 	const { search } = mountSearchBar(lifecycle, container, sectionsContainer);
 
-	const groups = new Map<string, MountedGroup>();
+	const plugins = new Map<string, MountedPlugin>();
 
 	const mountOverlapTip = (row: HTMLElement): HTMLElement =>
 		el.tooltip.error`tooltip-left shrink-0`.mount(row, 'overlap', (tooltip) => {
@@ -175,12 +186,11 @@ export const initKeybindsSystem = (
 		syncComboHost(mounted, bind);
 	};
 
-	const mountGroup = (group: KeybindGroupView): MountedGroup => {
-		const isFmmo = group.id === FMMO_KEYBINDS_GROUP_ID;
-		const orderClass = isFmmo ? 'order-first' : '';
+	const mountPlugin = (plugin: KeybindPluginView): MountedPlugin => {
+		const orderClass = isFmmoKeybindsGroup(plugin.id) ? 'order-first' : '';
 		const sectionBlock = el.div`${orderClass} flex flex-col gap-6`.mount(
 			sectionsContainer,
-			group.id,
+			plugin.id,
 		);
 		sectionBlock.classList.add('search-item');
 		const heading =
@@ -188,97 +198,124 @@ export const initKeybindsSystem = (
 				sectionBlock,
 				'heading',
 				(header) => {
-					header.textContent = group.name;
+					header.textContent = plugin.name;
 				},
 			);
-		const navGroup = el.div`${orderClass} flex flex-col`.mount(navContainer, group.id);
+		const navGroup = el.div`${orderClass} flex flex-col`.mount(navContainer, plugin.id);
 		const navButton =
 			el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm`.mount(
 				navGroup,
 				'group',
 				(button) => {
-					button.textContent = group.name;
+					button.textContent = plugin.name;
 					button.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
 				},
 			);
-		const sectionContainer = el.div`flex flex-col gap-1`.mount(sectionBlock, 'binds');
+		return {
+			id: plugin.id,
+			sectionBlock,
+			navGroup,
+			heading,
+			navButton,
+			groups: new Map(),
+		};
+	};
+
+	const mountGroup = (plugin: MountedPlugin, group: KeybindGroupView): MountedGroup => {
+		const container = el.div`flex flex-col gap-1 search-item`.mount(plugin.sectionBlock, group.id);
 		const divider =
 			el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
-				sectionContainer,
+				container,
 				'divider',
 				(elDivider) => {
 					elDivider.textContent = group.name;
 				},
 			);
-		const bindsNav =
+		const navButton =
 			el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
-				navGroup,
-				'binds',
+				plugin.navGroup,
+				group.id,
 				(header) => {
-					header.textContent = 'Keybinds';
-					header.onclick = () => sectionContainer.scrollIntoView({ behavior: 'smooth' });
+					header.textContent = group.name;
+					header.onclick = () => container.scrollIntoView({ behavior: 'smooth' });
 				},
 			);
-		return {
-			id: group.id,
-			sectionBlock,
-			navGroup,
-			heading,
-			navButton,
-			sectionContainer,
-			divider,
-			bindsNav,
-			rows: new Map(),
-		};
+		return { id: group.id, container, divider, navButton, rows: new Map() };
+	};
+
+	const syncGroupBinds = (mounted: MountedGroup, group: KeybindGroupView): void => {
+		if (mounted.divider.textContent !== group.name) mounted.divider.textContent = group.name;
+		if (mounted.navButton.textContent !== group.name) mounted.navButton.textContent = group.name;
+		const rowEls: HTMLElement[] = [mounted.divider];
+		const seenKeys = new Set<string>();
+		for (const bind of group.binds) {
+			seenKeys.add(bind.key);
+			let row = mounted.rows.get(bind.key);
+			if (!row) {
+				row = mountBindRow(mounted.container, bind);
+				mounted.rows.set(bind.key, row);
+			} else {
+				syncBindRow(row, bind);
+			}
+			rowEls.push(row.row);
+		}
+		for (const [key, row] of mounted.rows) {
+			if (seenKeys.has(key)) continue;
+			row.row.remove();
+			mounted.rows.delete(key);
+		}
+		syncElementChildren(mounted.container, rowEls);
 	};
 
 	const render = () => {
-		const views = keybinds.listGroups();
-		const seen = new Set<string>();
+		const views = keybinds.listPlugins();
+		const seenPlugins = new Set<string>();
 		const sectionBlocks: HTMLElement[] = [];
 		const navGroups: HTMLElement[] = [];
 
-		for (const group of views) {
-			seen.add(group.id);
-			let mounted = groups.get(group.id);
+		for (const plugin of views) {
+			seenPlugins.add(plugin.id);
+			let mounted = plugins.get(plugin.id);
 			if (!mounted) {
-				mounted = mountGroup(group);
-				groups.set(group.id, mounted);
+				mounted = mountPlugin(plugin);
+				plugins.set(plugin.id, mounted);
 			} else {
-				if (mounted.heading.textContent !== group.name) mounted.heading.textContent = group.name;
-				if (mounted.navButton.textContent !== group.name)
-					mounted.navButton.textContent = group.name;
-				if (mounted.divider.textContent !== group.name) mounted.divider.textContent = group.name;
+				if (mounted.heading.textContent !== plugin.name) mounted.heading.textContent = plugin.name;
+				if (mounted.navButton.textContent !== plugin.name)
+					mounted.navButton.textContent = plugin.name;
 			}
 
-			const rowEls: HTMLElement[] = [mounted.divider];
-			const seenKeys = new Set<string>();
-			for (const bind of group.binds) {
-				seenKeys.add(bind.key);
-				let row = mounted.rows.get(bind.key);
-				if (!row) {
-					row = mountBindRow(mounted.sectionContainer, bind);
-					mounted.rows.set(bind.key, row);
-				} else {
-					syncBindRow(row, bind);
+			const seenGroups = new Set<string>();
+			const sectionContainers: HTMLElement[] = [mounted.heading];
+			const navButtons: HTMLElement[] = [mounted.navButton];
+			for (const group of plugin.groups) {
+				seenGroups.add(group.id);
+				let mountedGroup = mounted.groups.get(group.id);
+				if (!mountedGroup) {
+					mountedGroup = mountGroup(mounted, group);
+					mounted.groups.set(group.id, mountedGroup);
 				}
-				rowEls.push(row.row);
+				syncGroupBinds(mountedGroup, group);
+				sectionContainers.push(mountedGroup.container);
+				navButtons.push(mountedGroup.navButton);
 			}
-			for (const [key, row] of mounted.rows) {
-				if (seenKeys.has(key)) continue;
-				row.row.remove();
-				mounted.rows.delete(key);
+			for (const [id, mountedGroup] of mounted.groups) {
+				if (seenGroups.has(id)) continue;
+				mountedGroup.container.remove();
+				mountedGroup.navButton.remove();
+				mounted.groups.delete(id);
 			}
-			syncElementChildren(mounted.sectionContainer, rowEls);
+			syncElementChildren(mounted.sectionBlock, sectionContainers);
+			syncElementChildren(mounted.navGroup, navButtons);
 			sectionBlocks.push(mounted.sectionBlock);
 			navGroups.push(mounted.navGroup);
 		}
 
-		for (const [id, mounted] of groups) {
-			if (seen.has(id)) continue;
+		for (const [id, mounted] of plugins) {
+			if (seenPlugins.has(id)) continue;
 			mounted.sectionBlock.remove();
 			mounted.navGroup.remove();
-			groups.delete(id);
+			plugins.delete(id);
 		}
 
 		syncElementChildren(sectionsContainer, sectionBlocks);

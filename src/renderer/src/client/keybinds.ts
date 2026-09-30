@@ -3,14 +3,14 @@ import type { ClientStorage } from './client_storage';
 import { captureKeycombo } from './keybinds/capture';
 import {
 	createKeycomboGesture,
-	FMMO_KEYBINDS_GROUP_ID,
 	isEmptyKeycombo,
+	isFmmoKeybindsGroup,
 	parseKeycombo,
 	serializeKeycombo,
 	type Keycombo,
 } from './keybinds/combo';
 
-export { FMMO_KEYBINDS_GROUP_ID } from './keybinds/combo';
+export { FMMO_KEYBINDS_GROUP_ID, isFmmoKeybindsGroup } from './keybinds/combo';
 export {
 	codeToLabel,
 	comboToLabels,
@@ -43,7 +43,20 @@ export type KeybindView = {
 export type KeybindGroupView = {
 	id: string;
 	name: string;
+	pluginId: string;
+	pluginName: string;
 	binds: KeybindView[];
+};
+
+export type KeybindPluginView = {
+	id: string;
+	name: string;
+	groups: KeybindGroupView[];
+};
+
+export type KeybindPluginMeta = {
+	id: string;
+	name: string;
 };
 
 export type KeybindFired = {
@@ -75,10 +88,45 @@ type KeybindRegistration = {
 type GroupRecord = {
 	id: string;
 	name: string;
+	pluginId: string;
+	pluginName: string;
 	registrations: Map<string, KeybindRegistration>;
 };
 
 type Assignments = Record<string, Record<string, string | null>>;
+
+export const createPluginKeybinds = (keybinds: Keybinds, namespace: string, title: string) => {
+	const scopedGroupId = (groupId: string) => `${namespace}/${groupId}`;
+	return {
+		initGroup: (groupLifecycle: Lifecycle, groupId: string, groupName: string) =>
+			keybinds.initGroup(groupLifecycle, scopedGroupId(groupId), groupName, {
+				id: namespace,
+				name: title,
+			}),
+		listPlugins: () => keybinds.listPlugins(),
+		assign: (groupId: string, key: string, combo: Keycombo) =>
+			keybinds.assign(scopedGroupId(groupId), key, combo),
+		reset: (groupId: string, key: string) => keybinds.reset(scopedGroupId(groupId), key),
+		listGroups: () => keybinds.listGroups(),
+		matchHeld: (combo: Keycombo) => keybinds.matchHeld(combo),
+		getOverlaps: () => keybinds.getOverlaps(),
+		captureKeycombo: () => keybinds.captureKeycombo(),
+		get capturing() {
+			return keybinds.capturing;
+		},
+		setChatInput: (input: HTMLInputElement | null) => keybinds.setChatInput(input),
+		get chatInput() {
+			return keybinds.chatInput;
+		},
+		openWindow: () => keybinds.openWindow(),
+		bindOpenWindow: (handler: () => void) => keybinds.bindOpenWindow(handler),
+		subscribe: (listener: () => void) => keybinds.subscribe(listener),
+		subscribeHeld: (listener: (combo: Keycombo | null) => void) => keybinds.subscribeHeld(listener),
+		subscribeFired: (listener: (fired: KeybindFired) => void) => keybinds.subscribeFired(listener),
+	};
+};
+
+export type PluginKeybinds = ReturnType<typeof createPluginKeybinds>;
 
 const isEditableElement = (element: Element | null): boolean => {
 	if (!(element instanceof HTMLElement)) return false;
@@ -211,14 +259,40 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 					overlapping: Boolean(stored && overlapping.has(stored)),
 				});
 			}
-			views.push({ id: group.id, name: group.name, binds });
+			views.push({
+				id: group.id,
+				name: group.name,
+				pluginId: group.pluginId,
+				pluginName: group.pluginName,
+				binds,
+			});
 		}
-		views.sort((left, right) => {
-			if (left.id === FMMO_KEYBINDS_GROUP_ID) return -1;
-			if (right.id === FMMO_KEYBINDS_GROUP_ID) return 1;
+		return views;
+	};
+
+	const listPlugins = (): KeybindPluginView[] => {
+		const byPlugin = new Map<string, KeybindPluginView>();
+		for (const group of listGroups()) {
+			let plugin = byPlugin.get(group.pluginId);
+			if (!plugin) {
+				plugin = { id: group.pluginId, name: group.pluginName, groups: [] };
+				byPlugin.set(group.pluginId, plugin);
+			}
+			plugin.name = group.pluginName;
+			plugin.groups.push(group);
+		}
+		const plugins = [...byPlugin.values()];
+		for (const plugin of plugins) {
+			plugin.groups.sort((left, right) => left.name.localeCompare(right.name));
+		}
+		plugins.sort((left, right) => {
+			const leftFmmo = isFmmoKeybindsGroup(left.id);
+			const rightFmmo = isFmmoKeybindsGroup(right.id);
+			if (leftFmmo && !rightFmmo) return -1;
+			if (!leftFmmo && rightFmmo) return 1;
 			return left.name.localeCompare(right.name);
 		});
-		return views;
+		return plugins;
 	};
 
 	const matchHeld = (combo: Keycombo): KeybindView | null => {
@@ -234,14 +308,25 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		};
 	};
 
-	const initGroup = (groupLifecycle: Lifecycle, groupId: string, groupName: string) => {
+	const initGroup = (
+		groupLifecycle: Lifecycle,
+		groupId: string,
+		groupName: string,
+		plugin?: KeybindPluginMeta,
+	) => {
+		const pluginId = plugin?.id ?? groupId;
+		const pluginName = plugin?.name ?? groupName;
 		const existing = groups.get(groupId);
 		const group: GroupRecord = existing ?? {
 			id: groupId,
 			name: groupName,
+			pluginId,
+			pluginName,
 			registrations: new Map(),
 		};
 		group.name = groupName;
+		group.pluginId = pluginId;
+		group.pluginName = pluginName;
 		groups.set(groupId, group);
 		notifyChange();
 
@@ -361,6 +446,7 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		assign,
 		reset,
 		listGroups,
+		listPlugins,
 		matchHeld,
 		getOverlaps: overlappingCombos,
 		captureKeycombo: startCapture,

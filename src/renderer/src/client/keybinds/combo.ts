@@ -1,4 +1,7 @@
-export const FMMO_KEYBINDS_GROUP_ID = 'oinky/keybinds';
+export const FMMO_KEYBINDS_GROUP_ID = 'oinky/fmmo_keybinds';
+
+export const isFmmoKeybindsGroup = (id: string): boolean =>
+	id === FMMO_KEYBINDS_GROUP_ID || id.startsWith(`${FMMO_KEYBINDS_GROUP_ID}/`);
 
 export type Keycombo = {
 	modifiers?: string[];
