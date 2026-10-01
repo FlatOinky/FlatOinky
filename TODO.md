@@ -7,14 +7,25 @@ A list of things to fix or do
 - The brick background is imported and applied in `src/renderer/src/main.ts` (around the `html { background-image: ... }` rule).
 - The image is already vendored at `src/renderer/src/assets/backgrounds/background3.png`, so it does not need to be fetched from flatmmo.com.
 
-# Third-Party Userscripts
+# Third-Party User scripts
 
-- use greasyfork to find scripts
-  - `https://api.greasyfork.org/en/scripts/by-site/flatmmo.com.json` for initial options fetch
-- store selected userscripts along with the version
+Users will be able to open a window and browse a list of user scripts provided from Greasyfork.
+
+Once the user has found a script they want, they'll click the "Install button where the user will get
+a pop up to confirm the scripts installation (download & injecting into the browser). When there
+are newer versions of installed scripts users will get a window popup listing the scripts with
+an update button. Trusted scripts will get updated automatically.
+
+- **User scripts:** scripts written by others to be installed
+- installation confirmation will offer "Confirm", "Confirm & Trust Author", "Deny"
+- use greasyfork to find scripts from other users
+  - `https://api.greasyfork.org/en/scripts/by-site/flatmmo.com.json` returns the list of user scripts that we can install
+- store saved user scripts along with the version
 - checks and offers script updates to the player so they can
 - updates to scripts must be confirmed unless user has marked author as trusted
 - trusted authors should be able to be managed in a separate window
+- some scripts require others, they will need confirmation too, but will be displayed along side of the normal confirmation
+-
 
 # Chat Tabs
 
