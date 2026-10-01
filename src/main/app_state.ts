@@ -56,6 +56,10 @@ export const getAppState = (): AppStatePayload => snapshot();
 
 export const watchWindowState = (window: BrowserWindow): void => {
 	const sync = () => syncFocused();
+	const notifyLayout = () => {
+		if (window.isDestroyed()) return;
+		window.webContents.send('windowLayout');
+	};
 	window.on('blur', sync);
 	window.on('focus', sync);
 	window.on('hide', sync);
@@ -63,6 +67,13 @@ export const watchWindowState = (window: BrowserWindow): void => {
 	window.on('minimize', sync);
 	window.on('restore', sync);
 	window.on('closed', sync);
+	window.on('minimize', notifyLayout);
+	window.on('restore', notifyLayout);
+	window.on('maximize', notifyLayout);
+	window.on('unmaximize', notifyLayout);
+	window.on('enter-full-screen', notifyLayout);
+	window.on('leave-full-screen', notifyLayout);
+	window.on('resized', notifyLayout);
 	sync();
 };
 

@@ -12,7 +12,7 @@ const particleCaps: Record<ParticleLevel, number> = { none: Infinity, low: 32, h
 
 const initialSettings = {
 	enableDarkenSky: true,
-	enableDynamicCanvas_beta: false,
+	enableDynamicCanvas: false,
 	enableProjectileCleanup: true,
 	enableObjectShakeCleanup: true,
 	hideOtherPlayerDrops: false,
@@ -50,6 +50,9 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lif
 	});
 
 	const applyCanvasSize = () => {
+		// Minimize reports a 0×0 viewport. Measuring then would pin the canvas
+		// at MIN_SCALE until the next real resize.
+		if (document.hidden || window.innerWidth < 1 || window.innerHeight < 1) return;
 		// The canvas sits in the right column of the game table; its rect
 		// left/top reflect the UI panel width and topbar height, which stay
 		// stable when the canvas column resizes (so this is not circular).
@@ -192,8 +195,15 @@ export const TweaksPlugin: Plugin = {
 
 		const playerCache = initPlayerCache(lifecycle, context, () => settings.enablePlayerRenderCache);
 
+		const legacyDynamicCanvas = (settings as { enableDynamicCanvas_beta?: boolean })
+			.enableDynamicCanvas_beta;
+		if (typeof legacyDynamicCanvas === 'boolean') {
+			settings.enableDynamicCanvas = legacyDynamicCanvas;
+			delete (settings as { enableDynamicCanvas_beta?: boolean }).enableDynamicCanvas_beta;
+		}
+
 		const syncDynamicCanvas = () => {
-			if (settings.enableDynamicCanvas_beta) {
+			if (settings.enableDynamicCanvas) {
 				dynamicCanvasLifecycle ??= initDynamicCanvas(lifecycle, context.canvas);
 				return;
 			}
@@ -241,14 +251,14 @@ export const TweaksPlugin: Plugin = {
 				initialSettings.enableDarkenSky,
 			),
 			helpers.toggle(
-				'Dynamic Canvas (Beta)',
-				'Scale the game canvas to fit the window. Experimental.',
-				() => settings.enableDynamicCanvas_beta,
+				'Dynamic Canvas',
+				'Scale the game canvas to fit the window.',
+				() => settings.enableDynamicCanvas,
 				(value) => {
-					settings.enableDynamicCanvas_beta = value;
+					settings.enableDynamicCanvas = value;
 					applyTweaks();
 				},
-				initialSettings.enableDynamicCanvas_beta,
+				initialSettings.enableDynamicCanvas,
 			),
 		]);
 

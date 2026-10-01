@@ -7,12 +7,6 @@ A list of things to fix or do
 - The brick background is imported and applied in `src/renderer/src/main.ts` (around the `html { background-image: ... }` rule).
 - The image is already vendored at `src/renderer/src/assets/backgrounds/background3.png`, so it does not need to be fetched from flatmmo.com.
 
-# Dynamic canvas
-
-- currently marked Beta/Experimental
-- does not recalculate the canvas size on window minimizing and maximizing
-- once above is fixed, remove beta from the feature
-
 # Third-Party Userscripts
 
 - use greasyfork to find scripts

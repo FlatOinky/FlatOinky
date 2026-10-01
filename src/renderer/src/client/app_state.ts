@@ -35,6 +35,19 @@ export const initAppState = async (lifecycle: Lifecycle) => {
 		}),
 	);
 
+	// Electron does not emit a DOM resize for minimize, restore, maximize, or
+	// the macOS green button. Two frames lets innerWidth settle after the
+	// transition before listeners remeasure.
+	lifecycle.onCleanup(
+		ipcRenderer.on('windowLayout', () => {
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					window.dispatchEvent(new Event('resize'));
+				});
+			});
+		}),
+	);
+
 	const snapshot = await getAppState();
 	payload ??= snapshot;
 	activity = deriveActivity(payload, document.hidden);
