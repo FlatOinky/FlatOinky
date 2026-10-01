@@ -9,16 +9,16 @@ A list of things to fix or do
 
 # Dynamic canvas
 
-- marked Beta/Experimental
+- currently marked Beta/Experimental
 - does not recalculate the canvas size on window minimizing and maximizing
-- once above is fixed, remove
+- once above is fixed, remove beta from the feature
 
 # Third-Party Userscripts
 
 - use greasyfork to find scripts
   - `https://api.greasyfork.org/en/scripts/by-site/flatmmo.com.json` for initial options fetch
 - store selected userscripts along with the version
-- offer updates to the player when they're
+- checks and offers script updates to the player so they can
 - updates to scripts must be confirmed unless user has marked author as trusted
 - trusted authors should be able to be managed in a separate window
 
@@ -47,8 +47,8 @@ Add support for div based window titles. Allows plugins to add additional inform
 
 A thin framed non-resizable window with a grabber for positioning.
 
-- Frame thin like a locked window frame
-- grabber can be positioned on any edge of the window
+- Frame thin; thin like a locked window frame
+- grabber can be positioned on any one edge of the window
 - grabber is a thin div with a textured repeating pattern
 
 ```
@@ -67,6 +67,10 @@ The above represents the standard left edge toolbar window with a close button, 
 - G: Grabber
 - L: Lock
 
+## implementing
+
+to implement these new window types, we just need to split 1 function into 3. The original setup for what will be sharded between the two others, the standard window init, and the toolbar window init. They should share the rest of the functionality and be no different besides behavior and visuals.
+
 # Adapter Plugin
 
 Adapts some functionality from FlatMMO for use in FlatOinky.
@@ -80,38 +84,54 @@ Currently the Keybinds Plugin `src/renderer/src/plugins/keybinds.ts` is a small 
 Reworking how the client handles actions, which are a new concept which captures a few existing features which have some overlap conceptually. The chat plugin has actions in the form of chat commands, there are actions bound to keybinds, both of these boil down to the client wants to interact with the game. That is what actions are.
 
 ```ts
+type ClientAction = {
+	// check out registerAction for properties which should exist here.
+	execute: () => ActionResult; // created by the registry; normalizes return type from action callback, and respects signal aborted from killed lifecycle, and rate limits after complete calls
+}
+
 type ActionResult = {
-	completed: boolean;
+	// an object so its expandable for later
+	status: 'complete' | 'stopped' | 'dead'; // true=complete false=stopped; if signal aborted 'dead'
 };
 
-type registerAction = <T>(
+type registerAction = (
+	lifecycle: Lifecycle, // plugins should have this handled higher in the stack
+	namespace: string; // `system/<systemId>` | `plugin/<pluginNamespace>`; plugins should have this handled higher in the stack
 	actionOpts: {
-		namespace: string; // `system/<systemId>` | `plugin/<pluginNamespace>`
-		id: string; // unique to the namespace; gets merged with namespace `<namespace>/<id>` when ids are given for storage, settings, keybinds, ect
+		// the `ClientAction` type made from this object should be similar, but does not need to match 100%
+		id: string; // unique to the namespace; in ClientActions gets merged with namespace `<namespace>/<id>`; used for keybinds, settings, storage, ect
 		name: string; // for displays; e.g. "Toggle Run", "Teleport Everbrook", "Stuck"
-		keybind?: Keycombo; // if defined, attempts to register as a keybind
+		tags?: string[]; // default: []; just some strings which can be used for grouping or filtering
 		delay?: number; // milliseconds; default: 100; The hard delay between action calls. This rate limits
+		requestKeycombo?: Keycombo; // if defined, passed into register keybind function
+		chatAliases?: string[]; // if defined, the action now indicates itself as a potential chat command with the given aliases.
+		displayText?: string; // used for `display`, defaults to `name` in usage, but may be undefined in the final ClientAction type;
+		display?: () => Element; // returns an instance of an element which will fill/fit to its container; Useful for other TODO Hotbar which needs a visual element for each action; If not defined, returns a div with the displayText as centered scalable text instead
 		pool?: {
 			// If defined, the action behaves like there are resources involved with execution. Purely visual and should not rate limit.
 			cap: number; // The max amount of uses an action can store
 			regenerateRate: number; // milliseconds; time for one use to regenerate
 			uses?: number; // defaults to `cap`; current amount of uses stored
 		};
-		chat?: {
-			// if defined, lets the chat plugin know it can make use of it as a chat command
-			aliases: string[]; // takes the role
-		};
 	},
-	callback: () => void | ActionResult['completed'] | ActionResult,
+	callback: () => void | boolean | ActionResult['status'] | ActionResult,
 ) => void;
 
+
+// from within a plugin
 context.actions.register(actionsOpts, callback);
 ```
 
-## from Chat
+## Adapter usage
+
+What is currently registered keybinds will now be registered as actions.
+
+There are images used in the client which would be good to use, if they can not be determined from the codebase leave as blank img urls to be filled in later.
+
+## Chat usage
 
 ```typescript
-context.actions.register({ id: 'set-meteor' }, () => {
+const action = context.actions.register({ id: 'set-meteor' }, () => {
 	const isArgs = chatInput.value.split(' ').length > 1;
 	if (!isArgs) {
 		chatInput.value = `${commandIndicator}${alias} `;
@@ -119,12 +139,20 @@ context.actions.register({ id: 'set-meteor' }, () => {
 	}
 });
 
-context.actions.run(commandAlias); // returns true if an action was found and executed, false if not;
+context.actions.run(action.id); // returns undefined if no action found, or ActionResult
+action.execute(); // or this, but discouraged since an action has a lifetime and may die later on
 
-const chatActions: ClientAction[] = context.actions.getAll().filter((action) => action.chat);
+const chatActions: ClientAction[] = context.actions
+	.getAll() // all getter functions defined for plugins should return deep readonly versions of the objects
+	.filter((action) => (action.chatAliases?.length ?? 0) > 0);
+
+// maybe a subscribe for action changes?
+context.actions.subscribe((actions: Readonly<ClientActions>) => {
+	// called each time the actions have been updated
+});
 ```
 
-using the result to determine if the action has completed and how to handle chat input
+below; using the result to determine if the action has completed and how to handle chat input
 
 ```typescript
 const result: undefined | ActionResult = context.actions.run(commandAlias);
@@ -135,40 +163,24 @@ if (!result) {
 chatInput.value = '';
 ```
 
-The Adapter plugin wi
-
 # Hotbars Plugin
 
 **Dependencies:** Toolbar Window, Client Actions
 
-A plugin which allows users quick access to pre-defined actions via slot grid based toolbar windows.
+A plugin which allows users quick access to client actions via pages of slots on a grid based toolbar window.
 
-## Actions
-
-Actions are capable of being, but not limited to the following
-
-- Sending specific chat messages
-- Clicking an inventory slot
-- Activating a worship ability
-- toggling run
-- dodging
-- registered keybinds
-- plugin registered actions
-
-```
-type HotbarAction = {
-  id: string;
-  name: string;
-}
-```
-
-plugins can r
-
-## Slots
-
-Slots are assignable containers for an action with a registered keybind.
--
-
-## Settings
-
-## Toolbar Window
+- **Slots:** Each slot is a register client action, but also can be assigned a client action to activate upon its own activation. With the use of pages this allows users to assign one hotkey to a slot, which can then be cycled and swapped to other actions for the same keybind.
+- **Pages:** Pages allow one hotbar to exist as multiple hotbars which can be cycled through, once reaching the end looping back to the first. `0 -> 1 -> 2 -> 0 -> 1`
+- **Pages - Additional Actions:** 2 Additional actions should be registered. "Page Up" and "Page Down" which are the controls for cycling the pages in the hotbar
+- **Grid based toolbar window:** The hotbar itself is a Toolbar Window using a CSS Grid layout. There are multiple layouts for the user to choose from which also determine how many slots the user has to a page.
+  - Layouts; left to right, top to bottom (matches with CSS Grids); `<columns>x<rows>`
+    - 10x1
+    - 5x2 (default)
+    - 2x5
+    - 1x10
+    - 12x1
+    - 6x2
+    - 4x3
+    - 3x4
+    - 2x6
+    - 1x12
