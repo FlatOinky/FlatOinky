@@ -1,7 +1,6 @@
 import type { Lifecycle } from '../../client';
 import type { ClientStorage } from '../client_storage';
-import { settingsHelpers } from '../settings';
-import type { SettingsMenu } from '../settings';
+import { settingsHelpers, type ClientSettings } from '../settings';
 import type { ClientUI } from '../ui';
 
 const OPACITY_MIN = 0;
@@ -23,7 +22,7 @@ export const initWindowsSystem = (
 	lifecycle: Lifecycle,
 	ui: ClientUI,
 	clientStorage: ClientStorage,
-	settingsMenu: SettingsMenu,
+	clientSettings: ClientSettings,
 ): void => {
 	const settings = clientStorage.reactive('windows', { ...defaults });
 
@@ -41,32 +40,34 @@ export const initWindowsSystem = (
 	lifecycle.onCleanup(() => ui.root.style.removeProperty(LOCKED_OPACITY_PROPERTY));
 
 	const helpers = settingsHelpers;
-	const windowsMenu = settingsMenu.mountSection('Windows', [
-		helpers.numberSlider({
-			label: 'Base Opacity',
-			get: () => settings.baseOpacity,
-			set: (value) => {
-				settings.baseOpacity = clampOpacity(value);
-				applyOpacity();
-			},
-			default: defaults.baseOpacity,
-			min: OPACITY_MIN,
-			max: OPACITY_MAX,
-			step: OPACITY_STEP,
-		}),
-		helpers.numberSlider({
-			label: 'Locked Opacity',
-			get: () => settings.lockedOpacity,
-			set: (value) => {
-				settings.lockedOpacity = clampOpacity(value);
-				applyOpacity();
-			},
-			default: defaults.lockedOpacity,
-			min: OPACITY_MIN,
-			max: OPACITY_MAX,
-			step: OPACITY_STEP,
-		}),
-	]);
+	const windowsMenu = clientSettings
+		.initSection(lifecycle, { category: 'System', name: 'Windows' })
+		.append(
+			helpers.numberSlider({
+				label: 'Base Opacity',
+				get: () => settings.baseOpacity,
+				set: (value) => {
+					settings.baseOpacity = clampOpacity(value);
+					applyOpacity();
+				},
+				default: defaults.baseOpacity,
+				min: OPACITY_MIN,
+				max: OPACITY_MAX,
+				step: OPACITY_STEP,
+			}),
+			helpers.numberSlider({
+				label: 'Locked Opacity',
+				get: () => settings.lockedOpacity,
+				set: (value) => {
+					settings.lockedOpacity = clampOpacity(value);
+					applyOpacity();
+				},
+				default: defaults.lockedOpacity,
+				min: OPACITY_MIN,
+				max: OPACITY_MAX,
+				step: OPACITY_STEP,
+			}),
+		);
 	lifecycle.onCleanup(clientStorage.subscribe('windows', () => windowsMenu.refresh()));
 
 	lifecycle.onCleanup(windowsMenu.remove);

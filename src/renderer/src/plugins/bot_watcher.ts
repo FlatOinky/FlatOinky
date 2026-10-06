@@ -1391,12 +1391,21 @@ export const BotWatcherPlugin: Plugin = {
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', createBotWatcherSettings());
 		const api = initBotWatcher(lifecycle, context, settings);
-		const settingsMenu = context.settings.initMenu(lifecycle, {
-			storage: context.storages.profile,
-		});
-		settingsMenu.mountSection('Bot Watcher', api.watcherNodes);
+		context.settings
+			.initSection(lifecycle, {
+				category: 'Bot Watcher',
+				name: 'Bot Watcher',
+				storage: context.storages.profile,
+			})
+			.append(...api.watcherNodes);
 		for (const key of CATEGORY_KEYS) {
-			settingsMenu.mountSection(CATEGORY_LABELS[key], api.categoryNodes[key]);
+			context.settings
+				.initSection(lifecycle, {
+					category: 'Bot Watcher',
+					name: CATEGORY_LABELS[key],
+					storage: context.storages.profile,
+				})
+				.append(...api.categoryNodes[key]);
 		}
 		return {
 			events: {

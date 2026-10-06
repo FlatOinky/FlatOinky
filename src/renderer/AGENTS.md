@@ -43,8 +43,8 @@ Layout under `src/`:
   updates, context menu, keybinds, devtools including logging, profiles). Systems other than profiles live on a restartable
   child lifecycle rebuilt on profile swap; the profiles system owns the Profiles &
   Plugins tray window and drives that restart.
-- `plugins/` — toggleable plugins (`tweaks`, `chat`, `monitor`, `metrics`, `themes`,
-  `mouse`, `keybinds`, …)
+- `plugins/` — toggleable plugins (`chat`, `audio`, `metrics`, `themes`, `mouse`,
+  `keybinds`, `monitor/`, `tweaks/`, `timers/`, `ui/`, …)
 - `templates/`, `assets/`
 
 ## Client vs plugins
@@ -126,6 +126,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
 
 1. Create `src/plugins/<name>.ts` exporting a `Plugin`:
    - `namespace: 'oinky/<name>'`, `name`, optional `description`
+   - optional `enabledByDefault: false` when a fresh profile should leave the plugin off
+     (a stored enabled flag always wins)
    - `init(lifecycle, context)` → `PluginCallbacks` (may be async)
    - optional `onRemoteSettings: 'restart'` when live-applying another window's
      settings is impractical (chat and metrics use this)
@@ -167,26 +169,29 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
        Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
        `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
        rendering.
-4. **Settings** — `context.settings.initMenu(lifecycle, { storage? })` then
-   `mountSection(title, nodes)`. Passing `storage` subscribes at that namespace root
-   and calls `refresh()` on remote change, which walks nodes and runs each `sync`.
-   `title` is a string or an `Element` (the sidebar nav falls back to that element's
-   text). Prefer bound factories on `context.settings.helpers`: `toggle(label,
-description, get, set, default?)`, plus `select`, `text`, `number`, `range`,
-   `numberSlider`, `steppedRange`, `color`, `selectText`, `alertVolume`, and
-   `alertControls`, each taking `{ label, description?, get, set, default? }` (and
-   type-specific fields). Factories generate the input, `reset`, and `sync` from those
-   accessors. `set` must apply side effects even when storage already equals the new
-   value (remote apply mutates first, then refresh). The per-node `sync` field is an
-   escape hatch when a widget cannot be expressed as get/set (alerts tray peers,
-   metrics interval presets). Nodes may also be a plain `Element`, a hand-built
-   `{ label, input, reset?, sync?, specialType? }`, or `{ element, sync? }`
-   (`cueCard` returns the last). `cueCard({ id, title, scoped, onTest,
-onEnabledChange?, mountHeaderExtras? })` builds a per-cue `AlertScope` card.
+4. **Settings** — `context.settings.initSection(lifecycle, { category, name, storage? })`
+   then `section.append(...nodes)`. `category` groups sections in the client settings
+   window (sorted alphabetically; empty categories are hidden). `name` is the section
+   under that category, in registration order, and is a string or an `Element` (the
+   sidebar nav falls back to that element's text). A plugin with one section uses the
+   same string for both. Passing `storage` subscribes at that namespace root and calls
+   `refresh()` on remote change, which walks nodes and runs each `sync`. Prefer bound
+   factories on `context.settings.helpers`: `toggle(label, description, get, set, default?)`,
+   plus `select`, `text`, `number`, `range`, `numberSlider`, `steppedRange`, `color`,
+   `selectText`, `alertVolume`, and `alertControls`, each taking `{ label, description?,
+get, set, default? }` (and type-specific fields). Factories generate the input,
+   `reset`, and `sync` from those accessors. `set` must apply side effects even when
+   storage already equals the new value (remote apply mutates first, then refresh). The
+   per-node `sync` field is an escape hatch when a widget cannot be expressed as get/set
+   (alerts tray peers, metrics interval presets). Nodes may also be a plain `Element`, a
+   hand-built `{ label, input, reset?, sync?, specialType? }`, or `{ element, sync? }`
+   (`cueCard` returns the last). `cueCard({ id, title, scoped, onTest, onEnabledChange?,
+mountHeaderExtras? })` builds a per-cue `AlertScope` card.
    `context.alerts.sendFromScope(title, scoped, message?)` maps an `AlertScope` onto
-   `send`. Always-on systems share a single `core/systems` settings entry titled System
-   via `setupSystemApi()`; do not bind one storage on that menu (sections use mixed
-   storages — subscribe per section and `section.refresh()`).
+   `send`. Always-on systems each call `initSection` with category `System` (shown last).
+   Do not bind one storage on those sections (they use mixed storages — subscribe per
+   section and `section.refresh()`). A plugin should not add a toggle whose only job is
+   to turn the whole plugin off; that is the Profiles & Plugins enable flag.
 5. **UI** — on `context.ui`:
    - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
      `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,
@@ -216,19 +221,26 @@ export const ExamplePlugin: Plugin = {
 	name: 'Example',
 	description: 'Minimal plugin skeleton',
 	init: (lifecycle, context) => {
-		const settings = context.storages.profile.reactive('settings', { enabled: true });
-		const menu = context.settings.initMenu(lifecycle, { storage: context.storages.profile });
-		menu.mountSection('General', [
-			context.settings.helpers.toggle(
-				'Enabled',
-				'',
-				() => settings.enabled,
-				(value) => {
-					settings.enabled = value;
-				},
-				true,
-			),
-		]);
+		const settings = context.storages.profile.reactive('settings', { volume: 1 });
+		context.settings
+			.initSection(lifecycle, {
+				category: 'Example',
+				name: 'General',
+				storage: context.storages.profile,
+			})
+			.append(
+				context.settings.helpers.range({
+					label: 'Volume',
+					get: () => settings.volume,
+					set: (value) => {
+						settings.volume = value;
+					},
+					default: 1,
+					min: 0,
+					max: 1,
+					step: 0.05,
+				}),
+			);
 		lifecycle.onCleanup(() => {
 			/* undo listeners / DOM */
 		});

@@ -6,7 +6,7 @@ import { logLevelLabels, logLevels } from '../logging';
 import {
 	mountSettingsMenuNode,
 	settingsHelpers,
-	type SettingsMenu,
+	type ClientSettings,
 	type SettingsNode,
 } from '../settings';
 import type { ClientUI } from '../ui';
@@ -52,7 +52,7 @@ const loggingNodes = (logging: Logging): SettingsNode[] => {
 export const initDevtoolsSystem = async (
 	lifecycle: Lifecycle,
 	ui: ClientUI,
-	settingsMenu: SettingsMenu,
+	clientSettings: ClientSettings,
 	logging: Logging,
 	references: FMMO.ReferenceManifest,
 	setRecordSocketMessage: (fn: (direction: 'send' | 'receive', message: string) => void) => void,
@@ -126,18 +126,20 @@ export const initDevtoolsSystem = async (
 	syncDevtoolsMenu();
 
 	const helpers = settingsHelpers;
-	const devtoolsMenu = settingsMenu.mountSection('Devtools', [
-		helpers.toggle(
-			'Enable Devtools',
-			'Show the Devtools tray, including logging controls, Open DevTools, and Save References.',
-			() => settings.enabledDevtools,
-			(value) => {
-				settings.enabledDevtools = value;
-				syncDevtoolsMenu();
-			},
-			false,
-		),
-	]);
+	const devtoolsMenu = clientSettings
+		.initSection(lifecycle, { category: 'System', name: 'Devtools' })
+		.append(
+			helpers.toggle(
+				'Enable Devtools',
+				'Show the Devtools tray, including logging controls, Open DevTools, and Save References.',
+				() => settings.enabledDevtools,
+				(value) => {
+					settings.enabledDevtools = value;
+					syncDevtoolsMenu();
+				},
+				false,
+			),
+		);
 	lifecycle.onCleanup(storage.subscribe('settings', () => devtoolsMenu.refresh()));
 	lifecycle.onCleanup(devtoolsMenu.remove);
 };

@@ -79,7 +79,6 @@ export const ChatPlugin: Plugin = {
 			wordMatches,
 			muted: mutedPlayers,
 		};
-		const settingsMenu = context.settings.initMenu(lifecycle);
 		const helpers = context.settings.helpers;
 
 		const messages = context.collections.character<ChatMessage>('messages');
@@ -147,7 +146,11 @@ export const ChatPlugin: Plugin = {
 			span.append('.');
 		});
 
-		settingsMenu.mountSection('Display', [
+		const displaySection = context.settings.initSection(lifecycle, {
+			category: 'Chat',
+			name: 'Display',
+		});
+		displaySection.append(
 			helpers.select({
 				label: 'Welcome messages',
 				description: 'How login welcome lines appear in chat.',
@@ -213,11 +216,10 @@ export const ChatPlugin: Plugin = {
 				max: 20,
 				step: 2,
 			}),
-		]);
+		);
 
-		settingsMenu.mountSection(
-			'Colors',
-			chatColorMeta.map((meta) =>
+		context.settings.initSection(lifecycle, { category: 'Chat', name: 'Colors' }).append(
+			...chatColorMeta.map((meta) =>
 				helpers.color({
 					label: meta.label,
 					description: meta.description,
@@ -232,7 +234,7 @@ export const ChatPlugin: Plugin = {
 			),
 		);
 
-		settingsMenu.mountSection('Limits', [
+		context.settings.initSection(lifecycle, { category: 'Chat', name: 'Limits' }).append(
 			helpers.number({
 				label: 'Visible messages',
 				description: 'Maximum messages shown in the chat window.',
@@ -257,9 +259,9 @@ export const ChatPlugin: Plugin = {
 				min: 50,
 				max: 10000,
 			}),
-		]);
+		);
 
-		settingsMenu.mountSection('Commands', [
+		context.settings.initSection(lifecycle, { category: 'Chat', name: 'Commands' }).append(
 			helpers.toggle(
 				'Enable commands',
 				'Allow Oinky chat commands and show the commands menu.',
@@ -279,15 +281,15 @@ export const ChatPlugin: Plugin = {
 				},
 				default: initialSettings.commandPrefix,
 			}),
-		]);
+		);
 
-		settingsMenu.mountSection('Message Scanner', [
+		context.settings.initSection(lifecycle, { category: 'Chat', name: 'Message Scanner' }).append(
 			el.button`btn btn-sm btn-primary search-value`.then((button) => {
 				button.type = 'button';
 				button.textContent = 'Manage message scanner';
 				button.onclick = () => showMessageScannerWindow();
 			}),
-		]);
+		);
 
 		const mutedPlayersSectionTitle =
 			el.div`flex gap-1 items-center tooltip tooltip-info tooltip-start tooltip-bottom`.then(
@@ -301,30 +303,32 @@ export const ChatPlugin: Plugin = {
 				},
 			);
 
-		settingsMenu.mountSection(mutedPlayersSectionTitle, [
-			helpers.toggle(
-				'Log muted players messages',
-				'Keep muted players messages in the chat log.',
-				() => mutedPlayers.logMutedMessages,
-				(value) => {
-					mutedPlayers.logMutedMessages = value;
-					onSettingsChange();
-				},
-				initialMutedPlayers.logMutedMessages,
-			),
-			el.button`btn btn-sm btn-primary search-value`.then((button) => {
-				button.type = 'button';
-				button.textContent = 'Manage muted players';
-				button.onclick = () => showMutedPlayersWindow();
-			}),
-		]);
+		context.settings
+			.initSection(lifecycle, { category: 'Chat', name: mutedPlayersSectionTitle })
+			.append(
+				helpers.toggle(
+					'Log muted players messages',
+					'Keep muted players messages in the chat log.',
+					() => mutedPlayers.logMutedMessages,
+					(value) => {
+						mutedPlayers.logMutedMessages = value;
+						onSettingsChange();
+					},
+					initialMutedPlayers.logMutedMessages,
+				),
+				el.button`btn btn-sm btn-primary search-value`.then((button) => {
+					button.type = 'button';
+					button.textContent = 'Manage muted players';
+					button.onclick = () => showMutedPlayersWindow();
+				}),
+			);
 
 		const hideChatActions = (activator: HTMLElement) => {
 			activator.closest<HTMLElement>('[popover]')?.hidePopover();
 		};
 		elements.settingsActivator.onclick = () => {
 			hideChatActions(elements.settingsActivator);
-			settingsMenu.open();
+			displaySection.open();
 		};
 		elements.logActivator.onclick = () => {
 			hideChatActions(elements.logActivator);

@@ -486,7 +486,6 @@ export const MetricsPlugin: Plugin = {
 	onRemoteSettings: 'restart',
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
-		const settingsMenu = context.settings.initMenu(lifecycle);
 		const helpers = context.settings.helpers;
 		const xpAccumulator = await createXpAccumulator(context);
 		const sessionTotals = { all: 0, bySkill: {} as { [key: string]: number } };
@@ -611,7 +610,7 @@ export const MetricsPlugin: Plugin = {
 		);
 		const showTotalCheckbox = showTotalNode.input as HTMLInputElement;
 
-		settingsMenu.mountSection('Display', [
+		context.settings.initSection(lifecycle, { category: 'Metrics', name: 'Display' }).append(
 			showTotalNode,
 			helpers.toggle(
 				'Inactive skills',
@@ -658,7 +657,7 @@ export const MetricsPlugin: Plugin = {
 				},
 				default: initialSettings.xpRateType,
 			}),
-		]);
+		);
 
 		let timeSpanInput: HTMLInputElement | undefined;
 		let updateIntervalInput: HTMLInputElement | undefined;
@@ -688,7 +687,7 @@ export const MetricsPlugin: Plugin = {
 			}
 		};
 
-		settingsMenu.mountSection('Intervals', [
+		context.settings.initSection(lifecycle, { category: 'Metrics', name: 'Intervals' }).append(
 			{
 				label: 'Preset',
 				description: 'Apply a preconfigured time span and refresh rate together.',
@@ -769,7 +768,7 @@ export const MetricsPlugin: Plugin = {
 					};
 				}),
 			},
-		]);
+		);
 
 		return {
 			events: {

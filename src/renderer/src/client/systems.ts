@@ -7,7 +7,7 @@ import { initKeybinds, type Keybinds } from './keybinds';
 import type { Logging } from './logging';
 import { initAlerts, type Alerts } from './alerts';
 import type { Profiles } from './profiles';
-import type { ClientSettings, SettingsMenu } from './settings';
+import type { ClientSettings } from './settings';
 import type { ClientUI } from './ui';
 import type { Updater } from './updater';
 import { initAppSystem } from './systems/app';
@@ -58,8 +58,6 @@ export const initSystems = async (
 		appState,
 	}: SystemsContext,
 ): Promise<void> => {
-	const settingsMenu: SettingsMenu = settings.setupSystemApi().initMenu(lifecycle);
-
 	let systemsLifecycle: Lifecycle | null = null;
 
 	const startSystems = async (): Promise<void> => {
@@ -67,30 +65,23 @@ export const initSystems = async (
 		const systems = systemsLifecycle;
 
 		initAppSystem(systems, ui);
-		initWindowsSystem(systems, ui, clientStorage, settingsMenu);
+		initWindowsSystem(systems, ui, clientStorage, settings);
 
 		const keybinds = initKeybinds(systems, keybindsStorage, ui.root);
 		setKeybinds(keybinds);
-		initKeybindsSystem(systems, ui, keybinds, settingsMenu, keybindsStorage);
+		initKeybindsSystem(systems, ui, keybinds, settings, keybindsStorage);
 
 		const alerts = initAlerts(systems, alertsStorage, { root: ui.root, appState });
 		setAlerts(alerts);
-		initAlertsSystem(systems, ui, alerts, settingsMenu, alertsStorage);
+		initAlertsSystem(systems, ui, alerts, settings, alertsStorage);
 
 		const contextMenu = initContextMenu(systems, ui.root, (target) =>
 			plugins.api.contextMenu.buildItems(target),
 		);
 		setContextMenu(contextMenu);
 
-		initUpdatesSystem(systems, ui, updater, settingsMenu);
-		await initDevtoolsSystem(
-			systems,
-			ui,
-			settingsMenu,
-			logging,
-			references,
-			setRecordSocketMessage,
-		);
+		initUpdatesSystem(systems, ui, updater, settings);
+		await initDevtoolsSystem(systems, ui, settings, logging, references, setRecordSocketMessage);
 	};
 
 	const restartSystems = async (): Promise<void> => {

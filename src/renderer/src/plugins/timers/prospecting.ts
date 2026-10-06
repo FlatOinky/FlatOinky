@@ -1,5 +1,5 @@
-import { Lifecycle, Plugin, PluginContext } from '../client';
-import * as el from '../client/ui/elements';
+import { Lifecycle, Plugin, PluginContext } from '../../client';
+import * as el from '../../client/ui/elements';
 
 // #region constants
 
@@ -20,7 +20,6 @@ const asDisplayMode = (value: string): DisplayMode =>
 	value === 'plain' || value === 'none' ? value : 'countdown';
 
 const createSettings = () => ({
-	enabled: true,
 	showRadial: true,
 	display: 'countdown' as DisplayMode,
 });
@@ -197,118 +196,92 @@ const mountOverlay = (
 	return { lifecycle: overlay, paint };
 };
 
-// #region init
-
-const initProspectingTimers = (
-	lifecycle: Lifecycle,
-	context: PluginContext,
-	settings: Settings,
-) => {
-	const state = context.storages.character.reactive('timers', createTimerState());
-	if (!state.startedAt || typeof state.startedAt !== 'object' || Array.isArray(state.startedAt)) {
-		state.startedAt = {};
-	}
-
-	let overlay: ReturnType<typeof mountOverlay> | undefined;
-
-	const syncOverlay = (onMap: boolean) => {
-		const shouldShow = settings.enabled && onMap;
-		if (shouldShow) {
-			overlay ??= mountOverlay(lifecycle, context, settings, state);
-			return;
-		}
-		overlay?.lifecycle.cleanup();
-		overlay = undefined;
-	};
-
-	const setEnabled = (value: boolean) => {
-		settings.enabled = value;
-		syncOverlay(isOnProspectingMap());
-	};
-
-	syncOverlay(isOnProspectingMap());
-
-	const handleShake = (uuid: string) => {
-		if (!isOnProspectingMap()) return;
-		const object = findMapObject(uuid);
-		if (!object || object.name !== MINE_PILE_NAME) return;
-		const now = Date.now();
-		const existing = state.startedAt[uuid];
-		if (existing !== undefined && now - existing < TIMER_MS) return;
-		state.startedAt = { ...state.startedAt, [uuid]: now };
-		overlay?.paint();
-	};
-
-	const handleDepleted = (object: FMMO.MapObject) => {
-		if (object.name !== MINE_PILE_NAME) return;
-		if (state.startedAt[object.uuid] === undefined) return;
-		const next = { ...state.startedAt };
-		delete next[object.uuid];
-		state.startedAt = next;
-		overlay?.paint();
-	};
-
-	const settingsMenu = context.settings.initMenu(lifecycle, {
-		storage: context.storages.profile,
-	});
-	const helpers = context.settings.helpers;
-	const defaults = createSettings();
-	settingsMenu.mountSection('Prospecting Timers', [
-		helpers.toggle(
-			'Enable Timers',
-			'Show countdown timers for prospecting Mine Piles.',
-			() => settings.enabled,
-			setEnabled,
-			defaults.enabled,
-		),
-		helpers.toggle(
-			'Progress bar',
-			'Draw a circular progress bar over each pile.',
-			() => settings.showRadial,
-			(value) => {
-				settings.showRadial = value;
-				overlay?.paint();
-			},
-			defaults.showRadial,
-		),
-		helpers.select({
-			label: 'Timer display',
-			options: displayModes.map((value) => ({ label: DISPLAY_LABELS[value], value })),
-			get: () => asDisplayMode(settings.display),
-			set: (value) => {
-				settings.display = asDisplayMode(value);
-				overlay?.paint();
-			},
-			default: defaults.display,
-		}),
-	]);
-
-	return {
-		handleShake,
-		handleDepleted,
-		setMap: (map: string) => syncOverlay(map === PROSPECTING_MAP),
-	};
-};
-
-// #region Plugin
+// #region plugin
 
 export const ProspectingTimersPlugin: Plugin = {
-	namespace: 'oinky/prospecting_timers',
-	name: 'Prospecting Timers',
+	namespace: 'oinky/timers/prospecting',
+	name: 'Timers: Prospecting',
 	description: 'Countdown timers on prospecting Mine Piles.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', createSettings());
 		settings.display = asDisplayMode(settings.display);
-		const api = initProspectingTimers(lifecycle, context, settings);
+		const state = context.storages.character.reactive('timers', createTimerState());
+		if (!state.startedAt || typeof state.startedAt !== 'object' || Array.isArray(state.startedAt)) {
+			state.startedAt = {};
+		}
+
+		let overlay: ReturnType<typeof mountOverlay> | undefined;
+
+		const syncOverlay = (onMap: boolean) => {
+			if (onMap) {
+				overlay ??= mountOverlay(lifecycle, context, settings, state);
+				return;
+			}
+			overlay?.lifecycle.cleanup();
+			overlay = undefined;
+		};
+
+		syncOverlay(isOnProspectingMap());
+
+		const handleShake = (uuid: string) => {
+			if (!isOnProspectingMap()) return;
+			const object = findMapObject(uuid);
+			if (!object || object.name !== MINE_PILE_NAME) return;
+			const now = Date.now();
+			const existing = state.startedAt[uuid];
+			if (existing !== undefined && now - existing < TIMER_MS) return;
+			state.startedAt = { ...state.startedAt, [uuid]: now };
+			overlay?.paint();
+		};
+
+		const handleDepleted = (object: FMMO.MapObject) => {
+			if (object.name !== MINE_PILE_NAME) return;
+			if (state.startedAt[object.uuid] === undefined) return;
+			const next = { ...state.startedAt };
+			delete next[object.uuid];
+			state.startedAt = next;
+			overlay?.paint();
+		};
+
+		const helpers = context.settings.helpers;
+		const defaults = createSettings();
+		context.settings
+			.initSection(lifecycle, {
+				category: 'Timers',
+				name: 'Prospecting',
+				storage: context.storages.profile,
+			})
+			.append(
+				helpers.toggle(
+					'Progress bar',
+					'Draw a circular progress bar over each pile.',
+					() => settings.showRadial,
+					(value) => {
+						settings.showRadial = value;
+						overlay?.paint();
+					},
+					defaults.showRadial,
+				),
+				helpers.select({
+					label: 'Timer display',
+					options: displayModes.map((value) => ({ label: DISPLAY_LABELS[value], value })),
+					get: () => asDisplayMode(settings.display),
+					set: (value) => {
+						settings.display = asDisplayMode(value);
+						overlay?.paint();
+					},
+					default: defaults.display,
+				}),
+			);
+
 		return {
 			events: {
-				setMap: (map) => api.setMap(map),
-				objectDepleted: (object) => api.handleDepleted(object),
+				setMap: (map) => syncOverlay(map === PROSPECTING_MAP),
+				objectDepleted: (object) => handleDepleted(object),
 			},
 			hooks: {
 				serverCommand: (command, values) => {
-					if (command === 'SET_SHAKE_OBJECT' && values[0]) api.handleShake(values[0]);
-					return true;
+					if (command === 'SET_SHAKE_OBJECT' && values[0]) handleShake(values[0]);
 				},
 			},
 		};

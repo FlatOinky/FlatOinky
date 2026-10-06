@@ -34,57 +34,60 @@ export const MousePlugin: Plugin = {
 			show,
 		});
 
-		const settingsMenu = context.settings.initMenu(lifecycle, {
-			storage: context.storages.profile,
-		});
-		settingsMenu.mountSection('Context Menu', [
-			helpers.toggle(
-				'Enable Context Menu',
-				'',
-				() => settings.enabled,
-				(value) => {
-					settings.enabled = value;
-					if (!value) context.contextMenu.close();
-				},
-				initialSettings.enabled,
-			),
-			// TODO: decide if this is even useful
-			// helpers.toggle(
-			// 	'Walk here',
-			// 	'Include a Walk here entry that clicks the tile under the cursor.',
-			// 	() => settings.includeWalkHere,
-			// 	(value) => {
-			// 		settings.includeWalkHere = value;
-			// 	},
-			// ),
-			helpers.toggle(
-				'Enable Submenus',
-				'When a target (player, item, etc.) has multiple actions, show a side menu on hover.',
-				() => settings.collapseTargets,
-				(value) => {
-					settings.collapseTargets = value;
-				},
-				initialSettings.collapseTargets,
-			),
-			helpers.toggle(
-				'Ground Item Identicons',
-				'Show a unique identicon beside ground items so drops are distinguishable.',
-				() => settings.showDropIdenticons,
-				(value) => {
-					settings.showDropIdenticons = value;
-				},
-				initialSettings.showDropIdenticons,
-			),
-			helpers.toggle(
-				'Swap Bank Left and Right Click',
-				'Put the context menu on left click and the deposit/withdraw action on right click.',
-				() => settings.swapBankClicks,
-				(value) => {
-					settings.swapBankClicks = value;
-				},
-				initialSettings.swapBankClicks,
-			),
-		]);
+		context.settings
+			.initSection(lifecycle, {
+				category: 'Mouse',
+				name: 'Context Menu',
+				storage: context.storages.profile,
+			})
+			.append(
+				helpers.toggle(
+					'Enable Context Menu',
+					'',
+					() => settings.enabled,
+					(value) => {
+						settings.enabled = value;
+						if (!value) context.contextMenu.close();
+					},
+					initialSettings.enabled,
+				),
+				// TODO: decide if this is even useful
+				// helpers.toggle(
+				// 	'Walk here',
+				// 	'Include a Walk here entry that clicks the tile under the cursor.',
+				// 	() => settings.includeWalkHere,
+				// 	(value) => {
+				// 		settings.includeWalkHere = value;
+				// 	},
+				// ),
+				helpers.toggle(
+					'Enable Submenus',
+					'When a target (player, item, etc.) has multiple actions, show a side menu on hover.',
+					() => settings.collapseTargets,
+					(value) => {
+						settings.collapseTargets = value;
+					},
+					initialSettings.collapseTargets,
+				),
+				helpers.toggle(
+					'Ground Item Identicons',
+					'Show a unique identicon beside ground items so drops are distinguishable.',
+					() => settings.showDropIdenticons,
+					(value) => {
+						settings.showDropIdenticons = value;
+					},
+					initialSettings.showDropIdenticons,
+				),
+				helpers.toggle(
+					'Swap Bank Left and Right Click',
+					'Put the context menu on left click and the deposit/withdraw action on right click.',
+					() => settings.swapBankClicks,
+					(value) => {
+						settings.swapBankClicks = value;
+					},
+					initialSettings.swapBankClicks,
+				),
+			);
 
 		return {
 			events: {

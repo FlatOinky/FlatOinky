@@ -131,11 +131,7 @@ const buildCompositeKey = (
 
 // #endregion
 
-export const initPlayerCache = (
-	lifecycle: Lifecycle,
-	context: ClientContext,
-	isEnabled: () => boolean,
-) => {
+export const initPlayerCache = (lifecycle: Lifecycle, context: ClientContext) => {
 	const store = createCompositeStore();
 	const paintStates = new WeakMap<FMMO.Player, PaintState>();
 
@@ -257,7 +253,6 @@ export const initPlayerCache = (
 		[username: string, slot?: string],
 		FMMO.AnimationSheet | null
 	> = (next, username, slot) => {
-		if (!isEnabled()) return next(username, slot);
 		if (context.isLocalUsername(username)) return next(username, slot);
 
 		const player = context.getPlayer(username);

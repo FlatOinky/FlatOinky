@@ -305,48 +305,51 @@ export const TileKickersPlugin: Plugin = {
 
 		syncChaos();
 
-		const settingsMenu = context.settings.initMenu(lifecycle, {
-			storage: context.storages.profile,
-		});
 		const helpers = context.settings.helpers;
-		settingsMenu.mountSection('Tile Kickers', [
-			helpers.toggle(
-				'Enabled',
-				"Start kickin'",
-				() => settings.enabled,
-				(value) => {
-					settings.enabled = value;
-					syncChaos();
-				},
-				initialSettings.enabled,
-			),
-			helpers.numberSlider({
-				label: 'Lead time',
-				tooltip:
-					"This is a guess based on the player's speed and the server's lag, very imprecise.",
-				valueSuffix: 's',
-				get: () => settings.leadTime,
-				set: (value) => {
-					settings.leadTime = Number.isFinite(value)
-						? Math.min(3, Math.max(0.25, value))
-						: initialSettings.leadTime;
-				},
-				default: initialSettings.leadTime,
-				min: 0.25,
-				max: 3,
-				step: 0.25,
-			}),
-			helpers.toggle(
-				'Chaos mode',
-				'',
-				() => settings.chaosMode,
-				(value) => {
-					settings.chaosMode = value;
-					syncChaos();
-				},
-				initialSettings.chaosMode,
-			),
-		]);
+		context.settings
+			.initSection(lifecycle, {
+				category: 'Tile Kickers',
+				name: 'Tile Kickers',
+				storage: context.storages.profile,
+			})
+			.append(
+				helpers.toggle(
+					'Enabled',
+					"Start kickin'",
+					() => settings.enabled,
+					(value) => {
+						settings.enabled = value;
+						syncChaos();
+					},
+					initialSettings.enabled,
+				),
+				helpers.numberSlider({
+					label: 'Lead time',
+					tooltip:
+						"This is a guess based on the player's speed and the server's lag, very imprecise.",
+					valueSuffix: 's',
+					get: () => settings.leadTime,
+					set: (value) => {
+						settings.leadTime = Number.isFinite(value)
+							? Math.min(3, Math.max(0.25, value))
+							: initialSettings.leadTime;
+					},
+					default: initialSettings.leadTime,
+					min: 0.25,
+					max: 3,
+					step: 0.25,
+				}),
+				helpers.toggle(
+					'Chaos mode',
+					'',
+					() => settings.chaosMode,
+					(value) => {
+						settings.chaosMode = value;
+						syncChaos();
+					},
+					initialSettings.chaosMode,
+				),
+			);
 
 		return {
 			mutators: {

@@ -98,27 +98,32 @@ export const AudioPlugin: Plugin = {
 
 		if (context.ui.windows.isOpen(context.storages.profile, 'audio')) showWindow();
 
-		const settingsMenu = context.settings.initMenu(lifecycle);
-		settingsMenu.mountSection('Controls', [{ element: globalControls, sync: notify }]);
-		settingsMenu.mountSection('Individual volumes', [
-			el.button`btn btn-sm btn-primary search-value`.then((button) => {
-				button.type = 'button';
-				button.textContent = 'Manage individual volumes';
-				button.onclick = () => showWindow();
-			}),
-			el.button`btn btn-sm btn-ghost search-value`.then((button) => {
-				button.type = 'button';
-				button.textContent = 'Reset all individual volumes';
-				button.onclick = () => {
-					const isConfirmed = window.confirm('Are you sure you want to reset all audio overrides?');
-					if (!isConfirmed) return;
-					settings.sounds = {};
-					settings.tracks = {};
-					engine.refreshMusic();
-					notify();
-				};
-			}),
-		]);
+		context.settings
+			.initSection(lifecycle, { category: 'Audio', name: 'Controls' })
+			.append({ element: globalControls, sync: notify });
+		context.settings
+			.initSection(lifecycle, { category: 'Audio', name: 'Individual volumes' })
+			.append(
+				el.button`btn btn-sm btn-primary search-value`.then((button) => {
+					button.type = 'button';
+					button.textContent = 'Manage individual volumes';
+					button.onclick = () => showWindow();
+				}),
+				el.button`btn btn-sm btn-ghost search-value`.then((button) => {
+					button.type = 'button';
+					button.textContent = 'Reset all individual volumes';
+					button.onclick = () => {
+						const isConfirmed = window.confirm(
+							'Are you sure you want to reset all audio overrides?',
+						);
+						if (!isConfirmed) return;
+						settings.sounds = {};
+						settings.tracks = {};
+						engine.refreshMusic();
+						notify();
+					};
+				}),
+			);
 
 		return {
 			events: {

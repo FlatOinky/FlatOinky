@@ -1,6 +1,6 @@
 import type { Lifecycle } from '../../client';
 import type { ClientUI } from '../ui';
-import { settingsHelpers, type SettingsMenu } from '../settings';
+import { settingsHelpers, type ClientSettings } from '../settings';
 import type { Updater } from '../updater';
 import * as el from '../ui/elements';
 
@@ -10,7 +10,7 @@ export const initUpdatesSystem = (
 	lifecycle: Lifecycle,
 	ui: ClientUI,
 	updater: Updater,
-	settingsMenu: SettingsMenu,
+	settings: ClientSettings,
 ): void => {
 	let handleMenuAction = () => updater.check();
 	const { button } = ui.taskbar.initMenuAction(
@@ -43,41 +43,43 @@ export const initUpdatesSystem = (
 		}),
 	);
 	const helpers = settingsHelpers;
-	const updatesMenu = settingsMenu.mountSection('Updates', [
-		el.div`flex items-center justify-between gap-2`.then((container) => {
-			el.span`text-sm`.mount(container, undefined, (label) => {
-				label.textContent = `Current version v${updater.version}`;
-			});
-			el.button`btn btn-sm`.mount(container, undefined, (checkButton) => {
-				checkButton.textContent = 'Check now';
-				checkButton.onclick = () => updater.check();
-			});
-		}),
-		helpers.toggle(
-			'Check on Launch',
-			'Look for a new version when you log in.',
-			() => updater.settings.checkOnLaunch,
-			(value) => {
-				updater.settings.checkOnLaunch = value;
-			},
-			true,
-		),
-		helpers.toggle(
-			'Download Automatically',
-			'Start downloading an update as soon as one is found.',
-			() => updater.settings.autoDownload,
-			(value) => {
-				updater.settings.autoDownload = value;
-			},
-			false,
-		),
-		helpers.toggle(
-			'Receive Beta Updates',
-			'Get pre-release builds. Turning this off while running a beta moves you back down to the newest stable release.',
-			() => updater.getChannel() === 'beta',
-			(value) => updater.setChannel(value ? 'beta' : 'latest'),
-		),
-	]);
+	const updatesMenu = settings
+		.initSection(lifecycle, { category: 'System', name: 'Updates' })
+		.append(
+			el.div`flex items-center justify-between gap-2`.then((container) => {
+				el.span`text-sm`.mount(container, undefined, (label) => {
+					label.textContent = `Current version v${updater.version}`;
+				});
+				el.button`btn btn-sm`.mount(container, undefined, (checkButton) => {
+					checkButton.textContent = 'Check now';
+					checkButton.onclick = () => updater.check();
+				});
+			}),
+			helpers.toggle(
+				'Check on Launch',
+				'Look for a new version when you log in.',
+				() => updater.settings.checkOnLaunch,
+				(value) => {
+					updater.settings.checkOnLaunch = value;
+				},
+				true,
+			),
+			helpers.toggle(
+				'Download Automatically',
+				'Start downloading an update as soon as one is found.',
+				() => updater.settings.autoDownload,
+				(value) => {
+					updater.settings.autoDownload = value;
+				},
+				false,
+			),
+			helpers.toggle(
+				'Receive Beta Updates',
+				'Get pre-release builds. Turning this off while running a beta moves you back down to the newest stable release.',
+				() => updater.getChannel() === 'beta',
+				(value) => updater.setChannel(value ? 'beta' : 'latest'),
+			),
+		);
 	lifecycle.onCleanup(updater.onSettings(() => updatesMenu.refresh()));
 
 	lifecycle.onCleanup(updatesMenu.remove);

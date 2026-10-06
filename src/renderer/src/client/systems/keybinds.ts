@@ -10,7 +10,7 @@ import {
 import { initKeybindActivity } from '../keybinds/activity';
 import { renderComboChips } from '../keybinds/chips';
 import type { ClientStorage } from '../client_storage';
-import { settingsHelpers, type SettingsMenu } from '../settings';
+import { settingsHelpers, type ClientSettings } from '../settings';
 import type { ClientUI } from '../ui';
 import * as el from '../ui/elements';
 import { mountSearchBar } from '../ui/search';
@@ -57,38 +57,40 @@ export const initKeybindsSystem = (
 	lifecycle: Lifecycle,
 	ui: ClientUI,
 	keybinds: Keybinds,
-	settingsMenu: SettingsMenu,
+	clientSettings: ClientSettings,
 	storage: ClientStorage,
 ): void => {
 	const settings = storage.reactive('settings', { ...keybindActivityDefaults });
 	initKeybindActivity(lifecycle, ui, keybinds, settings);
 
 	const helpers = settingsHelpers;
-	const keybindsSettings = settingsMenu.mountSection('Keybinds', [
-		helpers.toggle(
-			'Show active keys',
-			'',
-			() => settings.showKeycomboActivity,
-			(value) => {
-				settings.showKeycomboActivity = value;
-			},
-			keybindActivityDefaults.showKeycomboActivity,
-		),
-		helpers.toggle(
-			'Show activated keybinds',
-			'',
-			() => settings.showKeybindActivity,
-			(value) => {
-				settings.showKeybindActivity = value;
-			},
-			keybindActivityDefaults.showKeybindActivity,
-		),
-		el.button`btn btn-sm btn-primary search-value`.then((button) => {
-			button.type = 'button';
-			button.textContent = 'Manage keybinds';
-			button.onclick = () => showWindow();
-		}),
-	]);
+	const keybindsSettings = clientSettings
+		.initSection(lifecycle, { category: 'System', name: 'Keybinds' })
+		.append(
+			helpers.toggle(
+				'Show active keys',
+				'',
+				() => settings.showKeycomboActivity,
+				(value) => {
+					settings.showKeycomboActivity = value;
+				},
+				keybindActivityDefaults.showKeycomboActivity,
+			),
+			helpers.toggle(
+				'Show activated keybinds',
+				'',
+				() => settings.showKeybindActivity,
+				(value) => {
+					settings.showKeybindActivity = value;
+				},
+				keybindActivityDefaults.showKeybindActivity,
+			),
+			el.button`btn btn-sm btn-primary search-value`.then((button) => {
+				button.type = 'button';
+				button.textContent = 'Manage keybinds';
+				button.onclick = () => showWindow();
+			}),
+		);
 	lifecycle.onCleanup(storage.subscribe('settings', () => keybindsSettings.refresh()));
 	lifecycle.onCleanup(keybindsSettings.remove);
 

@@ -6,8 +6,12 @@ import { mountSearchBar } from './ui/search';
 
 // #region types
 
-type SettingsRegistry = [namespace: string, title: string, sections: SettingsSection[]][];
-type SettingsSection = { title: string | Element; nodes: SettingsNode[] };
+export type SettingsSectionEntry = {
+	category: string;
+	name: string | Element;
+	nodes: SettingsNode[];
+};
+type SettingsRegistry = SettingsSectionEntry[];
 type SettingsInput = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 export type SettingsNodeOption = { label: string; value: string };
 type SettingsNodeBase<TResetInputs extends SettingsInput[] = SettingsInput[]> = {
@@ -54,61 +58,19 @@ export type SettingsNode =
 const isElementNode = (node: SettingsNode): node is SettingsElementNode =>
 	typeof node === 'object' && node !== null && !(node instanceof Element) && 'element' in node;
 
-type MenuInitOptions = { storage?: ClientStorage };
+export type SettingsSectionOptions = {
+	category: string;
+	name: string | Element;
+	/** Remote changes under this storage refresh the section. */
+	storage?: ClientStorage;
+};
 
-// #region setupPluginApi
-
-const setupPluginApi = (
-	registry: SettingsRegistry,
-	updateVisuals: () => void,
-	openSection: (namespace: string, section?: SettingsSection) => void,
-	pluginNamespace: string,
-	pluginTitle: string,
-) => ({
-	helpers: settingsHelpers,
-	initMenu: (lifecycle: Lifecycle, options?: MenuInitOptions) => {
-		const entry: SettingsRegistry[number] = [pluginNamespace, pluginTitle, []];
-		registry.push(entry);
-		updateVisuals();
-		lifecycle.onCleanup(() => {
-			const namespaceIndex = registry.indexOf(entry);
-			if (namespaceIndex >= 0) registry.splice(namespaceIndex, 1);
-			updateVisuals();
-		});
-		const refresh = () => {
-			for (const section of entry[2]) {
-				for (const node of section.nodes) applySync(node);
-			}
-		};
-		if (options?.storage) {
-			lifecycle.onCleanup(options.storage.subscribe('', () => refresh()));
-		}
-		return {
-			mountSection: (title: SettingsSection['title'], nodes: SettingsNode[]) => {
-				const section: SettingsSection = { title, nodes };
-				entry[2].push(section);
-				updateVisuals();
-				return {
-					section,
-					open: () => openSection(pluginNamespace, section),
-					remove: () => {
-						const index = entry[2].indexOf(section);
-						if (index < 0) return;
-						entry[2].splice(index, 1);
-						updateVisuals();
-					},
-					refresh: () => {
-						for (const node of section.nodes) applySync(node);
-					},
-				};
-			},
-			open: () => openSection(pluginNamespace),
-			refresh,
-		};
-	},
-});
-
-export type SettingsMenu = ReturnType<ReturnType<typeof setupPluginApi>['initMenu']>;
+export type SettingsSection = {
+	append: (...nodes: SettingsNode[]) => SettingsSection;
+	open: () => void;
+	refresh: () => void;
+	remove: () => void;
+};
 
 // #region mountSettingsMenuNode
 
@@ -1383,9 +1345,9 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 
 // #region initSettingsMenu
 
-/** Nav entries stay plain text, so an element title contributes only its text. */
-const sectionTitleText = (title: SettingsSection['title']) =>
-	typeof title === 'string' ? title : (title.textContent ?? '');
+/** Nav entries stay plain text, so an element name contributes only its text. */
+const sectionNameText = (name: SettingsSectionEntry['name']) =>
+	typeof name === 'string' ? name : (name.textContent ?? '');
 
 const syncElementChildren = (parent: Element, children: Element[]): void => {
 	for (const child of children) parent.append(child);
@@ -1399,28 +1361,28 @@ const syncElementChildren = (parent: Element, children: Element[]): void => {
 };
 
 type MountedSettingsSection = {
-	section: SettingsSection;
+	section: SettingsSectionEntry;
 	container: HTMLElement;
 	divider: HTMLElement;
 	navButton: HTMLButtonElement;
 	nodes: Map<SettingsNode, HTMLElement>;
 };
 
-type MountedSettingsPlugin = {
-	namespace: string;
+type MountedSettingsCategory = {
+	category: string;
 	sectionBlock: HTMLElement;
 	navGroup: HTMLElement;
 	heading: HTMLElement;
 	navButton: HTMLButtonElement;
-	sections: Map<SettingsSection, MountedSettingsSection>;
+	sections: Map<SettingsSectionEntry, MountedSettingsSection>;
 };
 
 const setSectionOinkyId = (
-	namespace: string,
+	category: string,
 	container: HTMLElement,
 	sectionIndex: number,
 ): void => {
-	container.setAttribute('oinky', `settings/sections/${namespace}/${sectionIndex}`);
+	container.setAttribute('oinky', `settings/sections/${category}/${sectionIndex}`);
 };
 
 const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
@@ -1439,14 +1401,14 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 	const sectionsContainer = sectionsEl.mount(container, 'sections');
 	const { search } = mountSearchBar(lifecycle, container, sectionsContainer);
 
-	const plugins = new Map<string, MountedSettingsPlugin>();
+	const categories = new Map<string, MountedSettingsCategory>();
 
-	const mountPlugin = (namespace: string, pluginTitle: string): MountedSettingsPlugin => {
-		const orderLast = namespace === 'core/systems';
+	const mountCategory = (category: string): MountedSettingsCategory => {
+		const orderLast = category === 'System';
 		const sectionBlock =
 			el.div`${orderLast ? 'flex flex-col gap-6 order-last' : 'flex flex-col gap-6'}`.mount(
 				sectionsContainer,
-				namespace,
+				category,
 			);
 		sectionBlock.classList.add('search-item');
 		const heading =
@@ -1454,24 +1416,24 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 				sectionBlock,
 				'heading',
 				(header) => {
-					header.textContent = pluginTitle;
+					header.textContent = category;
 				},
 			);
 		const navGroup = el.div`${orderLast ? 'flex flex-col order-last' : 'flex flex-col'}`.mount(
 			navContainer,
-			namespace,
+			category,
 		);
 		const navButton =
 			el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm`.mount(
 				navGroup,
 				'group',
 				(button) => {
-					button.textContent = pluginTitle;
+					button.textContent = category;
 					button.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
 				},
 			);
 		return {
-			namespace,
+			category,
 			sectionBlock,
 			navGroup,
 			heading,
@@ -1481,12 +1443,12 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 	};
 
 	const mountSection = (
-		plugin: MountedSettingsPlugin,
-		section: SettingsSection,
+		category: MountedSettingsCategory,
+		section: SettingsSectionEntry,
 		sectionIndex: number,
 	): MountedSettingsSection => {
 		const container = el.div`flex flex-col gap-2 search-item`.mount(
-			plugin.sectionBlock,
+			category.sectionBlock,
 			String(sectionIndex),
 		);
 		const divider =
@@ -1494,33 +1456,35 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 				container,
 				'divider',
 				(elDivider) => {
-					if (typeof section.title === 'string') {
-						elDivider.textContent = section.title;
+					if (typeof section.name === 'string') {
+						elDivider.textContent = section.name;
 					} else {
-						elDivider.replaceChildren(section.title);
+						elDivider.replaceChildren(section.name);
 					}
 				},
 			);
 		const navButton =
 			el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
-				plugin.navGroup,
+				category.navGroup,
 				String(sectionIndex),
 				(header) => {
-					header.textContent = sectionTitleText(section.title);
+					header.textContent = sectionNameText(section.name);
 					header.onclick = () => container.scrollIntoView({ behavior: 'smooth' });
 				},
 			);
 		return { section, container, divider, navButton, nodes: new Map() };
 	};
 
-	const syncSectionTitle = (mounted: MountedSettingsSection, section: SettingsSection): void => {
-		if (typeof section.title === 'string') {
-			if (mounted.divider.textContent !== section.title)
-				mounted.divider.textContent = section.title;
-		} else if (mounted.divider.firstChild !== section.title) {
-			mounted.divider.replaceChildren(section.title);
+	const syncSectionName = (
+		mounted: MountedSettingsSection,
+		section: SettingsSectionEntry,
+	): void => {
+		if (typeof section.name === 'string') {
+			if (mounted.divider.textContent !== section.name) mounted.divider.textContent = section.name;
+		} else if (mounted.divider.firstChild !== section.name) {
+			mounted.divider.replaceChildren(section.name);
 		}
-		const navText = sectionTitleText(section.title);
+		const navText = sectionNameText(section.name);
 		if (mounted.navButton.textContent !== navText) mounted.navButton.textContent = navText;
 	};
 
@@ -1548,56 +1512,59 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 	};
 
 	const update = () => {
-		const visible = registry.filter(([, , sections]) => sections.length > 0);
-		const visibleNamespaces = new Set(visible.map(([namespace]) => namespace));
-		for (const [namespace, plugin] of plugins) {
-			if (visibleNamespaces.has(namespace)) continue;
-			plugin.sectionBlock.remove();
-			plugin.navGroup.remove();
-			plugins.delete(namespace);
+		const grouped = new Map<string, SettingsSectionEntry[]>();
+		for (const entry of registry) {
+			const list = grouped.get(entry.category);
+			if (list) list.push(entry);
+			else grouped.set(entry.category, [entry]);
+		}
+		const ordered = [...grouped.keys()].sort((a, b) => a.localeCompare(b));
+
+		for (const [category, mounted] of categories) {
+			if (grouped.has(category)) continue;
+			mounted.sectionBlock.remove();
+			mounted.navGroup.remove();
+			categories.delete(category);
 		}
 
 		const sectionBlocks: HTMLElement[] = [];
 		const navGroups: HTMLElement[] = [];
 
-		for (const [namespace, pluginTitle, sections] of visible) {
-			let plugin = plugins.get(namespace);
-			if (!plugin) {
-				plugin = mountPlugin(namespace, pluginTitle);
-				plugins.set(namespace, plugin);
-			} else {
-				if (plugin.heading.textContent !== pluginTitle) plugin.heading.textContent = pluginTitle;
-				if (plugin.navButton.textContent !== pluginTitle)
-					plugin.navButton.textContent = pluginTitle;
+		for (const categoryName of ordered) {
+			const sections = grouped.get(categoryName) ?? [];
+			let category = categories.get(categoryName);
+			if (!category) {
+				category = mountCategory(categoryName);
+				categories.set(categoryName, category);
 			}
 
-			const seenSections = new Set<SettingsSection>();
-			const sectionContainers: HTMLElement[] = [plugin.heading];
-			const navButtons: HTMLElement[] = [plugin.navButton];
+			const seenSections = new Set<SettingsSectionEntry>();
+			const sectionContainers: HTMLElement[] = [category.heading];
+			const navButtons: HTMLElement[] = [category.navButton];
 			sections.forEach((section, sectionIndex) => {
 				seenSections.add(section);
-				let mountedSection = plugin.sections.get(section);
+				let mountedSection = category.sections.get(section);
 				if (!mountedSection) {
-					mountedSection = mountSection(plugin, section, sectionIndex);
-					plugin.sections.set(section, mountedSection);
+					mountedSection = mountSection(category, section, sectionIndex);
+					category.sections.set(section, mountedSection);
 				} else {
-					setSectionOinkyId(plugin.namespace, mountedSection.container, sectionIndex);
-					syncSectionTitle(mountedSection, section);
+					setSectionOinkyId(category.category, mountedSection.container, sectionIndex);
+					syncSectionName(mountedSection, section);
 				}
 				syncSectionNodes(mountedSection, section.nodes);
 				sectionContainers.push(mountedSection.container);
 				navButtons.push(mountedSection.navButton);
 			});
-			for (const [section, mountedSection] of plugin.sections) {
+			for (const [section, mountedSection] of category.sections) {
 				if (seenSections.has(section)) continue;
 				mountedSection.container.remove();
 				mountedSection.navButton.remove();
-				plugin.sections.delete(section);
+				category.sections.delete(section);
 			}
-			syncElementChildren(plugin.sectionBlock, sectionContainers);
-			syncElementChildren(plugin.navGroup, navButtons);
-			sectionBlocks.push(plugin.sectionBlock);
-			navGroups.push(plugin.navGroup);
+			syncElementChildren(category.sectionBlock, sectionContainers);
+			syncElementChildren(category.navGroup, navButtons);
+			sectionBlocks.push(category.sectionBlock);
+			navGroups.push(category.navGroup);
 		}
 
 		syncElementChildren(sectionsContainer, sectionBlocks);
@@ -1694,29 +1661,59 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		showSettingsWindow();
 	};
 
-	const openSection = (namespace: string, section?: SettingsSection) => {
+	const openSection = (entry: SettingsSectionEntry) => {
 		showSettingsWindow();
-		const namespaceIndex = registry.findIndex(([ns]) => ns === namespace);
-		if (namespaceIndex < 0) return;
-		const sectionIndex = section ? registry[namespaceIndex][2].indexOf(section) : -1;
-		const oinkyId =
-			sectionIndex < 0
-				? `settings/sections/${namespace}`
-				: `settings/sections/${namespace}/${sectionIndex}`;
+		const sections = registry.filter((section) => section.category === entry.category);
+		const sectionIndex = sections.indexOf(entry);
+		if (sectionIndex < 0) return;
+		const oinkyId = `settings/sections/${entry.category}/${sectionIndex}`;
 		settingsMenu.sectionsContainer
 			.querySelector(`[oinky="${oinkyId}"]`)
 			?.scrollIntoView({ behavior: 'smooth' });
 	};
 
+	const initSection = (
+		sectionLifecycle: Lifecycle,
+		options: SettingsSectionOptions,
+	): SettingsSection => {
+		const entry: SettingsSectionEntry = {
+			category: options.category,
+			name: options.name,
+			nodes: [],
+		};
+		registry.push(entry);
+		updateVisuals();
+		const remove = () => {
+			const index = registry.indexOf(entry);
+			if (index < 0) return;
+			registry.splice(index, 1);
+			updateVisuals();
+		};
+		sectionLifecycle.onCleanup(remove);
+		const refresh = () => {
+			for (const node of entry.nodes) applySync(node);
+		};
+		if (options.storage) {
+			sectionLifecycle.onCleanup(options.storage.subscribe('', () => refresh()));
+		}
+		const section: SettingsSection = {
+			append: (...nodes) => {
+				entry.nodes.push(...nodes);
+				updateVisuals();
+				return section;
+			},
+			open: () => openSection(entry),
+			refresh,
+			remove,
+		};
+		return section;
+	};
+
 	return {
-		registry,
-		settingsMenu,
+		helpers: settingsHelpers,
+		initSection,
 		get settingsWindow() {
 			return settingsWindow;
 		},
-		setupPluginApi: (namespace: string, title: string) =>
-			setupPluginApi(registry, updateVisuals, openSection, namespace, title),
-		setupSystemApi: () =>
-			setupPluginApi(registry, updateVisuals, openSection, 'core/systems', 'System'),
 	};
 };

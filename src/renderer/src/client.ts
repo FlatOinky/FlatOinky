@@ -21,6 +21,7 @@ import { initLogging, type Logger, type LogLevel, type LogMethod } from './clien
 import { initTimers, type ClientTimers } from './client/timers';
 import type { Alerts } from './client/alerts';
 import { createPluginKeybinds, type Keybinds } from './client/keybinds';
+import { migratePlugins } from './client/plugin_migrations';
 import { initProfiles } from './client/profiles';
 import { initSettings, ClientSettings } from './client/settings';
 import { initSystems } from './client/systems';
@@ -154,7 +155,10 @@ const createPluginContext = async (
 	return {
 		...context,
 		log: createLogger(title),
-		settings: settings.setupPluginApi(namespace, title),
+		settings: {
+			helpers: settings.helpers,
+			initSection: settings.initSection,
+		},
 		storages: await createPluginStorages(namespace, lifecycle),
 		collections: createPluginCollections(namespace) as PluginCollections,
 		keybinds: createPluginKeybinds(context.keybinds, namespace, title),
@@ -256,6 +260,8 @@ export type Plugin = {
 	namespace: string;
 	name: string;
 	description?: string;
+	/** Used when the profile has no stored enabled flag. Defaults to true. */
+	enabledByDefault?: boolean;
 	/** Rebuild the plugin when another window changes its storage. */
 	onRemoteSettings?: 'restart';
 	init: (
@@ -354,7 +360,11 @@ const initPlugins = (
 		for (const listener of listeners) listener();
 	};
 
-	const isEnabled = (namespace: string) => pluginsStorage.get(['enabled', namespace]) !== false;
+	const isEnabled = (namespace: string) => {
+		const stored = pluginsStorage.get(['enabled', namespace]);
+		if (typeof stored === 'boolean') return stored;
+		return registry[namespace]?.enabledByDefault ?? true;
+	};
 
 	const exclusiveTasks = new Map<string, Promise<void>>();
 	const runExclusive = (namespace: string, task: () => Promise<void>): Promise<void> => {
@@ -452,6 +462,7 @@ const initPlugins = (
 	};
 
 	const startEnabled = async () => {
+		await migratePlugins(lifecycle, pluginsStorage);
 		for (const namespace of Object.keys(registry)) {
 			if (!isEnabled(namespace)) continue;
 			await startPlugin(namespace);

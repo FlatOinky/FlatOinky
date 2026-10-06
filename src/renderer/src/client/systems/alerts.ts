@@ -7,7 +7,7 @@ import {
 	type Alerts,
 	type AlertToastDismiss,
 } from '../alerts';
-import type { SettingsMenu } from '../settings';
+import type { ClientSettings } from '../settings';
 import { settingsHelpers } from '../settings';
 import type { ClientStorage } from '../client_storage';
 import type { ClientUI } from '../ui';
@@ -89,7 +89,7 @@ export const initAlertsSystem = (
 	lifecycle: Lifecycle,
 	ui: ClientUI,
 	alerts: Alerts,
-	settingsMenu: SettingsMenu,
+	settings: ClientSettings,
 	storage: ClientStorage,
 ): void => {
 	const sendTest = () => alerts.send('Test', { message: 'This is a test alert' });
@@ -160,7 +160,7 @@ export const initAlertsSystem = (
 	);
 	tray.volumeInput.dispatchEvent(new Event('input'));
 
-	const alertsMenu = settingsMenu.mountSection('Alerts', [
+	const alertsMenu = settings.initSection(lifecycle, { category: 'System', name: 'Alerts' }).append(
 		controls,
 		helpers.text({
 			label: 'Alert custom sound',
@@ -257,7 +257,7 @@ export const initAlertsSystem = (
 			max: 30,
 			step: 1,
 		}),
-	]);
+	);
 	lifecycle.onCleanup(storage.subscribe('', () => alertsMenu.refresh()));
 	lifecycle.onCleanup(alertsMenu.remove);
 };

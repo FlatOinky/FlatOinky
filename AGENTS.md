@@ -109,8 +109,8 @@ characters, character↔profile mappings, per-scope `*_settings` documents keyed
 `context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
 `<name>` for client internals — including `client`, `updater`, `notifications`
 (alerts; namespace name kept for compatibility),
-`logging`, `devtools`, `keybinds`, and `plugins` for the per-profile enabled-plugin map; settings
-sections for always-on systems use `core/systems`), and per-scope append-only
+`logging`, `devtools`, `keybinds`, and `plugins` for the per-profile enabled-plugin map; client
+settings group sections by category, with always-on systems under `System`), and per-scope append-only
 `*_collections` rows keyed the same way (plugins fold a collection name into the
 namespace as `oinky/<name>/<collection>`). `client`, `notifications` (alerts), `logging`,
 `keybinds`, and
