@@ -1,5 +1,6 @@
 import mustache from 'mustache';
 import windowFrameTemplate from './windows/window_frame.html?raw';
+import toolbarFrameTemplate from './windows/toolbar_frame.html?raw';
 import { initElement } from './ui_utils';
 import { Lifecycle } from '../../client';
 import { ClientStorage } from '../client_storage';
@@ -143,6 +144,31 @@ type WindowOptions = {
 	lockable?: boolean;
 };
 
+type ToolbarEdge = 'left' | 'right' | 'top' | 'bottom';
+
+type ToolbarWindowOptions = WindowOptions & {
+	grabberEdge?: ToolbarEdge;
+};
+
+type GeometryDragHandler = (
+	element: HTMLElement,
+	mode: 'move' | 'resize',
+	onDelta: (x: number, y: number) => void,
+	mouseDownCallback?: () => void,
+	mouseUpCallback?: () => void,
+) => void;
+
+type WindowVariant = {
+	html: string;
+	attributes?: Record<string, string>;
+	prepare?: (ctx: {
+		frame: HTMLElement;
+		state: WindowState;
+		defaultState: WindowState;
+		handleGeometryDrag: GeometryDragHandler;
+	}) => void;
+};
+
 export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: TaskbarApi) => {
 	const container = document.createElement('section');
 	container.setAttribute('oinky', 'windows');
@@ -183,7 +209,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	// #region > utils
 
 	// #region > windowFrame
-	const initWindow = (lifecycle: Lifecycle, options: WindowOptions) => {
+	const setupWindow = (lifecycle: Lifecycle, options: WindowOptions, variant: WindowVariant) => {
 		const { id, title, storage, onPreMount, onVisible, icon } = options;
 		const lockable = options.lockable !== false;
 		const defaultWindowState: WindowState = {
@@ -206,7 +232,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		windowFrame.setAttribute('oinky-window-id', id);
 		windowFrame.className =
 			'absolute rounded-box overflow-hidden min-h-min min-w-min not-locked-window:bg-base-100/(--oinky-window-opacity) locked-window:bg-base-100/(--oinky-window-locked-opacity)';
-		windowFrame.innerHTML = renderWindowFrame(id, title);
+		windowFrame.innerHTML = variant.html;
+		if (variant.attributes) {
+			for (const [name, value] of Object.entries(variant.attributes)) {
+				windowFrame.setAttribute(name, value);
+			}
+		}
 
 		const windowBody = windowFrame.querySelector<HTMLDivElement>('[oinky-window-area="body"]');
 		if (!windowBody) {
@@ -224,7 +255,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			if (focusedId === id) focusedId = undefined;
 		});
 
-		const handleGeometryDrag = (
+		const handleGeometryDrag: GeometryDragHandler = (
 			element: HTMLElement,
 			mode: 'move' | 'resize',
 			onDelta: (x: number, y: number) => void,
@@ -306,69 +337,6 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 				},
 			);
 		};
-
-		const handleFrameEdgeDrag = (
-			windowEdge: HTMLElement,
-			callback: (x: number, y: number) => void,
-		) => handleGeometryDrag(windowEdge, 'resize', callback);
-		const frameEdges = windowFrame.querySelectorAll<HTMLDivElement>('div[oinky-window-edge]');
-		frameEdges.forEach((windowEdge) => {
-			const position = windowEdge.getAttribute('oinky-window-edge');
-			switch (position) {
-				case 'top-left': {
-					return handleFrameEdgeDrag(windowEdge, (x, y) => {
-						windowState.height = windowState.height - y;
-						windowState.width = windowState.width - x;
-						windowState.top = windowState.top + y;
-						windowState.left = windowState.left + x;
-					});
-				}
-				case 'top-center': {
-					return handleFrameEdgeDrag(windowEdge, (_x, y) => {
-						windowState.height = windowState.height - y;
-						windowState.top = windowState.top + y;
-					});
-				}
-				case 'top-right': {
-					return handleFrameEdgeDrag(windowEdge, (x, y) => {
-						windowState.height = windowState.height - y;
-						windowState.width = windowState.width + x;
-						windowState.top = windowState.top + y;
-					});
-				}
-				case 'middle-left': {
-					return handleFrameEdgeDrag(windowEdge, (x, _y) => {
-						windowState.width = windowState.width - x;
-						windowState.left = windowState.left + x;
-					});
-				}
-				case 'middle-right': {
-					return handleFrameEdgeDrag(windowEdge, (x, _y) => {
-						windowState.width = windowState.width + x;
-					});
-				}
-				case 'bottom-left': {
-					return handleFrameEdgeDrag(windowEdge, (x, y) => {
-						windowState.height = windowState.height + y;
-						windowState.width = windowState.width - x;
-						windowState.left = windowState.left + x;
-					});
-				}
-				case 'bottom-center': {
-					return handleFrameEdgeDrag(windowEdge, (_x, y) => {
-						windowState.height = windowState.height + y;
-					});
-				}
-				case 'bottom-right': {
-					return handleFrameEdgeDrag(windowEdge, (x, y) => {
-						windowState.height = windowState.height + y;
-						windowState.width = windowState.width + x;
-					});
-				}
-				default:
-					return;
-			}
-		});
 
 		const frameDraggables = windowFrame.querySelectorAll<HTMLDivElement>('div[oinky-window-drag]');
 		frameDraggables.forEach((windowDraggable) => {
@@ -525,6 +493,13 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			};
 		});
 
+		variant.prepare?.({
+			frame: windowFrame,
+			state: windowState,
+			defaultState: defaultWindowState,
+			handleGeometryDrag,
+		});
+
 		onPreMount?.({ state: windowState, body: windowBody, frame: windowFrame });
 		updateWindowFrame(windowFrame, windowState);
 		container.appendChild(windowFrame);
@@ -559,9 +534,95 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		return api;
 	};
 
+	const initWindow = (lifecycle: Lifecycle, options: WindowOptions) => {
+		return setupWindow(lifecycle, options, {
+			html: renderWindowFrame(options.id, options.title),
+			prepare: ({ frame, state, handleGeometryDrag }) => {
+				const handleFrameEdgeDrag = (
+					windowEdge: HTMLElement,
+					callback: (x: number, y: number) => void,
+				) => handleGeometryDrag(windowEdge, 'resize', callback);
+				const frameEdges = frame.querySelectorAll<HTMLDivElement>('div[oinky-window-edge]');
+				frameEdges.forEach((windowEdge) => {
+					const position = windowEdge.getAttribute('oinky-window-edge');
+					switch (position) {
+						case 'top-left': {
+							return handleFrameEdgeDrag(windowEdge, (x, y) => {
+								state.height = state.height - y;
+								state.width = state.width - x;
+								state.top = state.top + y;
+								state.left = state.left + x;
+							});
+						}
+						case 'top-center': {
+							return handleFrameEdgeDrag(windowEdge, (_x, y) => {
+								state.height = state.height - y;
+								state.top = state.top + y;
+							});
+						}
+						case 'top-right': {
+							return handleFrameEdgeDrag(windowEdge, (x, y) => {
+								state.height = state.height - y;
+								state.width = state.width + x;
+								state.top = state.top + y;
+							});
+						}
+						case 'middle-left': {
+							return handleFrameEdgeDrag(windowEdge, (x, _y) => {
+								state.width = state.width - x;
+								state.left = state.left + x;
+							});
+						}
+						case 'middle-right': {
+							return handleFrameEdgeDrag(windowEdge, (x, _y) => {
+								state.width = state.width + x;
+							});
+						}
+						case 'bottom-left': {
+							return handleFrameEdgeDrag(windowEdge, (x, y) => {
+								state.height = state.height + y;
+								state.width = state.width - x;
+								state.left = state.left + x;
+							});
+						}
+						case 'bottom-center': {
+							return handleFrameEdgeDrag(windowEdge, (_x, y) => {
+								state.height = state.height + y;
+							});
+						}
+						case 'bottom-right': {
+							return handleFrameEdgeDrag(windowEdge, (x, y) => {
+								state.height = state.height + y;
+								state.width = state.width + x;
+							});
+						}
+						default:
+							return;
+					}
+				});
+			},
+		});
+	};
+
+	const initToolbarWindow = (lifecycle: Lifecycle, options: ToolbarWindowOptions) => {
+		const grabberEdge = options.grabberEdge ?? 'left';
+		return setupWindow(lifecycle, options, {
+			html: toolbarFrameTemplate,
+			attributes: {
+				'oinky-window-kind': 'toolbar',
+				'oinky-toolbar-edge': grabberEdge,
+			},
+			prepare: ({ state, defaultState }) => {
+				state.width = defaultState.width;
+				state.height = defaultState.height;
+			},
+		});
+	};
+
 	return {
 		container,
 		initWindow,
+		initToolbarWindow,
 		getFocusedWindow,
 		isOpen: (storage: ClientStorage, id: string): boolean => {
 			const state = storage.get(`window/${id}`);

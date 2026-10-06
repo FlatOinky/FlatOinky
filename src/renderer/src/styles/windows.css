@@ -87,3 +87,63 @@ article[oinky-window] [oinky-window-edge='bottom-right'] {
 	grid-area: bottom-right;
 	cursor: se-resize;
 }
+
+article[oinky-window][oinky-window-kind='toolbar'] {
+	/* Same thickness as an empty locked-window edge track. */
+	padding: var(--spacing);
+	grid-template-rows: minmax(0, 1fr);
+	grid-template-columns: min-content minmax(0, 1fr);
+	grid-template-areas: 'toolbar body';
+}
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='right'] {
+	grid-template-columns: minmax(0, 1fr) min-content;
+	grid-template-areas: 'body toolbar';
+}
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='top'] {
+	grid-template-rows: min-content minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-areas:
+		'toolbar'
+		'body';
+}
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='bottom'] {
+	grid-template-rows: minmax(0, 1fr) min-content;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-areas:
+		'body'
+		'toolbar';
+}
+article[oinky-window][oinky-window-kind='toolbar'] [oinky-window-area='toolbar'] {
+	grid-area: toolbar;
+}
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='left'] [oinky-window-area='toolbar'],
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='right'] [oinky-window-area='toolbar'] {
+	flex-direction: column;
+}
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='top'] [oinky-window-area='toolbar'],
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='bottom'] [oinky-window-area='toolbar'] {
+	flex-direction: row;
+}
+article[oinky-window][oinky-window-kind='toolbar'] [oinky-window-grabber] {
+	background-image: radial-gradient(
+		circle,
+		color-mix(in oklab, var(--color-base-content) 45%, transparent) 0.75px,
+		transparent 1.25px
+	);
+	background-size: calc(var(--spacing) * 1.5) calc(var(--spacing) * 1.5);
+	border-radius: calc(var(--radius-box) / 4);
+}
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='left'] [oinky-window-grabber],
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='right'] [oinky-window-grabber] {
+	width: calc(var(--spacing) * 2);
+	min-height: calc(var(--spacing) * 6);
+}
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='top'] [oinky-window-grabber],
+article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='bottom'] [oinky-window-grabber] {
+	height: calc(var(--spacing) * 2);
+	min-width: calc(var(--spacing) * 6);
+}
+article[oinky-window][oinky-window-kind='toolbar'][locked-window] [oinky-window-grabber] {
+	opacity: 0.2;
+	cursor: default;
+}

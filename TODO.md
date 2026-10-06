@@ -134,34 +134,6 @@ an update button. Trusted scripts will get updated automatically.
 
 Add support for div based window titles. Allows plugins to add additional information as well as completely change the appearance and potentially add interactions (opt-in interactions due to container `point-events-none`).
 
-# Toolbar Window
-
-A thin framed non-resizable window with a grabber for positioning.
-
-- Frame thin; thin like a locked window frame
-- grabber can be positioned on any one edge of the window
-- grabber is a thin div with a textured repeating pattern
-
-```
-┌───┬──────────────────────────┐
-│ X │                          │
-│ G │                          │
-│ G │       Content            │
-│ G │                          │
-│ L │                          │
-└───┴──────────────────────────┘
-```
-
-The above represents the standard left edge toolbar window with a close button, a grabber, and content.
-
-- X: Close button
-- G: Grabber
-- L: Lock
-
-## implementing
-
-to implement these new window types, we just need to split 1 function into 3. The original setup for what will be sharded between the two others, the standard window init, and the toolbar window init. They should share the rest of the functionality and be no different besides behavior and visuals.
-
 # Adapter Plugin
 
 Adapts some functionality from FlatMMO for use in FlatOinky.

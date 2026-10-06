@@ -195,6 +195,13 @@ onEnabledChange?, mountHeaderExtras? })` builds a per-cue `AlertScope` card.
      `WindowState` (including `open`) under `window/${id}`; `windows.isOpen(storage, id)`
      reads that flag before the window exists. `open` is cleared on user close, not when
      a plugin lifecycle tears the window down (so settings restarts can restore it).
+     `windows.initToolbarWindow(lifecycle, { ..., grabberEdge? })` is the same window
+     with a thin frame and no resize edges. `grabberEdge` (`left` by default, or
+     `right` / `top` / `bottom`) places the close, grabber, and lock strip and is fixed
+     at init. Width and height come from `initialState` on every open, so a persisted
+     size does not stick; change `state.width` / `state.height` and call
+     `updateWindowFramePosition()` to resize at runtime. `open` and `isOpen` match
+     `initWindow`.
    - `graphs.mountLineGraph` and helpers from `ui_utils`
 6. **IPC** — `context.ipc.saveFile(filename, contents)` for save-as dialogs. Do not
    import `ipcRenderer` from plugins.
