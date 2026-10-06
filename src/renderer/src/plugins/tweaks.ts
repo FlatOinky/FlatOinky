@@ -44,28 +44,60 @@ const initDynamicCanvas = (lifecycle: Lifecycle, canvas: HTMLCanvasElement): Lif
 	const canvasMargin = canvas.style.margin;
 	canvas.style.display = 'block';
 	canvas.style.margin = '0 auto';
+	const taskbar = canvas.parentElement?.querySelector<HTMLElement>('[oinky="taskbar"]') ?? null;
+	const taskbarLeft = taskbar?.style.left ?? '';
+	const taskbarWidth = taskbar?.style.width ?? '';
 	dynamicCanvasLifecycle.onCleanup(() => {
 		canvas.style.display = canvasDisplay;
 		canvas.style.margin = canvasMargin;
+		if (!taskbar) return;
+		taskbar.style.left = taskbarLeft;
+		taskbar.style.width = taskbarWidth;
 	});
 
 	const applyCanvasSize = () => {
 		// Minimize reports a 0×0 viewport. Measuring then would pin the canvas
 		// at MIN_SCALE until the next real resize.
 		if (document.hidden || window.innerWidth < 1 || window.innerHeight < 1) return;
-		// The canvas sits in the right column of the game table; its rect
-		// left/top reflect the UI panel width and topbar height, which stay
-		// stable when the canvas column resizes (so this is not circular).
-		const rect = canvas.getBoundingClientRect();
-		const availWidth = window.innerWidth - rect.left - EDGE_MARGIN;
-		const availHeight = window.innerHeight - rect.top - TASKBAR_HEIGHT - EDGE_MARGIN;
-		const scale = Math.max(
-			MIN_SCALE,
-			Math.min(availWidth / CANVAS_WIDTH, availHeight / CANVAS_HEIGHT),
-		);
-		canvas.style.width = `${CANVAS_WIDTH * scale}px`;
-		canvas.style.height = `${CANVAS_HEIGHT * scale}px`;
+		// The canvas is block + margin auto, so a maximize that widens the
+		// cell before the canvas grows centers the old canvas and inflates
+		// rect.left. Subtract that slack so the column's content edge is
+		// what limits the scale. Top stays the canvas top (the cell is
+		// valign=top; the top bar, not centering, sets it).
+		// Growing the canvas also gives the table's left column back to its
+		// content width, which frees more horizontal room. A drag does that
+		// one pixel at a time; maximize only gets two events, so settle here.
+		let scale = MIN_SCALE;
+		for (let pass = 0; pass < 4; pass++) {
+			const rect = canvas.getBoundingClientRect();
+			const host = canvas.parentElement;
+			const slack = host ? Math.max(0, (host.clientWidth - rect.width) / 2) : 0;
+			const columnLeft = rect.left - slack;
+			// innerWidth includes the vertical scrollbar gutter. The left panel
+			// is 700px tall, so a short window keeps that scrollbar up and the
+			// gutter covers the canvas and menu button.
+			const viewWidth = document.documentElement.clientWidth;
+			const viewHeight = document.documentElement.clientHeight;
+			const availWidth = viewWidth - columnLeft - EDGE_MARGIN;
+			const availHeight = viewHeight - rect.top - TASKBAR_HEIGHT - EDGE_MARGIN;
+			scale = Math.max(
+				MIN_SCALE,
+				Math.min(availWidth / CANVAS_WIDTH, availHeight / CANVAS_HEIGHT),
+			);
+			const nextWidth = CANVAS_WIDTH * scale;
+			canvas.style.width = `${nextWidth}px`;
+			canvas.style.height = `${CANVAS_HEIGHT * scale}px`;
+			if (Math.abs(nextWidth - rect.width) < 0.5 && slack < 1) break;
+		}
 		canvas_scale = scale;
+		// The bar is width 100% of the cell. Once height limits the scale the
+		// cell is wider than the canvas and margin auto centers the canvas,
+		// so match the bar to the canvas box instead of the cell.
+		if (taskbar) {
+			canvas.getBoundingClientRect();
+			taskbar.style.left = `${canvas.offsetLeft}px`;
+			taskbar.style.width = `${canvas.offsetWidth}px`;
+		}
 		window.position_chat?.();
 	};
 
