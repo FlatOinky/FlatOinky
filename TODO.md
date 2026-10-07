@@ -1,5 +1,15 @@
 A list of things to fix or do. When the work for these items is complete, update the TODO.md file to reflect the changes.
 
+# Profiles, Plugins, and Settings Window Merge
+
+Currently profiles & plugins live in a separate window from client settings. The plan is to merge the two into one single window which can open up to specific settings tab, settings sections (like it already can), plugins tab, or profiles tab. One window, three tabs with icons on the left.
+
+## Visuals
+
+The idea is to make the window essentially follow the visuals from https://daisyui.com/components/tab/#radio-tabs-lift-with-icons--tab-content.
+
+The implementation doesn't need to match 100%, but this is the idea. I'll add an image for this when prompting, and if I don't make a request for one before continuing.
+
 # Tooltips
 
 A new `tooltip: items` plugin which adds information to the hover tooltip of items.
