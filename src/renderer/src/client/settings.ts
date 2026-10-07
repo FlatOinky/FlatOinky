@@ -1586,11 +1586,24 @@ const TAB_TITLE: Record<ClientWindowTab, string> = {
 	settings: 'Client settings',
 };
 
+const mountSettingsChrome = (frame: HTMLElement, tablist: HTMLElement, panels: HTMLElement) => {
+	const body = frame.querySelector<HTMLElement>('[oinky-window-area="body"]');
+	body?.replaceChildren(panels);
+
+	const titlebar = frame.querySelector<HTMLElement>('[oinky-window-area="titlebar"]');
+	if (!titlebar) return;
+	titlebar.querySelector('[oinky-window="title"]')?.parentElement?.remove();
+	const drag = titlebar.querySelector<HTMLElement>('[oinky-window-drag]');
+	if (drag) titlebar.insertBefore(tablist, drag);
+	else titlebar.prepend(tablist);
+};
+
 const initSettingsWindow = (
 	parentLifecycle: Lifecycle,
 	ui: ClientUi,
 	storage: ClientStorage,
-	body: HTMLElement,
+	tablist: HTMLElement,
+	panels: HTMLElement,
 	title: string,
 	onVisible?: () => void,
 ) => {
@@ -1603,33 +1616,32 @@ const initSettingsWindow = (
 		lockable: false,
 		onVisible,
 	});
-	window.body.replaceChildren(body);
+	mountSettingsChrome(window.frame, tablist, panels);
 
 	return { window, lifecycle };
 };
 
 const initClientWindowTabs = () => {
-	const tabs = el.div`tabs tabs-lift h-full min-h-0`.element;
-	tabs.style.setProperty('--tabs-height', '100%');
+	const tablist =
+		el.div`tabs tabs-box tabs-xs shrink-0 bg-transparent gap-1 border-none shadow-none`.element;
+	const panels = el.div`h-full min-h-0`.element;
 
 	const mountTab = (id: ClientWindowTab, label: string, icon: typeof el.icon.puzzle) => {
-		const tab = el.label`tab`.mount(tabs, `${id}-tab`);
+		const tab = el.label`tab`.mount(tablist, `${id}-tab`);
 		const radio = el.input.radio``.mount(tab, 'input');
 		radio.name = TAB_GROUP;
 		icon`size-4 me-2`.mount(tab, 'icon');
 		el.span``.mount(tab, 'label', (span) => {
 			span.textContent = label;
 		});
-		const panel = el.div`tab-content bg-base-100 border-base-300 overflow-hidden`.mount(
-			tabs,
-			`${id}-panel`,
-		);
+		const panel = el.div`h-full min-h-0 overflow-hidden`.mount(panels, `${id}-panel`);
 		return { radio, panel };
 	};
 
 	const profiles = mountTab('profiles', 'Profiles & Plugins', el.icon.puzzle);
 	const settings = mountTab('settings', 'Settings', el.icon.settings);
-	return { tabs, profiles, settings };
+	profiles.panel.classList.add('hidden');
+	return { tablist, panels, profiles, settings };
 };
 
 // #region initSettings
@@ -1662,8 +1674,8 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		if (!force && !dirty) return;
 		dirty = false;
 		settingsMenu.update();
-		if (settingsWindow && clientTabs.tabs.parentElement !== settingsWindow.window.body) {
-			settingsWindow.window.body.replaceChildren(clientTabs.tabs);
+		if (settingsWindow && clientTabs.panels.parentElement !== settingsWindow.window.body) {
+			mountSettingsChrome(settingsWindow.window.frame, clientTabs.tablist, clientTabs.panels);
 		}
 	};
 
@@ -1679,7 +1691,8 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 			lifecycle,
 			ui,
 			storage,
-			clientTabs.tabs,
+			clientTabs.tablist,
+			clientTabs.panels,
 			TAB_TITLE[activeTab],
 			() => flushVisuals(),
 		);
@@ -1691,6 +1704,8 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		activeTab = tab;
 		const radio = tab === 'profiles' ? clientTabs.profiles.radio : clientTabs.settings.radio;
 		radio.checked = true;
+		clientTabs.profiles.panel.classList.toggle('hidden', tab !== 'profiles');
+		clientTabs.settings.panel.classList.toggle('hidden', tab !== 'settings');
 		settingsWindow?.window.setTitle(TAB_TITLE[tab]);
 		if (tab === 'settings') flushVisuals(true);
 	};

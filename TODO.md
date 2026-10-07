@@ -2,7 +2,7 @@ A list of things to fix or do. When the work for these items is complete, update
 
 # Profiles, Plugins, and Settings Window Merge
 
-Done. Profiles & Plugins and Client settings share one window (id `settings`) with DaisyUI tabs. The taskbar puzzle button opens the Profiles & Plugins tab; the gear button opens Settings. If that tab is already visible, the click does nothing. The window title and taskbar tooltip follow the active tab via `setTitle`.
+Done. Profiles & Plugins and Client settings share one window (id `settings`). The tabs sit in the titlebar and the frame stays translucent. The taskbar puzzle button opens the Profiles & Plugins tab; the gear button opens Settings. If that tab is already visible, the click does nothing. The taskbar tooltip follows the active tab via `setTitle`.
 
 # Tooltips
 
