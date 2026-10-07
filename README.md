@@ -52,7 +52,7 @@ A desktop application for Flat MMO
 
 #### Monitor
 
-- Per-cue desktop notifications, sound, screen flash, and toast, under Audio Cues in Client settings
+- Per-cue desktop notifications, sound, screen flash, and toast, under Audio Cues in Plugin Settings
 - Listens for
   - Gem Drop
   - Falling Tree
@@ -87,7 +87,7 @@ A desktop application for Flat MMO
 - Checks for a new version on launch (Windows and Linux)
 - Downloads only when you ask it to, then installs on restart
 - Optionally download updates automatically as soon as one is found
-- Opt-in beta channel under Client settings -> System -> Updates
+- Opt-in beta channel under System Settings -> Updates
 
 ### Planned Features
 
@@ -141,7 +141,7 @@ applying.
 
 Flat Oinky checks for a new version on launch and offers it; nothing downloads
 until you click. Stable and beta are separate tracks, and beta builds are only
-offered if 'Receive Beta Updates' is on under Client settings -> System -> Updates.
+offered if 'Receive Beta Updates' is on under System Settings -> Updates.
 If an update ever fails, the reason is in `logs/main.log` inside the user data
 folder (window: `%APPDATA%`, linux: `~/.config`).
 

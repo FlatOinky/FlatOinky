@@ -40,8 +40,8 @@ export const initWindowsSystem = (
 	lifecycle.onCleanup(() => ui.root.style.removeProperty(LOCKED_OPACITY_PROPERTY));
 
 	const helpers = settingsHelpers;
-	const windowsMenu = clientSettings
-		.initSection(lifecycle, { category: 'System', name: 'Windows' })
+	const windowsMenu = clientSettings.systemSettings
+		.initSection(lifecycle, { name: 'Windows' })
 		.append(
 			helpers.numberSlider({
 				label: 'Base Opacity',

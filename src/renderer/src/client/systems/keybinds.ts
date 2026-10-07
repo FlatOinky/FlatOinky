@@ -64,8 +64,8 @@ export const initKeybindsSystem = (
 	initKeybindActivity(lifecycle, ui, keybinds, settings);
 
 	const helpers = settingsHelpers;
-	const keybindsSettings = clientSettings
-		.initSection(lifecycle, { category: 'System', name: 'Keybinds' })
+	const keybindsSettings = clientSettings.systemSettings
+		.initSection(lifecycle, { name: 'Keybinds' })
 		.append(
 			helpers.toggle(
 				'Show active keys',
@@ -88,17 +88,17 @@ export const initKeybindsSystem = (
 			el.button`btn btn-sm btn-primary search-value`.then((button) => {
 				button.type = 'button';
 				button.textContent = 'Manage keybinds';
-				button.onclick = () => showWindow();
+				button.onclick = () => clientSettings.openTab('keybinds');
 			}),
 		);
 	lifecycle.onCleanup(storage.subscribe('settings', () => keybindsSettings.refresh()));
 	lifecycle.onCleanup(keybindsSettings.remove);
 
 	const container =
-		el.div`grid grid-cols-[minmax(128px,max-content)_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`
+		el.div`grid grid-cols-[192px_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`
 			.element;
 	const navContainer =
-		el.div`row-span-2 flex flex-col gap-2 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box overflow-y-auto overflow-x-hidden`.mount(
+		el.div`row-span-2 flex flex-col gap-2 p-1 min-w-0 w-full bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box overflow-y-auto overflow-x-hidden`.mount(
 			container,
 			'nav',
 		);
@@ -327,19 +327,10 @@ export const initKeybindsSystem = (
 
 	let dirty = true;
 	let renderScheduled = false;
-	let keybindsWindow:
-		| {
-				window: ReturnType<ClientUI['windows']['initWindow']>;
-				lifecycle: Lifecycle;
-		  }
-		| undefined;
-
-	const isKeybindsVisible = () =>
-		keybindsWindow !== undefined && keybindsWindow.window.state.minimized === false;
 
 	const flushRender = (force = false) => {
 		renderScheduled = false;
-		if (!force && !isKeybindsVisible()) {
+		if (!force && !clientSettings.isTabVisible('keybinds')) {
 			dirty = true;
 			return;
 		}
@@ -357,39 +348,11 @@ export const initKeybindsSystem = (
 
 	lifecycle.onCleanup(keybinds.subscribe(scheduleRender));
 
-	const createWindow = () => {
-		const windowLifecycle = lifecycle.spawnLifecycle();
-		const window = ui.windows.initWindow(windowLifecycle, {
-			id: 'keybinds',
-			title: 'Keybinds',
-			icon: el.icon.keyboard``.element,
-			storage,
-			lockable: false,
-			onVisible: () => flushRender(),
-		});
-		window.body.replaceChildren(container);
-		windowLifecycle.onCleanup(() => {
-			keybindsWindow = undefined;
-		});
-		return { window, lifecycle: windowLifecycle };
-	};
+	clientSettings.mountKeybinds(lifecycle, container, () => flushRender(true));
 
-	const showWindow = () => {
-		keybindsWindow ??= createWindow();
-		if (dirty || renderScheduled) flushRender(true);
-		keybindsWindow.window.showWindow();
-	};
+	const openKeybinds = () => clientSettings.openTab('keybinds');
+	keybinds.bindOpenWindow(openKeybinds);
+	ui.taskbar.initMenuAction(lifecycle, 'keybinds', 'Customize Keybinds', openKeybinds);
 
-	const toggleWindow = () => {
-		if (keybindsWindow?.window.state.minimized === false) {
-			keybindsWindow.window.hideWindow();
-			return;
-		}
-		showWindow();
-	};
-
-	keybinds.bindOpenWindow(showWindow);
-	ui.taskbar.initMenuAction(lifecycle, 'keybinds', 'Customize Keybinds', toggleWindow);
-
-	if (ui.windows.isOpen(storage, 'keybinds')) showWindow();
+	storage.delete('window/keybinds');
 };

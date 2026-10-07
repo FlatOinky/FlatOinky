@@ -42,7 +42,8 @@ Layout under `src/`:
 - `client/systems/` — always-on features (app menu, windows, alerts,
   updates, context menu, keybinds, devtools including logging, profiles). Systems other than profiles live on a restartable
   child lifecycle rebuilt on profile swap; the profiles system contributes the Profiles &
-  Plugins tab of the settings window and drives that restart.
+  Plugins tab of the Client Window and drives that restart. The keybinds system contributes
+  the Keybinds tab.
 - `plugins/` — toggleable plugins (`chat`, `audio`, `metrics`, `themes`, `mouse`,
   `keybinds`, `monitor/`, `tweaks/`, `timers/`, `ui/`, …)
 - `templates/`, `assets/`
@@ -139,7 +140,7 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
    - optional `settingsMenu?: () => HTMLElement`
 2. Re-export it from [src/plugins.ts](src/plugins.ts). `client.ts` registers and
    starts every enabled export from that barrel (per-profile toggles live on the
-   Profiles & Plugins tab of the settings window).
+   Profiles & Plugins tab of the Client Window).
 3. **Storage** — `context.storages.global | profile | character` from
    [src/client/client_storage.ts](src/client/client_storage.ts):
    - `global` — all characters / this install
@@ -176,8 +177,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
        rendering.
 4. **Settings** — `context.settings.initSection(lifecycle, { name, storage? })`
    then `section.append(...nodes)`. The section category is `Plugin.category`, or the
-   plugin `name` when category is unset. Categories group sections in the client settings
-   window (sorted alphabetically; empty categories are hidden). `name` is the section
+   plugin `name` when category is unset. Categories group sections on the Plugin Settings
+   tab of the Client Window (sorted alphabetically; empty categories are hidden). `name` is the section
    under that category, in registration order, and is a string or an `Element` (the
    sidebar nav falls back to that element's text). Passing `storage` subscribes at that
    namespace root and calls
@@ -194,7 +195,9 @@ get, set, default? }` (and type-specific fields). Factories generate the input,
    (`cueCard` returns the last). `cueCard({ id, title, scoped, onTest, onEnabledChange?,
 mountHeaderExtras? })` builds a per-cue `AlertScope` card.
    `context.alerts.sendFromScope(title, scoped, message?)` maps an `AlertScope` onto
-   `send`. Always-on systems each call `initSection` with category `System` (shown last).
+   `send`. Always-on systems call `systemSettings.initSection(lifecycle, { name, storage? })`
+   on `ClientSettings`. That API is not on `PluginContext`. Those sections render on the
+   System Settings tab in registration order, with no category heading.
    Do not bind one storage on those sections (they use mixed storages — subscribe per
    section and `section.refresh()`). A plugin should not add a toggle whose only job is
    to turn the whole plugin off; that is the Profiles & Plugins enable flag.

@@ -62,8 +62,10 @@ client.
   - `fmmo.d.ts` — `FMMO` namespace types (`World`, `Character`, `Reference`, …).
   - `env.d.ts` — Vite client type reference.
   - `index.d.ts` — `Window` / `Globals` and game global declarations.
-  - `client/settings.ts` — the 'Client settings' window and the registry plugins use
-    to add their own sections.
+  - `client/settings.ts` — the Client Window (Profiles & Plugins, Plugin Settings,
+    System Settings, and Keybinds tabs) and the registry plugins use to add their own
+    sections. Systems register through `systemSettings.initSection`, which is not on
+    `PluginContext`.
   - `client/client_storage.ts` — reactive settings storage scoped to global, profile,
     or character, plus append-only collections (`fetch` / `append`), persisted over
     IPC into SQLite. `subscribe` fires for changes applied from other windows.
@@ -94,7 +96,8 @@ client.
     window appearance settings, alerts tray/settings, context
     menu, updates UI, keybinds, devtools including logging, profiles); never toggleable. Systems other than profiles live on a restartable child
     lifecycle rebuilt on profile swap. Profiles contributes the Profiles & Plugins tab
-    of the settings window (profile CRUD plus per-profile plugin enable toggles).
+    of the Client Window (profile CRUD plus per-profile plugin enable toggles). Keybinds
+    contributes the Keybinds tab.
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and
     the typed DOM builders in `elements.ts`.
   - `plugins/`, `templates/`, `assets/`, `styles/`.
@@ -109,8 +112,8 @@ characters, character↔profile mappings, per-scope `*_settings` documents keyed
 `context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
 `<name>` for client internals — including `client`, `updater`, `notifications`
 (alerts; namespace name kept for compatibility),
-`logging`, `devtools`, `keybinds`, and `plugins` for the per-profile enabled-plugin map; client
-settings group sections by category, with always-on systems under `System`), and per-scope append-only
+`logging`, `devtools`, `keybinds`, and `plugins` for the per-profile enabled-plugin map; Plugin
+Settings groups sections by category, and System Settings is a separate Client Window tab), and per-scope append-only
 `*_collections` rows keyed the same way (plugins fold a collection name into the
 namespace as `oinky/<name>/<collection>`). `client`, `notifications` (alerts), `logging`,
 `keybinds`, and

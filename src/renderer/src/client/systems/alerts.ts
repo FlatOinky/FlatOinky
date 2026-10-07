@@ -160,7 +160,7 @@ export const initAlertsSystem = (
 	);
 	tray.volumeInput.dispatchEvent(new Event('input'));
 
-	const alertsMenu = settings.initSection(lifecycle, { category: 'System', name: 'Alerts' }).append(
+	const alertsMenu = settings.systemSettings.initSection(lifecycle, { name: 'Alerts' }).append(
 		controls,
 		helpers.text({
 			label: 'Alert custom sound',

@@ -1372,28 +1372,40 @@ type MountedSettingsCategory = {
 	category: string;
 	sectionBlock: HTMLElement;
 	navGroup: HTMLElement;
-	heading: HTMLElement;
-	navButton: HTMLButtonElement;
+	heading: HTMLElement | undefined;
+	navButton: HTMLButtonElement | undefined;
 	sections: Map<SettingsSectionEntry, MountedSettingsSection>;
 };
 
-const setSectionOinkyId = (
-	category: string,
-	container: HTMLElement,
-	sectionIndex: number,
-): void => {
-	container.setAttribute('oinky', `settings/sections/${category}/${sectionIndex}`);
+type SettingsMenuOptions = {
+	id: string;
+	groupByCategory?: boolean;
 };
 
-const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
+const sectionOinkyId = (
+	menuId: string,
+	groupByCategory: boolean,
+	category: string,
+	sectionIndex: number,
+): string =>
+	groupByCategory
+		? `${menuId}/sections/${category}/${sectionIndex}`
+		: `${menuId}/sections/${sectionIndex}`;
+
+const initSettingsMenu = (
+	lifecycle: Lifecycle,
+	registry: SettingsRegistry,
+	options: SettingsMenuOptions,
+) => {
+	const groupByCategory = options.groupByCategory !== false;
 	const container =
-		el.div`grid grid-cols-[minmax(128px,max-content)_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`.init(
+		el.div`grid grid-cols-[192px_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`.init(
 			lifecycle,
 			undefined,
-			'settings',
+			options.id,
 		);
 	const navContainer =
-		el.div`row-span-2 flex flex-col gap-2 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box overflow-y-auto overflow-x-hidden`.mount(
+		el.div`row-span-2 flex flex-col gap-2 p-1 min-w-0 w-full bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box overflow-y-auto overflow-x-hidden`.mount(
 			container,
 			'nav',
 		);
@@ -1404,13 +1416,19 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 	const categories = new Map<string, MountedSettingsCategory>();
 
 	const mountCategory = (category: string): MountedSettingsCategory => {
-		const orderLast = category === 'System';
-		const sectionBlock =
-			el.div`${orderLast ? 'flex flex-col gap-6 order-last' : 'flex flex-col gap-6'}`.mount(
-				sectionsContainer,
-				category,
-			);
+		const sectionBlock = el.div`flex flex-col gap-6`.mount(sectionsContainer, category);
 		sectionBlock.classList.add('search-item');
+		const navGroup = el.div`flex flex-col`.mount(navContainer, category);
+		if (!groupByCategory) {
+			return {
+				category,
+				sectionBlock,
+				navGroup,
+				heading: undefined,
+				navButton: undefined,
+				sections: new Map(),
+			};
+		}
 		const heading =
 			el.h2`text-2xl font-bold tracking-tight text-base-content/90 search-value`.mount(
 				sectionBlock,
@@ -1419,10 +1437,6 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 					header.textContent = category;
 				},
 			);
-		const navGroup = el.div`${orderLast ? 'flex flex-col order-last' : 'flex flex-col'}`.mount(
-			navContainer,
-			category,
-		);
 		const navButton =
 			el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm`.mount(
 				navGroup,
@@ -1463,15 +1477,21 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 					}
 				},
 			);
-		const navButton =
-			el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
-				category.navGroup,
-				String(sectionIndex),
-				(header) => {
-					header.textContent = sectionNameText(section.name);
-					header.onclick = () => container.scrollIntoView({ behavior: 'smooth' });
-				},
-			);
+		const navClass = groupByCategory
+			? 'block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2'
+			: 'link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm';
+		const navButton = el.button`${navClass}`.mount(
+			category.navGroup,
+			String(sectionIndex),
+			(header) => {
+				header.textContent = sectionNameText(section.name);
+				header.onclick = () => container.scrollIntoView({ behavior: 'smooth' });
+			},
+		);
+		container.setAttribute(
+			'oinky',
+			sectionOinkyId(options.id, groupByCategory, category.category, sectionIndex),
+		);
 		return { section, container, divider, navButton, nodes: new Map() };
 	};
 
@@ -1539,8 +1559,10 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 			}
 
 			const seenSections = new Set<SettingsSectionEntry>();
-			const sectionContainers: HTMLElement[] = [category.heading];
-			const navButtons: HTMLElement[] = [category.navButton];
+			const sectionContainers: HTMLElement[] = [];
+			const navButtons: HTMLElement[] = [];
+			if (category.heading) sectionContainers.push(category.heading);
+			if (category.navButton) navButtons.push(category.navButton);
 			sections.forEach((section, sectionIndex) => {
 				seenSections.add(section);
 				let mountedSection = category.sections.get(section);
@@ -1548,7 +1570,10 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 					mountedSection = mountSection(category, section, sectionIndex);
 					category.sections.set(section, mountedSection);
 				} else {
-					setSectionOinkyId(category.category, mountedSection.container, sectionIndex);
+					mountedSection.container.setAttribute(
+						'oinky',
+						sectionOinkyId(options.id, groupByCategory, category.category, sectionIndex),
+					);
 					syncSectionName(mountedSection, section);
 				}
 				syncSectionNodes(mountedSection, section.nodes);
@@ -1572,19 +1597,27 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 		search.reindex();
 	};
 
-	return { container, navContainer, sectionsContainer, update };
+	return { id: options.id, container, navContainer, sectionsContainer, update };
 };
 
 // #region initSettingsWindow
 
-export type ClientWindowTab = 'profiles' | 'settings';
+export type ClientWindowTab = 'profiles' | 'plugins' | 'system' | 'keybinds';
 
 const TAB_GROUP = 'oinky-client-window-tabs';
 
-const TAB_TITLE: Record<ClientWindowTab, string> = {
-	profiles: 'Profiles & Plugins',
-	settings: 'Client settings',
-};
+const CLIENT_WINDOW_TABS = [
+	{ id: 'profiles', label: 'Profiles & Plugins' },
+	{ id: 'plugins', label: 'Plugin Settings' },
+	{ id: 'system', label: 'System Settings' },
+	{ id: 'keybinds', label: 'Keybinds' },
+] as const satisfies ReadonlyArray<{
+	id: ClientWindowTab;
+	label: string;
+}>;
+
+const tabTitle = (tab: ClientWindowTab): string =>
+	`${CLIENT_WINDOW_TABS.find((entry) => entry.id === tab)?.label ?? tab} – Client Window`;
 
 const mountSettingsChrome = (frame: HTMLElement, tablist: HTMLElement, panels: HTMLElement) => {
 	const body = frame.querySelector<HTMLElement>('[oinky-window-area="body"]');
@@ -1621,69 +1654,100 @@ const initSettingsWindow = (
 	return { window, lifecycle };
 };
 
+type MountedClientTab = {
+	radio: HTMLInputElement;
+	panel: HTMLElement;
+};
+
 const initClientWindowTabs = () => {
 	const tablist =
 		el.div`tabs tabs-box tabs-xs shrink-0 bg-transparent gap-1 border-none shadow-none`.element;
 	const panels = el.div`h-full min-h-0`.element;
+	const tabs = {} as Record<ClientWindowTab, MountedClientTab>;
 
-	const mountTab = (id: ClientWindowTab, label: string, icon: typeof el.icon.puzzle) => {
-		const tab = el.label`tab`.mount(tablist, `${id}-tab`);
+	for (const entry of CLIENT_WINDOW_TABS) {
+		const tab = el.label`tab`.mount(tablist, `${entry.id}-tab`);
 		const radio = el.input.radio``.mount(tab, 'input');
 		radio.name = TAB_GROUP;
-		icon`size-4 me-2`.mount(tab, 'icon');
 		el.span``.mount(tab, 'label', (span) => {
-			span.textContent = label;
+			span.textContent = entry.label;
 		});
-		const panel = el.div`h-full min-h-0 overflow-hidden`.mount(panels, `${id}-panel`);
-		return { radio, panel };
-	};
+		const panel = el.div`h-full min-h-0 overflow-hidden`.mount(panels, `${entry.id}-panel`);
+		if (entry.id !== 'plugins') panel.classList.add('hidden');
+		tabs[entry.id] = { radio, panel };
+	}
 
-	const profiles = mountTab('profiles', 'Profiles & Plugins', el.icon.puzzle);
-	const settings = mountTab('settings', 'Settings', el.icon.settings);
-	profiles.panel.classList.add('hidden');
-	return { tablist, panels, profiles, settings };
+	return { tablist, panels, tabs };
 };
 
 // #region initSettings
 
 export type ClientSettings = ReturnType<typeof initSettings>;
 
-export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: ClientStorage) => {
-	const registry: SettingsRegistry = [];
+export type SystemSectionOptions = Omit<SettingsSectionOptions, 'category'>;
 
-	const settingsMenu = initSettingsMenu(lifecycle, registry);
+export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: ClientStorage) => {
+	const pluginRegistry: SettingsRegistry = [];
+	const systemRegistry: SettingsRegistry = [];
+
+	const pluginMenu = initSettingsMenu(lifecycle, pluginRegistry, {
+		id: 'settings',
+		groupByCategory: true,
+	});
+	const systemMenu = initSettingsMenu(lifecycle, systemRegistry, {
+		id: 'system',
+		groupByCategory: false,
+	});
 	const clientTabs = initClientWindowTabs();
-	clientTabs.settings.panel.appendChild(settingsMenu.container);
+	clientTabs.tabs.plugins.panel.appendChild(pluginMenu.container);
+	clientTabs.tabs.system.panel.appendChild(systemMenu.container);
 
 	let settingsWindow: ReturnType<typeof initSettingsWindow> | undefined;
-	let activeTab: ClientWindowTab = 'settings';
-	let dirty = true;
-	let visualsScheduled = false;
+	let activeTab: ClientWindowTab = 'plugins';
+	let keybindsOnVisible: (() => void) | undefined;
 
-	const isSettingsVisible = () =>
-		settingsWindow !== undefined &&
-		settingsWindow.window.state.minimized === false &&
-		activeTab === 'settings';
+	const isWindowOpen = () =>
+		settingsWindow !== undefined && settingsWindow.window.state.minimized === false;
 
-	const flushVisuals = (force = false) => {
-		visualsScheduled = false;
-		if (!force && !isSettingsVisible()) {
-			dirty = true;
-			return;
-		}
-		if (!force && !dirty) return;
-		dirty = false;
-		settingsMenu.update();
+	const isTabVisible = (tab: ClientWindowTab) => isWindowOpen() && activeTab === tab;
+
+	const ensureChrome = () => {
 		if (settingsWindow && clientTabs.panels.parentElement !== settingsWindow.window.body) {
 			mountSettingsChrome(settingsWindow.window.frame, clientTabs.tablist, clientTabs.panels);
 		}
 	};
 
-	const updateVisuals = () => {
-		dirty = true;
-		if (visualsScheduled) return;
-		visualsScheduled = true;
-		queueMicrotask(() => flushVisuals());
+	const createMenuFlush = (menu: { update: () => void }, tab: ClientWindowTab) => {
+		let dirty = true;
+		let scheduled = false;
+		const flush = (force = false) => {
+			scheduled = false;
+			if (!force && !isTabVisible(tab)) {
+				dirty = true;
+				return;
+			}
+			if (!force && !dirty) return;
+			dirty = false;
+			menu.update();
+			ensureChrome();
+		};
+		const update = () => {
+			dirty = true;
+			if (scheduled) return;
+			scheduled = true;
+			queueMicrotask(() => flush());
+		};
+		return { flush, update };
+	};
+
+	const pluginFlush = createMenuFlush(pluginMenu, 'plugins');
+	const systemFlush = createMenuFlush(systemMenu, 'system');
+
+	const flushVisibleTab = () => {
+		ensureChrome();
+		if (activeTab === 'plugins') pluginFlush.flush();
+		else if (activeTab === 'system') systemFlush.flush();
+		else if (activeTab === 'keybinds') keybindsOnVisible?.();
 	};
 
 	const createSettingsWindow = () => {
@@ -1693,8 +1757,8 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 			storage,
 			clientTabs.tablist,
 			clientTabs.panels,
-			TAB_TITLE[activeTab],
-			() => flushVisuals(),
+			tabTitle(activeTab),
+			() => flushVisibleTab(),
 		);
 		newWindow.lifecycle.onCleanup(() => (settingsWindow = undefined));
 		return newWindow;
@@ -1702,67 +1766,80 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 
 	const selectTab = (tab: ClientWindowTab) => {
 		activeTab = tab;
-		const radio = tab === 'profiles' ? clientTabs.profiles.radio : clientTabs.settings.radio;
-		radio.checked = true;
-		clientTabs.profiles.panel.classList.toggle('hidden', tab !== 'profiles');
-		clientTabs.settings.panel.classList.toggle('hidden', tab !== 'settings');
-		settingsWindow?.window.setTitle(TAB_TITLE[tab]);
-		if (tab === 'settings') flushVisuals(true);
+		for (const entry of CLIENT_WINDOW_TABS) {
+			const mounted = clientTabs.tabs[entry.id];
+			mounted.radio.checked = entry.id === tab;
+			mounted.panel.classList.toggle('hidden', entry.id !== tab);
+		}
+		settingsWindow?.window.setTitle(tabTitle(tab));
+		if (tab === 'plugins') pluginFlush.flush(true);
+		if (tab === 'system') systemFlush.flush(true);
+		if (tab === 'keybinds') keybindsOnVisible?.();
 	};
 
-	clientTabs.profiles.radio.onchange = () => {
-		if (clientTabs.profiles.radio.checked) selectTab('profiles');
-	};
-	clientTabs.settings.radio.onchange = () => {
-		if (clientTabs.settings.radio.checked) selectTab('settings');
-	};
+	for (const entry of CLIENT_WINDOW_TABS) {
+		const mounted = clientTabs.tabs[entry.id];
+		mounted.radio.onchange = () => {
+			if (mounted.radio.checked) selectTab(entry.id);
+		};
+	}
 
 	const openTab = (tab: ClientWindowTab) => {
-		if (
-			settingsWindow !== undefined &&
-			settingsWindow.window.state.minimized === false &&
-			activeTab === tab
-		) {
-			return;
-		}
+		if (isTabVisible(tab)) return;
 		settingsWindow ??= createSettingsWindow();
 		selectTab(tab);
 		settingsWindow.window.showWindow();
 	};
 
-	const mountProfiles = (profilesLifecycle: Lifecycle, element: HTMLElement) => {
-		clientTabs.profiles.panel.replaceChildren(element);
-		profilesLifecycle.onCleanup(() => {
-			if (clientTabs.profiles.panel.contains(element)) element.remove();
+	const mountPanel = (
+		tab: 'profiles' | 'keybinds',
+		panelLifecycle: Lifecycle,
+		element: HTMLElement,
+		onVisible?: () => void,
+	) => {
+		const panel = clientTabs.tabs[tab].panel;
+		panel.replaceChildren(element);
+		if (tab === 'keybinds') keybindsOnVisible = onVisible;
+		panelLifecycle.onCleanup(() => {
+			if (tab === 'keybinds' && keybindsOnVisible === onVisible) keybindsOnVisible = undefined;
+			if (panel.contains(element)) element.remove();
 		});
+		if (tab === 'keybinds' && isTabVisible('keybinds')) onVisible?.();
 	};
 
 	const trayButton = ui.taskbar.initTrayButton(lifecycle, 'settings', {
-		title: 'Client settings',
+		title: tabTitle('plugins'),
 		icon: ui.el.icon.settings``.element,
 	});
-	trayButton.onclick = () => openTab('settings');
+	trayButton.onclick = () => openTab('plugins');
 
-	const openSection = (entry: SettingsSectionEntry) => {
-		openTab('settings');
-		const sections = registry.filter((section) => section.category === entry.category);
+	const openMenuSection = (
+		tab: 'plugins' | 'system',
+		registry: SettingsRegistry,
+		menu: ReturnType<typeof initSettingsMenu>,
+		groupByCategory: boolean,
+		entry: SettingsSectionEntry,
+	) => {
+		openTab(tab);
+		const sections = groupByCategory
+			? registry.filter((section) => section.category === entry.category)
+			: registry;
 		const sectionIndex = sections.indexOf(entry);
 		if (sectionIndex < 0) return;
-		const oinkyId = `settings/sections/${entry.category}/${sectionIndex}`;
-		settingsMenu.sectionsContainer
+		const oinkyId = sectionOinkyId(menu.id, groupByCategory, entry.category, sectionIndex);
+		menu.sectionsContainer
 			.querySelector(`[oinky="${oinkyId}"]`)
 			?.scrollIntoView({ behavior: 'smooth' });
 	};
 
-	const initSection = (
+	const registerSection = (
 		sectionLifecycle: Lifecycle,
-		options: SettingsSectionOptions,
+		registry: SettingsRegistry,
+		updateVisuals: () => void,
+		open: () => void,
+		entry: SettingsSectionEntry,
+		sectionStorage: ClientStorage | undefined,
 	): SettingsSection => {
-		const entry: SettingsSectionEntry = {
-			category: options.category,
-			name: options.name,
-			nodes: [],
-		};
 		registry.push(entry);
 		updateVisuals();
 		const remove = () => {
@@ -1775,8 +1852,8 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		const refresh = () => {
 			for (const node of entry.nodes) applySync(node);
 		};
-		if (options.storage) {
-			sectionLifecycle.onCleanup(options.storage.subscribe('', () => refresh()));
+		if (sectionStorage) {
+			sectionLifecycle.onCleanup(sectionStorage.subscribe('', () => refresh()));
 		}
 		const section: SettingsSection = {
 			append: (...nodes) => {
@@ -1784,20 +1861,65 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 				updateVisuals();
 				return section;
 			},
-			open: () => openSection(entry),
+			open,
 			refresh,
 			remove,
 		};
 		return section;
 	};
 
-	clientTabs.settings.radio.checked = true;
+	const initSection = (
+		sectionLifecycle: Lifecycle,
+		options: SettingsSectionOptions,
+	): SettingsSection => {
+		const entry: SettingsSectionEntry = {
+			category: options.category,
+			name: options.name,
+			nodes: [],
+		};
+		return registerSection(
+			sectionLifecycle,
+			pluginRegistry,
+			pluginFlush.update,
+			() => openMenuSection('plugins', pluginRegistry, pluginMenu, true, entry),
+			entry,
+			options.storage,
+		);
+	};
+
+	const initSystemSection = (
+		sectionLifecycle: Lifecycle,
+		options: SystemSectionOptions,
+	): SettingsSection => {
+		const entry: SettingsSectionEntry = {
+			category: 'system',
+			name: options.name,
+			nodes: [],
+		};
+		return registerSection(
+			sectionLifecycle,
+			systemRegistry,
+			systemFlush.update,
+			() => openMenuSection('system', systemRegistry, systemMenu, false, entry),
+			entry,
+			options.storage,
+		);
+	};
+
+	clientTabs.tabs.plugins.radio.checked = true;
 
 	return {
 		helpers: settingsHelpers,
 		initSection,
+		systemSettings: { initSection: initSystemSection },
 		openTab,
-		mountProfiles,
+		isTabVisible,
+		mountProfiles: (profilesLifecycle: Lifecycle, element: HTMLElement) => {
+			mountPanel('profiles', profilesLifecycle, element);
+		},
+		mountKeybinds: (keybindsLifecycle: Lifecycle, element: HTMLElement, onVisible?: () => void) => {
+			mountPanel('keybinds', keybindsLifecycle, element, onVisible);
+		},
 		get settingsWindow() {
 			return settingsWindow;
 		},

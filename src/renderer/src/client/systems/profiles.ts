@@ -23,9 +23,9 @@ export const initProfilesSystem = (
 	settings: ClientSettings,
 	{ restartSystems, restartPlugins }: ProfilesSystemControls,
 ): void => {
-	const container = el.div`grid grid-cols-[auto_1fr] gap-2 h-full`.element;
+	const container = el.div`grid grid-cols-[192px_1fr] gap-2 h-full`.element;
 	const profilesColumn =
-		el.div`flex flex-col gap-1 p-1 shrink-0 bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box w-44 h-full`.mount(
+		el.div`flex flex-col gap-1 p-1 min-w-0 w-full bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box h-full`.mount(
 			container,
 			'profiles',
 		);
@@ -60,7 +60,7 @@ export const initProfilesSystem = (
 
 	settings.mountProfiles(lifecycle, container);
 
-	const createButton = el.button`btn btn-xs join-item tooltip tooltip-top tooltip-start`.mount(
+	const createButton = el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
 		controlsRow,
 		'create',
 		(button) => {
@@ -70,7 +70,7 @@ export const initProfilesSystem = (
 		},
 	);
 
-	const renameButton = el.button`btn btn-xs join-item tooltip tooltip-top tooltip-start`.mount(
+	const renameButton = el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
 		controlsRow,
 		'rename',
 		(button) => {
@@ -80,7 +80,7 @@ export const initProfilesSystem = (
 		},
 	);
 
-	const swapButton = el.button`btn btn-xs join-item tooltip tooltip-top tooltip-start`.mount(
+	const swapButton = el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
 		controlsRow,
 		'swap',
 		(button) => {
@@ -90,7 +90,7 @@ export const initProfilesSystem = (
 		},
 	);
 
-	const copyButton = el.button`btn btn-xs join-item tooltip tooltip-top tooltip-start`.mount(
+	const copyButton = el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
 		controlsRow,
 		'copy',
 		(button) => {
@@ -101,7 +101,7 @@ export const initProfilesSystem = (
 	);
 
 	const removeButton =
-		el.button`btn btn-xs join-item btn-error tooltip tooltip-top tooltip-start`.mount(
+		el.button`btn btn-xs join-item flex-1 btn-error tooltip tooltip-top tooltip-start`.mount(
 			controlsRow,
 			'remove',
 			(button) => {
@@ -297,7 +297,14 @@ export const initProfilesSystem = (
 			divider.remove();
 			categoryDividers.delete(category);
 		}
+		const current = [...pluginsList.children];
+		const orderChanged =
+			current.length !== children.length ||
+			current.some((node, index) => node !== children[index]);
+		if (!orderChanged) return;
+		const scrollTop = pluginsColumn.scrollTop;
 		for (const child of children) pluginsList.append(child);
+		pluginsColumn.scrollTop = scrollTop;
 	};
 
 	const renderProfileSelect = () => {

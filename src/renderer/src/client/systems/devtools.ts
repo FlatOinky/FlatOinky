@@ -126,8 +126,8 @@ export const initDevtoolsSystem = async (
 	syncDevtoolsMenu();
 
 	const helpers = settingsHelpers;
-	const devtoolsMenu = clientSettings
-		.initSection(lifecycle, { category: 'System', name: 'Devtools' })
+	const devtoolsMenu = clientSettings.systemSettings
+		.initSection(lifecycle, { name: 'Devtools' })
 		.append(
 			helpers.toggle(
 				'Enable Devtools',
