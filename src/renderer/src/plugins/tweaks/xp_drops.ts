@@ -2,7 +2,8 @@ import { Plugin } from '../../client';
 
 export const XpDropsPlugin: Plugin = {
 	namespace: 'oinky/tweaks/xp_drops',
-	name: "Tweaks: Hide Other Players' XP Drops",
+	category: 'Tweaks',
+	name: "Hide Other Players' XP Drops",
 	description: 'Skips rendering XP and level-up drops from other players.',
 	enabledByDefault: false,
 	init: (_lifecycle, context) => ({

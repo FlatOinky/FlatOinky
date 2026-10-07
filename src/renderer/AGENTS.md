@@ -125,7 +125,12 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
 [src/plugins/chat.ts](src/plugins/chat.ts) (settings-heavy).
 
 1. Create `src/plugins/<name>.ts` exporting a `Plugin`:
-   - `namespace: 'oinky/<name>'`, `name`, optional `description`
+   - `namespace: 'oinky/<name>'`, `name`, optional `description`, optional `category`
+   - `category` groups the plugin on the Profiles & Plugins tab and is its settings
+     category. Blank, or `System` in any case, is unset. An unset category uses `name`
+     as the settings category. The plugin list shows uncategorized plugins first
+     (alphabetical, no divider), then categories alphabetically, each with a divider
+     and its plugins in alphabetical order.
    - optional `enabledByDefault: false` when a fresh profile should leave the plugin off
      (a stored enabled flag always wins)
    - `init(lifecycle, context)` → `PluginCallbacks` (may be async)
@@ -169,12 +174,13 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
        Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
        `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
        rendering.
-4. **Settings** — `context.settings.initSection(lifecycle, { category, name, storage? })`
-   then `section.append(...nodes)`. `category` groups sections in the client settings
+4. **Settings** — `context.settings.initSection(lifecycle, { name, storage? })`
+   then `section.append(...nodes)`. The section category is `Plugin.category`, or the
+   plugin `name` when category is unset. Categories group sections in the client settings
    window (sorted alphabetically; empty categories are hidden). `name` is the section
    under that category, in registration order, and is a string or an `Element` (the
-   sidebar nav falls back to that element's text). A plugin with one section uses the
-   same string for both. Passing `storage` subscribes at that namespace root and calls
+   sidebar nav falls back to that element's text). Passing `storage` subscribes at that
+   namespace root and calls
    `refresh()` on remote change, which walks nodes and runs each `sync`. Prefer bound
    factories on `context.settings.helpers`: `toggle(label, description, get, set, default?)`,
    plus `select`, `text`, `number`, `range`, `numberSlider`, `steppedRange`, `color`,
@@ -225,7 +231,6 @@ export const ExamplePlugin: Plugin = {
 		const settings = context.storages.profile.reactive('settings', { volume: 1 });
 		context.settings
 			.initSection(lifecycle, {
-				category: 'Example',
 				name: 'General',
 				storage: context.storages.profile,
 			})

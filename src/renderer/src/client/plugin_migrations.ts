@@ -141,12 +141,37 @@ const migrateProspecting = async (
 	pluginsStorage.delete(['enabled', 'oinky/prospecting_timers']);
 };
 
-/** One-shot, per profile. Skips a namespace once its old settings key is gone. */
+const storedVersion = (pluginsStorage: ClientStorage): number => {
+	const version = pluginsStorage.get('version');
+	return typeof version === 'number' ? version : 0;
+};
+
+/**
+ * Per profile. Each step skips a namespace once its old settings key is gone.
+ * `version` is written only after the chain returns, so a thrown step retries.
+ * A stored version newer than this build is left alone.
+ */
+const migrate = async (
+	lifecycle: Lifecycle,
+	pluginsStorage: ClientStorage,
+	version: number,
+): Promise<number> => {
+	switch (version) {
+		case 0:
+			await migrateMonitor(lifecycle, pluginsStorage);
+			await migrateTweaks(lifecycle, pluginsStorage);
+			await migrateProspecting(lifecycle, pluginsStorage);
+			return migrate(lifecycle, pluginsStorage, 1);
+		default:
+			return version;
+	}
+};
+
 export const migratePlugins = async (
 	lifecycle: Lifecycle,
 	pluginsStorage: ClientStorage,
 ): Promise<void> => {
-	await migrateMonitor(lifecycle, pluginsStorage);
-	await migrateTweaks(lifecycle, pluginsStorage);
-	await migrateProspecting(lifecycle, pluginsStorage);
+	const version = storedVersion(pluginsStorage);
+	const next = await migrate(lifecycle, pluginsStorage, version);
+	if (next !== version) pluginsStorage.set('version', next);
 };

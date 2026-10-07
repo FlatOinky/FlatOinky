@@ -200,7 +200,8 @@ const mountOverlay = (
 
 export const ProspectingTimersPlugin: Plugin = {
 	namespace: 'oinky/timers/prospecting',
-	name: 'Timers: Prospecting',
+	category: 'Timers',
+	name: 'Prospecting',
 	description: 'Countdown timers on prospecting Mine Piles.',
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', createSettings());
@@ -247,7 +248,6 @@ export const ProspectingTimersPlugin: Plugin = {
 		const defaults = createSettings();
 		context.settings
 			.initSection(lifecycle, {
-				category: 'Timers',
 				name: 'Prospecting',
 				storage: context.storages.profile,
 			})

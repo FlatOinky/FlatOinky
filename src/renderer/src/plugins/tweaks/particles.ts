@@ -43,7 +43,8 @@ const applySnowReduction = (level: ParticleLevel | 'none'): void => {
 
 export const ParticlesPlugin: Plugin = {
 	namespace: 'oinky/tweaks/particles',
-	name: 'Tweaks: Particles',
+	category: 'Tweaks',
+	name: 'Particles',
 	description: 'Reduces snow overlay density and caps concurrent particle effects.',
 	enabledByDefault: false,
 	init: (lifecycle, context) => {
@@ -60,7 +61,6 @@ export const ParticlesPlugin: Plugin = {
 
 		context.settings
 			.initSection(lifecycle, {
-				category: 'Tweaks',
 				name: 'Particles',
 				storage: context.storages.profile,
 			})

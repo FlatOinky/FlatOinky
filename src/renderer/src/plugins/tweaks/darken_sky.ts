@@ -4,7 +4,8 @@ const SKY_MAP = 'm1000_999_sky';
 
 export const DarkenSkyPlugin: Plugin = {
 	namespace: 'oinky/tweaks/darken_sky',
-	name: 'Tweaks: Darken Sky',
+	category: 'Tweaks',
+	name: 'Darken Sky',
 	description: 'Dims the sky map for easier viewing.',
 	init: (lifecycle, context) => {
 		const apply = () => {

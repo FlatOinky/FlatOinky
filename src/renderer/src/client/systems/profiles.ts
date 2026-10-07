@@ -196,10 +196,12 @@ export const initProfilesSystem = (
 	};
 
 	type PluginRow = {
+		element: HTMLElement;
 		update: () => void;
 		remove: () => void;
 	};
 	const pluginRows: Record<string, PluginRow> = {};
+	const categoryDividers = new Map<string, HTMLElement>();
 
 	const initPluginRow = (plugin: (typeof plugins.registry)[string]): PluginRow => {
 		const rowLifecycle = lifecycle.spawnLifecycle();
@@ -232,25 +234,70 @@ export const initProfilesSystem = (
 		update();
 
 		return {
+			element: row,
 			update,
 			remove: () => rowLifecycle.cleanup(),
 		};
 	};
 
 	const renderPlugins = () => {
-		const keep: string[] = [];
-		for (const plugin of Object.values(plugins.registry)) {
-			keep.push(plugin.namespace);
+		const registered = Object.values(plugins.registry);
+		const keep = new Set(registered.map((plugin) => plugin.namespace));
+		for (const plugin of registered) {
 			const existing = pluginRows[plugin.namespace];
-			if (existing) {
-				existing.update();
-			} else {
-				pluginRows[plugin.namespace] = initPluginRow(plugin);
-			}
+			if (existing) existing.update();
+			else pluginRows[plugin.namespace] = initPluginRow(plugin);
 		}
 		for (const namespace in pluginRows) {
-			if (!keep.includes(namespace)) pluginRows[namespace].remove();
+			if (!keep.has(namespace)) pluginRows[namespace].remove();
 		}
+
+		const uncategorized = registered
+			.filter((plugin) => !plugin.category)
+			.sort((a, b) => a.name.localeCompare(b.name));
+		const grouped = new Map<string, typeof registered>();
+		for (const plugin of registered) {
+			if (!plugin.category) continue;
+			const list = grouped.get(plugin.category);
+			if (list) list.push(plugin);
+			else grouped.set(plugin.category, [plugin]);
+		}
+		const categories = [...grouped.keys()].sort((a, b) => a.localeCompare(b));
+
+		const children: HTMLElement[] = [];
+		for (const plugin of uncategorized) {
+			const row = pluginRows[plugin.namespace];
+			if (row) children.push(row.element);
+		}
+		const usedCategories = new Set<string>();
+		for (const category of categories) {
+			usedCategories.add(category);
+			let divider = categoryDividers.get(category);
+			if (!divider) {
+				divider =
+					el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
+						pluginsList,
+						`category/${category}`,
+						(node) => {
+							node.textContent = category;
+						},
+					);
+				categoryDividers.set(category, divider);
+			}
+			children.push(divider);
+			const rows = grouped.get(category) ?? [];
+			rows.sort((a, b) => a.name.localeCompare(b.name));
+			for (const plugin of rows) {
+				const row = pluginRows[plugin.namespace];
+				if (row) children.push(row.element);
+			}
+		}
+		for (const [category, divider] of categoryDividers) {
+			if (usedCategories.has(category)) continue;
+			divider.remove();
+			categoryDividers.delete(category);
+		}
+		for (const child of children) pluginsList.append(child);
 	};
 
 	const renderProfileSelect = () => {

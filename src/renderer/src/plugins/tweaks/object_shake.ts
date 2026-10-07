@@ -19,7 +19,8 @@ const scheduleVanishedShakeSweep = (): void => {
 
 export const ObjectShakePlugin: Plugin = {
 	namespace: 'oinky/tweaks/object_shake',
-	name: 'Tweaks: Object Shake',
+	category: 'Tweaks',
+	name: 'Object Shake',
 	description: 'Stops objects from shaking once they are depleted.',
 	init: () => ({
 		events: {

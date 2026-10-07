@@ -610,7 +610,7 @@ export const MetricsPlugin: Plugin = {
 		);
 		const showTotalCheckbox = showTotalNode.input as HTMLInputElement;
 
-		context.settings.initSection(lifecycle, { category: 'Metrics', name: 'Display' }).append(
+		context.settings.initSection(lifecycle, { name: 'Display' }).append(
 			showTotalNode,
 			helpers.toggle(
 				'Inactive skills',
@@ -687,7 +687,7 @@ export const MetricsPlugin: Plugin = {
 			}
 		};
 
-		context.settings.initSection(lifecycle, { category: 'Metrics', name: 'Intervals' }).append(
+		context.settings.initSection(lifecycle, { name: 'Intervals' }).append(
 			{
 				label: 'Preset',
 				description: 'Apply a preconfigured time span and refresh rate together.',

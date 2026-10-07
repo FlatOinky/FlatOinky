@@ -147,7 +147,6 @@ export const ChatPlugin: Plugin = {
 		});
 
 		const displaySection = context.settings.initSection(lifecycle, {
-			category: 'Chat',
 			name: 'Display',
 		});
 		displaySection.append(
@@ -218,7 +217,7 @@ export const ChatPlugin: Plugin = {
 			}),
 		);
 
-		context.settings.initSection(lifecycle, { category: 'Chat', name: 'Colors' }).append(
+		context.settings.initSection(lifecycle, { name: 'Colors' }).append(
 			...chatColorMeta.map((meta) =>
 				helpers.color({
 					label: meta.label,
@@ -234,7 +233,7 @@ export const ChatPlugin: Plugin = {
 			),
 		);
 
-		context.settings.initSection(lifecycle, { category: 'Chat', name: 'Limits' }).append(
+		context.settings.initSection(lifecycle, { name: 'Limits' }).append(
 			helpers.number({
 				label: 'Visible messages',
 				description: 'Maximum messages shown in the chat window.',
@@ -261,7 +260,7 @@ export const ChatPlugin: Plugin = {
 			}),
 		);
 
-		context.settings.initSection(lifecycle, { category: 'Chat', name: 'Commands' }).append(
+		context.settings.initSection(lifecycle, { name: 'Commands' }).append(
 			helpers.toggle(
 				'Enable commands',
 				'Allow Oinky chat commands and show the commands menu.',
@@ -283,7 +282,7 @@ export const ChatPlugin: Plugin = {
 			}),
 		);
 
-		context.settings.initSection(lifecycle, { category: 'Chat', name: 'Message Scanner' }).append(
+		context.settings.initSection(lifecycle, { name: 'Message Scanner' }).append(
 			el.button`btn btn-sm btn-primary search-value`.then((button) => {
 				button.type = 'button';
 				button.textContent = 'Manage message scanner';
@@ -303,25 +302,23 @@ export const ChatPlugin: Plugin = {
 				},
 			);
 
-		context.settings
-			.initSection(lifecycle, { category: 'Chat', name: mutedPlayersSectionTitle })
-			.append(
-				helpers.toggle(
-					'Log muted players messages',
-					'Keep muted players messages in the chat log.',
-					() => mutedPlayers.logMutedMessages,
-					(value) => {
-						mutedPlayers.logMutedMessages = value;
-						onSettingsChange();
-					},
-					initialMutedPlayers.logMutedMessages,
-				),
-				el.button`btn btn-sm btn-primary search-value`.then((button) => {
-					button.type = 'button';
-					button.textContent = 'Manage muted players';
-					button.onclick = () => showMutedPlayersWindow();
-				}),
-			);
+		context.settings.initSection(lifecycle, { name: mutedPlayersSectionTitle }).append(
+			helpers.toggle(
+				'Log muted players messages',
+				'Keep muted players messages in the chat log.',
+				() => mutedPlayers.logMutedMessages,
+				(value) => {
+					mutedPlayers.logMutedMessages = value;
+					onSettingsChange();
+				},
+				initialMutedPlayers.logMutedMessages,
+			),
+			el.button`btn btn-sm btn-primary search-value`.then((button) => {
+				button.type = 'button';
+				button.textContent = 'Manage muted players';
+				button.onclick = () => showMutedPlayersWindow();
+			}),
+		);
 
 		const hideChatActions = (activator: HTMLElement) => {
 			activator.closest<HTMLElement>('[popover]')?.hidePopover();

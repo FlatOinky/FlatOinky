@@ -37,10 +37,11 @@ const scheduleSweep = (context: ClientContext): void => {
 
 export const ProjectilesPlugin: Plugin = {
 	namespace: 'oinky/tweaks/projectiles',
-	name: 'Tweaks: Projectiles',
+	category: 'Tweaks',
+	name: 'Projectiles',
 	description: 'Removes projectiles that are stuck on the canvas.',
 	init: (lifecycle, context) => {
-		context.settings.initSection(lifecycle, { category: 'Tweaks', name: 'Projectiles' }).append(
+		context.settings.initSection(lifecycle, { name: 'Projectiles' }).append(
 			el.div`flex items-center justify-between gap-2`.then((container) => {
 				el.div`flex flex-col gap-0.5`.mount(container, undefined, (text) => {
 					el.span`font-medium text-sm search-value`.mount(text, undefined, (label) => {

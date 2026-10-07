@@ -23,7 +23,7 @@ import type { Alerts } from './client/alerts';
 import { createPluginKeybinds, type Keybinds } from './client/keybinds';
 import { migratePlugins } from './client/plugin_migrations';
 import { initProfiles } from './client/profiles';
-import { initSettings, ClientSettings } from './client/settings';
+import { initSettings, type ClientSettings, type SettingsSectionOptions } from './client/settings';
 import { initSystems } from './client/systems';
 import { initUi } from './client/ui';
 import { initUpdater } from './client/updater';
@@ -149,6 +149,7 @@ const createPluginContext = async (
 	settings: ClientSettings,
 	namespace: string,
 	title: string,
+	settingsCategory: string,
 	createLogger: (prefix?: string) => Logger,
 	lifecycle: Lifecycle,
 ) => {
@@ -157,7 +158,10 @@ const createPluginContext = async (
 		log: createLogger(title),
 		settings: {
 			helpers: settings.helpers,
-			initSection: settings.initSection,
+			initSection: (
+				sectionLifecycle: Lifecycle,
+				options: Omit<SettingsSectionOptions, 'category'>,
+			) => settings.initSection(sectionLifecycle, { ...options, category: settingsCategory }),
 		},
 		storages: await createPluginStorages(namespace, lifecycle),
 		collections: createPluginCollections(namespace) as PluginCollections,
@@ -259,6 +263,11 @@ export type PluginsApi = {
 export type Plugin = {
 	namespace: string;
 	name: string;
+	/**
+	 * Plugin-list group and settings category. Blank, or `System` in any case, is unset.
+	 * An unset category uses `name` wherever a settings category is required.
+	 */
+	category?: string;
 	description?: string;
 	/** Used when the profile has no stored enabled flag. Defaults to true. */
 	enabledByDefault?: boolean;
@@ -384,9 +393,18 @@ const initPlugins = (
 		restartTimers.delete(namespace);
 	};
 
+	const normalizePluginCategory = (category: string | undefined): string | undefined => {
+		const trimmed = category?.trim();
+		if (!trimmed || trimmed.toLowerCase() === 'system') return undefined;
+		return trimmed;
+	};
+
 	const registerPlugin = (plugin: Plugin) => {
 		if (plugin.namespace in registry) return;
-		registry[plugin.namespace] = plugin;
+		registry[plugin.namespace] = {
+			...plugin,
+			category: normalizePluginCategory(plugin.category),
+		};
 		notify();
 	};
 
@@ -404,6 +422,7 @@ const initPlugins = (
 			settings,
 			namespace,
 			plugin.name,
+			plugin.category ?? plugin.name,
 			createLogger,
 			pluginLifecycle,
 		);

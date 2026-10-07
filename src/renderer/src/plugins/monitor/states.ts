@@ -84,7 +84,8 @@ const makeStateCueCard = (
 
 export const MonitorStatesPlugin: Plugin = {
 	namespace: 'oinky/monitor/states',
-	name: 'Monitor: Player States',
+	category: 'Monitor',
+	name: 'Player States',
 	description: 'Alerts when sleep, health, worship, or run energy drop to a threshold.',
 	enabledByDefault: false,
 	init: (lifecycle, context) => {
@@ -134,7 +135,6 @@ export const MonitorStatesPlugin: Plugin = {
 
 		context.settings
 			.initSection(lifecycle, {
-				category: 'Monitor',
 				name: 'Player States',
 				storage: context.storages.profile,
 			})

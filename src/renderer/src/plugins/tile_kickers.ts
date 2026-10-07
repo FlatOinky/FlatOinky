@@ -308,7 +308,6 @@ export const TileKickersPlugin: Plugin = {
 		const helpers = context.settings.helpers;
 		context.settings
 			.initSection(lifecycle, {
-				category: 'Tile Kickers',
 				name: 'Tile Kickers',
 				storage: context.storages.profile,
 			})

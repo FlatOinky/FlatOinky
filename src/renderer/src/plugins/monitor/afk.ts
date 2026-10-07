@@ -12,7 +12,8 @@ const initialSettings = {
 
 export const MonitorAfkPlugin: Plugin = {
 	namespace: 'oinky/monitor/afk',
-	name: 'Monitor: AFK Detection',
+	category: 'Monitor',
+	name: 'AFK Detection',
 	description: 'Alerts after a stretch without activity.',
 	enabledByDefault: false,
 	init: (lifecycle, context) => {
@@ -47,7 +48,6 @@ export const MonitorAfkPlugin: Plugin = {
 
 		context.settings
 			.initSection(lifecycle, {
-				category: 'Monitor',
 				name: 'AFK Detection',
 				storage: context.storages.profile,
 			})

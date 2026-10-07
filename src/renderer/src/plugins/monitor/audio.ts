@@ -21,7 +21,8 @@ const soundFileName = (source: string): string =>
 
 export const MonitorAudioPlugin: Plugin = {
 	namespace: 'oinky/monitor/audio',
-	name: 'Monitor: Audio Cues',
+	category: 'Monitor',
+	name: 'Audio Cues',
 	description: 'Alerts when the game plays a gem, falling tree, bird nest, or alien sound.',
 	enabledByDefault: false,
 	init: (lifecycle, context) => {
@@ -34,7 +35,6 @@ export const MonitorAudioPlugin: Plugin = {
 
 		context.settings
 			.initSection(lifecycle, {
-				category: 'Monitor',
 				name: 'Audio Cues',
 				storage: context.storages.profile,
 			})
