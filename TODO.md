@@ -166,8 +166,8 @@ type registerAction = (
 		name: string; // for displays; e.g. "Toggle Run", "Teleport Everbrook", "Stuck"
 		tags?: string[]; // default: []; just some strings which can be used for grouping or filtering
 		delay?: number; // milliseconds; default: 100; The hard delay between action calls. This rate limits
+		aliases?: string[]; // if defined, the action now indicates itself as a potential chat command with the given aliases.
 		requestKeycombo?: Keycombo; // if defined, passed into register keybind function
-		chatAliases?: string[]; // if defined, the action now indicates itself as a potential chat command with the given aliases.
 		displayText?: string; // used for `display`, defaults to `name` in usage, but may be undefined in the final ClientAction type;
 		display?: () => Element; // returns an instance of an element which will fill/fit to its container; Useful for other TODO Hotbar which needs a visual element for each action; If not defined, returns a div with the displayText as centered scalable text instead
 		pool?: {
@@ -207,7 +207,7 @@ action.execute(); // or this, but discouraged since an action has a lifetime and
 
 const chatActions: ClientAction[] = context.actions
 	.getAll() // all getter functions defined for plugins should return deep readonly versions of the objects
-	.filter((action) => (action.chatAliases?.length ?? 0) > 0);
+	.filter((action) => (action.aliases?.length ?? 0) > 0);
 
 // maybe a subscribe for action changes?
 context.actions.subscribe((actions: Readonly<ClientActions>) => {
@@ -225,6 +225,10 @@ if (!result) {
 }
 chatInput.value = '';
 ```
+
+## Keybinds relation to actions
+
+Each action will register its callback as a potential keybind
 
 # Hotbars Plugin
 
