@@ -24,6 +24,10 @@ declare global {
 			loading: Record<string, boolean>;
 			errors: Record<string, string>;
 			client: Client;
+			// Resolved after enabled plugins have started. The connect mutator waits
+			// on this so the socket opens only once plugin hooks are registered.
+			pluginsReady?: Promise<void>;
+			pluginsStarted?: boolean;
 		};
 	}
 	// FlatMMO stuff

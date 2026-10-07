@@ -779,8 +779,15 @@ const createClientMutators = (
 			return plugins.api.mutators.playerAnimation;
 		},
 		connect_to_websocket: (original: () => void) => {
-			original();
-			connectWebsocketHooks(plugins, Globals.websocket, recordSocketMessage);
+			const startSocket = () => {
+				original();
+				connectWebsocketHooks(plugins, Globals.websocket, recordSocketMessage);
+			};
+			if (window.flatOinky.pluginsStarted) {
+				startSocket();
+				return;
+			}
+			void window.flatOinky.pluginsReady?.then(startSocket);
 		},
 	}) satisfies Record<(typeof mutatedFunctions)[number], unknown>;
 
@@ -873,21 +880,23 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		appState,
 	});
 
-	// TODO: need to fix this
-
-	import('./plugins')
-		.then(async (pluginsImport) => {
+	const startPlugins = async () => {
+		try {
+			const pluginsImport = await import('./plugins');
 			const corePlugins = Object.values(pluginsImport);
 			corePlugins.forEach((plugin) => plugins.registerPlugin(plugin));
 			await plugins.startEnabled();
-		})
-		.catch((error) => console.error(error));
+		} catch (error) {
+			console.error(error);
+		}
+	};
 
 	return {
 		hooks,
 		mutators,
 		pluginsApi: plugins.api,
 		profiles,
+		startPlugins,
 		handleBeforeConnect: () => {
 			connectWebsocketHooks(plugins, Globals.websocket, (direction, message) =>
 				recordSocketMessage(direction, message),

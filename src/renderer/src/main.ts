@@ -397,7 +397,18 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	);
 	document.body.appendChild(htmlElement);
 	document.body.appendChild(styleElement);
-	document.body.appendChild(scriptElement);
+
+	// Assigned before the game script runs so connect_to_websocket hits the
+	// client mutator. That mutator waits on pluginsReady. Resolve from finally
+	// so a plugin startup failure still lets the game connect.
+	let resolvePluginsReady = (): void => {};
+	flatOinky.pluginsStarted = false;
+	flatOinky.pluginsReady = new Promise<void>((resolve) => {
+		resolvePluginsReady = () => {
+			flatOinky.pluginsStarted = true;
+			resolve();
+		};
+	});
 
 	// Manifest of first-party sources for Devtools "Save References". Inline
 	// entries keep their text (cannot be re-fetched); remote entries are URL-only
@@ -425,9 +436,19 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 
 	const references: FMMO.ReferenceManifest = { inline, remote };
 
-	// Now that the FlatMMO client has been loaded render the contents for oinky
+	// Oinky overlay before the game script, so the client mutator exists when
+	// connect_to_websocket runs. Plugin init follows the script: some plugins
+	// read game globals defined there.
 	rootElement.innerHTML = renderClientPage();
-	flatOinky.client = await initClient(character, references);
+	try {
+		const client = await initClient(character, references);
+		if (client) flatOinky.client = client;
+		document.body.appendChild(scriptElement);
+		await client?.startPlugins();
+	} finally {
+		if (!scriptElement.isConnected) document.body.appendChild(scriptElement);
+		resolvePluginsReady();
+	}
 };
 
 // #endregion
