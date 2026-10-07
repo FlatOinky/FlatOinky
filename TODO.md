@@ -2,13 +2,7 @@ A list of things to fix or do. When the work for these items is complete, update
 
 # Profiles, Plugins, and Settings Window Merge
 
-Currently profiles & plugins live in a separate window from client settings. The plan is to merge the two into one single window which can open up to specific settings tab, settings sections (like it already can), plugins tab, or profiles tab. One window, three tabs with icons on the left.
-
-## Visuals
-
-The idea is to make the window essentially follow the visuals from https://daisyui.com/components/tab/#radio-tabs-lift-with-icons--tab-content.
-
-The implementation doesn't need to match 100%, but this is the idea. I'll add an image for this when prompting, and if I don't make a request for one before continuing.
+Done. Profiles & Plugins and Client settings share one window (id `settings`) with DaisyUI tabs. The taskbar puzzle button opens the Profiles & Plugins tab; the gear button opens Settings. If that tab is already visible, the click does nothing. The window title and taskbar tooltip follow the active tab via `setTitle`.
 
 # Tooltips
 

@@ -93,8 +93,8 @@ client.
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
     window appearance settings, alerts tray/settings, context
     menu, updates UI, keybinds, devtools including logging, profiles); never toggleable. Systems other than profiles live on a restartable child
-    lifecycle rebuilt on profile swap. Profiles owns the Profiles & Plugins tray
-    window (profile CRUD plus per-profile plugin enable toggles).
+    lifecycle rebuilt on profile swap. Profiles contributes the Profiles & Plugins tab
+    of the settings window (profile CRUD plus per-profile plugin enable toggles).
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and
     the typed DOM builders in `elements.ts`.
   - `plugins/`, `templates/`, `assets/`, `styles/`.

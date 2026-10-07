@@ -3,6 +3,7 @@ import type { ClientStorage } from '../client_storage';
 import { ipcStorage } from '../ipc_renderer';
 import type { ProfileRow } from '../ipc_renderer/ipc_storage';
 import type { Profiles } from '../profiles';
+import type { ClientSettings } from '../settings';
 import type { ClientUI } from '../ui';
 import * as el from '../ui/elements';
 
@@ -18,8 +19,8 @@ export const initProfilesSystem = (
 	ui: ClientUI,
 	profiles: Profiles,
 	plugins: ClientPlugins,
-	storage: ClientStorage,
 	pluginsStorage: ClientStorage,
+	settings: ClientSettings,
 	{ restartSystems, restartPlugins }: ProfilesSystemControls,
 ): void => {
 	const container = el.div`grid grid-cols-[auto_1fr] gap-2 h-full`.element;
@@ -56,12 +57,8 @@ export const initProfilesSystem = (
 
 	let selectedId = profiles.profile.id;
 	let nameEditMode: NameEditMode = null;
-	let profilesWindow:
-		| {
-				window: ReturnType<ClientUI['windows']['initWindow']>;
-				lifecycle: Lifecycle;
-		  }
-		| undefined;
+
+	settings.mountProfiles(lifecycle, container);
 
 	const createButton = el.button`btn btn-xs join-item tooltip tooltip-top tooltip-start`.mount(
 		controlsRow,
@@ -273,31 +270,6 @@ export const initProfilesSystem = (
 		renderProfileSelect();
 	};
 
-	const createProfilesWindow = () => {
-		const windowLifecycle = lifecycle.spawnLifecycle();
-		const window = ui.windows.initWindow(windowLifecycle, {
-			id: 'profiles',
-			title: 'Profiles & Plugins',
-			icon: el.icon.puzzle``.element,
-			storage,
-			lockable: false,
-		});
-		window.body.replaceChildren(container);
-		windowLifecycle.onCleanup(() => {
-			profilesWindow = undefined;
-		});
-		return { window, lifecycle: windowLifecycle };
-	};
-
-	const toggleProfilesWindow = () => {
-		if (profilesWindow?.window.state.minimized === false) {
-			profilesWindow.window.hideWindow();
-			return;
-		}
-		profilesWindow ??= createProfilesWindow();
-		profilesWindow.window.showWindow();
-	};
-
 	const root = ui.taskbar.initMenuItem(lifecycle, 'profiles');
 	const menuContainer = el.div`px-2`.mount(root, 'container');
 	el.fieldset``.mount(menuContainer, 'fieldset', (fieldset) => {
@@ -319,7 +291,7 @@ export const initProfilesSystem = (
 			el.icon.puzzle`size-4`.mount(button);
 		},
 	);
-	windowButton.onclick = () => toggleProfilesWindow();
+	windowButton.onclick = () => settings.openTab('profiles');
 
 	const swapProfile = async (id: number) => {
 		if (id === profiles.profile.id) {

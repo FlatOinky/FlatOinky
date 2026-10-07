@@ -529,6 +529,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			},
 			forceWindowUpdate: () => forceWindowUpdate(windowFrame, windowState),
 			closeWindow: () => closeWindow(windowFrame),
+			setTitle: (title: string) => {
+				for (const node of windowFrame.querySelectorAll<HTMLElement>('[oinky-window="title"]')) {
+					node.textContent = title;
+				}
+				windowButton.setAttribute('data-tip', title);
+			},
 		};
 		liveWindows.set(id, { id, state: windowState, hideWindow: api.hideWindow });
 		return api;

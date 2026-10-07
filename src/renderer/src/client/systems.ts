@@ -90,7 +90,7 @@ export const initSystems = async (
 		await startSystems();
 	};
 
-	initProfilesSystem(lifecycle, ui, profiles, plugins, clientStorage, pluginsStorage, {
+	initProfilesSystem(lifecycle, ui, profiles, plugins, pluginsStorage, settings, {
 		restartSystems,
 		restartPlugins: () => plugins.restart(),
 	});

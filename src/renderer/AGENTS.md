@@ -41,8 +41,8 @@ Layout under `src/`:
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
 - `client/systems/` — always-on features (app menu, windows, alerts,
   updates, context menu, keybinds, devtools including logging, profiles). Systems other than profiles live on a restartable
-  child lifecycle rebuilt on profile swap; the profiles system owns the Profiles &
-  Plugins tray window and drives that restart.
+  child lifecycle rebuilt on profile swap; the profiles system contributes the Profiles &
+  Plugins tab of the settings window and drives that restart.
 - `plugins/` — toggleable plugins (`chat`, `audio`, `metrics`, `themes`, `mouse`,
   `keybinds`, `monitor/`, `tweaks/`, `timers/`, `ui/`, …)
 - `templates/`, `assets/`
@@ -133,8 +133,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      settings is impractical (chat and metrics use this)
    - optional `settingsMenu?: () => HTMLElement`
 2. Re-export it from [src/plugins.ts](src/plugins.ts). `client.ts` registers and
-   starts every enabled export from that barrel (per-profile toggles live in the
-   Profiles & Plugins window).
+   starts every enabled export from that barrel (per-profile toggles live on the
+   Profiles & Plugins tab of the settings window).
 3. **Storage** — `context.storages.global | profile | character` from
    [src/client/client_storage.ts](src/client/client_storage.ts):
    - `global` — all characters / this install
@@ -198,7 +198,8 @@ mountHeaderExtras? })` builds a per-cue `AlertScope` card.
      `initWindowButton`, plus `elements` (e.g. `chatContainer`)
    - Windows: `windows.initWindow(lifecycle, { id, title, storage, ... })` persists
      `WindowState` (including `open`) under `window/${id}`; `windows.isOpen(storage, id)`
-     reads that flag before the window exists. `open` is cleared on user close, not when
+     reads that flag before the window exists. `setTitle(title)` updates the frame title
+     and the taskbar button tooltip. `open` is cleared on user close, not when
      a plugin lifecycle tears the window down (so settings restarts can restore it).
      `windows.initToolbarWindow(lifecycle, { ..., grabberEdge? })` is the same window
      with a thin frame and no resize edges. `grabberEdge` (`left` by default, or

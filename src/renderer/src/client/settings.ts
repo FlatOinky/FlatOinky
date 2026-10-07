@@ -1577,25 +1577,59 @@ const initSettingsMenu = (lifecycle: Lifecycle, registry: SettingsRegistry) => {
 
 // #region initSettingsWindow
 
+export type ClientWindowTab = 'profiles' | 'settings';
+
+const TAB_GROUP = 'oinky-client-window-tabs';
+
+const TAB_TITLE: Record<ClientWindowTab, string> = {
+	profiles: 'Profiles & Plugins',
+	settings: 'Client settings',
+};
+
 const initSettingsWindow = (
 	parentLifecycle: Lifecycle,
 	ui: ClientUi,
 	storage: ClientStorage,
-	container: HTMLElement,
+	body: HTMLElement,
+	title: string,
 	onVisible?: () => void,
 ) => {
 	const lifecycle = parentLifecycle.spawnLifecycle();
 	const window = ui.windows.initWindow(lifecycle, {
 		id: 'settings',
-		title: 'Client settings',
+		title,
 		icon: ui.el.icon.settings``.element,
 		storage,
 		lockable: false,
 		onVisible,
 	});
-	window.body.replaceChildren(container);
+	window.body.replaceChildren(body);
 
 	return { window, lifecycle };
+};
+
+const initClientWindowTabs = () => {
+	const tabs = el.div`tabs tabs-lift h-full min-h-0`.element;
+	tabs.style.setProperty('--tabs-height', '100%');
+
+	const mountTab = (id: ClientWindowTab, label: string, icon: typeof el.icon.puzzle) => {
+		const tab = el.label`tab`.mount(tabs, `${id}-tab`);
+		const radio = el.input.radio``.mount(tab, 'input');
+		radio.name = TAB_GROUP;
+		icon`size-4 me-2`.mount(tab, 'icon');
+		el.span``.mount(tab, 'label', (span) => {
+			span.textContent = label;
+		});
+		const panel = el.div`tab-content bg-base-100 border-base-300 overflow-hidden`.mount(
+			tabs,
+			`${id}-panel`,
+		);
+		return { radio, panel };
+	};
+
+	const profiles = mountTab('profiles', 'Profiles & Plugins', el.icon.puzzle);
+	const settings = mountTab('settings', 'Settings', el.icon.settings);
+	return { tabs, profiles, settings };
 };
 
 // #region initSettings
@@ -1606,13 +1640,18 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 	const registry: SettingsRegistry = [];
 
 	const settingsMenu = initSettingsMenu(lifecycle, registry);
+	const clientTabs = initClientWindowTabs();
+	clientTabs.settings.panel.appendChild(settingsMenu.container);
 
 	let settingsWindow: ReturnType<typeof initSettingsWindow> | undefined;
+	let activeTab: ClientWindowTab = 'settings';
 	let dirty = true;
 	let visualsScheduled = false;
 
 	const isSettingsVisible = () =>
-		settingsWindow !== undefined && settingsWindow.window.state.minimized === false;
+		settingsWindow !== undefined &&
+		settingsWindow.window.state.minimized === false &&
+		activeTab === 'settings';
 
 	const flushVisuals = (force = false) => {
 		visualsScheduled = false;
@@ -1623,8 +1662,8 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		if (!force && !dirty) return;
 		dirty = false;
 		settingsMenu.update();
-		if (settingsWindow && settingsMenu.container.parentElement !== settingsWindow.window.body) {
-			settingsWindow.window.body.replaceChildren(settingsMenu.container);
+		if (settingsWindow && clientTabs.tabs.parentElement !== settingsWindow.window.body) {
+			settingsWindow.window.body.replaceChildren(clientTabs.tabs);
 		}
 	};
 
@@ -1636,33 +1675,61 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 	};
 
 	const createSettingsWindow = () => {
-		const newWindow = initSettingsWindow(lifecycle, ui, storage, settingsMenu.container, () =>
-			flushVisuals(),
+		const newWindow = initSettingsWindow(
+			lifecycle,
+			ui,
+			storage,
+			clientTabs.tabs,
+			TAB_TITLE[activeTab],
+			() => flushVisuals(),
 		);
 		newWindow.lifecycle.onCleanup(() => (settingsWindow = undefined));
 		return newWindow;
 	};
 
-	const showSettingsWindow = () => {
+	const selectTab = (tab: ClientWindowTab) => {
+		activeTab = tab;
+		const radio = tab === 'profiles' ? clientTabs.profiles.radio : clientTabs.settings.radio;
+		radio.checked = true;
+		settingsWindow?.window.setTitle(TAB_TITLE[tab]);
+		if (tab === 'settings') flushVisuals(true);
+	};
+
+	clientTabs.profiles.radio.onchange = () => {
+		if (clientTabs.profiles.radio.checked) selectTab('profiles');
+	};
+	clientTabs.settings.radio.onchange = () => {
+		if (clientTabs.settings.radio.checked) selectTab('settings');
+	};
+
+	const openTab = (tab: ClientWindowTab) => {
+		if (
+			settingsWindow !== undefined &&
+			settingsWindow.window.state.minimized === false &&
+			activeTab === tab
+		) {
+			return;
+		}
 		settingsWindow ??= createSettingsWindow();
-		if (dirty || visualsScheduled) flushVisuals(true);
+		selectTab(tab);
 		settingsWindow.window.showWindow();
+	};
+
+	const mountProfiles = (profilesLifecycle: Lifecycle, element: HTMLElement) => {
+		clientTabs.profiles.panel.replaceChildren(element);
+		profilesLifecycle.onCleanup(() => {
+			if (clientTabs.profiles.panel.contains(element)) element.remove();
+		});
 	};
 
 	const trayButton = ui.taskbar.initTrayButton(lifecycle, 'settings', {
 		title: 'Client settings',
 		icon: ui.el.icon.settings``.element,
 	});
-	trayButton.onclick = () => {
-		if (settingsWindow?.window.state.minimized === false) {
-			settingsWindow.window.hideWindow();
-			return;
-		}
-		showSettingsWindow();
-	};
+	trayButton.onclick = () => openTab('settings');
 
 	const openSection = (entry: SettingsSectionEntry) => {
-		showSettingsWindow();
+		openTab('settings');
 		const sections = registry.filter((section) => section.category === entry.category);
 		const sectionIndex = sections.indexOf(entry);
 		if (sectionIndex < 0) return;
@@ -1709,9 +1776,13 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		return section;
 	};
 
+	clientTabs.settings.radio.checked = true;
+
 	return {
 		helpers: settingsHelpers,
 		initSection,
+		openTab,
+		mountProfiles,
 		get settingsWindow() {
 			return settingsWindow;
 		},

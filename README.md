@@ -13,12 +13,12 @@ A desktop application for Flat MMO
 - Minimize a window to its taskbar button, or lock it to keep it out of your way
 - Window positions and sizes are remembered between sessions
 - An icon tray to the left of the hamburger menu in the taskbar
-- A single 'Client settings' window that every plugin adds its own section to, accessible through the taskbar icons tray
+- A single client window with Profiles & Plugins and Settings tabs. Plugins add their own settings sections. The taskbar puzzle button opens Profiles & Plugins; the gear button opens Settings
 
 #### Profiles
 
 - Multiple profiles, with each character mapped to one
-- Profiles & Plugins window to create, rename, duplicate, delete, and swap profiles
+- Profiles & Plugins tab to create, rename, duplicate, delete, and swap profiles
 - Per-profile toggles for which plugins are enabled
 
 #### Chat
