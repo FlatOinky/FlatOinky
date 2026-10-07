@@ -210,7 +210,7 @@ export const initProfilesSystem = (
 		);
 		const header = el.div`flex gap-2 items-center`.mount(row, 'header');
 		const toggle = el.input.checkbox``.mount(header, 'toggle');
-		toggle.classList = 'toggle toggle-sm';
+		toggle.classList = 'toggle toggle-xs';
 		toggle.id = `profiles-plugin-${plugin.namespace.replaceAll('/', '-')}`;
 		toggle.onchange = () => {
 			void plugins.setEnabled(plugin.namespace, toggle.checked);
