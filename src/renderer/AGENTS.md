@@ -64,8 +64,8 @@ Layout under `src/`:
   `oinky/fmmo_keybinds/actions`). Then `register(key, name, callback, requestKeycombo?)`.
   Chat (or another plugin) may
   `setChatInput` an input; the Keybinds plugin's **Snap to chat** bind focuses it (Enter
-  by default). While that input is focused, the keybinds system does not dispatch or
-  record held combos. `log` is a
+  by default). While any input, textarea, select, or contenteditable is focused, the
+  keybinds system does not dispatch or record held combos. `log` is a
   `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace); plugin
   contexts prefix messages with `[plugin.name]`. `timers.initInterval(lifecycle, options)`
   starts a managed interval (`options.name` is optional, for timer logs) that stops

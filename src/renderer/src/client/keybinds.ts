@@ -135,17 +135,6 @@ const isEditableElement = (element: Element | null): boolean => {
 	return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 };
 
-const isAlwaysDispatchCombo = (combo: Keycombo): boolean => {
-	if (combo.keys.length !== 1 || (combo.modifiers?.length ?? 0) !== 0) return false;
-	const code = combo.keys[0]!;
-	return /^F\d{1,2}$/.test(code) || code === 'Escape';
-};
-
-const hasChordModifier = (combo: Keycombo): boolean =>
-	(combo.modifiers ?? []).some(
-		(modifier) => modifier === 'Ctrl' || modifier === 'Alt' || modifier === 'Meta',
-	);
-
 export type Keybinds = ReturnType<typeof initKeybinds>;
 
 export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root: HTMLElement) => {
@@ -158,7 +147,6 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 	const gesture = createKeycomboGesture();
 	let capturing = false;
 	let chatInput: HTMLInputElement | null = null;
-	let chatInputFocusHandler: (() => void) | undefined;
 	let openWindowHandler: (() => void) | undefined;
 
 	let overlappingCache: Set<string> | undefined;
@@ -378,17 +366,9 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		return captureKeycombo({ root, setCapturing });
 	};
 
-	const shouldSkipDispatch = (combo: Keycombo): boolean => {
-		if (isAlwaysDispatchCombo(combo) || hasChordModifier(combo)) return false;
-		return isEditableElement(document.activeElement);
-	};
-
-	const isChatInputFocused = (): boolean =>
-		chatInput != null && document.activeElement === chatInput;
-
 	const handleKeydown = (event: KeyboardEvent) => {
 		if (capturing) return;
-		if (isChatInputFocused()) return;
+		if (isEditableElement(document.activeElement)) return;
 		if (event.repeat) return;
 		const combo = gesture.noteKeydown(event.code);
 		notifyHeld(combo);
@@ -399,6 +379,10 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 
 	const handleKeyup = (event: KeyboardEvent) => {
 		if (capturing) return;
+		if (isEditableElement(document.activeElement)) {
+			abortGesture();
+			return;
+		}
 		if (gesture.size === 0) return;
 		const { combo, ended } = gesture.noteKeyup(event.code);
 		if (!ended) {
@@ -407,7 +391,6 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		}
 		gesture.reset();
 		notifyHeld(null);
-		if (isChatInputFocused() || shouldSkipDispatch(combo)) return;
 		const registration = matchCombo(combo);
 		if (!registration) return;
 		const handled = registration.callback(event);
@@ -417,6 +400,12 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		notifyFired({ name: registration.name, combo });
 	};
 
+	const handleFocusIn = (event: FocusEvent) => {
+		if (capturing) return;
+		if (!isEditableElement(event.target instanceof Element ? event.target : null)) return;
+		abortGesture();
+	};
+
 	const handleBlur = () => {
 		if (capturing) return;
 		abortGesture();
@@ -424,14 +413,13 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 
 	window.addEventListener('keydown', handleKeydown, true);
 	window.addEventListener('keyup', handleKeyup, true);
+	document.addEventListener('focusin', handleFocusIn, true);
 	window.addEventListener('blur', handleBlur);
 	lifecycle.onCleanup(() => {
 		window.removeEventListener('keydown', handleKeydown, true);
 		window.removeEventListener('keyup', handleKeyup, true);
+		document.removeEventListener('focusin', handleFocusIn, true);
 		window.removeEventListener('blur', handleBlur);
-		if (chatInput && chatInputFocusHandler) {
-			chatInput.removeEventListener('focusin', chatInputFocusHandler);
-		}
 		gesture.reset();
 	});
 
@@ -454,16 +442,7 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 			return capturing;
 		},
 		setChatInput: (input: HTMLInputElement | null) => {
-			if (chatInput && chatInputFocusHandler) {
-				chatInput.removeEventListener('focusin', chatInputFocusHandler);
-			}
 			chatInput = input;
-			chatInputFocusHandler = undefined;
-			if (!input) return;
-			chatInputFocusHandler = () => {
-				abortGesture();
-			};
-			input.addEventListener('focusin', chatInputFocusHandler);
 		},
 		get chatInput() {
 			return chatInput;
