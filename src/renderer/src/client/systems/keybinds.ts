@@ -95,8 +95,7 @@ export const initKeybindsSystem = (
 	lifecycle.onCleanup(keybindsSettings.remove);
 
 	const container =
-		el.div`grid grid-cols-[192px_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`
-			.element;
+		el.div`grid grid-cols-[192px_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`.element;
 	const navContainer =
 		el.div`row-span-2 flex flex-col gap-2 p-1 min-w-0 w-full bg-base-200 bg-blend-color in-locked-window:bg-base-200/30 rounded-box overflow-y-auto overflow-x-hidden`.mount(
 			container,

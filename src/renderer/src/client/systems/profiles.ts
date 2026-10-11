@@ -60,25 +60,27 @@ export const initProfilesSystem = (
 
 	settings.mountProfiles(lifecycle, container);
 
-	const createButton = el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
-		controlsRow,
-		'create',
-		(button) => {
-			button.type = 'button';
-			button.setAttribute('data-tip', 'New profile');
-			el.icon.plus`size-4`.mount(button);
-		},
-	);
+	const createButton =
+		el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
+			controlsRow,
+			'create',
+			(button) => {
+				button.type = 'button';
+				button.setAttribute('data-tip', 'New profile');
+				el.icon.plus`size-4`.mount(button);
+			},
+		);
 
-	const renameButton = el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
-		controlsRow,
-		'rename',
-		(button) => {
-			button.type = 'button';
-			button.setAttribute('data-tip', 'Rename selected profile');
-			el.icon.pencil`size-4`.mount(button);
-		},
-	);
+	const renameButton =
+		el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
+			controlsRow,
+			'rename',
+			(button) => {
+				button.type = 'button';
+				button.setAttribute('data-tip', 'Rename selected profile');
+				el.icon.pencil`size-4`.mount(button);
+			},
+		);
 
 	const swapButton = el.button`btn btn-xs join-item flex-1 tooltip tooltip-top tooltip-start`.mount(
 		controlsRow,
@@ -299,8 +301,7 @@ export const initProfilesSystem = (
 		}
 		const current = [...pluginsList.children];
 		const orderChanged =
-			current.length !== children.length ||
-			current.some((node, index) => node !== children[index]);
+			current.length !== children.length || current.some((node, index) => node !== children[index]);
 		if (!orderChanged) return;
 		const scrollTop = pluginsColumn.scrollTop;
 		for (const child of children) pluginsList.append(child);
