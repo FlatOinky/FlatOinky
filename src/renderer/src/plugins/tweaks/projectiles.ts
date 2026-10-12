@@ -1,11 +1,11 @@
-import { ClientContext, Plugin } from '../../client';
+import { Plugin, type PluginContext } from '../../client';
 import * as el from '../../client/ui/elements';
 
 // FlatMMO only removes a projectile once it reaches its target, and the
 // player-projectile paint loop never checks whether that target still exists.
 // SET_MAP drops every non-local player, so anything mid-flight is stranded on
 // the canvas (and keeps its frame interval alive) for the rest of the session.
-const sweepProjectiles = (context: ClientContext, force = false): void => {
+const sweepProjectiles = (context: PluginContext, force = false): void => {
 	for (const [uuid, projectile] of Object.entries(projectile_to_player_objects)) {
 		if (!force && context.getPlayer(projectile.username_to_target)) continue;
 		clearInterval(projectile.frames_interval_1);
@@ -26,7 +26,7 @@ const sweepProjectiles = (context: ClientContext, force = false): void => {
 };
 
 let sweepScheduled = false;
-const scheduleSweep = (context: ClientContext): void => {
+const scheduleSweep = (context: PluginContext): void => {
 	if (sweepScheduled) return;
 	sweepScheduled = true;
 	queueMicrotask(() => {

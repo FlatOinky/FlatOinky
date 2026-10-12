@@ -118,7 +118,12 @@ export const handleChatInputKeydown =
 				return;
 			}
 
-			if (runCommandInput(message, context)) {
+			const outcome = runCommandInput(message, context);
+			if (outcome === 'stopped') {
+				closeCommandMenu(commandsMenu);
+				return;
+			}
+			if (outcome === 'complete') {
 				sentHistory.unshift(message);
 				sentHistoryIndex = -1;
 				isHistoryValue = false;

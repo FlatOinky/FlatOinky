@@ -49,6 +49,8 @@ declare global {
 	function request_focus_chatbox(): void;
 	function request_unfocus_chatbox(): void;
 	function open_key_bindings_modal(): void;
+	function get_level(playerXP: number, includeVirtual?: boolean): number;
+	function get_var(key: string): number;
 	function toggle_sound(): void;
 	function toggle_music(): void;
 	function add_to_chat(

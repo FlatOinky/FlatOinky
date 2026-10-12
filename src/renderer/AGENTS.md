@@ -56,17 +56,23 @@ Layout under `src/`:
   reaches the client only through `PluginContext`.
 - **`PluginContext` is the third-party contract.** Anything a plugin needs must be
   reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `alerts`,
-  `contextMenu`, `keybinds`, `log`, `settings`, `storages`, `collections`, `timers`,
-  `isLocalUsername`, `getPlayer`, `getLocalPlayer`). System-only APIs (`updater`,
-  openDevTools, saveReferences) stay off the context. `alerts`, `contextMenu`, and
-  `keybinds` are getters that throw if accessed before those systems are initialized.
-  Plugins register keybinds with `context.keybinds.initSection(lifecycle, sectionId, name)`
-  using a **relative** `sectionId`; the stored id is `<plugin namespace>/<section>` (e.g.
-  `oinky/fmmo_keybinds/actions`). The section's category is `Plugin.category` and stays
+  `contextMenu`, `keybinds`, `actions`, `log`, `settings`, `storages`, `collections`,
+  `timers`, `isLocalUsername`, `getPlayer`, `getLocalPlayer`). System-only APIs (`updater`,
+  openDevTools, saveReferences) stay off the context. `alerts`, `contextMenu`, `keybinds`,
+  and `actions` are getters that throw if accessed before those systems are initialized.
+  Plugins register actions with `context.actions.register(options, callback)`. The plugin
+  namespace, name, and category are already bound. The keybind group is
+  `plugin/<namespace>` and the assignment key is the action `id`. `options.category` is
+  only the section label on the Keybinds tab. `getAll()` (registration order) and
+  `getByAlias()` read every action; aliases are case-insensitive chat commands.
+  Plugins register other keybinds with `context.keybinds.initSection(lifecycle, sectionId, name)`
+  using a **relative** `sectionId`; the stored group is `<plugin namespace>/<section>`.
+  The section's category is `Plugin.category` and stays
   unset when the plugin has none. Then `register(key, name, callback, requestKeycombo?)`.
   `reset(sectionId, key)` restores the requested combo; `clear(sectionId, key)` stores no combo.
-  Chat (or another plugin) may
-  `setChatInput` an input; the Keybinds plugin's **Snap to chat** bind focuses it (Enter
+  Assignments live at `assignments[group][key]`. Category and section are labels, so renaming
+  them leaves the saved combo in place. Chat (or another plugin) may
+  `setChatInput` an input; the Keybinds plugin's **Focus chat** bind focuses it (Enter
   by default). While any input, textarea, select, or contenteditable is focused, the
   keybinds system does not dispatch or record held combos. `log` is a
   `context.log.<level>(message)` logger (fatal/error/warn/info/debug/trace); plugin

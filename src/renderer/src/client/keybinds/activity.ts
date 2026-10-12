@@ -36,7 +36,6 @@ export const initKeybindActivity = (
 	host.className = 'flex flex-col items-center gap-1';
 
 	let comboBox: ActivityBox | null = null;
-	let comboDismissed = false;
 
 	const removeComboBox = () => {
 		comboBox?.box.remove();
@@ -44,7 +43,7 @@ export const initKeybindActivity = (
 	};
 
 	const renderComboActivity = (combo: Keycombo | null) => {
-		if (keybinds.capturing || comboDismissed || !settings.showKeycomboActivity || !combo) {
+		if (keybinds.capturing || !settings.showKeycomboActivity || !combo) {
 			removeComboBox();
 			return;
 		}
@@ -57,7 +56,6 @@ export const initKeybindActivity = (
 
 	const showFired = (fired: KeybindFired) => {
 		removeComboBox();
-		comboDismissed = true;
 		if (!settings.showKeybindActivity) return;
 		const next = mountActivityBox(host, true);
 		renderComboChips(fired.combo, 'xs', next.chips);
@@ -65,11 +63,6 @@ export const initKeybindActivity = (
 		fadeRemoveElement(next.box, KEYBIND_ACTIVITY_MS, 200, lifecycle);
 	};
 
-	lifecycle.onCleanup(
-		keybinds.subscribeHeld((combo) => {
-			if (!combo) comboDismissed = false;
-			renderComboActivity(combo);
-		}),
-	);
+	lifecycle.onCleanup(keybinds.subscribeHeld(renderComboActivity));
 	lifecycle.onCleanup(keybinds.subscribeFired(showFired));
 };

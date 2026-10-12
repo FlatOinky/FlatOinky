@@ -1,4 +1,5 @@
 import * as el from '../../client/ui/elements';
+import type { PluginActions } from '../../client/actions';
 import { pmState } from './chat_state';
 import { updateChatTabs } from './chat_tabs';
 import { Channels, ChatElements, Settings } from './chat_types';
@@ -11,14 +12,16 @@ export type ChatCommandContext = {
 	elements: ChatElements;
 	send: (prefix: string, message: string) => void;
 	notify: (message: string) => void;
+	actions: PluginActions;
 };
 
 export type ChatCommand = {
 	name: string;
 	description: string;
 	aliases: string[];
-	execute: boolean;
-	run?: (args: string[], context: ChatCommandContext) => void;
+	section?: string;
+	requiresArgs?: boolean;
+	run?: (args: string[], context: ChatCommandContext) => void | false;
 };
 
 type ParsedCommandInput = {
@@ -39,11 +42,11 @@ export const parseCommandInput = (
 	return { alias, args, commandArgs: args.join(' ').trim() };
 };
 
-const shortestAlias = (command: ChatCommand): string =>
-	command.aliases.reduce((shortest, alias) => (alias.length < shortest.length ? alias : shortest));
+const shortestAlias = (aliases: readonly string[]): string =>
+	aliases.reduce((shortest, alias) => (alias.length < shortest.length ? alias : shortest));
 
-const formatAliases = (command: ChatCommand, prefix: string): string =>
-	command.aliases
+const formatAliases = (aliases: readonly string[], prefix: string): string =>
+	aliases
 		.map((alias) => `<code class="bg-base-200 rounded-selector p-0.5">${prefix}${alias}</code>`)
 		.join(', ');
 
@@ -115,36 +118,22 @@ const scoreAlias = (query: string, alias: string): number => {
 	return SCORE_EDIT - distance * 100 - Math.abs(alias.length - query.length);
 };
 
-const scoreCommand = (query: string, command: ChatCommand): number =>
-	command.aliases.reduce((best, alias) => Math.max(best, scoreAlias(query, alias)), 0);
+const scoreCommand = (query: string, aliases: readonly string[]): number =>
+	aliases.reduce((best, alias) => Math.max(best, scoreAlias(query, alias)), 0);
 
-const closestAliasDistance = (query: string, command: ChatCommand): number =>
-	command.aliases.reduce((best, alias) => Math.min(best, editDistance(query, alias)), Infinity);
+type ListedAction = ReturnType<PluginActions['getAll']>[number];
 
-const filterCommands = (alias: string): ChatCommand[] => {
-	if (alias === '') return [...chatCommands];
-	return chatCommands
-		.map((command) => ({ command, score: scoreCommand(alias, command) }))
+const commandActions = (context: ChatCommandContext): ListedAction[] =>
+	context.actions.getAll().filter((action) => (action.aliases?.length ?? 0) > 0);
+
+const filterCommands = (alias: string, context: ChatCommandContext): ListedAction[] => {
+	const commands = commandActions(context);
+	if (alias === '') return commands;
+	return commands
+		.map((command) => ({ command, score: scoreCommand(alias, command.aliases ?? []) }))
 		.filter(({ score }) => score > 0)
 		.sort((left, right) => right.score - left.score)
 		.map(({ command }) => command);
-};
-
-const findExactCommand = (alias: string): ChatCommand | undefined =>
-	chatCommands.find((command) => command.aliases.includes(alias));
-
-const findCorrectedExecutable = (alias: string): ChatCommand | undefined => {
-	const limit = maxEditDistance(alias);
-	if (limit <= 0) return undefined;
-	const ranked = chatCommands
-		.filter((command) => command.execute)
-		.map((command) => ({ command, distance: closestAliasDistance(alias, command) }))
-		.filter(({ distance }) => distance > 0 && distance <= limit)
-		.sort((left, right) => left.distance - right.distance);
-	const best = ranked[0];
-	if (!best) return undefined;
-	if (ranked[1] && ranked[1].distance === best.distance) return undefined;
-	return best.command;
 };
 
 // #region Commands
@@ -181,13 +170,14 @@ const replyCommand: ChatCommand = {
 	name: 'Reply',
 	description: 'Reply to the latest private message.',
 	aliases: ['reply', 'r'],
-	execute: false,
+	requiresArgs: true,
 	run: (args, context) => {
 		const username = ensurePmUsername(context);
-		if (!username) return;
+		if (!username) return false;
 		const message = args.join(' ').trim();
-		if (!message) return;
+		if (!message) return false;
 		context.send(`/pm ${username.replaceAll(' ', '_')}`, message);
+		return;
 	},
 };
 
@@ -195,14 +185,14 @@ const replyTabCommand: ChatCommand = {
 	name: 'Reply Tab',
 	description: 'Open the PM tab for the latest private message.',
 	aliases: ['replytab', 'rt'],
-	execute: true,
 	run: (args, context) => {
 		const username = ensurePmUsername(context);
-		if (!username) return;
+		if (!username) return false;
 		openOrSelectPmTab(username, context);
 		const message = args.join(' ').trim();
 		if (!message) return;
 		context.send(`/pm ${username.replaceAll(' ', '_')}`, message);
+		return;
 	},
 };
 
@@ -210,7 +200,7 @@ const unstuckCommand: ChatCommand = {
 	name: 'Stuck',
 	description: 'use if your character is stuck and cannot move',
 	aliases: ['stuck'],
-	execute: true,
+	section: 'Misc',
 	run: (_args, context) => {
 		context.send('', '/stuck');
 	},
@@ -220,7 +210,7 @@ const helpCommand: ChatCommand = {
 	name: 'Help',
 	description: 'get default flat mmo commands help menu',
 	aliases: ['help', 'h'],
-	execute: true,
+	section: 'Misc',
 	run: (_args, context) => {
 		context.send('', '/help');
 	},
@@ -230,141 +220,143 @@ const ticksCommand: ChatCommand = {
 	name: 'Ticks',
 	description: 'Toggle receiving ticks pings from the server',
 	aliases: ['ticks', 't'],
-	execute: true,
+	section: 'Misc',
 	run: (_args, context) => {
 		context.send('', '/ticks');
 	},
 };
 
 const collectionsCommand: ChatCommand = {
-	name: 'Collections',
+	name: 'Collection Log',
 	description: 'Open the collections menu',
 	aliases: ['collections', 'c'],
-	execute: true,
+	section: 'Menus',
 	run: (_args, context) => {
 		context.send('', '/collections');
 	},
 };
 
 const teleportsCommand: ChatCommand = {
-	name: 'Teleports',
+	name: 'Teleport Book',
 	description: 'Open the teleports book menu',
 	aliases: ['teleports', 'tb'],
-	execute: true,
+	section: 'Menus',
 	run: (_args, context) => {
 		context.send('', '/tb');
 	},
 };
 
+const bankCommand: ChatCommand = {
+	name: 'Bank',
+	description: 'Open the bank',
+	aliases: ['bank'],
+	section: 'Menus',
+	run: () => {
+		Globals.websocket?.send('VIEW_BANK');
+	},
+};
+
 const dounbotCommands: ChatCommand[] = [
 	{
-		name: 'Bot: Check Statuses',
+		name: 'Check Statuses',
 		description: 'Yell for world event statuses',
 		aliases: ['statuses'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !s');
 		},
 	},
 	{
-		name: 'Bot: Check Meteor',
+		name: 'Check Meteor',
 		description: 'Yell for meteor status',
 		aliases: ['meteor'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !m');
 		},
 	},
 	{
-		name: 'Bot: Check Bondfire',
+		name: 'Check Bondfire',
 		description: 'Yell for bondfire status',
 		aliases: ['bondfire'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !bondfire');
 		},
 	},
 	{
-		name: 'Bot: Check Ancient Ore',
+		name: 'Check Ancient Ore',
 		description: 'Yell for ancient ore status',
 		aliases: ['ancient'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !ancient');
 		},
 	},
 	{
-		name: 'Bot: Check Storm Scroll',
+		name: 'Check Storm Scroll',
 		description: 'Yell for storm scroll status',
 		aliases: ['scroll'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !storm');
 		},
 	},
 	{
-		name: 'Bot: Check Tree',
+		name: 'Check Tree',
 		description: 'Yell for tree status',
 		aliases: ['tree'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !tree');
 		},
 	},
 	{
-		name: 'Bot: Set Meteor',
+		name: 'Set Meteor',
 		description: 'Sets the meteor value',
 		aliases: ['set-meteor'],
-		execute: false,
+		requiresArgs: true,
 		run: (args, context) => {
 			const message = args.join(' ').trim();
-			if (!message) return;
+			if (!message) return false;
 			context.send('', `/yell !sm ${message}`);
+			return;
 		},
 	},
 	{
-		name: 'Bot: Set Evil Tree',
+		name: 'Set Evil Tree',
 		description: 'Sets the evil tree value (requires 10k donation)',
 		aliases: ['set-tree'],
-		execute: false,
+		requiresArgs: true,
 		run: (args, context) => {
 			const message = args.join(' ').trim();
-			if (!message) return;
+			if (!message) return false;
 			context.send('', `/yell !st ${message}`);
+			return;
 		},
 	},
 	{
-		name: 'Bot: Clear Evil Tree',
+		name: 'Clear Evil Tree',
 		description: 'Clears the currently set evil tree (requires 10k donation)',
 		aliases: ['clear-tree', 'reset-tree'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !resettree');
 		},
 	},
 	{
-		name: 'Bot: Ping Alien',
+		name: 'Ping Alien',
 		description: 'Triggers the alien ping in discord (requires 10k donation)',
 		aliases: ['ping-alien'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !alien');
 		},
 	},
 	{
-		name: 'Bot: Ping Gem Meteor',
+		name: 'Ping Gem Meteor',
 		description: 'Triggers the gem meteor ping in discord (requires 10k donation)',
 		aliases: ['ping-gemmeteor'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !gemmeteor');
 		},
 	},
 	{
-		name: 'Bot: Ping Super Storm',
+		name: 'Ping Super Storm',
 		description: 'Triggers the super storm ping in discord (requires 10k donation)',
 		aliases: ['ping-superstorm'],
-		execute: true,
 		run: (_args, context) => {
 			context.send('', '/yell !superstorm');
 		},
@@ -374,18 +366,59 @@ const dounbotCommands: ChatCommand[] = [
 export const chatCommands: ChatCommand[] = [
 	collectionsCommand,
 	teleportsCommand,
+	bankCommand,
 	helpCommand,
 	replyCommand,
 	replyTabCommand,
 	ticksCommand,
 	unstuckCommand,
-	...dounbotCommands,
+	...dounbotCommands.map((command) => ({ ...command, section: 'Bot commands' })),
 ];
+
+const readOwnArgs = (aliases: readonly string[], context: ChatCommandContext): string[] => {
+	const parsed = parseCommandInput(
+		context.elements.chatInput.value,
+		context.settings.commandPrefix,
+	);
+	if (!parsed || !aliases.includes(parsed.alias) || parsed.commandArgs === '') return [];
+	return parsed.args;
+};
+
+const fillAlias = (alias: string, context: ChatCommandContext): void => {
+	const input = context.elements.chatInput;
+	input.value = `${context.settings.commandPrefix}${alias} `;
+	input.focus();
+	input.selectionStart = input.value.length;
+	input.selectionEnd = input.value.length;
+};
+
+export const registerChatCommands = (context: ChatCommandContext): void => {
+	for (const command of chatCommands) {
+		context.actions.register(
+			{
+				id: command.aliases[0] ?? command.name,
+				name: command.name,
+				description: command.description,
+				category: command.section,
+				aliases: command.aliases,
+				rateLimit: null,
+			},
+			() => {
+				const args = readOwnArgs(command.aliases, context);
+				if (command.requiresArgs && args.length === 0) {
+					fillAlias(shortestAlias(command.aliases), context);
+					return false;
+				}
+				return command.run?.(args, context);
+			},
+		);
+	}
+};
 
 // #region Selection state
 
 let selectedIndex = -1;
-let currentMatches: ChatCommand[] = [];
+let currentMatches: ListedAction[] = [];
 
 export const hasCommandSelection = (): boolean =>
 	selectedIndex >= 0 && selectedIndex < currentMatches.length;
@@ -394,7 +427,7 @@ export const hasCommandMatches = (value: string, context: ChatCommandContext): b
 	if (!context.settings.enableCommands) return false;
 	const parsed = parseCommandInput(value, context.settings.commandPrefix);
 	if (!parsed) return false;
-	return filterCommands(parsed.alias).length > 0;
+	return filterCommands(parsed.alias, context).length > 0;
 };
 
 const clearSelection = (): void => {
@@ -438,7 +471,7 @@ export const mountCommandsMenu = (root: HTMLElement, anchorName: string): HTMLUL
 
 const renderCommandItem = (
 	menu: HTMLUListElement,
-	command: ChatCommand,
+	command: ListedAction,
 	context: ChatCommandContext,
 	chatInput: HTMLInputElement | undefined,
 ): void => {
@@ -447,13 +480,14 @@ const renderCommandItem = (
 	el.button`flex flex-col items-start gap-0.5`.mount(item, undefined, (button) => {
 		button.type = 'button';
 		el.span`font-medium`.mount(button, undefined, (span) => {
-			span.innerHTML = `${command.name}<span class="text-xs"> — ${formatAliases(command, prefix)}</span>`;
+			span.innerHTML = `${command.name}<span class="text-xs"> — ${formatAliases(command.aliases ?? [], prefix)}</span>`;
 		});
 		el.span`text-xs opacity-70`.mount(button, undefined, (span) => {
-			span.textContent = command.description;
+			span.textContent = command.description ?? '';
 		});
 		button.onclick = () => {
-			applyCommand(command, [], context, chatInput);
+			const result = command.execute();
+			if (result.status === 'complete' && chatInput) chatInput.value = '';
 			closeCommandMenu(menu);
 			chatInput?.focus();
 		};
@@ -481,7 +515,7 @@ export const renderCommandMenu = (
 		return 0;
 	}
 
-	currentMatches = filterCommands(parsed.alias);
+	currentMatches = filterCommands(parsed.alias, context);
 	if (currentMatches.length === 0) {
 		clearSelection();
 		closeCommandMenu(menu);
@@ -506,38 +540,6 @@ export const moveCommandSelection = (menu: HTMLUListElement, offset: number): vo
 	applySelectionHighlight(menu);
 };
 
-const autofillCommand = (
-	command: ChatCommand,
-	context: ChatCommandContext,
-	chatInput: HTMLInputElement | undefined,
-): void => {
-	if (!chatInput) return;
-	const prefix = context.settings.commandPrefix;
-	chatInput.value = `${prefix}${shortestAlias(command)} `;
-	chatInput.focus();
-	chatInput.selectionStart = chatInput.value.length;
-	chatInput.selectionEnd = chatInput.value.length;
-};
-
-const applyCommand = (
-	command: ChatCommand,
-	args: string[],
-	context: ChatCommandContext,
-	chatInput: HTMLInputElement | undefined,
-): void => {
-	if (command.execute) {
-		command.run?.(args, context);
-		if (chatInput) chatInput.value = '';
-		return;
-	}
-	if (args.length > 0) {
-		command.run?.(args, context);
-		if (chatInput) chatInput.value = '';
-		return;
-	}
-	autofillCommand(command, context, chatInput);
-};
-
 export const applyCommandSelection = (
 	menu: HTMLUListElement,
 	chatInput: HTMLInputElement,
@@ -547,25 +549,20 @@ export const applyCommandSelection = (
 	if (!hasCommandSelection()) return false;
 	const command = currentMatches[selectedIndex];
 	if (!command) return false;
-	const parsed = parseCommandInput(chatInput.value, context.settings.commandPrefix);
-	applyCommand(command, parsed?.args ?? [], context, chatInput);
+	const result = command.execute();
+	if (result.status === 'complete') chatInput.value = '';
 	closeCommandMenu(menu);
 	return true;
 };
 
-export const runCommandInput = (value: string, context: ChatCommandContext): boolean => {
-	if (!context.settings.enableCommands) return false;
+export type CommandInputResult = 'none' | 'complete' | 'stopped';
+
+export const runCommandInput = (value: string, context: ChatCommandContext): CommandInputResult => {
+	if (!context.settings.enableCommands) return 'none';
 	const parsed = parseCommandInput(value, context.settings.commandPrefix);
-	if (!parsed || parsed.alias === '') return false;
-	const command = findExactCommand(parsed.alias) ?? findCorrectedExecutable(parsed.alias);
-	if (!command) return false;
-	if (command.execute) {
-		command.run?.(parsed.args, context);
-		return true;
-	}
-	if (parsed.args.length > 0) {
-		command.run?.(parsed.args, context);
-		return true;
-	}
-	return false;
+	if (!parsed || parsed.alias === '') return 'none';
+	const command = context.actions.getByAlias(parsed.alias);
+	if (!command) return 'none';
+	const result = command.execute();
+	return result.status === 'complete' ? 'complete' : 'stopped';
 };

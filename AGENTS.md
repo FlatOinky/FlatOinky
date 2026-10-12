@@ -91,7 +91,11 @@ client.
     (`initInterval` with stop/start, suspend/resume, and rebuild-on-start).
   - `client/keybinds.ts` and `client/keybinds/` — keybind registry, combo capture,
     activity HUD, and chat-input focus (no dispatch while the chat input is focused) backing
-    `PluginContext.keybinds`.
+    `PluginContext.keybinds`. `registerBind` stores a combo at `assignments[group][key]`;
+    category and section are display labels and are not part of that key.
+  - `client/actions.ts` and `client/actions/` — action registry backing `PluginContext.actions`:
+    rate limit, visual use pools, shared displays, and one keybind per action
+    (`plugin/<namespace>/<id>`).
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
     window appearance settings, alerts tray/settings, context
     menu, updates UI, keybinds, devtools including logging, profiles); never toggleable. Systems other than profiles live on a restartable child

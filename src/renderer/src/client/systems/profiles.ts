@@ -271,12 +271,12 @@ export const initProfilesSystem = (
 			if (!divider) {
 				divider =
 					el.h2`text-2xl font-bold tracking-tight text-base-content/90 mt-11 mb-5 first:mt-0`.mount(
-					pluginsList,
-					`category/${category}`,
-					(node) => {
-						node.textContent = category;
-					},
-				);
+						pluginsList,
+						`category/${category}`,
+						(node) => {
+							node.textContent = category;
+						},
+					);
 				categoryDividers.set(category, divider);
 			}
 			children.push(divider);

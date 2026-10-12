@@ -66,6 +66,7 @@ const colorOptions = Object.entries(daisyUiColors).map(([name, value]) => ({
 export const ChatPlugin: Plugin = {
 	namespace: 'oinky/chat',
 	name: 'Chat',
+	category: 'Chat',
 	description: 'A custom chat implementation',
 	onRemoteSettings: 'restart',
 	init: async (lifecycle, context) => {

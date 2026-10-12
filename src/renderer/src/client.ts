@@ -20,6 +20,7 @@ import { getAppVersion, saveFile } from './client/ipc_renderer';
 import { initLogging, type Logger, type LogLevel, type LogMethod } from './client/logging';
 import { initTimers, type ClientTimers } from './client/timers';
 import type { Alerts } from './client/alerts';
+import { createPluginActions, type Actions } from './client/actions';
 import { createPluginKeybinds, type Keybinds } from './client/keybinds';
 import { migratePlugins } from './client/plugin_migrations';
 import { initProfiles } from './client/profiles';
@@ -37,6 +38,14 @@ export type {
 	ContextTargetOf,
 	ContextTargetType,
 } from './client/context_menu';
+export type {
+	ActionCallback,
+	ActionOptions,
+	ActionResult,
+	Actions,
+	ClientAction,
+	PluginActions,
+} from './client/actions';
 export type { Keybinds, Keycombo } from './client/keybinds';
 
 export type Lifecycle = ReturnType<typeof initLifecycle>;
@@ -97,6 +106,7 @@ const createContext = (
 	getAlerts: () => Alerts | undefined,
 	getContextMenu: () => ContextMenu | undefined,
 	getKeybinds: () => Keybinds | undefined,
+	getActions: () => Actions | undefined,
 ) => {
 	const isLocalUsername = (username?: string) => {
 		if (!username) return false;
@@ -137,6 +147,11 @@ const createContext = (
 			if (!keybinds) throw new Error('Keybinds have not been initialized');
 			return keybinds;
 		},
+		get actions() {
+			const actions = getActions();
+			if (!actions) throw new Error('Actions have not been initialized');
+			return actions;
+		},
 	};
 };
 
@@ -170,6 +185,7 @@ const createPluginContext = async (
 		storages: await createPluginStorages(namespace, lifecycle),
 		collections: createPluginCollections(namespace) as PluginCollections,
 		keybinds: createPluginKeybinds(context.keybinds, namespace, title, settingsCategory),
+		actions: createPluginActions(context.actions, lifecycle, namespace, title, settingsCategory),
 	};
 };
 
@@ -857,6 +873,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 	let alerts: Alerts | undefined;
 	let contextMenu: ContextMenu | undefined;
 	let keybinds: Keybinds | undefined;
+	let actions: Actions | undefined;
 	let recordSocketMessage = (_direction: 'send' | 'receive', _message: string) => {};
 	const context = createContext(
 		character,
@@ -869,6 +886,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		() => alerts,
 		() => contextMenu,
 		() => keybinds,
+		() => actions,
 	);
 	const plugins = initPlugins(lifecycle, context, settings, pluginsStorage, logging.createLogger);
 	pluginsRef.current = plugins;
@@ -893,6 +911,9 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		},
 		setKeybinds: (next) => {
 			keybinds = next;
+		},
+		setActions: (next) => {
+			actions = next;
 		},
 		setRecordSocketMessage: (next) => {
 			recordSocketMessage = next;

@@ -50,12 +50,19 @@ type MountedGroup = {
 	rows: Map<string, MountedBindRow>;
 };
 
+type MountedLoose = {
+	id: string;
+	host: HTMLElement;
+	rows: Map<string, MountedBindRow>;
+};
+
 type MountedCategory = {
 	category: string;
 	sectionBlock: HTMLElement;
 	navGroup: HTMLElement;
 	heading: HTMLElement;
 	navButton: HTMLButtonElement;
+	loose: Map<string, MountedLoose>;
 	groups: Map<string, MountedGroup>;
 };
 
@@ -111,8 +118,12 @@ export const initKeybindsSystem = (
 	const sectionsContainer = sectionsEl.mount(container, 'sections');
 	const { search } = mountSearchBar(lifecycle, container, sectionsContainer);
 
+	const looseHosts = new Map<string, MountedLoose>();
 	const bareGroups = new Map<string, MountedGroup>();
 	const categories = new Map<string, MountedCategory>();
+
+	const bindRowId = (bind: KeybindSectionView['binds'][number]): string =>
+		`${bind.group}/${bind.key}`.replace(/[^a-zA-Z0-9/_-]+/g, '-');
 
 	const mountOverlapTip = (row: HTMLElement): HTMLElement =>
 		el.tooltip.error`tooltip-left shrink-0`.mount(row, 'overlap', (tooltip) => {
@@ -143,7 +154,10 @@ export const initKeybindsSystem = (
 		section: HTMLElement,
 		bind: KeybindSectionView['binds'][number],
 	): MountedBindRow => {
-		const row = el.div`flex items-center gap-2 py-1 px-1 search-item`.mount(section, bind.key);
+		const row = el.div`flex items-center gap-2 py-1 px-1 search-item`.mount(
+			section,
+			bindRowId(bind),
+		);
 		const overlapTip = bind.overlapping ? mountOverlapTip(row) : undefined;
 		const name = el.span`flex-1 truncate search-value`.mount(row, 'name', (nameEl) => {
 			nameEl.textContent = bind.name;
@@ -156,7 +170,7 @@ export const initKeybindsSystem = (
 				button.blur();
 				void keybinds.captureKeycombo().then((combo) => {
 					if (!combo) return;
-					keybinds.assign(bind.sectionId, bind.key, combo);
+					keybinds.assign(bind.group, bind.key, combo);
 				});
 			};
 		});
@@ -166,7 +180,7 @@ export const initKeybindsSystem = (
 			el.icon.restore`size-4`.mount(button);
 			button.onclick = () => {
 				button.blur();
-				keybinds.reset(bind.sectionId, bind.key);
+				keybinds.reset(bind.group, bind.key);
 			};
 		});
 		el.button`${ICON_BTN}`.mount(row, 'clear', (button) => {
@@ -175,11 +189,11 @@ export const initKeybindsSystem = (
 			el.icon.eraser`size-4`.mount(button);
 			button.onclick = () => {
 				button.blur();
-				keybinds.clear(bind.sectionId, bind.key);
+				keybinds.clear(bind.group, bind.key);
 			};
 		});
 		const mounted: MountedBindRow = {
-			key: bind.key,
+			key: bindRowId(bind),
 			row,
 			name,
 			comboHost,
@@ -229,6 +243,7 @@ export const initKeybindsSystem = (
 			navGroup,
 			heading,
 			navButton,
+			loose: new Map(),
 			groups: new Map(),
 		};
 	};
@@ -259,17 +274,80 @@ export const initKeybindsSystem = (
 		return { id: group.id, container, divider, navButton, rows: new Map() };
 	};
 
+	const syncLooseBinds = (mounted: MountedLoose, group: KeybindSectionView): void => {
+		const rowEls: HTMLElement[] = [];
+		const seenKeys = new Set<string>();
+		for (const bind of group.binds) {
+			const rowId = bindRowId(bind);
+			seenKeys.add(rowId);
+			let row = mounted.rows.get(rowId);
+			if (!row) {
+				row = mountBindRow(mounted.host, bind);
+				mounted.rows.set(rowId, row);
+			} else {
+				syncBindRow(row, bind);
+			}
+			rowEls.push(row.row);
+		}
+		for (const [key, row] of mounted.rows) {
+			if (seenKeys.has(key)) continue;
+			row.row.remove();
+			mounted.rows.delete(key);
+		}
+		syncElementChildren(mounted.host, rowEls);
+	};
+
+	const mountLoose = (parent: HTMLElement, group: KeybindSectionView): MountedLoose => {
+		const host = el.div`flex flex-col gap-1 search-item`.mount(parent, group.id);
+		const mounted = { id: group.id, host, rows: new Map<string, MountedBindRow>() };
+		syncLooseBinds(mounted, group);
+		return mounted;
+	};
+
+	const dropLoose = (id: string): void => {
+		const bare = looseHosts.get(id);
+		if (bare) {
+			bare.host.remove();
+			looseHosts.delete(id);
+			return;
+		}
+		for (const category of categories.values()) {
+			const mounted = category.loose.get(id);
+			if (!mounted) continue;
+			mounted.host.remove();
+			category.loose.delete(id);
+			return;
+		}
+	};
+
+	const placeLoose = (
+		parent: HTMLElement,
+		group: KeybindSectionView,
+		bucket: Map<string, MountedLoose>,
+	): MountedLoose => {
+		let mounted = bucket.get(group.id);
+		if (!mounted) {
+			dropLoose(group.id);
+			mounted = mountLoose(parent, group);
+			bucket.set(group.id, mounted);
+		} else {
+			syncLooseBinds(mounted, group);
+		}
+		return mounted;
+	};
+
 	const syncGroupBinds = (mounted: MountedGroup, group: KeybindSectionView): void => {
 		if (mounted.divider.textContent !== group.name) mounted.divider.textContent = group.name;
 		if (mounted.navButton.textContent !== group.name) mounted.navButton.textContent = group.name;
 		const rowEls: HTMLElement[] = [mounted.divider];
 		const seenKeys = new Set<string>();
 		for (const bind of group.binds) {
-			seenKeys.add(bind.key);
-			let row = mounted.rows.get(bind.key);
+			const rowId = bindRowId(bind);
+			seenKeys.add(rowId);
+			let row = mounted.rows.get(rowId);
 			if (!row) {
 				row = mountBindRow(mounted.container, bind);
-				mounted.rows.set(bind.key, row);
+				mounted.rows.set(rowId, row);
 			} else {
 				syncBindRow(row, bind);
 			}
@@ -332,10 +410,17 @@ export const initKeybindsSystem = (
 				item: group,
 			})),
 		);
+		const seenLoose = new Set<string>();
 		const seenBare = new Set<string>();
 		const seenCategories = new Set<string>();
 		const sectionBlocks: HTMLElement[] = [];
 		const navGroups: HTMLElement[] = [];
+
+		for (const group of ordered.loose) {
+			seenLoose.add(group.id);
+			const mounted = placeLoose(sectionsContainer, group, looseHosts);
+			sectionBlocks.push(mounted.host);
+		}
 
 		for (const section of ordered.sections) {
 			const group = section.items[0];
@@ -356,9 +441,16 @@ export const initKeybindsSystem = (
 				category.heading.textContent = categoryGroup.category;
 				category.navButton.textContent = categoryGroup.category;
 			}
+			const seenLooseInCategory = new Set<string>();
 			const seenGroups = new Set<string>();
 			const sectionContainers: HTMLElement[] = [category.heading];
 			const navButtons: HTMLElement[] = [category.navButton];
+			for (const group of categoryGroup.loose) {
+				seenLooseInCategory.add(group.id);
+				seenLoose.add(group.id);
+				const mounted = placeLoose(category.sectionBlock, group, category.loose);
+				sectionContainers.push(mounted.host);
+			}
 			for (const section of categoryGroup.sections) {
 				const group = section.items[0];
 				if (!group) continue;
@@ -373,6 +465,11 @@ export const initKeybindsSystem = (
 				sectionContainers.push(mounted.container);
 				navButtons.push(mounted.navButton);
 			}
+			for (const [id, mounted] of category.loose) {
+				if (seenLooseInCategory.has(id)) continue;
+				mounted.host.remove();
+				category.loose.delete(id);
+			}
 			for (const [id, mounted] of category.groups) {
 				if (seenGroups.has(id)) continue;
 				mounted.container.remove();
@@ -385,6 +482,11 @@ export const initKeybindsSystem = (
 			navGroups.push(category.navGroup);
 		}
 
+		for (const [id, mounted] of looseHosts) {
+			if (seenLoose.has(id)) continue;
+			mounted.host.remove();
+			looseHosts.delete(id);
+		}
 		for (const [id, mounted] of bareGroups) {
 			if (seenBare.has(id)) continue;
 			mounted.container.remove();

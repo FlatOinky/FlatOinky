@@ -4,6 +4,7 @@ import {
 	ChatCommandContext,
 	closeCommandMenu,
 	mountCommandsMenu,
+	registerChatCommands,
 	renderCommandMenu,
 } from './chat_commands';
 import {
@@ -219,7 +220,9 @@ export const initChat = (
 		notify: (message) => {
 			context.log.warn(message);
 		},
+		actions: context.actions,
 	};
+	registerChatCommands(commandContext);
 
 	// welcome messages: in-memory only, appended once on login at end of log (not persisted)
 	if (!chatMessages.some((message) => message.type === 'welcome')) {
