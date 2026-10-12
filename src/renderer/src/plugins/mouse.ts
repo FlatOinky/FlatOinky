@@ -37,6 +37,7 @@ export const MousePlugin: Plugin = {
 		context.settings
 			.initSection(lifecycle, {
 				name: 'Context Menu',
+				category: 'Mouse',
 				storage: context.storages.profile,
 			})
 			.append(

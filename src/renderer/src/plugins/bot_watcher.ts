@@ -1394,6 +1394,7 @@ export const BotWatcherPlugin: Plugin = {
 		context.settings
 			.initSection(lifecycle, {
 				name: 'Bot Watcher',
+				category: 'Bot Watcher',
 				storage: context.storages.profile,
 			})
 			.append(...api.watcherNodes);
@@ -1401,6 +1402,7 @@ export const BotWatcherPlugin: Plugin = {
 			context.settings
 				.initSection(lifecycle, {
 					name: CATEGORY_LABELS[key],
+					category: 'Bot Watcher',
 					storage: context.storages.profile,
 				})
 				.append(...api.categoryNodes[key]);

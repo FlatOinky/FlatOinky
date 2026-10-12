@@ -1,4 +1,3 @@
-import mustache from 'mustache';
 import windowFrameTemplate from './windows/window_frame.html?raw';
 import toolbarFrameTemplate from './windows/toolbar_frame.html?raw';
 import { initElement } from './ui_utils';
@@ -11,9 +10,10 @@ type TaskbarApi = ReturnType<typeof initTaskbar>;
 
 // #region renderers
 
-const renderWindowFrame = (id: string, title: string) => {
-	return mustache.render(windowFrameTemplate, { id, title });
-};
+const INTERACTIVE_DRAG_TARGET = 'button, input, label, select, a, [oinky-window-interactive]';
+
+const isInteractiveDragTarget = (target: EventTarget | null): boolean =>
+	target instanceof Element && Boolean(target.closest(INTERACTIVE_DRAG_TARGET));
 
 // #region utils
 
@@ -70,6 +70,7 @@ const handleElementDrag = (
 ) => {
 	element.onmousedown = (downEvent: MouseEvent) => {
 		if (downEvent.button !== 0) return;
+		if (isInteractiveDragTarget(downEvent.target)) return;
 		downEvent.preventDefault();
 		const modifier = 1 / window.api.getZoomFactor();
 		mouseDownCallback?.();
@@ -142,6 +143,8 @@ type WindowOptions = {
 	onVisible?: () => void;
 	icon?: Element;
 	lockable?: boolean;
+	/** Replaces the text title. The string `title` still feeds the taskbar tooltip. */
+	titleSlot?: Element;
 };
 
 type ToolbarEdge = 'left' | 'right' | 'top' | 'bottom';
@@ -210,7 +213,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 
 	// #region > windowFrame
 	const setupWindow = (lifecycle: Lifecycle, options: WindowOptions, variant: WindowVariant) => {
-		const { id, title, storage, onPreMount, onVisible, icon } = options;
+		const { id, title, titleSlot, storage, onPreMount, onVisible, icon } = options;
 		const lockable = options.lockable !== false;
 		const defaultWindowState: WindowState = {
 			width: 640,
@@ -242,6 +245,17 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		const windowBody = windowFrame.querySelector<HTMLDivElement>('[oinky-window-area="body"]');
 		if (!windowBody) {
 			throw new Error(`Window body area not found for window ${id}`);
+		}
+
+		const titleHost = windowFrame.querySelector<HTMLElement>('[oinky-window="title-slot"]');
+		if (titleHost) {
+			const slot =
+				titleSlot ??
+				el.h1`text-xs font-bold text-base-content/60`.then((heading) => {
+					heading.setAttribute('oinky-window', 'title');
+					heading.textContent = title;
+				});
+			titleHost.append(slot);
 		}
 
 		windowFrames[id] = windowFrame;
@@ -542,7 +556,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 
 	const initWindow = (lifecycle: Lifecycle, options: WindowOptions) => {
 		return setupWindow(lifecycle, options, {
-			html: renderWindowFrame(options.id, options.title),
+			html: windowFrameTemplate,
 			prepare: ({ frame, state, handleGeometryDrag }) => {
 				const handleFrameEdgeDrag = (
 					windowEdge: HTMLElement,

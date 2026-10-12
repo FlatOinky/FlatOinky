@@ -149,7 +149,7 @@ const createPluginContext = async (
 	settings: ClientSettings,
 	namespace: string,
 	title: string,
-	settingsCategory: string,
+	settingsCategory: string | undefined,
 	createLogger: (prefix?: string) => Logger,
 	lifecycle: Lifecycle,
 ) => {
@@ -160,12 +160,16 @@ const createPluginContext = async (
 			helpers: settings.helpers,
 			initSection: (
 				sectionLifecycle: Lifecycle,
-				options: Omit<SettingsSectionOptions, 'category'>,
-			) => settings.initSection(sectionLifecycle, { ...options, category: settingsCategory }),
+				options: Omit<SettingsSectionOptions, 'category'> & { category?: string },
+			) =>
+				settings.initSection(sectionLifecycle, {
+					...options,
+					category: options.category ?? settingsCategory,
+				}),
 		},
 		storages: await createPluginStorages(namespace, lifecycle),
 		collections: createPluginCollections(namespace) as PluginCollections,
-		keybinds: createPluginKeybinds(context.keybinds, namespace, title),
+		keybinds: createPluginKeybinds(context.keybinds, namespace, title, settingsCategory),
 	};
 };
 
@@ -264,8 +268,9 @@ export type Plugin = {
 	namespace: string;
 	name: string;
 	/**
-	 * Plugin-list group and settings category. Blank, or `System` in any case, is unset.
-	 * An unset category uses `name` wherever a settings category is required.
+	 * Profiles & Plugins group, default settings category, and keybind category.
+	 * Blank, or `System` in any case, is unset. An unset category stays unset.
+	 * `initSection` may pass its own category without setting this.
 	 */
 	category?: string;
 	description?: string;
@@ -422,7 +427,7 @@ const initPlugins = (
 			settings,
 			namespace,
 			plugin.name,
-			plugin.category ?? plugin.name,
+			plugin.category,
 			createLogger,
 			pluginLifecycle,
 		);

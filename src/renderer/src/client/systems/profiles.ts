@@ -34,13 +34,6 @@ export const initProfilesSystem = (
 			container,
 			'plugins',
 		);
-	el.h2`text-lg font-bold tracking-tight text-base-content/90 px-1`.mount(
-		pluginsColumn,
-		'heading',
-		(heading) => {
-			heading.textContent = 'Plugins';
-		},
-	);
 	const pluginsList = el.div`flex flex-col gap-1`.mount(pluginsColumn, 'list');
 
 	const profilesListContainer =
@@ -277,13 +270,13 @@ export const initProfilesSystem = (
 			let divider = categoryDividers.get(category);
 			if (!divider) {
 				divider =
-					el.div`divider divider-start text-base font-medium text-base-content/70 mb-0`.mount(
-						pluginsList,
-						`category/${category}`,
-						(node) => {
-							node.textContent = category;
-						},
-					);
+					el.h2`text-2xl font-bold tracking-tight text-base-content/90 mt-11 mb-5 first:mt-0`.mount(
+					pluginsList,
+					`category/${category}`,
+					(node) => {
+						node.textContent = category;
+					},
+				);
 				categoryDividers.set(category, divider);
 			}
 			children.push(divider);

@@ -1,10 +1,8 @@
 import type { Lifecycle } from '../../client';
 import {
-	isFmmoKeybindsGroup,
 	keybindActivityDefaults,
 	serializeKeycombo,
-	type KeybindGroupView,
-	type KeybindPluginView,
+	type KeybindSectionView,
 	type Keybinds,
 } from '../keybinds';
 import { initKeybindActivity } from '../keybinds/activity';
@@ -13,6 +11,7 @@ import type { ClientStorage } from '../client_storage';
 import { settingsHelpers, type ClientSettings } from '../settings';
 import type { ClientUI } from '../ui';
 import * as el from '../ui/elements';
+import { orderNav } from '../ui/nav_order';
 import { mountSearchBar } from '../ui/search';
 
 const syncElementChildren = (parent: Element, children: Element[]): void => {
@@ -36,6 +35,13 @@ type MountedBindRow = {
 	overlapTip: HTMLElement | undefined;
 };
 
+const TOP_NAV =
+	'link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm';
+const NESTED_NAV =
+	'block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2';
+const ICON_BTN =
+	'btn btn-xs btn-square btn-secondary btn-soft opacity-80 hover:opacity-100 tooltip tooltip-top tooltip-end';
+
 type MountedGroup = {
 	id: string;
 	container: HTMLElement;
@@ -44,8 +50,8 @@ type MountedGroup = {
 	rows: Map<string, MountedBindRow>;
 };
 
-type MountedPlugin = {
-	id: string;
+type MountedCategory = {
+	category: string;
 	sectionBlock: HTMLElement;
 	navGroup: HTMLElement;
 	heading: HTMLElement;
@@ -105,7 +111,8 @@ export const initKeybindsSystem = (
 	const sectionsContainer = sectionsEl.mount(container, 'sections');
 	const { search } = mountSearchBar(lifecycle, container, sectionsContainer);
 
-	const plugins = new Map<string, MountedPlugin>();
+	const bareGroups = new Map<string, MountedGroup>();
+	const categories = new Map<string, MountedCategory>();
 
 	const mountOverlapTip = (row: HTMLElement): HTMLElement =>
 		el.tooltip.error`tooltip-left shrink-0`.mount(row, 'overlap', (tooltip) => {
@@ -114,7 +121,7 @@ export const initKeybindsSystem = (
 
 	const syncComboHost = (
 		mounted: MountedBindRow,
-		bind: KeybindGroupView['binds'][number],
+		bind: KeybindSectionView['binds'][number],
 	): void => {
 		const serialized = bind.combo ? serializeKeycombo(bind.combo) : '';
 		if (mounted.comboSerialized === serialized && mounted.comboHost.childElementCount > 0) {
@@ -134,7 +141,7 @@ export const initKeybindsSystem = (
 
 	const mountBindRow = (
 		section: HTMLElement,
-		bind: KeybindGroupView['binds'][number],
+		bind: KeybindSectionView['binds'][number],
 	): MountedBindRow => {
 		const row = el.div`flex items-center gap-2 py-1 px-1 search-item`.mount(section, bind.key);
 		const overlapTip = bind.overlapping ? mountOverlapTip(row) : undefined;
@@ -149,16 +156,26 @@ export const initKeybindsSystem = (
 				button.blur();
 				void keybinds.captureKeycombo().then((combo) => {
 					if (!combo) return;
-					keybinds.assign(bind.groupId, bind.key, combo);
+					keybinds.assign(bind.sectionId, bind.key, combo);
 				});
 			};
 		});
-		el.button`btn btn-xs shrink-0`.mount(row, 'reset', (button) => {
+		el.button`${ICON_BTN}`.mount(row, 'reset', (button) => {
 			button.type = 'button';
-			button.textContent = 'Reset';
+			button.setAttribute('data-tip', 'Reset to default');
+			el.icon.restore`size-4`.mount(button);
 			button.onclick = () => {
 				button.blur();
-				keybinds.reset(bind.groupId, bind.key);
+				keybinds.reset(bind.sectionId, bind.key);
+			};
+		});
+		el.button`${ICON_BTN}`.mount(row, 'clear', (button) => {
+			button.type = 'button';
+			button.setAttribute('data-tip', 'Clear keybind');
+			el.icon.eraser`size-4`.mount(button);
+			button.onclick = () => {
+				button.blur();
+				keybinds.clear(bind.sectionId, bind.key);
 			};
 		});
 		const mounted: MountedBindRow = {
@@ -174,7 +191,10 @@ export const initKeybindsSystem = (
 		return mounted;
 	};
 
-	const syncBindRow = (mounted: MountedBindRow, bind: KeybindGroupView['binds'][number]): void => {
+	const syncBindRow = (
+		mounted: MountedBindRow,
+		bind: KeybindSectionView['binds'][number],
+	): void => {
 		if (mounted.name.textContent !== bind.name) mounted.name.textContent = bind.name;
 		if (bind.overlapping && !mounted.overlapTip) {
 			mounted.overlapTip = mountOverlapTip(mounted.row);
@@ -187,33 +207,24 @@ export const initKeybindsSystem = (
 		syncComboHost(mounted, bind);
 	};
 
-	const mountPlugin = (plugin: KeybindPluginView): MountedPlugin => {
-		const orderClass = isFmmoKeybindsGroup(plugin.id) ? 'order-first' : '';
-		const sectionBlock = el.div`${orderClass} flex flex-col gap-6`.mount(
-			sectionsContainer,
-			plugin.id,
-		);
+	const mountCategory = (category: string): MountedCategory => {
+		const sectionBlock = el.div`flex flex-col gap-6`.mount(sectionsContainer, category);
 		sectionBlock.classList.add('search-item');
+		const navGroup = el.div`flex flex-col`.mount(navContainer, category);
 		const heading =
 			el.h2`text-2xl font-bold tracking-tight text-base-content/90 search-value`.mount(
 				sectionBlock,
 				'heading',
 				(header) => {
-					header.textContent = plugin.name;
+					header.textContent = category;
 				},
 			);
-		const navGroup = el.div`${orderClass} flex flex-col`.mount(navContainer, plugin.id);
-		const navButton =
-			el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm`.mount(
-				navGroup,
-				'group',
-				(button) => {
-					button.textContent = plugin.name;
-					button.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
-				},
-			);
+		const navButton = el.button`${TOP_NAV}`.mount(navGroup, 'group', (button) => {
+			button.textContent = category;
+			button.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
+		});
 		return {
-			id: plugin.id,
+			category,
 			sectionBlock,
 			navGroup,
 			heading,
@@ -222,8 +233,13 @@ export const initKeybindsSystem = (
 		};
 	};
 
-	const mountGroup = (plugin: MountedPlugin, group: KeybindGroupView): MountedGroup => {
-		const container = el.div`flex flex-col gap-1 search-item`.mount(plugin.sectionBlock, group.id);
+	const mountGroup = (
+		parent: HTMLElement,
+		navParent: HTMLElement,
+		group: KeybindSectionView,
+		nested: boolean,
+	): MountedGroup => {
+		const container = el.div`flex flex-col gap-1 search-item`.mount(parent, group.id);
 		const divider =
 			el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
 				container,
@@ -232,19 +248,18 @@ export const initKeybindsSystem = (
 					elDivider.textContent = group.name;
 				},
 			);
-		const navButton =
-			el.button`block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2`.mount(
-				plugin.navGroup,
-				group.id,
-				(header) => {
-					header.textContent = group.name;
-					header.onclick = () => container.scrollIntoView({ behavior: 'smooth' });
-				},
-			);
+		const navButton = el.button`${nested ? NESTED_NAV : TOP_NAV}`.mount(
+			navParent,
+			group.id,
+			(header) => {
+				header.textContent = group.name;
+				header.onclick = () => container.scrollIntoView({ behavior: 'smooth' });
+			},
+		);
 		return { id: group.id, container, divider, navButton, rows: new Map() };
 	};
 
-	const syncGroupBinds = (mounted: MountedGroup, group: KeybindGroupView): void => {
+	const syncGroupBinds = (mounted: MountedGroup, group: KeybindSectionView): void => {
 		if (mounted.divider.textContent !== group.name) mounted.divider.textContent = group.name;
 		if (mounted.navButton.textContent !== group.name) mounted.navButton.textContent = group.name;
 		const rowEls: HTMLElement[] = [mounted.divider];
@@ -268,55 +283,119 @@ export const initKeybindsSystem = (
 		syncElementChildren(mounted.container, rowEls);
 	};
 
+	const takeGroup = (id: string): MountedGroup | undefined => {
+		const bare = bareGroups.get(id);
+		if (bare) {
+			bare.container.remove();
+			bare.navButton.remove();
+			bareGroups.delete(id);
+			return bare;
+		}
+		for (const category of categories.values()) {
+			const mounted = category.groups.get(id);
+			if (!mounted) continue;
+			mounted.container.remove();
+			mounted.navButton.remove();
+			category.groups.delete(id);
+			return mounted;
+		}
+		return undefined;
+	};
+
+	const placeGroup = (
+		parent: HTMLElement,
+		navParent: HTMLElement,
+		group: KeybindSectionView,
+		nested: boolean,
+		bucket: Map<string, MountedGroup>,
+	): MountedGroup => {
+		let mounted = bucket.get(group.id);
+		if (!mounted) {
+			const moved = takeGroup(group.id);
+			mounted = moved ?? mountGroup(parent, navParent, group, nested);
+			if (moved) {
+				moved.navButton.className = nested ? NESTED_NAV : TOP_NAV;
+				parent.append(moved.container);
+				navParent.append(moved.navButton);
+			}
+			bucket.set(group.id, mounted);
+		}
+		syncGroupBinds(mounted, group);
+		return mounted;
+	};
+
 	const render = () => {
-		const views = keybinds.listPlugins();
-		const seenPlugins = new Set<string>();
+		const ordered = orderNav(
+			keybinds.listSections().map((group) => ({
+				category: group.category,
+				section: group.name,
+				item: group,
+			})),
+		);
+		const seenBare = new Set<string>();
+		const seenCategories = new Set<string>();
 		const sectionBlocks: HTMLElement[] = [];
 		const navGroups: HTMLElement[] = [];
 
-		for (const plugin of views) {
-			seenPlugins.add(plugin.id);
-			let mounted = plugins.get(plugin.id);
-			if (!mounted) {
-				mounted = mountPlugin(plugin);
-				plugins.set(plugin.id, mounted);
-			} else {
-				if (mounted.heading.textContent !== plugin.name) mounted.heading.textContent = plugin.name;
-				if (mounted.navButton.textContent !== plugin.name)
-					mounted.navButton.textContent = plugin.name;
-			}
-
-			const seenGroups = new Set<string>();
-			const sectionContainers: HTMLElement[] = [mounted.heading];
-			const navButtons: HTMLElement[] = [mounted.navButton];
-			for (const group of plugin.groups) {
-				seenGroups.add(group.id);
-				let mountedGroup = mounted.groups.get(group.id);
-				if (!mountedGroup) {
-					mountedGroup = mountGroup(mounted, group);
-					mounted.groups.set(group.id, mountedGroup);
-				}
-				syncGroupBinds(mountedGroup, group);
-				sectionContainers.push(mountedGroup.container);
-				navButtons.push(mountedGroup.navButton);
-			}
-			for (const [id, mountedGroup] of mounted.groups) {
-				if (seenGroups.has(id)) continue;
-				mountedGroup.container.remove();
-				mountedGroup.navButton.remove();
-				mounted.groups.delete(id);
-			}
-			syncElementChildren(mounted.sectionBlock, sectionContainers);
-			syncElementChildren(mounted.navGroup, navButtons);
-			sectionBlocks.push(mounted.sectionBlock);
-			navGroups.push(mounted.navGroup);
+		for (const section of ordered.sections) {
+			const group = section.items[0];
+			if (!group) continue;
+			seenBare.add(group.id);
+			const mounted = placeGroup(sectionsContainer, navContainer, group, false, bareGroups);
+			sectionBlocks.push(mounted.container);
+			navGroups.push(mounted.navButton);
 		}
 
-		for (const [id, mounted] of plugins) {
-			if (seenPlugins.has(id)) continue;
+		for (const categoryGroup of ordered.categories) {
+			seenCategories.add(categoryGroup.category);
+			let category = categories.get(categoryGroup.category);
+			if (!category) {
+				category = mountCategory(categoryGroup.category);
+				categories.set(categoryGroup.category, category);
+			} else if (category.heading.textContent !== categoryGroup.category) {
+				category.heading.textContent = categoryGroup.category;
+				category.navButton.textContent = categoryGroup.category;
+			}
+			const seenGroups = new Set<string>();
+			const sectionContainers: HTMLElement[] = [category.heading];
+			const navButtons: HTMLElement[] = [category.navButton];
+			for (const section of categoryGroup.sections) {
+				const group = section.items[0];
+				if (!group) continue;
+				seenGroups.add(group.id);
+				const mounted = placeGroup(
+					category.sectionBlock,
+					category.navGroup,
+					group,
+					true,
+					category.groups,
+				);
+				sectionContainers.push(mounted.container);
+				navButtons.push(mounted.navButton);
+			}
+			for (const [id, mounted] of category.groups) {
+				if (seenGroups.has(id)) continue;
+				mounted.container.remove();
+				mounted.navButton.remove();
+				category.groups.delete(id);
+			}
+			syncElementChildren(category.sectionBlock, sectionContainers);
+			syncElementChildren(category.navGroup, navButtons);
+			sectionBlocks.push(category.sectionBlock);
+			navGroups.push(category.navGroup);
+		}
+
+		for (const [id, mounted] of bareGroups) {
+			if (seenBare.has(id)) continue;
+			mounted.container.remove();
+			mounted.navButton.remove();
+			bareGroups.delete(id);
+		}
+		for (const [name, mounted] of categories) {
+			if (seenCategories.has(name)) continue;
 			mounted.sectionBlock.remove();
 			mounted.navGroup.remove();
-			plugins.delete(id);
+			categories.delete(name);
 		}
 
 		syncElementChildren(sectionsContainer, sectionBlocks);

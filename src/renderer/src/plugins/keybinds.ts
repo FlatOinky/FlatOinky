@@ -29,6 +29,7 @@ const clickDialogOption = (index: number): boolean => {
 export const KeybindsPlugin: Plugin = {
 	namespace: 'oinky/fmmo_keybinds',
 	name: 'Flat MMO Keybinds',
+	category: 'Flat MMO',
 	description: 'Overrides the default Flat MMO keybinds and the Fkey Shortcuts window.',
 	init: (lifecycle, context) => {
 		hideUpstreamKeybinds(lifecycle);
@@ -39,7 +40,7 @@ export const KeybindsPlugin: Plugin = {
 			window.open_key_bindings_modal = originalOpen;
 		});
 
-		const actions = context.keybinds.initGroup(lifecycle, 'actions', 'Actions');
+		const actions = context.keybinds.initSection(lifecycle, 'actions', 'Actions');
 		actions.register('shortcutF1', 'Toggle Run', () => sendShortcut(1), { keys: ['Digit1'] });
 		actions.register('shortcutF2', 'Eat food', () => sendShortcut(2), { keys: ['Digit2'] });
 		actions.register('shortcutF3', 'Light fire', () => sendShortcut(3), { keys: ['Digit3'] });
@@ -62,7 +63,7 @@ export const KeybindsPlugin: Plugin = {
 			keys: ['Shift', 'Digit6'],
 		});
 
-		const nav = context.keybinds.initGroup(lifecycle, 'nav', 'Window nav');
+		const nav = context.keybinds.initSection(lifecycle, 'nav', 'Window nav');
 		nav.register(
 			'escape',
 			'Exit',
@@ -96,7 +97,7 @@ export const KeybindsPlugin: Plugin = {
 			{ keys: ['Enter'] },
 		);
 
-		const dialog = context.keybinds.initGroup(lifecycle, 'dialog', 'Dialog');
+		const dialog = context.keybinds.initSection(lifecycle, 'dialog', 'Dialog');
 		dialog.register(
 			'npcContinue',
 			'Dialog continue',

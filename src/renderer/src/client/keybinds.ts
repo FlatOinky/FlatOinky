@@ -4,13 +4,11 @@ import { captureKeycombo } from './keybinds/capture';
 import {
 	createKeycomboGesture,
 	isEmptyKeycombo,
-	isFmmoKeybindsGroup,
 	parseKeycombo,
 	serializeKeycombo,
 	type Keycombo,
 } from './keybinds/combo';
 
-export { FMMO_KEYBINDS_GROUP_ID, isFmmoKeybindsGroup } from './keybinds/combo';
 export {
 	codeToLabel,
 	comboToLabels,
@@ -32,31 +30,27 @@ export type Keybind = {
 };
 
 export type KeybindView = {
-	groupId: string;
-	groupName: string;
+	sectionId: string;
+	sectionName: string;
 	key: string;
 	name: string;
 	combo: Keycombo | null;
 	overlapping: boolean;
 };
 
-export type KeybindGroupView = {
+export type KeybindSectionView = {
 	id: string;
 	name: string;
+	category?: string;
 	pluginId: string;
 	pluginName: string;
 	binds: KeybindView[];
 };
 
-export type KeybindPluginView = {
-	id: string;
-	name: string;
-	groups: KeybindGroupView[];
-};
-
 export type KeybindPluginMeta = {
 	id: string;
 	name: string;
+	category?: string;
 };
 
 export type KeybindFired = {
@@ -77,37 +71,44 @@ export const keybindActivityDefaults: KeybindActivitySettings = {
 // #region registry
 
 type KeybindRegistration = {
-	groupId: string;
-	groupName: string;
+	sectionId: string;
+	sectionName: string;
 	key: string;
 	name: string;
 	callback: KeybindCallback;
 	requestKeycombo?: Keycombo;
 };
 
-type GroupRecord = {
+type SectionRecord = {
 	id: string;
 	name: string;
 	pluginId: string;
 	pluginName: string;
+	category?: string;
 	registrations: Map<string, KeybindRegistration>;
 };
 
 type Assignments = Record<string, Record<string, string | null>>;
 
-export const createPluginKeybinds = (keybinds: Keybinds, namespace: string, title: string) => {
-	const scopedGroupId = (groupId: string) => `${namespace}/${groupId}`;
+export const createPluginKeybinds = (
+	keybinds: Keybinds,
+	namespace: string,
+	title: string,
+	category?: string,
+) => {
+	const scopedSectionId = (sectionId: string) => `${namespace}/${sectionId}`;
 	return {
-		initGroup: (groupLifecycle: Lifecycle, groupId: string, groupName: string) =>
-			keybinds.initGroup(groupLifecycle, scopedGroupId(groupId), groupName, {
+		initSection: (sectionLifecycle: Lifecycle, sectionId: string, sectionName: string) =>
+			keybinds.initSection(sectionLifecycle, scopedSectionId(sectionId), sectionName, {
 				id: namespace,
 				name: title,
+				category,
 			}),
-		listPlugins: () => keybinds.listPlugins(),
-		assign: (groupId: string, key: string, combo: Keycombo) =>
-			keybinds.assign(scopedGroupId(groupId), key, combo),
-		reset: (groupId: string, key: string) => keybinds.reset(scopedGroupId(groupId), key),
-		listGroups: () => keybinds.listGroups(),
+		assign: (sectionId: string, key: string, combo: Keycombo) =>
+			keybinds.assign(scopedSectionId(sectionId), key, combo),
+		reset: (sectionId: string, key: string) => keybinds.reset(scopedSectionId(sectionId), key),
+		clear: (sectionId: string, key: string) => keybinds.clear(scopedSectionId(sectionId), key),
+		listSections: () => keybinds.listSections(),
 		matchHeld: (combo: Keycombo) => keybinds.matchHeld(combo),
 		getOverlaps: () => keybinds.getOverlaps(),
 		captureKeycombo: () => keybinds.captureKeycombo(),
@@ -139,7 +140,7 @@ export type Keybinds = ReturnType<typeof initKeybinds>;
 
 export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root: HTMLElement) => {
 	const assignments = storage.reactive<Assignments>('assignments', {});
-	const groups = new Map<string, GroupRecord>();
+	const sections = new Map<string, SectionRecord>();
 	const changeListeners = new Set<() => void>();
 	const heldListeners = new Set<(combo: Keycombo | null) => void>();
 	const firedListeners = new Set<(fired: KeybindFired) => void>();
@@ -170,8 +171,8 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		notifyHeld(null);
 	};
 
-	const getStoredCombo = (groupId: string, key: string): string | null | undefined =>
-		assignments[groupId]?.[key];
+	const getStoredCombo = (sectionId: string, key: string): string | null | undefined =>
+		assignments[sectionId]?.[key];
 
 	const isComboStored = (serialized: string): boolean => {
 		for (const binds of Object.values(assignments)) {
@@ -183,25 +184,25 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		return false;
 	};
 
-	const writeAssignment = (groupId: string, key: string, value: string | null) => {
-		if (!assignments[groupId]) assignments[groupId] = {};
-		assignments[groupId][key] = value;
+	const writeAssignment = (sectionId: string, key: string, value: string | null) => {
+		if (!assignments[sectionId]) assignments[sectionId] = {};
+		assignments[sectionId][key] = value;
 	};
 
-	const claimRequest = (groupId: string, key: string, request?: Keycombo) => {
-		if (getStoredCombo(groupId, key) !== undefined) return;
+	const claimRequest = (sectionId: string, key: string, request?: Keycombo) => {
+		if (getStoredCombo(sectionId, key) !== undefined) return;
 		if (!request) return;
 		const serialized = serializeKeycombo(request);
 		if (isComboStored(serialized)) return;
-		writeAssignment(groupId, key, serialized);
+		writeAssignment(sectionId, key, serialized);
 	};
 
 	const overlappingCombos = (): Set<string> => {
 		if (overlappingCache) return overlappingCache;
 		const counts = new Map<string, number>();
-		for (const group of groups.values()) {
-			for (const registration of group.registrations.values()) {
-				const stored = getStoredCombo(group.id, registration.key);
+		for (const section of sections.values()) {
+			for (const registration of section.registrations.values()) {
+				const stored = getStoredCombo(section.id, registration.key);
 				if (!stored) continue;
 				counts.set(stored, (counts.get(stored) ?? 0) + 1);
 			}
@@ -219,9 +220,9 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		const serialized = serializeKeycombo(combo);
 		if (overlappingCombos().has(serialized)) return null;
 		let found: KeybindRegistration | null = null;
-		for (const group of groups.values()) {
-			for (const registration of group.registrations.values()) {
-				if (getStoredCombo(group.id, registration.key) === serialized) {
+		for (const section of sections.values()) {
+			for (const registration of section.registrations.values()) {
+				if (getStoredCombo(section.id, registration.key) === serialized) {
 					if (found) return null;
 					found = registration;
 				}
@@ -230,17 +231,17 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		return found;
 	};
 
-	const listGroups = (): KeybindGroupView[] => {
+	const listSections = (): KeybindSectionView[] => {
 		const overlapping = overlappingCombos();
-		const views: KeybindGroupView[] = [];
-		for (const group of groups.values()) {
+		const views: KeybindSectionView[] = [];
+		for (const section of sections.values()) {
 			const binds: KeybindView[] = [];
-			for (const registration of group.registrations.values()) {
-				const stored = getStoredCombo(group.id, registration.key);
+			for (const registration of section.registrations.values()) {
+				const stored = getStoredCombo(section.id, registration.key);
 				const combo = stored ? parseKeycombo(stored) : null;
 				binds.push({
-					groupId: group.id,
-					groupName: group.name,
+					sectionId: section.id,
+					sectionName: section.name,
 					key: registration.key,
 					name: registration.name,
 					combo,
@@ -248,47 +249,23 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 				});
 			}
 			views.push({
-				id: group.id,
-				name: group.name,
-				pluginId: group.pluginId,
-				pluginName: group.pluginName,
+				id: section.id,
+				name: section.name,
+				category: section.category,
+				pluginId: section.pluginId,
+				pluginName: section.pluginName,
 				binds,
 			});
 		}
 		return views;
 	};
 
-	const listPlugins = (): KeybindPluginView[] => {
-		const byPlugin = new Map<string, KeybindPluginView>();
-		for (const group of listGroups()) {
-			let plugin = byPlugin.get(group.pluginId);
-			if (!plugin) {
-				plugin = { id: group.pluginId, name: group.pluginName, groups: [] };
-				byPlugin.set(group.pluginId, plugin);
-			}
-			plugin.name = group.pluginName;
-			plugin.groups.push(group);
-		}
-		const plugins = [...byPlugin.values()];
-		for (const plugin of plugins) {
-			plugin.groups.sort((left, right) => left.name.localeCompare(right.name));
-		}
-		plugins.sort((left, right) => {
-			const leftFmmo = isFmmoKeybindsGroup(left.id);
-			const rightFmmo = isFmmoKeybindsGroup(right.id);
-			if (leftFmmo && !rightFmmo) return -1;
-			if (!leftFmmo && rightFmmo) return 1;
-			return left.name.localeCompare(right.name);
-		});
-		return plugins;
-	};
-
 	const matchHeld = (combo: Keycombo): KeybindView | null => {
 		const registration = matchCombo(combo);
 		if (!registration) return null;
 		return {
-			groupId: registration.groupId,
-			groupName: registration.groupName,
+			sectionId: registration.sectionId,
+			sectionName: registration.sectionName,
 			key: registration.key,
 			name: registration.name,
 			combo,
@@ -296,31 +273,34 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		};
 	};
 
-	const initGroup = (
-		groupLifecycle: Lifecycle,
-		groupId: string,
-		groupName: string,
+	const initSection = (
+		sectionLifecycle: Lifecycle,
+		sectionId: string,
+		sectionName: string,
 		plugin?: KeybindPluginMeta,
 	) => {
-		const pluginId = plugin?.id ?? groupId;
-		const pluginName = plugin?.name ?? groupName;
-		const existing = groups.get(groupId);
-		const group: GroupRecord = existing ?? {
-			id: groupId,
-			name: groupName,
+		const pluginId = plugin?.id ?? sectionId;
+		const pluginName = plugin?.name ?? sectionName;
+		const category = plugin?.category;
+		const existing = sections.get(sectionId);
+		const section: SectionRecord = existing ?? {
+			id: sectionId,
+			name: sectionName,
 			pluginId,
 			pluginName,
+			category,
 			registrations: new Map(),
 		};
-		group.name = groupName;
-		group.pluginId = pluginId;
-		group.pluginName = pluginName;
-		groups.set(groupId, group);
+		section.name = sectionName;
+		section.pluginId = pluginId;
+		section.pluginName = pluginName;
+		section.category = category;
+		sections.set(sectionId, section);
 		notifyChange();
 
-		groupLifecycle.onCleanup(() => {
-			if (groups.get(groupId) !== group) return;
-			groups.delete(groupId);
+		sectionLifecycle.onCleanup(() => {
+			if (sections.get(sectionId) !== section) return;
+			sections.delete(sectionId);
 			notifyChange();
 		});
 
@@ -330,10 +310,10 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 			callback: KeybindCallback,
 			requestKeycombo?: Keycombo,
 		) => {
-			claimRequest(groupId, key, requestKeycombo);
-			group.registrations.set(key, {
-				groupId,
-				groupName,
+			claimRequest(sectionId, key, requestKeycombo);
+			section.registrations.set(key, {
+				sectionId,
+				sectionName,
 				key,
 				name,
 				callback,
@@ -345,14 +325,19 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		return { register };
 	};
 
-	const assign = (groupId: string, key: string, combo: Keycombo) => {
-		writeAssignment(groupId, key, serializeKeycombo(combo));
+	const assign = (sectionId: string, key: string, combo: Keycombo) => {
+		writeAssignment(sectionId, key, serializeKeycombo(combo));
 		notifyChange();
 	};
 
-	const reset = (groupId: string, key: string) => {
-		const request = groups.get(groupId)?.registrations.get(key)?.requestKeycombo;
-		writeAssignment(groupId, key, request ? serializeKeycombo(request) : null);
+	const reset = (sectionId: string, key: string) => {
+		const request = sections.get(sectionId)?.registrations.get(key)?.requestKeycombo;
+		writeAssignment(sectionId, key, request ? serializeKeycombo(request) : null);
+		notifyChange();
+	};
+
+	const clear = (sectionId: string, key: string) => {
+		writeAssignment(sectionId, key, null);
 		notifyChange();
 	};
 
@@ -430,11 +415,11 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 	);
 
 	return {
-		initGroup,
+		initSection,
 		assign,
 		reset,
-		listGroups,
-		listPlugins,
+		clear,
+		listSections,
 		matchHeld,
 		getOverlaps: overlappingCombos,
 		captureKeycombo: startCapture,

@@ -113,7 +113,8 @@ characters, character↔profile mappings, per-scope `*_settings` documents keyed
 `<name>` for client internals — including `client`, `updater`, `notifications`
 (alerts; namespace name kept for compatibility),
 `logging`, `devtools`, `keybinds`, and `plugins` for the per-profile enabled-plugin map; Plugin
-Settings groups sections by category, and System Settings is a separate Client Window tab), and per-scope append-only
+Settings and the Keybinds tab group by category then section, and System Settings uses each
+section name as a category with items directly under it), and per-scope append-only
 `*_collections` rows keyed the same way (plugins fold a collection name into the
 namespace as `oinky/<name>/<collection>`). `client`, `notifications` (alerts), `logging`,
 `keybinds`, and

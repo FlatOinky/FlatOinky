@@ -60,9 +60,11 @@ Layout under `src/`:
   `isLocalUsername`, `getPlayer`, `getLocalPlayer`). System-only APIs (`updater`,
   openDevTools, saveReferences) stay off the context. `alerts`, `contextMenu`, and
   `keybinds` are getters that throw if accessed before those systems are initialized.
-  Plugins register keybinds with `context.keybinds.initGroup(lifecycle, groupId, name)`
-  using a **relative** `groupId`; the stored id is `<plugin namespace>/<group>` (e.g.
-  `oinky/fmmo_keybinds/actions`). Then `register(key, name, callback, requestKeycombo?)`.
+  Plugins register keybinds with `context.keybinds.initSection(lifecycle, sectionId, name)`
+  using a **relative** `sectionId`; the stored id is `<plugin namespace>/<section>` (e.g.
+  `oinky/fmmo_keybinds/actions`). The section's category is `Plugin.category` and stays
+  unset when the plugin has none. Then `register(key, name, callback, requestKeycombo?)`.
+  `reset(sectionId, key)` restores the requested combo; `clear(sectionId, key)` stores no combo.
   Chat (or another plugin) may
   `setChatInput` an input; the Keybinds plugin's **Snap to chat** bind focuses it (Enter
   by default). While any input, textarea, select, or contenteditable is focused, the
@@ -127,10 +129,10 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
 
 1. Create `src/plugins/<name>.ts` exporting a `Plugin`:
    - `namespace: 'oinky/<name>'`, `name`, optional `description`, optional `category`
-   - `category` groups the plugin on the Profiles & Plugins tab and is its settings
-     category. Blank, or `System` in any case, is unset. An unset category uses `name`
-     as the settings category. The plugin list shows uncategorized plugins first
-     (alphabetical, no divider), then categories alphabetically, each with a divider
+   - `category` groups the plugin on the Profiles & Plugins tab and is the default
+     settings and keybind category. Blank, or `System` in any case, is unset, and an unset
+     category stays unset. The plugin list shows uncategorized plugins first
+     (alphabetical, no heading), then categories alphabetically, each with a heading
      and its plugins in alphabetical order.
    - optional `enabledByDefault: false` when a fresh profile should leave the plugin off
      (a stored enabled flag always wins)
@@ -175,12 +177,16 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
        Plugin collections use context `plugins` and namespace `oinky/<name>/<collection>`.
        `Plugin.init` may be async so plugins can `await collection.fetch(...)` before
        rendering.
-4. **Settings** — `context.settings.initSection(lifecycle, { name, storage? })`
-   then `section.append(...nodes)`. The section category is `Plugin.category`, or the
-   plugin `name` when category is unset. Categories group sections on the Plugin Settings
-   tab of the Client Window (sorted alphabetically; empty categories are hidden). `name` is the section
-   under that category, in registration order, and is a string or an `Element` (the
-   sidebar nav falls back to that element's text). Passing `storage` subscribes at that
+4. **Settings** — `context.settings.initSection(lifecycle, { name, category?, storage? })`
+   then `section.append(...nodes)`. The section category is the `category` passed to
+   `initSection`, or `Plugin.category` when that argument is omitted. Passing `category`
+   heads that section without categorizing the plugin on Profiles & Plugins. An unset
+   category stays unset. Plugin Settings, System Settings, and Keybinds share one order:
+   items with no category and no section, then sections with no category (A–Z), then
+   categories (A–Z) with their loose items and then their sections (A–Z). Items stay in
+   registration order. Sections with the same label stay separate. `name` is the section
+   under that category, and is a string or an `Element` (the sidebar nav falls back to
+   that element's text). Passing `storage` subscribes at that
    namespace root and calls
    `refresh()` on remote change, which walks nodes and runs each `sync`. Prefer bound
    factories on `context.settings.helpers`: `toggle(label, description, get, set, default?)`,
@@ -196,8 +202,9 @@ get, set, default? }` (and type-specific fields). Factories generate the input,
 mountHeaderExtras? })` builds a per-cue `AlertScope` card.
    `context.alerts.sendFromScope(title, scoped, message?)` maps an `AlertScope` onto
    `send`. Always-on systems call `systemSettings.initSection(lifecycle, { name, storage? })`
-   on `ClientSettings`. That API is not on `PluginContext`. Those sections render on the
-   System Settings tab in registration order, with no category heading.
+   on `ClientSettings`. That API is not on `PluginContext`. The section `name` is the
+   category, and the controls are items under that heading (`Category > Items`), sorted
+   A–Z by category.
    Do not bind one storage on those sections (they use mixed storages — subscribe per
    section and `section.refresh()`). A plugin should not add a toggle whose only job is
    to turn the whole plugin off; that is the Profiles & Plugins enable flag.
@@ -205,10 +212,11 @@ mountHeaderExtras? })` builds a per-cue `AlertScope` card.
    - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
      `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,
      `initWindowButton`, plus `elements` (e.g. `chatContainer`)
-   - Windows: `windows.initWindow(lifecycle, { id, title, storage, ... })` persists
+   - Windows: `windows.initWindow(lifecycle, { id, title, storage, titleSlot?, ... })` persists
      `WindowState` (including `open`) under `window/${id}`; `windows.isOpen(storage, id)`
-     reads that flag before the window exists. `setTitle(title)` updates the frame title
-     and the taskbar button tooltip. `open` is cleared on user close, not when
+     reads that flag before the window exists. `titleSlot` replaces the text title inside
+     the drag slot; without it, the string `title` is shown there. `setTitle(title)` updates
+     a text title when one is present, and always updates the taskbar button tooltip. `open` is cleared on user close, not when
      a plugin lifecycle tears the window down (so settings restarts can restore it).
      `windows.initToolbarWindow(lifecycle, { ..., grabberEdge? })` is the same window
      with a thin frame and no resize edges. `grabberEdge` (`left` by default, or

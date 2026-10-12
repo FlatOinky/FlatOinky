@@ -3,12 +3,13 @@ import { ClientStorage } from './client_storage';
 import type { AlertScope } from './alerts';
 import * as el from './ui/elements';
 import { mountSearchBar } from './ui/search';
+import { orderNav } from './ui/nav_order';
 
 // #region types
 
 export type SettingsSectionEntry = {
-	category: string;
-	name: string | Element;
+	category?: string;
+	name?: string | Element;
 	nodes: SettingsNode[];
 };
 type SettingsRegistry = SettingsSectionEntry[];
@@ -59,8 +60,8 @@ const isElementNode = (node: SettingsNode): node is SettingsElementNode =>
 	typeof node === 'object' && node !== null && !(node instanceof Element) && 'element' in node;
 
 export type SettingsSectionOptions = {
-	category: string;
-	name: string | Element;
+	category?: string;
+	name?: string | Element;
 	/** Remote changes under this storage refresh the section. */
 	storage?: ClientStorage;
 };
@@ -1346,8 +1347,10 @@ export const mountSettingsMenuNode = (container: HTMLElement, node: SettingsNode
 // #region initSettingsMenu
 
 /** Nav entries stay plain text, so an element name contributes only its text. */
-const sectionNameText = (name: SettingsSectionEntry['name']) =>
-	typeof name === 'string' ? name : (name.textContent ?? '');
+const sectionNameText = (name: SettingsSectionEntry['name']): string => {
+	if (typeof name === 'string') return name;
+	return name?.textContent ?? '';
+};
 
 const syncElementChildren = (parent: Element, children: Element[]): void => {
 	for (const child of children) parent.append(child);
@@ -1360,44 +1363,41 @@ const syncElementChildren = (parent: Element, children: Element[]): void => {
 	}
 };
 
-type MountedSettingsSection = {
-	section: SettingsSectionEntry;
+const TOP_NAV =
+	'link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm';
+const NESTED_NAV =
+	'block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2';
+
+type MountedNodes = {
+	host: HTMLElement;
+	nodes: Map<SettingsNode, HTMLElement>;
+};
+
+type MountedSettingsSection = MountedNodes & {
 	container: HTMLElement;
 	divider: HTMLElement;
 	navButton: HTMLButtonElement;
-	nodes: Map<SettingsNode, HTMLElement>;
 };
 
 type MountedSettingsCategory = {
 	category: string;
 	sectionBlock: HTMLElement;
 	navGroup: HTMLElement;
-	heading: HTMLElement | undefined;
-	navButton: HTMLButtonElement | undefined;
+	heading: HTMLElement;
+	navButton: HTMLButtonElement;
+	loose: Map<SettingsSectionEntry, MountedNodes>;
 	sections: Map<SettingsSectionEntry, MountedSettingsSection>;
 };
 
 type SettingsMenuOptions = {
 	id: string;
-	groupByCategory?: boolean;
 };
-
-const sectionOinkyId = (
-	menuId: string,
-	groupByCategory: boolean,
-	category: string,
-	sectionIndex: number,
-): string =>
-	groupByCategory
-		? `${menuId}/sections/${category}/${sectionIndex}`
-		: `${menuId}/sections/${sectionIndex}`;
 
 const initSettingsMenu = (
 	lifecycle: Lifecycle,
 	registry: SettingsRegistry,
 	options: SettingsMenuOptions,
 ) => {
-	const groupByCategory = options.groupByCategory !== false;
 	const container =
 		el.div`grid grid-cols-[192px_minmax(256px,1fr)] grid-rows-[1fr_auto] gap-2 h-full`.init(
 			lifecycle,
@@ -1413,22 +1413,53 @@ const initSettingsMenu = (
 	const sectionsContainer = sectionsEl.mount(container, 'sections');
 	const { search } = mountSearchBar(lifecycle, container, sectionsContainer);
 
+	const scrollTargets = new Map<SettingsSectionEntry, HTMLElement>();
+	const looseHosts = new Map<SettingsSectionEntry, MountedNodes>();
+	const bareSections = new Map<SettingsSectionEntry, MountedSettingsSection>();
 	const categories = new Map<string, MountedSettingsCategory>();
+
+	const syncNodes = (
+		host: HTMLElement,
+		nodes: Map<SettingsNode, HTMLElement>,
+		entries: SettingsNode[],
+		leading?: HTMLElement,
+	): void => {
+		const seen = new Set<SettingsNode>();
+		const children: HTMLElement[] = [];
+		if (leading) children.push(leading);
+		for (const node of entries) {
+			seen.add(node);
+			let nodeContainer = nodes.get(node);
+			if (!nodeContainer) {
+				nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1 search-item`.mount(host);
+				mountSettingsMenuNode(nodeContainer, node);
+				nodes.set(node, nodeContainer);
+			}
+			children.push(nodeContainer);
+		}
+		for (const [node, nodeContainer] of nodes) {
+			if (seen.has(node)) continue;
+			nodeContainer.remove();
+			nodes.delete(node);
+		}
+		syncElementChildren(host, children);
+	};
+
+	const mountLoose = (parent: HTMLElement, entry: SettingsSectionEntry): MountedNodes => {
+		const host = el.div`flex flex-col gap-2 search-item`.mount(parent);
+		const mounted = { host, nodes: new Map<SettingsNode, HTMLElement>() };
+		syncNodes(host, mounted.nodes, entry.nodes);
+		return mounted;
+	};
+
+	const syncLoose = (mounted: MountedNodes, entry: SettingsSectionEntry): void => {
+		syncNodes(mounted.host, mounted.nodes, entry.nodes);
+	};
 
 	const mountCategory = (category: string): MountedSettingsCategory => {
 		const sectionBlock = el.div`flex flex-col gap-6`.mount(sectionsContainer, category);
 		sectionBlock.classList.add('search-item');
 		const navGroup = el.div`flex flex-col`.mount(navContainer, category);
-		if (!groupByCategory) {
-			return {
-				category,
-				sectionBlock,
-				navGroup,
-				heading: undefined,
-				navButton: undefined,
-				sections: new Map(),
-			};
-		}
 		const heading =
 			el.h2`text-2xl font-bold tracking-tight text-base-content/90 search-value`.mount(
 				sectionBlock,
@@ -1437,159 +1468,237 @@ const initSettingsMenu = (
 					header.textContent = category;
 				},
 			);
-		const navButton =
-			el.button`link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm`.mount(
-				navGroup,
-				'group',
-				(button) => {
-					button.textContent = category;
-					button.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
-				},
-			);
+		const navButton = el.button`${TOP_NAV}`.mount(navGroup, 'group', (button) => {
+			button.textContent = category;
+			button.onclick = () => sectionBlock.scrollIntoView({ behavior: 'smooth' });
+		});
 		return {
 			category,
 			sectionBlock,
 			navGroup,
 			heading,
 			navButton,
+			loose: new Map(),
 			sections: new Map(),
 		};
 	};
 
+	const fillDivider = (divider: HTMLElement, name: SettingsSectionEntry['name']): void => {
+		if (typeof name === 'string') {
+			if (divider.textContent !== name) divider.textContent = name;
+			return;
+		}
+		if (name && divider.firstChild !== name) divider.replaceChildren(name);
+	};
+
 	const mountSection = (
-		category: MountedSettingsCategory,
-		section: SettingsSectionEntry,
-		sectionIndex: number,
+		parent: HTMLElement,
+		navParent: HTMLElement,
+		entry: SettingsSectionEntry,
+		nested: boolean,
 	): MountedSettingsSection => {
-		const container = el.div`flex flex-col gap-2 search-item`.mount(
-			category.sectionBlock,
-			String(sectionIndex),
-		);
+		const container = el.div`flex flex-col gap-2 search-item`.mount(parent);
 		const divider =
 			el.div`divider divider-start text-base font-medium text-base-content/70 mb-0 search-value`.mount(
 				container,
 				'divider',
 				(elDivider) => {
-					if (typeof section.name === 'string') {
-						elDivider.textContent = section.name;
-					} else {
-						elDivider.replaceChildren(section.name);
-					}
+					fillDivider(elDivider, entry.name);
 				},
 			);
-		const navClass = groupByCategory
-			? 'block link link-hover text-left text-ellipsis overflow-hidden py-0.5 text-xs text-base-content/70 hover:text-base-content border-l border-base-content/30 pl-2'
-			: 'link link-hover text-left text-ellipsis overflow-hidden py-0.5 font-medium text-sm';
-		const navButton = el.button`${navClass}`.mount(
-			category.navGroup,
-			String(sectionIndex),
+		const navButton = el.button`${nested ? NESTED_NAV : TOP_NAV}`.mount(
+			navParent,
+			undefined,
 			(header) => {
-				header.textContent = sectionNameText(section.name);
+				header.textContent = sectionNameText(entry.name);
 				header.onclick = () => container.scrollIntoView({ behavior: 'smooth' });
 			},
 		);
-		container.setAttribute(
-			'oinky',
-			sectionOinkyId(options.id, groupByCategory, category.category, sectionIndex),
-		);
-		return { section, container, divider, navButton, nodes: new Map() };
+		const mounted = {
+			host: container,
+			container,
+			divider,
+			navButton,
+			nodes: new Map<SettingsNode, HTMLElement>(),
+		};
+		syncNodes(container, mounted.nodes, entry.nodes, divider);
+		return mounted;
 	};
 
-	const syncSectionName = (
-		mounted: MountedSettingsSection,
-		section: SettingsSectionEntry,
-	): void => {
-		if (typeof section.name === 'string') {
-			if (mounted.divider.textContent !== section.name) mounted.divider.textContent = section.name;
-		} else if (mounted.divider.firstChild !== section.name) {
-			mounted.divider.replaceChildren(section.name);
-		}
-		const navText = sectionNameText(section.name);
+	const syncSection = (mounted: MountedSettingsSection, entry: SettingsSectionEntry): void => {
+		fillDivider(mounted.divider, entry.name);
+		const navText = sectionNameText(entry.name);
 		if (mounted.navButton.textContent !== navText) mounted.navButton.textContent = navText;
+		syncNodes(mounted.container, mounted.nodes, entry.nodes, mounted.divider);
 	};
 
-	const syncSectionNodes = (mounted: MountedSettingsSection, nodes: SettingsNode[]): void => {
-		const seen = new Set<SettingsNode>();
-		const nodeContainers: HTMLElement[] = [mounted.divider];
-		for (const node of nodes) {
-			seen.add(node);
-			let nodeContainer = mounted.nodes.get(node);
-			if (!nodeContainer) {
-				nodeContainer = el.div`flex flex-col gap-0.5 py-1.5 px-1 search-item`.mount(
-					mounted.container,
-				);
-				mountSettingsMenuNode(nodeContainer, node);
-				mounted.nodes.set(node, nodeContainer);
+	const dropLoose = (entry: SettingsSectionEntry): void => {
+		const mounted = looseHosts.get(entry);
+		if (!mounted) return;
+		mounted.host.remove();
+		looseHosts.delete(entry);
+	};
+
+	const dropBare = (entry: SettingsSectionEntry): void => {
+		const mounted = bareSections.get(entry);
+		if (!mounted) return;
+		mounted.container.remove();
+		mounted.navButton.remove();
+		bareSections.delete(entry);
+	};
+
+	const dropFromCategories = (entry: SettingsSectionEntry): void => {
+		for (const category of categories.values()) {
+			const loose = category.loose.get(entry);
+			if (loose) {
+				loose.host.remove();
+				category.loose.delete(entry);
 			}
-			nodeContainers.push(nodeContainer);
+			const section = category.sections.get(entry);
+			if (!section) continue;
+			section.container.remove();
+			section.navButton.remove();
+			category.sections.delete(entry);
 		}
-		for (const [node, nodeContainer] of mounted.nodes) {
-			if (seen.has(node)) continue;
-			nodeContainer.remove();
-			mounted.nodes.delete(node);
-		}
-		syncElementChildren(mounted.container, nodeContainers);
 	};
 
 	const update = () => {
-		const grouped = new Map<string, SettingsSectionEntry[]>();
-		for (const entry of registry) {
-			const list = grouped.get(entry.category);
-			if (list) list.push(entry);
-			else grouped.set(entry.category, [entry]);
-		}
-		const ordered = [...grouped.keys()].sort((a, b) => a.localeCompare(b));
+		const ordered = orderNav(
+			registry.map((entry) => ({
+				category: entry.category,
+				section: entry.name === undefined ? undefined : sectionNameText(entry.name),
+				item: entry,
+			})),
+		);
 
-		for (const [category, mounted] of categories) {
-			if (grouped.has(category)) continue;
-			mounted.sectionBlock.remove();
-			mounted.navGroup.remove();
-			categories.delete(category);
-		}
-
+		const seenLoose = new Set<SettingsSectionEntry>();
+		const seenBare = new Set<SettingsSectionEntry>();
+		const seenCategories = new Set<string>();
 		const sectionBlocks: HTMLElement[] = [];
 		const navGroups: HTMLElement[] = [];
 
-		for (const categoryName of ordered) {
-			const sections = grouped.get(categoryName) ?? [];
-			let category = categories.get(categoryName);
+		for (const entry of ordered.loose) {
+			seenLoose.add(entry);
+			dropBare(entry);
+			dropFromCategories(entry);
+			let mounted = looseHosts.get(entry);
+			if (!mounted) {
+				mounted = mountLoose(sectionsContainer, entry);
+				looseHosts.set(entry, mounted);
+			} else {
+				syncLoose(mounted, entry);
+			}
+			scrollTargets.set(entry, mounted.host);
+			sectionBlocks.push(mounted.host);
+		}
+
+		for (const group of ordered.sections) {
+			const entry = group.items[0];
+			if (!entry) continue;
+			seenBare.add(entry);
+			dropLoose(entry);
+			dropFromCategories(entry);
+			let mounted = bareSections.get(entry);
+			if (!mounted) {
+				mounted = mountSection(sectionsContainer, navContainer, entry, false);
+				bareSections.set(entry, mounted);
+			} else {
+				syncSection(mounted, entry);
+			}
+			scrollTargets.set(entry, mounted.container);
+			sectionBlocks.push(mounted.container);
+			navGroups.push(mounted.navButton);
+		}
+
+		for (const group of ordered.categories) {
+			seenCategories.add(group.category);
+			let category = categories.get(group.category);
 			if (!category) {
-				category = mountCategory(categoryName);
-				categories.set(categoryName, category);
+				category = mountCategory(group.category);
+				categories.set(group.category, category);
+			} else if (category.heading.textContent !== group.category) {
+				category.heading.textContent = group.category;
+				category.navButton.textContent = group.category;
 			}
 
-			const seenSections = new Set<SettingsSectionEntry>();
-			const sectionContainers: HTMLElement[] = [];
-			const navButtons: HTMLElement[] = [];
-			if (category.heading) sectionContainers.push(category.heading);
-			if (category.navButton) navButtons.push(category.navButton);
-			sections.forEach((section, sectionIndex) => {
-				seenSections.add(section);
-				let mountedSection = category.sections.get(section);
-				if (!mountedSection) {
-					mountedSection = mountSection(category, section, sectionIndex);
-					category.sections.set(section, mountedSection);
+			const seenCategoryLoose = new Set<SettingsSectionEntry>();
+			const seenCategorySections = new Set<SettingsSectionEntry>();
+			const sectionContainers: HTMLElement[] = [category.heading];
+			const navButtons: HTMLElement[] = [category.navButton];
+
+			for (const entry of group.loose) {
+				seenCategoryLoose.add(entry);
+				dropLoose(entry);
+				dropBare(entry);
+				let mounted = category.loose.get(entry);
+				if (!mounted) {
+					mounted = mountLoose(category.sectionBlock, entry);
+					category.loose.set(entry, mounted);
 				} else {
-					mountedSection.container.setAttribute(
-						'oinky',
-						sectionOinkyId(options.id, groupByCategory, category.category, sectionIndex),
-					);
-					syncSectionName(mountedSection, section);
+					syncLoose(mounted, entry);
 				}
-				syncSectionNodes(mountedSection, section.nodes);
-				sectionContainers.push(mountedSection.container);
-				navButtons.push(mountedSection.navButton);
-			});
-			for (const [section, mountedSection] of category.sections) {
-				if (seenSections.has(section)) continue;
-				mountedSection.container.remove();
-				mountedSection.navButton.remove();
-				category.sections.delete(section);
+				scrollTargets.set(entry, category.sectionBlock);
+				sectionContainers.push(mounted.host);
 			}
+
+			for (const sectionGroup of group.sections) {
+				const entry = sectionGroup.items[0];
+				if (!entry) continue;
+				seenCategorySections.add(entry);
+				dropLoose(entry);
+				dropBare(entry);
+				let mounted = category.sections.get(entry);
+				if (!mounted) {
+					mounted = mountSection(category.sectionBlock, category.navGroup, entry, true);
+					category.sections.set(entry, mounted);
+				} else {
+					syncSection(mounted, entry);
+				}
+				scrollTargets.set(entry, mounted.container);
+				sectionContainers.push(mounted.container);
+				navButtons.push(mounted.navButton);
+			}
+
+			for (const [entry, mounted] of category.loose) {
+				if (seenCategoryLoose.has(entry)) continue;
+				mounted.host.remove();
+				category.loose.delete(entry);
+				scrollTargets.delete(entry);
+			}
+			for (const [entry, mounted] of category.sections) {
+				if (seenCategorySections.has(entry)) continue;
+				mounted.container.remove();
+				mounted.navButton.remove();
+				category.sections.delete(entry);
+				scrollTargets.delete(entry);
+			}
+
 			syncElementChildren(category.sectionBlock, sectionContainers);
 			syncElementChildren(category.navGroup, navButtons);
 			sectionBlocks.push(category.sectionBlock);
 			navGroups.push(category.navGroup);
+		}
+
+		for (const [entry, mounted] of looseHosts) {
+			if (seenLoose.has(entry)) continue;
+			mounted.host.remove();
+			looseHosts.delete(entry);
+			scrollTargets.delete(entry);
+		}
+		for (const [entry, mounted] of bareSections) {
+			if (seenBare.has(entry)) continue;
+			mounted.container.remove();
+			mounted.navButton.remove();
+			bareSections.delete(entry);
+			scrollTargets.delete(entry);
+		}
+		for (const [name, mounted] of categories) {
+			if (seenCategories.has(name)) continue;
+			mounted.sectionBlock.remove();
+			mounted.navGroup.remove();
+			for (const entry of mounted.loose.keys()) scrollTargets.delete(entry);
+			for (const entry of mounted.sections.keys()) scrollTargets.delete(entry);
+			categories.delete(name);
 		}
 
 		syncElementChildren(sectionsContainer, sectionBlocks);
@@ -1597,7 +1706,16 @@ const initSettingsMenu = (
 		search.reindex();
 	};
 
-	return { id: options.id, container, navContainer, sectionsContainer, update };
+	return {
+		id: options.id,
+		container,
+		navContainer,
+		sectionsContainer,
+		update,
+		scrollTo: (entry: SettingsSectionEntry) => {
+			scrollTargets.get(entry)?.scrollIntoView({ behavior: 'smooth' });
+		},
+	};
 };
 
 // #region initSettingsWindow
@@ -1619,16 +1737,9 @@ const CLIENT_WINDOW_TABS = [
 const tabTitle = (tab: ClientWindowTab): string =>
 	`${CLIENT_WINDOW_TABS.find((entry) => entry.id === tab)?.label ?? tab} – Client Window`;
 
-const mountSettingsChrome = (frame: HTMLElement, tablist: HTMLElement, panels: HTMLElement) => {
+const mountSettingsChrome = (frame: HTMLElement, panels: HTMLElement) => {
 	const body = frame.querySelector<HTMLElement>('[oinky-window-area="body"]');
 	body?.replaceChildren(panels);
-
-	const titlebar = frame.querySelector<HTMLElement>('[oinky-window-area="titlebar"]');
-	if (!titlebar) return;
-	titlebar.querySelector('[oinky-window="title"]')?.parentElement?.remove();
-	const drag = titlebar.querySelector<HTMLElement>('[oinky-window-drag]');
-	if (drag) titlebar.insertBefore(tablist, drag);
-	else titlebar.prepend(tablist);
 };
 
 const initSettingsWindow = (
@@ -1644,12 +1755,13 @@ const initSettingsWindow = (
 	const window = ui.windows.initWindow(lifecycle, {
 		id: 'settings',
 		title,
+		titleSlot: tablist,
 		icon: ui.el.icon.settings``.element,
 		storage,
 		lockable: false,
 		onVisible,
 	});
-	mountSettingsChrome(window.frame, tablist, panels);
+	mountSettingsChrome(window.frame, panels);
 
 	return { window, lifecycle };
 };
@@ -1692,11 +1804,9 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 
 	const pluginMenu = initSettingsMenu(lifecycle, pluginRegistry, {
 		id: 'settings',
-		groupByCategory: true,
 	});
 	const systemMenu = initSettingsMenu(lifecycle, systemRegistry, {
 		id: 'system',
-		groupByCategory: false,
 	});
 	const clientTabs = initClientWindowTabs();
 	clientTabs.tabs.plugins.panel.appendChild(pluginMenu.container);
@@ -1713,7 +1823,7 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 
 	const ensureChrome = () => {
 		if (settingsWindow && clientTabs.panels.parentElement !== settingsWindow.window.body) {
-			mountSettingsChrome(settingsWindow.window.frame, clientTabs.tablist, clientTabs.panels);
+			mountSettingsChrome(settingsWindow.window.frame, clientTabs.panels);
 		}
 	};
 
@@ -1815,21 +1925,11 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 
 	const openMenuSection = (
 		tab: 'plugins' | 'system',
-		registry: SettingsRegistry,
 		menu: ReturnType<typeof initSettingsMenu>,
-		groupByCategory: boolean,
 		entry: SettingsSectionEntry,
 	) => {
 		openTab(tab);
-		const sections = groupByCategory
-			? registry.filter((section) => section.category === entry.category)
-			: registry;
-		const sectionIndex = sections.indexOf(entry);
-		if (sectionIndex < 0) return;
-		const oinkyId = sectionOinkyId(menu.id, groupByCategory, entry.category, sectionIndex);
-		menu.sectionsContainer
-			.querySelector(`[oinky="${oinkyId}"]`)
-			?.scrollIntoView({ behavior: 'smooth' });
+		menu.scrollTo(entry);
 	};
 
 	const registerSection = (
@@ -1881,7 +1981,7 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 			sectionLifecycle,
 			pluginRegistry,
 			pluginFlush.update,
-			() => openMenuSection('plugins', pluginRegistry, pluginMenu, true, entry),
+			() => openMenuSection('plugins', pluginMenu, entry),
 			entry,
 			options.storage,
 		);
@@ -1892,15 +1992,14 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		options: SystemSectionOptions,
 	): SettingsSection => {
 		const entry: SettingsSectionEntry = {
-			category: 'system',
-			name: options.name,
+			category: typeof options.name === 'string' ? options.name : sectionNameText(options.name),
 			nodes: [],
 		};
 		return registerSection(
 			sectionLifecycle,
 			systemRegistry,
 			systemFlush.update,
-			() => openMenuSection('system', systemRegistry, systemMenu, false, entry),
+			() => openMenuSection('system', systemMenu, entry),
 			entry,
 			options.storage,
 		);
