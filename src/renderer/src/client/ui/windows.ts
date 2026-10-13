@@ -143,8 +143,12 @@ type WindowOptions = {
 	onVisible?: () => void;
 	icon?: Element;
 	lockable?: boolean;
+	/** When false, the frame lock control is omitted. The window can still be locked. */
+	lockToggle?: boolean;
 	/** When false, the frame close button and the taskbar Close item are omitted. */
 	closable?: boolean;
+	/** When false, the window has no taskbar button. */
+	taskbar?: boolean;
 	/** Replaces the text title. The string `title` still feeds the taskbar tooltip. */
 	titleSlot?: Element;
 };
@@ -217,7 +221,9 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	const setupWindow = (lifecycle: Lifecycle, options: WindowOptions, variant: WindowVariant) => {
 		const { id, title, titleSlot, storage, onPreMount, onVisible, icon } = options;
 		const lockable = options.lockable !== false;
+		const lockToggle = options.lockToggle !== false;
 		const closable = options.closable !== false;
+		const showTaskbar = options.taskbar !== false;
 		const defaultWindowState: WindowState = {
 			width: 640,
 			height: 400,
@@ -236,8 +242,11 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		const windowFrame = initElement(lifecycle, container, id, 'article');
 		windowFrame.setAttribute('oinky-window', 'root');
 		windowFrame.setAttribute('oinky-window-id', id);
-		windowFrame.className =
-			'absolute rounded-box overflow-hidden min-h-min min-w-min not-locked-window:bg-base-100/(--oinky-window-opacity) locked-window:bg-base-100/(--oinky-window-locked-opacity)';
+		const clip =
+			variant.attributes?.['oinky-window-kind'] === 'toolbar'
+				? 'overflow-visible'
+				: 'overflow-hidden';
+		windowFrame.className = `absolute rounded-box ${clip} min-h-min min-w-min not-locked-window:bg-base-100/(--oinky-window-opacity) locked-window:bg-base-100/(--oinky-window-locked-opacity)`;
 		windowFrame.innerHTML = variant.html;
 		if (variant.attributes) {
 			for (const [name, value] of Object.entries(variant.attributes)) {
@@ -376,7 +385,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		});
 
 		const windowLocks = windowFrame.querySelectorAll<HTMLInputElement>('input[oinky-window=lock]');
-		if (!lockable) {
+		if (!lockable || !lockToggle) {
 			windowLocks.forEach((windowLock) => windowLock.closest('label')?.remove());
 		}
 
@@ -393,91 +402,8 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			onVisible?.();
 		};
 
-		const {
-			button: windowButton,
-			menu,
-			list,
-		} = taskbar.initWindowButton(lifecycle, id, {
-			title,
-			icon: windowButtonIcon,
-			onClick: () => {
-				toggleWindowVisibility(windowFrame, windowState);
-				revealIfVisible();
-				syncWindowChrome();
-			},
-		});
-
-		const hideContextMenu = () => {
-			if (menu.matches(':popover-open')) menu.hidePopover();
-		};
-
-		const initMenuItem = (itemId: string, icon: Element, label: string, onClick: () => void) => {
-			const item = el.li``.mount(list, itemId);
-			const button = el.button``.mount(item, 'button', (button) => {
-				button.replaceChildren(icon, document.createTextNode(label));
-				button.onclick = () => {
-					hideContextMenu();
-					onClick();
-				};
-			});
-			return button;
-		};
-
-		const setMenuItemContent = (button: HTMLButtonElement, icon: Element, label: string) => {
-			button.replaceChildren(icon, document.createTextNode(label));
-		};
-
-		const minimizeMenuButton = initMenuItem(
-			'minimize',
-			(windowState.minimized ? el.icon.chevronUp : el.icon.chevronDown)`size-4`.element,
-			windowState.minimized ? 'Expand' : 'Minimize',
-			() => {
-				toggleWindowVisibility(windowFrame, windowState);
-				revealIfVisible();
-				syncWindowChrome();
-			},
-		);
-
-		const lockMenuButton = lockable
-			? initMenuItem(
-					'lock',
-					(windowState.locked ? el.icon.lockOpen : el.icon.lock)`size-4`.element,
-					windowState.locked ? 'Unlock' : 'Lock',
-					() => setWindowLocked(!windowState.locked),
-				)
-			: undefined;
-
-		initMenuItem('reset', el.icon.restore`size-4`.element, 'Reset Position', () => {
-			windowState.width = defaultWindowState.width;
-			windowState.height = defaultWindowState.height;
-			windowState.top = defaultWindowState.top;
-			windowState.left = defaultWindowState.left;
-			updateWindowFramePosition(windowFrame, windowState);
-		});
-
-		const closeByUser = () => {
-			windowState.open = false;
-			lifecycle.cleanup();
-			options.onClose?.();
-		};
-
-		if (closable) initMenuItem('close', el.icon.x`size-4`.element, 'Close', closeByUser);
-
-		const syncWindowChrome = () => {
-			windowButton.classList.toggle('btn-soft', windowState.minimized);
-			setMenuItemContent(
-				minimizeMenuButton,
-				(windowState.minimized ? el.icon.chevronUp : el.icon.chevronDown)`size-4`.element,
-				windowState.minimized ? 'Expand' : 'Minimize',
-			);
-			if (lockMenuButton) {
-				setMenuItemContent(
-					lockMenuButton,
-					(windowState.locked ? el.icon.lockOpen : el.icon.lock)`size-4`.element,
-					windowState.locked ? 'Unlock' : 'Lock',
-				);
-			}
-		};
+		let windowButton: HTMLButtonElement | undefined;
+		let syncWindowChrome = () => {};
 
 		const setWindowLocked = (locked: boolean) => {
 			windowState.locked = locked;
@@ -488,7 +414,92 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			syncWindowChrome();
 		};
 
-		if (lockable) {
+		const closeByUser = () => {
+			windowState.open = false;
+			lifecycle.cleanup();
+			options.onClose?.();
+		};
+
+		if (showTaskbar) {
+			const { button, menu, list } = taskbar.initWindowButton(lifecycle, id, {
+				title,
+				icon: windowButtonIcon,
+				onClick: () => {
+					toggleWindowVisibility(windowFrame, windowState);
+					revealIfVisible();
+					syncWindowChrome();
+				},
+			});
+			windowButton = button;
+
+			const hideContextMenu = () => {
+				if (menu.matches(':popover-open')) menu.hidePopover();
+			};
+
+			const initMenuItem = (itemId: string, icon: Element, label: string, onClick: () => void) => {
+				const item = el.li``.mount(list, itemId);
+				const menuButton = el.button``.mount(item, 'button', (menuButton) => {
+					menuButton.replaceChildren(icon, document.createTextNode(label));
+					menuButton.onclick = () => {
+						hideContextMenu();
+						onClick();
+					};
+				});
+				return menuButton;
+			};
+
+			const setMenuItemContent = (menuButton: HTMLButtonElement, icon: Element, label: string) => {
+				menuButton.replaceChildren(icon, document.createTextNode(label));
+			};
+
+			const minimizeMenuButton = initMenuItem(
+				'minimize',
+				(windowState.minimized ? el.icon.chevronUp : el.icon.chevronDown)`size-4`.element,
+				windowState.minimized ? 'Expand' : 'Minimize',
+				() => {
+					toggleWindowVisibility(windowFrame, windowState);
+					revealIfVisible();
+					syncWindowChrome();
+				},
+			);
+
+			const lockMenuButton = lockable
+				? initMenuItem(
+						'lock',
+						(windowState.locked ? el.icon.lockOpen : el.icon.lock)`size-4`.element,
+						windowState.locked ? 'Unlock' : 'Lock',
+						() => setWindowLocked(!windowState.locked),
+					)
+				: undefined;
+
+			initMenuItem('reset', el.icon.restore`size-4`.element, 'Reset Position', () => {
+				windowState.width = defaultWindowState.width;
+				windowState.height = defaultWindowState.height;
+				windowState.top = defaultWindowState.top;
+				windowState.left = defaultWindowState.left;
+				updateWindowFramePosition(windowFrame, windowState);
+			});
+
+			if (closable) initMenuItem('close', el.icon.x`size-4`.element, 'Close', closeByUser);
+
+			syncWindowChrome = () => {
+				windowButton?.classList.toggle('btn-soft', windowState.minimized);
+				setMenuItemContent(
+					minimizeMenuButton,
+					(windowState.minimized ? el.icon.chevronUp : el.icon.chevronDown)`size-4`.element,
+					windowState.minimized ? 'Expand' : 'Minimize',
+				);
+				if (lockMenuButton) {
+					setMenuItemContent(
+						lockMenuButton,
+						(windowState.locked ? el.icon.lockOpen : el.icon.lock)`size-4`.element,
+						windowState.locked ? 'Unlock' : 'Lock',
+					);
+				}
+			};
+		}
+
+		if (lockable && lockToggle) {
 			windowLocks.forEach((windowLock) => {
 				windowLock.checked = windowState.locked;
 				windowLock.onchange = () => setWindowLocked(windowLock.checked);
@@ -552,11 +563,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			},
 			forceWindowUpdate: () => forceWindowUpdate(windowFrame, windowState),
 			closeWindow: () => closeWindow(windowFrame),
+			setLocked: (locked: boolean) => setWindowLocked(locked),
 			setTitle: (title: string) => {
 				for (const node of windowFrame.querySelectorAll<HTMLElement>('[oinky-window="title"]')) {
 					node.textContent = title;
 				}
-				windowButton.setAttribute('data-tip', title);
+				windowButton?.setAttribute('data-tip', title);
 			},
 		};
 		liveWindows.set(id, { id, state: windowState, hideWindow: api.hideWindow });

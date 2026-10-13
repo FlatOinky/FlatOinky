@@ -223,13 +223,15 @@ mountHeaderExtras? })` builds a per-cue `AlertScope` card.
    - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
      `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,
      `initWindowButton`, plus `elements` (e.g. `chatContainer`)
-   - Windows: `windows.initWindow(lifecycle, { id, title, storage, titleSlot?, closable?, ... })` persists
+   - Windows: `windows.initWindow(lifecycle, { id, title, storage, titleSlot?, closable?, taskbar?, lockToggle?, ... })` persists
      `WindowState` (including `open`) under `window/${id}`; `windows.isOpen(storage, id)`
      reads that flag before the window exists. `titleSlot` replaces the text title inside
      the drag slot; without it, the string `title` is shown there. `setTitle(title)` updates
      a text title when one is present, and always updates the taskbar button tooltip. `open` is cleared on user close, not when
      a plugin lifecycle tears the window down (so settings restarts can restore it).
      `closable: false` removes the frame close button and the taskbar Close item.
+     `lockToggle: false` removes the frame lock control; the window can still be locked with
+     `setLocked(locked)`. `taskbar: false` omits the taskbar button and its menu.
      `windows.initToolbarWindow(lifecycle, { ..., grabberEdge? })` is the same window
      with a thin frame and no resize edges. `grabberEdge` (`left` by default, or
      `right` / `top` / `bottom`) places the close, grabber, and lock strip and is fixed

@@ -235,6 +235,7 @@ export const icon = {
 	alertTriangle: setupIconElement('icon-[tabler--alert-triangle]'),
 	alien: setupIconElement('icon-[tabler--alien]'),
 	appWindow: setupIconElement('icon-[tabler--app-window]'),
+	appsFilled: setupIconElement('icon-[tabler--apps-filled]'),
 	at: setupIconElement('icon-[tabler--at]'),
 	bell: setupIconElement('icon-[tabler--bell]'),
 	bellOff: setupIconElement('icon-[tabler--bell-off]'),

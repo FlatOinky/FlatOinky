@@ -88,6 +88,10 @@ article[oinky-window] [oinky-window-edge='bottom-right'] {
 	cursor: se-resize;
 }
 
+article[oinky-window][oinky-window-kind='toolbar'],
+article[oinky-window][oinky-window-kind='toolbar'] [oinky-window-area='body'] {
+	overflow: visible;
+}
 article[oinky-window][oinky-window-kind='toolbar'] {
 	/* Same thickness as an empty locked-window edge track. */
 	padding: var(--spacing);

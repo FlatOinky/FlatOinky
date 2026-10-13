@@ -17,7 +17,7 @@ import {
 const SLOT_PX = 40;
 const GAP_PX = 4;
 const FRAME_PAD_PX = 8;
-const GRABBER_PX = 20;
+const GRABBER_PX = 8;
 const CONTROLS_PX = 28;
 const CONTROLS_MIN_PX = 32;
 
@@ -50,7 +50,10 @@ const mountPageControls = (
 	onChange: () => void,
 ) => {
 	const bar = settings.bars[id];
-	const controls = el.div`flex flex-row items-stretch gap-1`.mount(parent, 'controls');
+	const controls = el.div`pointer-events-auto flex flex-row items-stretch gap-1`.mount(
+		parent,
+		'controls',
+	);
 	const dots = el.div`flex flex-col items-center justify-center gap-px`.mount(controls, 'dots');
 	for (let page = 0; page < bar.pageCount; page++) {
 		const filled = page === bar.page;
@@ -85,7 +88,7 @@ export const initHotbarWindow = (
 	settings: HotbarsSettings,
 	listen: (listener: () => void) => () => void,
 	onChange: () => void,
-): void => {
+) => {
 	const layout = () => layoutById(settings.bars[id].layout);
 	const initial = frameSize(layout());
 	const window = context.ui.windows.initToolbarWindow(lifecycle, {
@@ -94,15 +97,14 @@ export const initHotbarWindow = (
 		icon: el.icon.keyboard`size-4`.element,
 		storage: context.storages.profile,
 		closable: false,
+		lockToggle: false,
+		taskbar: false,
 		grabberEdge: 'left',
 		initialState: {
 			width: initial.width,
 			height: initial.height,
 			left: 24,
 			top: 48 + (Number(id) - 1) * 16,
-		},
-		onPreMount: (mounted) => {
-			mounted.body.className = 'overflow-hidden';
 		},
 	});
 
@@ -126,7 +128,7 @@ export const initHotbarWindow = (
 				'bar',
 			);
 		root.setAttribute('oinky-window-interactive', '');
-		const grid = el.div``.mount(root, 'slots', (node) => {
+		const grid = el.div`pointer-events-auto`.mount(root, 'slots', (node) => {
 			node.style.display = 'grid';
 			node.style.gridTemplateColumns = `repeat(${current.columns}, ${SLOT_PX}px)`;
 			node.style.gridTemplateRows = `repeat(${current.rows}, ${SLOT_PX}px)`;
@@ -163,4 +165,5 @@ export const initHotbarWindow = (
 	lifecycle.onCleanup(context.actions.subscribe(schedule));
 	lifecycle.onCleanup(context.keybinds.subscribe(schedule));
 	paint();
+	return window;
 };

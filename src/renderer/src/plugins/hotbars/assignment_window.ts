@@ -6,18 +6,14 @@ import { mountSlot } from './hotbar_slot';
 import {
 	assignSlot,
 	BAR_IDS,
-	clampPage,
 	clearSlot,
 	hotbarSectionId,
-	LAYOUTS,
 	layoutById,
-	MAX_PAGES,
 	slotAction,
 	slotCount,
 	swapSlots,
 	type BarId,
 	type HotbarsSettings,
-	type Layout,
 } from './hotbar_types';
 
 const ACTION_MIME = 'application/x-oinky-action';
@@ -31,32 +27,6 @@ export type AssignmentWindowApi = {
 const hasType = (types: ReadonlyArray<string>, type: string): boolean => types.includes(type);
 
 const dragTypes = (data: DataTransfer | null): readonly string[] => (data ? [...data.types] : []);
-
-const mountGlyph = (parent: HTMLElement, layout: Layout) => {
-	const boxW = 28;
-	const boxH = 16;
-	const gap = 1;
-	const cell = Math.max(
-		1,
-		Math.min(
-			(boxW - gap * (layout.columns - 1)) / layout.columns,
-			(boxH - gap * (layout.rows - 1)) / layout.rows,
-		),
-	);
-	const glyph = el.div`shrink-0`.mount(parent, 'glyph', (node) => {
-		node.style.display = 'grid';
-		node.style.gridTemplateColumns = `repeat(${layout.columns}, ${cell}px)`;
-		node.style.gridTemplateRows = `repeat(${layout.rows}, ${cell}px)`;
-		node.style.gap = `${gap}px`;
-	});
-	const total = layout.columns * layout.rows;
-	for (let index = 0; index < total; index++) {
-		el.span`bg-current`.mount(glyph, `cell-${index}`, (node) => {
-			node.style.width = `${cell}px`;
-			node.style.height = `${cell}px`;
-		});
-	}
-};
 
 const groupActions = (actions: readonly DeepReadonly<ClientAction>[]) => {
 	const groups = new Map<string, Map<string, DeepReadonly<ClientAction>[]>>();
@@ -91,26 +61,30 @@ export const initAssignmentWindow = (
 		storage: context.storages.profile,
 		lockable: false,
 		initialState: {
-			width: 720,
-			height: 640,
+			width: 880,
+			height: 560,
 			top: 72,
 			left: 72,
 		},
 		onClose,
 		onPreMount: (mounted) => {
-			mounted.body.className = 'flex h-full min-h-0 flex-col';
+			mounted.body.className = 'flex h-full min-h-0 flex-row';
 		},
 	});
 
-	const top = el.div`min-h-0 flex-1 overflow-y-auto p-2`.mount(window.body, 'actions');
-	const bottom =
-		el.div`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-t border-base-300 p-2`.mount(
+	const pagesPane =
+		el.div`flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-2 pt-3`.mount(
 			window.body,
 			'hotbars',
 		);
+	const actionsPane =
+		el.div`min-h-0 w-[45%] overflow-y-auto border-l border-base-300 p-2 pt-3`.mount(
+			window.body,
+			'actions',
+		);
 
 	let selected: BarId = '1';
-	let erasing = false;
+	let dragCommitted = false;
 	let content = lifecycle.spawnLifecycle();
 	let alive = true;
 	let queued = false;
@@ -130,7 +104,7 @@ export const initAssignmentWindow = (
 		const groups = groupActions(context.actions.getAll());
 		const headings = [...groups.keys()].sort((left, right) => left.localeCompare(right));
 		headings.forEach((heading, headingIndex) => {
-			const block = el.div`mb-4 flex flex-col gap-2`.mount(top, `group-${headingIndex}`);
+			const block = el.div`mb-4 flex flex-col gap-2`.mount(actionsPane, `group-${headingIndex}`);
 			el.h2`text-sm font-bold`.mount(block, 'heading', (node) => {
 				node.textContent = heading;
 			});
@@ -167,16 +141,22 @@ export const initAssignmentWindow = (
 		});
 	};
 
-	const bindDrag = (cell: HTMLElement, page: number, slot: number) => {
+	const bindDrag = (cell: HTMLElement, barId: BarId, page: number, slot: number) => {
 		const sources: HTMLElement[] = [cell];
 		for (const button of cell.querySelectorAll('button')) sources.push(button);
 		for (const source of sources) {
 			source.draggable = true;
 			source.ondragstart = (event) => {
+				dragCommitted = false;
 				event.stopPropagation();
 				event.dataTransfer?.setData(SLOT_MIME, `${page}/${slot}`);
 				event.dataTransfer?.setData('text/plain', `slot:${page}/${slot}`);
 				if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+			};
+			source.ondragend = () => {
+				if (dragCommitted) return;
+				clearSlot(settings.bars[barId], page, slot);
+				onChange();
 			};
 		}
 	};
@@ -194,6 +174,7 @@ export const initAssignmentWindow = (
 		};
 		cell.ondragleave = () => clearRing();
 		cell.ondrop = (event) => {
+			dragCommitted = true;
 			event.preventDefault();
 			clearRing();
 			const bar = settings.bars[barId];
@@ -222,52 +203,7 @@ export const initAssignmentWindow = (
 		const bar = settings.bars[barId];
 		const layout = layoutById(bar.layout);
 		const count = slotCount(layout);
-
-		el.div`text-xs font-medium text-base-content/70`.mount(bottom, 'layout-label', (node) => {
-			node.textContent = 'Layout';
-		});
-		const layouts = el.div`flex flex-wrap gap-1`.mount(bottom, 'layouts');
-		for (const option of LAYOUTS) {
-			const active = option.id === bar.layout;
-			el.button`${active ? 'btn btn-primary h-auto flex-col gap-0.5 px-1 py-1' : 'btn btn-ghost h-auto flex-col gap-0.5 px-1 py-1'}`.mount(
-				layouts,
-				option.id,
-				(button) => {
-					button.type = 'button';
-					button.title = option.id;
-					mountGlyph(button, option);
-					el.span`text-[10px] leading-none`.mount(button, 'label', (node) => {
-						node.textContent = option.id;
-					});
-					button.onclick = () => {
-						bar.layout = option.id;
-						onChange();
-					};
-				},
-			);
-		}
-
-		el.label`flex items-center gap-3 text-xs font-medium`.mount(bottom, 'page-count', (label) => {
-			el.span``.mount(label, 'name', (node) => {
-				node.textContent = 'Page Count';
-			});
-			el.input.range`range range-xs w-40`.mount(label, 'input', (input) => {
-				input.min = '1';
-				input.max = String(MAX_PAGES);
-				input.step = '1';
-				input.value = String(bar.pageCount);
-				input.oninput = () => {
-					bar.pageCount = Number(input.value);
-					clampPage(bar);
-					onChange();
-				};
-			});
-			el.span`w-4 text-center tabular-nums`.mount(label, 'value', (node) => {
-				node.textContent = String(bar.pageCount);
-			});
-		});
-
-		const pages = el.div`flex flex-col gap-3`.mount(bottom, 'pages');
+		const pages = el.div`flex flex-col gap-3`.mount(pagesPane, 'pages');
 		for (let page = 0; page < bar.pageCount; page++) {
 			const block = el.div`flex flex-col gap-1`.mount(pages, `page-${page}`);
 			el.div`text-xs font-medium`.mount(block, 'label', (node) => {
@@ -278,6 +214,8 @@ export const initAssignmentWindow = (
 				node.style.width = 'max-content';
 				node.style.gridTemplateColumns = `repeat(${layout.columns}, 2.5rem)`;
 				node.style.gap = '0.25rem';
+				node.style.paddingTop = '0.75rem';
+				node.style.paddingLeft = '0.75rem';
 			});
 			for (let slot = 1; slot <= count; slot++) {
 				const actionKey = slotAction(bar, page, slot);
@@ -289,17 +227,13 @@ export const initAssignmentWindow = (
 					resolve: (key) => context.actions.get(key),
 				});
 				bindDrop(cell, barId, page, slot);
-				if (erasing) {
-					cell.classList.add('cursor-cell');
-					cell.onclick = (event) => {
-						event.preventDefault();
-						event.stopPropagation();
-						clearSlot(settings.bars[barId], page, slot);
-						onChange();
-					};
-				} else if (actionKey) {
-					bindDrag(cell, page, slot);
-				}
+				cell.oncontextmenu = (event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					clearSlot(settings.bars[barId], page, slot);
+					onChange();
+				};
+				if (actionKey) bindDrag(cell, barId, page, slot);
 			}
 		}
 	};
@@ -309,11 +243,11 @@ export const initAssignmentWindow = (
 	const paint = () => {
 		content.cleanup();
 		content = lifecycle.spawnLifecycle();
-		top.replaceChildren();
-		bottom.replaceChildren();
+		actionsPane.replaceChildren();
+		pagesPane.replaceChildren();
 		paintActions();
 		const shown = shownBars();
-		const tabs = el.div`flex items-center gap-1`.mount(bottom, 'tabs');
+		const tabs = el.div`flex flex-wrap items-center gap-1`.mount(pagesPane, 'tabs');
 		for (const id of shown) {
 			const active = id === selectedBar();
 			el.button`${active ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost'}`.mount(
@@ -329,26 +263,10 @@ export const initAssignmentWindow = (
 				},
 			);
 		}
-		if (shown.length > 0) {
-			el.div`flex-1`.mount(tabs, 'spacer');
-			el.button`${erasing ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost'}`.mount(
-				tabs,
-				'eraser',
-				(button) => {
-					button.type = 'button';
-					button.title = erasing ? 'Eraser on' : 'Eraser';
-					button.append(el.icon.eraser`size-4`.element);
-					button.onclick = () => {
-						erasing = !erasing;
-						schedule();
-					};
-				},
-			);
-		}
 		const barId = selectedBar();
 		if (!barId) {
-			el.div`text-sm text-base-content/60`.mount(bottom, 'empty', (node) => {
-				node.textContent = 'No hotbars are shown. Turn one on from Hotbars settings.';
+			el.div`text-sm text-base-content/60`.mount(pagesPane, 'empty', (node) => {
+				node.textContent = 'No hotbars are shown. Turn one on from the Hotbars menu.';
 			});
 			return;
 		}

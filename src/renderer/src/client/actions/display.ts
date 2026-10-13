@@ -34,7 +34,6 @@ export const createActionDisplay = (
 				button.type = 'button';
 				button.style.containerType = 'size';
 				button.style.borderWidth = '2px';
-				if (background) button.style.background = background;
 				if (onClick) {
 					button.onclick = (event) => {
 						event.preventDefault();
@@ -45,7 +44,13 @@ export const createActionDisplay = (
 				}
 			},
 		);
-	const clip = el.div`absolute inset-0 overflow-hidden rounded-[inherit]`.mount(button, 'clip');
+	const clip = el.div`absolute inset-0 overflow-hidden rounded-[inherit]`.mount(
+		button,
+		'clip',
+		(node) => {
+			if (background) node.style.background = background;
+		},
+	);
 	const face = el.div`absolute inset-0 flex items-center justify-center p-0.5`.mount(clip, 'face');
 	if (content) {
 		const node = content();
