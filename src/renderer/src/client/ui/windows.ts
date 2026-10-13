@@ -143,6 +143,8 @@ type WindowOptions = {
 	onVisible?: () => void;
 	icon?: Element;
 	lockable?: boolean;
+	/** When false, the frame close button and the taskbar Close item are omitted. */
+	closable?: boolean;
 	/** Replaces the text title. The string `title` still feeds the taskbar tooltip. */
 	titleSlot?: Element;
 };
@@ -215,6 +217,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	const setupWindow = (lifecycle: Lifecycle, options: WindowOptions, variant: WindowVariant) => {
 		const { id, title, titleSlot, storage, onPreMount, onVisible, icon } = options;
 		const lockable = options.lockable !== false;
+		const closable = options.closable !== false;
 		const defaultWindowState: WindowState = {
 			width: 640,
 			height: 400,
@@ -377,6 +380,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			windowLocks.forEach((windowLock) => windowLock.closest('label')?.remove());
 		}
 
+		if (!closable) {
+			windowFrame
+				.querySelectorAll<HTMLButtonElement>('button[oinky-window=close]')
+				.forEach((windowCloser) => windowCloser.remove());
+		}
+
 		const windowButtonIcon = icon ?? el.icon.appWindow``.element;
 		const revealIfVisible = () => {
 			if (windowState.minimized) return;
@@ -452,7 +461,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			options.onClose?.();
 		};
 
-		initMenuItem('close', el.icon.x`size-4`.element, 'Close', closeByUser);
+		if (closable) initMenuItem('close', el.icon.x`size-4`.element, 'Close', closeByUser);
 
 		const syncWindowChrome = () => {
 			windowButton.classList.toggle('btn-soft', windowState.minimized);

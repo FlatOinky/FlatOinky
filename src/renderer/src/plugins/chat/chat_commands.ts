@@ -1,5 +1,7 @@
 import * as el from '../../client/ui/elements';
 import type { PluginActions } from '../../client/actions';
+import bankIcon from '../../assets/bank.png';
+import stuckIcon from '../../assets/actions/stuck.png';
 import { pmState } from './chat_state';
 import { updateChatTabs } from './chat_tabs';
 import { Channels, ChatElements, Settings } from './chat_types';
@@ -15,12 +17,29 @@ export type ChatCommandContext = {
 	actions: PluginActions;
 };
 
+const actionIcon =
+	(url: string): (() => HTMLImageElement) =>
+	() =>
+		el.img`pixelated size-full object-contain`.then((image) => {
+			image.alt = '';
+			image.src = url;
+		});
+
+const TELEPORT_BOOK_ICON = 'https://flatmmo.com/images/items/teleport_scrolls_book.png';
+const COLLECTION_LOG_ICON = 'https://flatmmo.com/images/ui/packsack.png';
+const STUCK_BACKGROUND = 'radial-gradient(circle at 50% 30%, #f0d8c4, #a85a48 48%, #3a2428)';
+const COLLECTION_BACKGROUND = 'linear-gradient(160deg, #e8c48a, #a86b3c 55%, #4a2c18)';
+const TELEPORT_BACKGROUND = 'linear-gradient(145deg, #f0d8a8, #8a5a32 42%, #24366e)';
+const BANK_BACKGROUND = 'radial-gradient(circle at 50% 42%, #ffe56a, #c49212 46%, #3a2410)';
+
 export type ChatCommand = {
 	name: string;
 	description: string;
 	aliases: string[];
 	section?: string;
 	requiresArgs?: boolean;
+	display?: () => Element;
+	background?: string;
 	run?: (args: string[], context: ChatCommandContext) => void | false;
 };
 
@@ -201,6 +220,8 @@ const unstuckCommand: ChatCommand = {
 	description: 'use if your character is stuck and cannot move',
 	aliases: ['stuck'],
 	section: 'Misc',
+	display: actionIcon(stuckIcon),
+	background: STUCK_BACKGROUND,
 	run: (_args, context) => {
 		context.send('', '/stuck');
 	},
@@ -231,6 +252,8 @@ const collectionsCommand: ChatCommand = {
 	description: 'Open the collections menu',
 	aliases: ['collections', 'c'],
 	section: 'Menus',
+	display: actionIcon(COLLECTION_LOG_ICON),
+	background: COLLECTION_BACKGROUND,
 	run: (_args, context) => {
 		context.send('', '/collections');
 	},
@@ -241,6 +264,8 @@ const teleportsCommand: ChatCommand = {
 	description: 'Open the teleports book menu',
 	aliases: ['teleports', 'tb'],
 	section: 'Menus',
+	display: actionIcon(TELEPORT_BOOK_ICON),
+	background: TELEPORT_BACKGROUND,
 	run: (_args, context) => {
 		context.send('', '/tb');
 	},
@@ -251,6 +276,8 @@ const bankCommand: ChatCommand = {
 	description: 'Open the bank',
 	aliases: ['bank'],
 	section: 'Menus',
+	display: actionIcon(bankIcon),
+	background: BANK_BACKGROUND,
 	run: () => {
 		Globals.websocket?.send('VIEW_BANK');
 	},
@@ -401,6 +428,8 @@ export const registerChatCommands = (context: ChatCommandContext): void => {
 				description: command.description,
 				category: command.section,
 				aliases: command.aliases,
+				display: command.display,
+				background: command.background,
 				rateLimit: null,
 			},
 			() => {

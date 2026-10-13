@@ -45,7 +45,7 @@ Layout under `src/`:
   Plugins tab of the Client Window and drives that restart. The keybinds system contributes
   the Keybinds tab.
 - `plugins/` — toggleable plugins (`chat`, `audio`, `metrics`, `themes`, `mouse`,
-  `keybinds`, `monitor/`, `tweaks/`, `timers/`, `ui/`, …)
+  `keybinds`, `hotbars`, `monitor/`, `tweaks/`, `timers/`, `ui/`, …)
 - `templates/`, `assets/`
 
 ## Client vs plugins
@@ -61,15 +61,20 @@ Layout under `src/`:
   openDevTools, saveReferences) stay off the context. `alerts`, `contextMenu`, `keybinds`,
   and `actions` are getters that throw if accessed before those systems are initialized.
   Plugins register actions with `context.actions.register(options, callback)`. The plugin
-  namespace, name, and category are already bound. The keybind group is
+  namespace, name, and category are already bound, and that owner is stored on the action.
+  The keybind group is
   `plugin/<namespace>` and the assignment key is the action `id`. `options.category` is
-  only the section label on the Keybinds tab. `getAll()` (registration order) and
-  `getByAlias()` read every action; aliases are case-insensitive chat commands.
+  only the section label on the Keybinds tab. `getAll()` (registration order), `get(key)`,
+  and `getByAlias()` read every action; aliases are case-insensitive chat commands.
+  `subscribe(listener)` fires when an action is registered or removed.
+  `action.display(lifecycle, { interactive })` mounts the slot tile; `interactive: false`
+  skips the click handler and removes it from tab order.
   Plugins register other keybinds with `context.keybinds.initSection(lifecycle, sectionId, name)`
   using a **relative** `sectionId`; the stored group is `<plugin namespace>/<section>`.
   The section's category is `Plugin.category` and stays
   unset when the plugin has none. Then `register(key, name, callback, requestKeycombo?)`.
   `reset(sectionId, key)` restores the requested combo; `clear(sectionId, key)` stores no combo.
+  `getCombo(sectionId, key)` reads the stored combo, or null when the bind is unset.
   Assignments live at `assignments[group][key]`. Category and section are labels, so renaming
   them leaves the saved combo in place. Chat (or another plugin) may
   `setChatInput` an input; the Keybinds plugin's **Focus chat** bind focuses it (Enter
@@ -218,12 +223,13 @@ mountHeaderExtras? })` builds a per-cue `AlertScope` card.
    - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
      `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,
      `initWindowButton`, plus `elements` (e.g. `chatContainer`)
-   - Windows: `windows.initWindow(lifecycle, { id, title, storage, titleSlot?, ... })` persists
+   - Windows: `windows.initWindow(lifecycle, { id, title, storage, titleSlot?, closable?, ... })` persists
      `WindowState` (including `open`) under `window/${id}`; `windows.isOpen(storage, id)`
      reads that flag before the window exists. `titleSlot` replaces the text title inside
      the drag slot; without it, the string `title` is shown there. `setTitle(title)` updates
      a text title when one is present, and always updates the taskbar button tooltip. `open` is cleared on user close, not when
      a plugin lifecycle tears the window down (so settings restarts can restore it).
+     `closable: false` removes the frame close button and the taskbar Close item.
      `windows.initToolbarWindow(lifecycle, { ..., grabberEdge? })` is the same window
      with a thin frame and no resize edges. `grabberEdge` (`left` by default, or
      `right` / `top` / `bottom`) places the close, grabber, and lock strip and is fixed

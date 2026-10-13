@@ -1,5 +1,17 @@
 import { Plugin, type Lifecycle } from '../client';
 import * as el from '../client/ui/elements';
+import badgeAIcon from '../assets/actions/badge_a.png';
+import badgeBIcon from '../assets/actions/badge_b.png';
+import badgeCIcon from '../assets/actions/badge_c.png';
+import eatIcon from '../assets/actions/eat.png';
+import equipmentAIcon from '../assets/actions/equipment_a.png';
+import equipmentBIcon from '../assets/actions/equipment_b.png';
+import equipmentCIcon from '../assets/actions/equipment_c.png';
+import dialogContinueIcon from '../assets/dialog_continue.png';
+import dialog1Icon from '../assets/dialog_1.png';
+import dialog2Icon from '../assets/dialog_2.png';
+import dialog3Icon from '../assets/dialog_3.png';
+import dialog4Icon from '../assets/dialog_4.png';
 
 const hideUpstreamKeybinds = (lifecycle: Lifecycle) => {
 	const node = document.querySelector<HTMLElement>('#loot-key-bindings');
@@ -38,8 +50,18 @@ const icon = (url: string): (() => HTMLImageElement) | undefined => {
 
 const agilityLevel = (): number => get_level(get_var('agility_xp'));
 
+const glow = (at: string, light: string, mid: string, edge: string): string =>
+	`radial-gradient(circle at ${at}, ${light}, ${mid} 55%, ${edge})`;
+
+const metal = (mid: string, edge: string): string =>
+	`linear-gradient(145deg, rgb(255 255 255 / 0.5), transparent 46%), linear-gradient(160deg, #f4f5f7, ${mid} 52%, ${edge})`;
+
+const speech = (at: string): string =>
+	`radial-gradient(circle at ${at}, #fff, #d8d2c6 62%, #8a8478)`;
+
 const DODGE_ICON = 'https://flatmmo.com/images/ui/dodge_large.png';
 const FIRE_ICON = 'https://flatmmo.com/images/icons/firemake.png';
+const RUN_ICON = 'https://flatmmo.com/images/icons/agility_large.png';
 
 export const KeybindsPlugin: Plugin = {
 	namespace: 'oinky/fmmo_keybinds',
@@ -61,6 +83,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'toggle-run',
 				name: 'Toggle Run',
 				category: 'Shortcuts',
+				background: 'linear-gradient(155deg, #e8f0c4, #7eae62 55%, #2c5830)',
+				display: icon(RUN_ICON),
 				requestKeycombo: { keys: ['Digit1'] },
 			},
 			() => sendShortcut(1),
@@ -70,6 +94,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'eat-food',
 				name: 'Eat food',
 				category: 'Shortcuts',
+				display: icon(eatIcon),
+				background: glow('32% 28%', '#f3d2b0', '#c45c48', '#5c2424'),
 				requestKeycombo: { keys: ['Digit2'] },
 			},
 			() => sendShortcut(2),
@@ -80,6 +106,7 @@ export const KeybindsPlugin: Plugin = {
 				name: 'Light fire',
 				category: 'Shortcuts',
 				display: icon(FIRE_ICON),
+				background: glow('50% 78%', '#ffe08a', '#e86a12', '#7a140c'),
 				requestKeycombo: { keys: ['Digit3'] },
 			},
 			() => sendShortcut(3),
@@ -89,7 +116,7 @@ export const KeybindsPlugin: Plugin = {
 				id: 'dodge',
 				name: 'Dodge',
 				category: 'Shortcuts',
-				background: '#cdd0ac',
+				background: glow('40% 35%', '#efe8c4', '#b7a56a', '#5c5430'),
 				display: icon(DODGE_ICON),
 				requestKeycombo: { keys: ['Digit4'] },
 				pool: {
@@ -118,6 +145,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'equipment-a',
 				name: 'Equipment A',
 				category: 'Shortcuts',
+				display: icon(equipmentAIcon),
+				background: metal('#8e98a4', '#2e343c'),
 				requestKeycombo: { keys: ['Shift', 'Digit1'] },
 			},
 			() => sendShortcut(6),
@@ -127,6 +156,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'equipment-b',
 				name: 'Equipment B',
 				category: 'Shortcuts',
+				display: icon(equipmentBIcon),
+				background: metal('#b9a48a', '#4a3a2e'),
 				requestKeycombo: { keys: ['Shift', 'Digit2'] },
 			},
 			() => sendShortcut(7),
@@ -136,6 +167,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'equipment-c',
 				name: 'Equipment C',
 				category: 'Shortcuts',
+				display: icon(equipmentCIcon),
+				background: metal('#7f93a8', '#243044'),
 				requestKeycombo: { keys: ['Shift', 'Digit3'] },
 			},
 			() => sendShortcut(8),
@@ -145,6 +178,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'badge-a',
 				name: 'Badge A',
 				category: 'Shortcuts',
+				display: icon(badgeAIcon),
+				background: glow('50% 38%', '#9ed48a', '#3d7a45', '#17331c'),
 				requestKeycombo: { keys: ['Shift', 'Digit4'] },
 			},
 			() => sendShortcut(9),
@@ -154,6 +189,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'badge-b',
 				name: 'Badge B',
 				category: 'Shortcuts',
+				display: icon(badgeBIcon),
+				background: glow('50% 38%', '#dce07a', '#6a8a32', '#243416'),
 				requestKeycombo: { keys: ['Shift', 'Digit5'] },
 			},
 			() => sendShortcut(10),
@@ -163,6 +200,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'badge-c',
 				name: 'Badge C',
 				category: 'Shortcuts',
+				display: icon(badgeCIcon),
+				background: glow('50% 38%', '#7ed0b0', '#2f7a62', '#143028'),
 				requestKeycombo: { keys: ['Shift', 'Digit6'] },
 			},
 			() => sendShortcut(11),
@@ -212,6 +251,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'dialog-continue',
 				name: 'Dialog continue',
 				category: 'Dialog',
+				display: icon(dialogContinueIcon),
+				background: speech('50% 42%'),
 				requestKeycombo: { keys: ['Space'] },
 			},
 			() => {
@@ -225,6 +266,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'dialog-option-1',
 				name: 'Dialog option 1',
 				category: 'Dialog',
+				display: icon(dialog1Icon),
+				background: speech('22% 22%'),
 				requestKeycombo: { keys: ['Space', 'Digit1'] },
 			},
 			() => clickDialogOption(0),
@@ -234,6 +277,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'dialog-option-2',
 				name: 'Dialog option 2',
 				category: 'Dialog',
+				display: icon(dialog2Icon),
+				background: speech('78% 22%'),
 				requestKeycombo: { keys: ['Space', 'Digit2'] },
 			},
 			() => clickDialogOption(1),
@@ -243,6 +288,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'dialog-option-3',
 				name: 'Dialog option 3',
 				category: 'Dialog',
+				display: icon(dialog3Icon),
+				background: speech('22% 78%'),
 				requestKeycombo: { keys: ['Space', 'Digit3'] },
 			},
 			() => clickDialogOption(2),
@@ -252,6 +299,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'dialog-option-4',
 				name: 'Dialog option 4',
 				category: 'Dialog',
+				display: icon(dialog4Icon),
+				background: speech('78% 78%'),
 				requestKeycombo: { keys: ['Space', 'Digit4'] },
 			},
 			() => clickDialogOption(3),

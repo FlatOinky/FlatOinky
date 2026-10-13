@@ -26,7 +26,7 @@ export const createActionDisplay = (
 	label: string,
 	background: string | undefined,
 	content: (() => Element) | undefined,
-	onClick: () => void,
+	onClick: (() => void) | undefined,
 ): ActionDisplay => {
 	const button =
 		el.button`indicator relative size-full aspect-square shrink-0 overflow-visible rounded-box border-2 border-primary/50 bg-base-200 p-0 transition hover:border-primary active:scale-95`.then(
@@ -35,10 +35,14 @@ export const createActionDisplay = (
 				button.style.containerType = 'size';
 				button.style.borderWidth = '2px';
 				if (background) button.style.background = background;
-				button.onclick = (event) => {
-					event.preventDefault();
-					onClick();
-				};
+				if (onClick) {
+					button.onclick = (event) => {
+						event.preventDefault();
+						onClick();
+					};
+				} else {
+					button.tabIndex = -1;
+				}
 			},
 		);
 	const clip = el.div`absolute inset-0 overflow-hidden rounded-[inherit]`.mount(button, 'clip');

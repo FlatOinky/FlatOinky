@@ -33,6 +33,11 @@ export type ActionOptions = {
 	};
 };
 
+export type ActionDisplayOptions = {
+	/** When false, the tile does not run the action and is removed from tab order. */
+	interactive?: boolean;
+};
+
 export type ClientAction = {
 	key: string;
 	namespace: string;
@@ -46,8 +51,9 @@ export type ClientAction = {
 	requestKeycombo?: Keycombo;
 	displayText?: string;
 	background?: string;
+	owner: ActionOwner;
 	execute: () => ActionResult;
-	display: (lifecycle: Lifecycle) => Element;
+	display: (lifecycle: Lifecycle, options?: ActionDisplayOptions) => Element;
 };
 
 export type DeepReadonly<T> = T extends (...args: never[]) => unknown
@@ -111,8 +117,13 @@ export const initActions = (lifecycle: Lifecycle, keybinds: Keybinds, log: Logge
 	const records = new Map<string, ActionRecord>();
 	const order: ActionRecord[] = [];
 	const views = new Set<ActionRecord>();
+	const listeners = new Set<() => void>();
 	let frame = 0;
 	let ticking = false;
+
+	const notify = () => {
+		for (const listener of listeners) listener();
+	};
 
 	const paintRecord = (record: ActionRecord, now: number): boolean => {
 		if (record.pool) advancePool(record.pool, now);
@@ -158,6 +169,7 @@ export const initActions = (lifecycle: Lifecycle, keybinds: Keybinds, log: Logge
 		for (const display of record.displays) display.remove();
 		record.displays.clear();
 		views.delete(record);
+		notify();
 	};
 
 	const executeRecord = (record: ActionRecord): ActionResult => {
@@ -239,16 +251,18 @@ export const initActions = (lifecycle: Lifecycle, keybinds: Keybinds, log: Logge
 			requestKeycombo: options.requestKeycombo,
 			displayText: options.displayText,
 			background: options.background,
+			owner,
 			execute: () => {
 				if (records.get(key) !== record) return { status: 'interrupted' };
 				return executeRecord(record);
 			},
-			display: (displayLifecycle) => {
+			display: (displayLifecycle, displayOptions) => {
+				const interactive = displayOptions?.interactive !== false;
 				const display = createActionDisplay(
 					options.displayText ?? options.name,
 					options.background,
 					options.display,
-					() => action.execute(),
+					interactive ? () => action.execute() : undefined,
 				);
 				record.displays.add(display);
 				views.add(record);
@@ -266,6 +280,7 @@ export const initActions = (lifecycle: Lifecycle, keybinds: Keybinds, log: Logge
 		record.action = action;
 		records.set(key, record);
 		order.push(record);
+		notify();
 
 		keybinds.registerBind(actionLifecycle, {
 			group: namespace,
@@ -286,6 +301,13 @@ export const initActions = (lifecycle: Lifecycle, keybinds: Keybinds, log: Logge
 		return Object.freeze(action);
 	};
 
+	const get = (key: string): DeepReadonly<ClientAction> | undefined => records.get(key)?.action;
+
+	const subscribe = (listener: () => void): (() => void) => {
+		listeners.add(listener);
+		return () => listeners.delete(listener);
+	};
+
 	const getAll = (): readonly DeepReadonly<ClientAction>[] => order.map((record) => record.action);
 
 	const getByAlias = (alias: string): DeepReadonly<ClientAction> | undefined => {
@@ -296,7 +318,7 @@ export const initActions = (lifecycle: Lifecycle, keybinds: Keybinds, log: Logge
 		return undefined;
 	};
 
-	return { register, getAll, getByAlias };
+	return { register, get, subscribe, getAll, getByAlias };
 };
 
 export const createPluginActions = (
@@ -311,6 +333,8 @@ export const createPluginActions = (
 	return {
 		register: (options: ActionOptions, callback: ActionCallback) =>
 			actions.register(lifecycle, bound, owner, options, callback),
+		get: (key: string) => actions.get(key),
+		subscribe: (listener: () => void) => actions.subscribe(listener),
 		getAll: () => actions.getAll(),
 		getByAlias: (alias: string) => actions.getByAlias(alias),
 	};

@@ -118,6 +118,8 @@ export const createPluginKeybinds = (
 			}),
 		assign: (sectionId: string, key: string, combo: Keycombo) =>
 			keybinds.assign(scopedSectionId(sectionId), key, combo),
+		getCombo: (sectionId: string, key: string) =>
+			keybinds.getCombo(scopedSectionId(sectionId), key),
 		reset: (sectionId: string, key: string) => keybinds.reset(scopedSectionId(sectionId), key),
 		clear: (sectionId: string, key: string) => keybinds.clear(scopedSectionId(sectionId), key),
 		listSections: () => keybinds.listSections(),
@@ -347,6 +349,12 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		return { register };
 	};
 
+	const getCombo = (group: string, key: string): Keycombo | null => {
+		const stored = getStoredCombo(group, key);
+		if (!stored) return null;
+		return parseKeycombo(stored);
+	};
+
 	const assign = (group: string, key: string, combo: Keycombo) => {
 		writeAssignment(group, key, serializeKeycombo(combo));
 		notifyChange();
@@ -439,6 +447,7 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 	return {
 		registerBind,
 		initSection,
+		getCombo,
 		assign,
 		reset,
 		clear,

@@ -10,6 +10,7 @@ export { MonitorStatesPlugin } from './plugins/monitor/states';
 export { MonitorAudioPlugin } from './plugins/monitor/audio';
 export { MonitorAfkPlugin } from './plugins/monitor/afk';
 export { CraftingActivityPlugin } from './plugins/ui/crafting_activity';
+export { HotbarsPlugin } from './plugins/hotbars';
 export { DynamicCanvasPlugin } from './plugins/dynamic_canvas';
 export { ObjectShakePlugin } from './plugins/tweaks/object_shake';
 export { ProjectilesPlugin } from './plugins/tweaks/projectiles';
