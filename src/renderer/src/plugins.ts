@@ -6,6 +6,7 @@ export { ThemesPlugin } from './plugins/themes';
 export { TileKickersPlugin } from './plugins/tile_kickers';
 export { MousePlugin } from './plugins/mouse';
 export { KeybindsPlugin } from './plugins/keybinds';
+export { WorshipPlugin } from './plugins/worship';
 export { MonitorStatesPlugin } from './plugins/states';
 export { MonitorAudioPlugin } from './plugins/audio_cues';
 export { MonitorAfkPlugin } from './plugins/afk';
