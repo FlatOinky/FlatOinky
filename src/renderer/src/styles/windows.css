@@ -133,25 +133,21 @@ article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='bottom']
 	flex-direction: row;
 }
 article[oinky-window][oinky-window-kind='toolbar'] [oinky-window-grabber] {
-	background-image: radial-gradient(
-		circle,
-		color-mix(in oklab, var(--color-base-content) 45%, transparent) 0.75px,
-		transparent 1.25px
-	);
-	background-size: calc(var(--spacing) * 1.5) calc(var(--spacing) * 1.5);
-	border-radius: calc(var(--radius-box) / 4);
+	background-image: url('../assets/textures/grip.png');
+	background-repeat: repeat;
+	image-rendering: pixelated;
 }
 article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='left']
 	[oinky-window-grabber],
 article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='right']
 	[oinky-window-grabber] {
-	width: calc(var(--spacing) * 2);
+	width: 6px;
 	min-height: calc(var(--spacing) * 6);
 }
 article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='top'] [oinky-window-grabber],
 article[oinky-window][oinky-window-kind='toolbar'][oinky-toolbar-edge='bottom']
 	[oinky-window-grabber] {
-	height: calc(var(--spacing) * 2);
+	height: 6px;
 	min-width: calc(var(--spacing) * 6);
 }
 article[oinky-window][oinky-window-kind='toolbar'][locked-window] [oinky-window-grabber] {

@@ -17,7 +17,7 @@ import {
 const SLOT_PX = 40;
 const GAP_PX = 4;
 const FRAME_PAD_PX = 8;
-const GRABBER_PX = 8;
+const GRABBER_PX = 6;
 const CONTROLS_PX = 28;
 const CONTROLS_MIN_PX = 32;
 
