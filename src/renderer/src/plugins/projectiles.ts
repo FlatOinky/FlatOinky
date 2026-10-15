@@ -1,5 +1,5 @@
-import { Plugin, type PluginContext } from '../../client';
-import * as el from '../../client/ui/elements';
+import { Plugin, type PluginContext } from '../client';
+import * as el from '../client/ui/elements';
 
 // FlatMMO only removes a projectile once it reaches its target, and the
 // player-projectile paint loop never checks whether that target still exists.

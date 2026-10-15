@@ -1,4 +1,4 @@
-import { Plugin } from '../../client';
+import { Plugin } from '../client';
 
 const SKY_MAP = 'm1000_999_sky';
 

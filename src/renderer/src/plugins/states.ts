@@ -1,7 +1,7 @@
-import { Plugin } from '../../client';
-import { initialAlertScope } from '../../client/alerts';
-import type { SettingsHelpers, SettingsNode } from '../../client/settings';
-import * as el from '../../client/ui/elements';
+import { Plugin } from '../client';
+import { initialAlertScope } from '../client/alerts';
+import type { SettingsHelpers, SettingsNode } from '../client/settings';
+import * as el from '../client/ui/elements';
 
 const stateCues = {
 	sleep: { title: 'Sleep' },

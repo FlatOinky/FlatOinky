@@ -1,5 +1,5 @@
-import { Plugin } from '../../client';
-import { initPlayerCache } from './player_cache';
+import { Plugin } from '../client';
+import { initPlayerCache } from './render_cache/player_cache';
 
 export const RenderCachePlugin: Plugin = {
 	namespace: 'oinky/tweaks/render_cache',

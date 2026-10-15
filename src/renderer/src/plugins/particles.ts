@@ -1,4 +1,4 @@
-import { Plugin } from '../../client';
+import { Plugin } from '../client';
 
 const particleLevels = ['low', 'high', 'full'] as const;
 type ParticleLevel = (typeof particleLevels)[number];

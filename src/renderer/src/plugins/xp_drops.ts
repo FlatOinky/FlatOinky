@@ -1,4 +1,4 @@
-import { Plugin } from '../../client';
+import { Plugin } from '../client';
 
 export const XpDropsPlugin: Plugin = {
 	namespace: 'oinky/tweaks/xp_drops',

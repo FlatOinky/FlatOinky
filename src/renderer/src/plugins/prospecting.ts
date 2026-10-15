@@ -1,5 +1,5 @@
-import { Lifecycle, Plugin, PluginContext } from '../../client';
-import * as el from '../../client/ui/elements';
+import { Lifecycle, Plugin, PluginContext } from '../client';
+import * as el from '../client/ui/elements';
 
 // #region constants
 

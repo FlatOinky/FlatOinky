@@ -1,4 +1,4 @@
-import { Plugin } from '../../client';
+import { Plugin } from '../client';
 
 const sweepVanishedShakes = (): void => {
 	for (const uuid of object_paint_shake) {

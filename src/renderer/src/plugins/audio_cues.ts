@@ -1,5 +1,5 @@
-import { Plugin } from '../../client';
-import { initialAlertScope } from '../../client/alerts';
+import { Plugin } from '../client';
+import { initialAlertScope } from '../client/alerts';
 
 const audioCues = {
 	gemDrop: { file: 'gem.ogg', title: 'Gem Drop' },

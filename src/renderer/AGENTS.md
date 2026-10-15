@@ -44,8 +44,10 @@ Layout under `src/`:
   child lifecycle rebuilt on profile swap; the profiles system contributes the Profiles &
   Plugins tab of the Client Window and drives that restart. The keybinds system contributes
   the Keybinds tab.
-- `plugins/` — toggleable plugins (`chat`, `audio`, `metrics`, `themes`, `mouse`,
-  `keybinds`, `hotbars`, `monitor/`, `tweaks/`, `timers/`, `ui/`, …)
+- `plugins/` — toggleable plugins, one entry file each at this folder's root
+  (`chat`, `audio`, `metrics`, `themes`, `mouse`, `keybinds`, `hotbars`,
+  `states`, `audio_cues`, `afk`, …). A sibling directory of the same name holds
+  that plugin's support modules.
 - `templates/`, `assets/`
 
 ## Client vs plugins
