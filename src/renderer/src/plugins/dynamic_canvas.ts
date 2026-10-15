@@ -93,6 +93,7 @@ export const DynamicCanvasPlugin: Plugin = {
 	namespace: 'oinky/dynamic_canvas',
 	name: 'Dynamic Canvas',
 	description: 'Scales the game canvas to fit the window.',
+	category: 'Tweaks',
 	enabledByDefault: false,
 	init: (lifecycle, context) => {
 		initDynamicCanvas(lifecycle, context.canvas);

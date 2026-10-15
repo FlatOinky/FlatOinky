@@ -14,6 +14,7 @@ const initialSettings = {
 export const MousePlugin: Plugin = {
 	namespace: 'oinky/mouse',
 	name: 'Mouse',
+	category: 'Adapters',
 	description:
 		'Right-click the canvas or inventory to choose what to interact with, plus wiki and profile links.',
 	init: (lifecycle, context) => {
@@ -36,8 +37,7 @@ export const MousePlugin: Plugin = {
 
 		context.settings
 			.initSection(lifecycle, {
-				name: 'Context Menu',
-				category: 'Mouse',
+				name: 'Mouse',
 				storage: context.storages.profile,
 			})
 			.append(

@@ -55,7 +55,7 @@ const mountCraftingActivity = (lifecycle: Lifecycle, context: PluginContext) => 
 
 export const CraftingActivityPlugin: Plugin = {
 	namespace: 'oinky/ui/crafting_activity',
-	category: 'UI',
+	category: 'Adapters',
 	name: 'Crafting Activity',
 	description: 'Shows the current crafting item, progress, and a cancel button.',
 	init: (lifecycle, context) => {

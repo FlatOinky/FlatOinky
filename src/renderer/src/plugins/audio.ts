@@ -35,6 +35,7 @@ const hideUpstreamAudioControls = (lifecycle: Lifecycle) => {
 export const AudioPlugin: Plugin = {
 	namespace: 'oinky/audio',
 	name: 'Audio',
+	category: 'Adapters',
 	description:
 		'Play and mix in-game sounds and music, with per-sound volume and a tri-state filter.',
 	init: async (lifecycle, context) => {
@@ -98,32 +99,26 @@ export const AudioPlugin: Plugin = {
 
 		if (context.ui.windows.isOpen(context.storages.profile, 'audio')) showWindow();
 
-		context.settings
-			.initSection(lifecycle, { name: 'Controls', category: 'Audio' })
-			.append({ element: globalControls, sync: notify });
-		context.settings
-			.initSection(lifecycle, { name: 'Individual volumes', category: 'Audio' })
-			.append(
-				el.button`btn btn-sm btn-primary search-value`.then((button) => {
-					button.type = 'button';
-					button.textContent = 'Manage individual volumes';
-					button.onclick = () => showWindow();
-				}),
-				el.button`btn btn-sm btn-ghost search-value`.then((button) => {
-					button.type = 'button';
-					button.textContent = 'Reset all individual volumes';
-					button.onclick = () => {
-						const isConfirmed = window.confirm(
-							'Are you sure you want to reset all audio overrides?',
-						);
-						if (!isConfirmed) return;
-						settings.sounds = {};
-						settings.tracks = {};
-						engine.refreshMusic();
-						notify();
-					};
-				}),
-			);
+		context.settings.initSection(lifecycle, { name: 'Audio' }).append(
+			{ element: globalControls, sync: notify },
+			el.button`btn btn-sm btn-primary search-value`.then((button) => {
+				button.type = 'button';
+				button.textContent = 'Manage individual volumes';
+				button.onclick = () => showWindow();
+			}),
+			el.button`btn btn-sm btn-ghost search-value`.then((button) => {
+				button.type = 'button';
+				button.textContent = 'Reset all individual volumes';
+				button.onclick = () => {
+					const isConfirmed = window.confirm('Are you sure you want to reset all audio overrides?');
+					if (!isConfirmed) return;
+					settings.sounds = {};
+					settings.tracks = {};
+					engine.refreshMusic();
+					notify();
+				};
+			}),
+		);
 
 		return {
 			events: {

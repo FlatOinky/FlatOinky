@@ -66,8 +66,8 @@ const colorOptions = Object.entries(daisyUiColors).map(([name, value]) => ({
 export const ChatPlugin: Plugin = {
 	namespace: 'oinky/chat',
 	name: 'Chat',
-	category: 'Chat',
-	description: 'A custom chat implementation',
+	category: 'Adapters',
+	description: 'Replaces the default chat implementation',
 	onRemoteSettings: 'restart',
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
@@ -149,7 +149,7 @@ export const ChatPlugin: Plugin = {
 
 		const displaySection = context.settings.initSection(lifecycle, {
 			name: 'Display',
-			category: 'Chat',
+			category: 'Adapters: Chat',
 		});
 		displaySection.append(
 			helpers.select({
@@ -219,7 +219,7 @@ export const ChatPlugin: Plugin = {
 			}),
 		);
 
-		context.settings.initSection(lifecycle, { name: 'Colors', category: 'Chat' }).append(
+		context.settings.initSection(lifecycle, { name: 'Colors', category: 'Adapters: Chat' }).append(
 			...chatColorMeta.map((meta) =>
 				helpers.color({
 					label: meta.label,
@@ -235,7 +235,7 @@ export const ChatPlugin: Plugin = {
 			),
 		);
 
-		context.settings.initSection(lifecycle, { name: 'Limits', category: 'Chat' }).append(
+		context.settings.initSection(lifecycle, { name: 'Limits', category: 'Adapters: Chat' }).append(
 			helpers.number({
 				label: 'Visible messages',
 				description: 'Maximum messages shown in the chat window.',
@@ -262,35 +262,39 @@ export const ChatPlugin: Plugin = {
 			}),
 		);
 
-		context.settings.initSection(lifecycle, { name: 'Commands', category: 'Chat' }).append(
-			helpers.toggle(
-				'Enable commands',
-				'Allow Oinky chat commands and show the commands menu.',
-				() => settings.enableCommands,
-				(value) => {
-					settings.enableCommands = value;
-					onSettingsChange();
-				},
-				initialSettings.enableCommands,
-			),
-			helpers.text({
-				label: 'Command prefix',
-				description: 'Prefix that opens the chat commands menu.',
-				get: () => settings.commandPrefix,
-				set: (value) => {
-					settings.commandPrefix = value.trim();
-				},
-				default: initialSettings.commandPrefix,
-			}),
-		);
+		context.settings
+			.initSection(lifecycle, { name: 'Commands', category: 'Adapters: Chat' })
+			.append(
+				helpers.toggle(
+					'Enable commands',
+					'Allow Oinky chat commands and show the commands menu.',
+					() => settings.enableCommands,
+					(value) => {
+						settings.enableCommands = value;
+						onSettingsChange();
+					},
+					initialSettings.enableCommands,
+				),
+				helpers.text({
+					label: 'Command prefix',
+					description: 'Prefix that opens the chat commands menu.',
+					get: () => settings.commandPrefix,
+					set: (value) => {
+						settings.commandPrefix = value.trim();
+					},
+					default: initialSettings.commandPrefix,
+				}),
+			);
 
-		context.settings.initSection(lifecycle, { name: 'Message Scanner', category: 'Chat' }).append(
-			el.button`btn btn-sm btn-primary search-value`.then((button) => {
-				button.type = 'button';
-				button.textContent = 'Manage message scanner';
-				button.onclick = () => showMessageScannerWindow();
-			}),
-		);
+		context.settings
+			.initSection(lifecycle, { name: 'Message Scanner', category: 'Adapters: Chat' })
+			.append(
+				el.button`btn btn-sm btn-primary search-value`.then((button) => {
+					button.type = 'button';
+					button.textContent = 'Manage message scanner';
+					button.onclick = () => showMessageScannerWindow();
+				}),
+			);
 
 		const mutedPlayersSectionTitle =
 			el.div`flex gap-1 items-center tooltip tooltip-info tooltip-start tooltip-bottom`.then(
@@ -307,7 +311,7 @@ export const ChatPlugin: Plugin = {
 		context.settings
 			.initSection(lifecycle, {
 				name: mutedPlayersSectionTitle,
-				category: 'Chat',
+				category: 'Adapters: Chat',
 			})
 			.append(
 				helpers.toggle(

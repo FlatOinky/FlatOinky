@@ -12,7 +12,6 @@ const CHAOS_MAX_INTERVAL_MS = 20000;
 const CHAOS_BELL_POINT_MS = 5000;
 
 const initialSettings = {
-	enabled: false,
 	leadTime: 1,
 	chaosMode: false,
 };
@@ -167,7 +166,6 @@ const createKickPredicate = (
 	getChaosUntil: () => number,
 ): KickPredicate => {
 	return () => {
-		if (!settings.enabled) return false;
 		if (performance.now() < getChaosUntil()) return true;
 
 		const player = context.getLocalPlayer();
@@ -260,7 +258,7 @@ const initChaosMode = (
 
 	const scheduleNextChaos = () => {
 		clearChaosTimer();
-		if (!settings.enabled || !settings.chaosMode) return;
+		if (!settings.chaosMode) return;
 		const delay = determineChaosDelay();
 		timeoutId = setTimeout(() => {
 			setChaosUntil(performance.now() + CHAOS_DURATION_MS);
@@ -281,7 +279,9 @@ const initChaosMode = (
 export const TileKickersPlugin: Plugin = {
 	namespace: 'oinky/tile_kickers',
 	name: 'Tile Kickers',
-	description: 'When walking close to a transport tile or randomly, start kicking your leg',
+	description: 'Kick some tiles while traversing the map',
+	category: 'Entertainment',
+	enabledByDefault: false,
 	init: (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialSettings);
 		const compositor = createCompositor();
@@ -296,7 +296,7 @@ export const TileKickersPlugin: Plugin = {
 		const playerAnimation = createAnimationMutator(context, compositor, shouldKick);
 
 		const syncChaos = () => {
-			if (settings.enabled && settings.chaosMode) scheduleNextChaos();
+			if (settings.chaosMode) scheduleNextChaos();
 			else {
 				clearChaosTimer();
 				chaosUntil = 0;
@@ -312,16 +312,6 @@ export const TileKickersPlugin: Plugin = {
 				storage: context.storages.profile,
 			})
 			.append(
-				helpers.toggle(
-					'Enabled',
-					"Start kickin'",
-					() => settings.enabled,
-					(value) => {
-						settings.enabled = value;
-						syncChaos();
-					},
-					initialSettings.enabled,
-				),
 				helpers.numberSlider({
 					label: 'Lead time',
 					tooltip:

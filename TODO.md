@@ -49,9 +49,3 @@ an update button. Trusted scripts will get updated automatically.
     - if user is in local map allow trading, otherwise no
     - add 'Mute' action
     - add 'Report' action (the action that the examine window uses)
-
-# Adapter Plugin Category
-
-Category for plugins which adapt some functionality from FlatMMO for use in FlatOinky.
-
-Currently the Keybinds Plugin `src/renderer/src/plugins/keybinds.ts` is a small scope of what this category can do. Adapters are responsible for registering features of fmmo into flat oinky systems along with disabling the default in fmmo if needed.

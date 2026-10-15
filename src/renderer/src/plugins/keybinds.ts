@@ -66,7 +66,7 @@ const RUN_ICON = 'https://flatmmo.com/images/icons/agility_large.png';
 export const KeybindsPlugin: Plugin = {
 	namespace: 'oinky/fmmo_keybinds',
 	name: 'Flat MMO Keybinds',
-	category: 'Flat MMO',
+	category: 'Adapters',
 	description: 'Overrides the default Flat MMO keybinds and the Fkey Shortcuts window.',
 	init: (lifecycle, context) => {
 		hideUpstreamKeybinds(lifecycle);
