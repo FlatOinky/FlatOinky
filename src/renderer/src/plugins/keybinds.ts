@@ -7,11 +7,13 @@ import eatIcon from '../assets/actions/eat.png';
 import equipmentAIcon from '../assets/actions/equipment_a.png';
 import equipmentBIcon from '../assets/actions/equipment_b.png';
 import equipmentCIcon from '../assets/actions/equipment_c.png';
-import dialogContinueIcon from '../assets/dialog_continue.png';
-import dialog1Icon from '../assets/dialog_1.png';
-import dialog2Icon from '../assets/dialog_2.png';
-import dialog3Icon from '../assets/dialog_3.png';
-import dialog4Icon from '../assets/dialog_4.png';
+import dialogContinueIcon from '../assets/actions/dialog_continue.png';
+import dialog1Icon from '../assets/actions/dialog_1.png';
+import dialog2Icon from '../assets/actions/dialog_2.png';
+import dialog3Icon from '../assets/actions/dialog_3.png';
+import dialog4Icon from '../assets/actions/dialog_4.png';
+import exitIcon from '../assets/actions/exit.png';
+import focusChatIcon from '../assets/actions/focus_chat.png';
 
 const hideUpstreamKeybinds = (lifecycle: Lifecycle) => {
 	const node = document.querySelector<HTMLElement>('#loot-key-bindings');
@@ -212,6 +214,9 @@ export const KeybindsPlugin: Plugin = {
 				id: 'exit',
 				name: 'Exit',
 				category: 'Window nav',
+				display: icon(exitIcon),
+				background:
+					'conic-gradient(#e4a09a, #8a2428, #e4a09a, #8a2428, #e4a09a, #8a2428, #e4a09a, #8a2428, #e4a09a)',
 				requestKeycombo: { keys: ['Escape'] },
 			},
 			() => {
@@ -234,6 +239,8 @@ export const KeybindsPlugin: Plugin = {
 				id: 'focus-chat',
 				name: 'Focus chat',
 				category: 'Window nav',
+				display: icon(focusChatIcon),
+				background: 'linear-gradient(180deg, #f7f8fc 42%, #6a8ad0 62%, #2e2c58)',
 				requestKeycombo: { keys: ['Enter'] },
 			},
 			() => {

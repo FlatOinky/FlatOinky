@@ -97,6 +97,8 @@ export const HotbarsPlugin: Plugin = {
 				listen,
 				apply,
 				closeAssignment,
+				isLocked,
+				setLocked,
 			);
 			assignment.show();
 		};

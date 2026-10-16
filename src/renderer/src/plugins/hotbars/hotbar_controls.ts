@@ -2,10 +2,8 @@ import type { Lifecycle } from '../../client';
 import * as el from '../../client/ui/elements';
 import {
 	BAR_IDS,
-	clampPage,
+	layoutById,
 	LAYOUTS,
-	MAX_PAGES,
-	slotCount,
 	type BarId,
 	type HotbarsSettings,
 	type Layout,
@@ -50,15 +48,99 @@ const mountGlyph = (parent: HTMLElement, layout: Layout) => {
 	}
 };
 
-const buttonClass = (active: boolean): string =>
-	active ? 'btn btn-xs btn-square btn-primary' : 'btn btn-xs btn-square btn-ghost';
+export type IconToggle = {
+	input: HTMLInputElement;
+	toggle: HTMLElement;
+};
+
+export const mountIconToggle = (
+	parent: HTMLElement,
+	id: string,
+	onIcon: Element,
+	offIcon: Element,
+	onToggle: (checked: boolean) => void,
+	tipAlign = 'tooltip-bottom tooltip-start',
+): IconToggle => {
+	const toggle =
+		el.label`swap btn btn-sm btn-square btn-soft tooltip ${tipAlign} active:translate-none has-checked:btn-success not-has-checked:btn-error`.mount(
+			parent,
+			id,
+		);
+	const input = el.input.checkbox`sr-only`.mount(toggle, 'input');
+	onIcon.classList.add('swap-on');
+	offIcon.classList.add('swap-off');
+	toggle.append(onIcon, offIcon);
+	input.onchange = () => onToggle(input.checked);
+	return { input, toggle };
+};
+
+export type LayoutSelect = {
+	sync: (layoutId: string) => void;
+};
+
+export const mountLayoutSelect = (
+	parent: HTMLElement,
+	mountId: string,
+	value: string,
+	onChange: (layoutId: string) => void,
+): LayoutSelect => {
+	const dropdownId = `hotbar-layout-${crypto.randomUUID()}`;
+	const anchorName = `--${dropdownId}`;
+	const wrap = el.div`shrink-0`.mount(parent, mountId);
+	const trigger = el.button`btn btn-sm w-max gap-1.5 border border-base-content/20 px-2`.mount(
+		wrap,
+		'trigger',
+		(button) => {
+			button.type = 'button';
+			button.setAttribute('popovertarget', dropdownId);
+			button.style.setProperty('anchor-name', anchorName);
+		},
+	);
+	const glyphSlot = el.span`inline-flex shrink-0`.mount(trigger, 'current');
+	const label = el.span`text-xs`.mount(trigger, 'label');
+	el.icon.chevronDown`size-3.5 opacity-60`.mount(trigger, 'chevron');
+
+	const menu =
+		el.ul`dropdown dropdown-start menu p-1 w-max min-w-44 max-h-64 overflow-y-auto overflow-x-hidden rounded-box bg-base-100 shadow border border-base-content/20 z-10`.mount(
+			wrap,
+			'menu',
+			(list) => {
+				list.id = dropdownId;
+				list.setAttribute('popover', '');
+				list.style.setProperty('position-anchor', anchorName);
+			},
+		);
+
+	for (const layout of LAYOUTS) {
+		el.li``.mount(menu, layout.id, (item) => {
+			el.button`flex gap-2 items-center whitespace-nowrap`.mount(item, 'option', (button) => {
+				button.type = 'button';
+				mountGlyph(button, layout);
+				el.span``.mount(button, 'label', (node) => {
+					node.textContent = layout.id;
+				});
+				button.onclick = () => {
+					onChange(layout.id);
+					menu.hidePopover();
+				};
+			});
+		});
+	}
+
+	const sync = (layoutId: string) => {
+		const layout = layoutById(layoutId);
+		glyphSlot.replaceChildren();
+		mountGlyph(glyphSlot, layout);
+		label.textContent = layout.id;
+	};
+	sync(value);
+	return { sync };
+};
 
 type BarWidgets = {
-	eye: HTMLButtonElement;
-	lock: HTMLButtonElement;
-	range: HTMLInputElement;
-	value: HTMLElement;
-	layouts: HTMLButtonElement[];
+	eye: IconToggle;
+	lock: IconToggle;
+	layout: LayoutSelect;
 };
 
 export const mountHotbarControls = (
@@ -69,79 +151,48 @@ export const mountHotbarControls = (
 	const root = el.div`flex flex-col gap-3 p-2 text-sm`.mount(parent, 'controls');
 	lifecycle.onCleanup(() => root.remove());
 
-	el.button`btn btn-sm btn-primary search-value`.mount(root, 'manage', (button) => {
-		button.type = 'button';
-		button.textContent = 'Manage Hotbars';
-		button.onclick = () => deps.onManage();
-	});
-
 	const bars = new Map<BarId, BarWidgets>();
-	const ten = LAYOUTS.filter((layout) => slotCount(layout) === 10);
-	const twelve = LAYOUTS.filter((layout) => slotCount(layout) === 12);
 
 	for (const id of BAR_IDS) {
 		const block = el.div`flex flex-col gap-1`.mount(root, `bar-${id}`);
 		el.div`text-xs font-medium`.mount(block, 'heading', (node) => {
 			node.textContent = `Hotbar #${id}`;
 		});
-		const row = el.div`flex items-start gap-2`.mount(block, 'row');
-		const eye = el.button`btn btn-xs btn-square btn-ghost`.mount(row, 'show', (button) => {
-			button.type = 'button';
-			button.title = 'Show';
-			button.onclick = () => {
-				deps.settings.bars[id].shown = !deps.settings.bars[id].shown;
+		const row = el.div`flex items-center gap-2`.mount(block, 'row');
+		const eye = mountIconToggle(
+			row,
+			'show',
+			el.icon.eye`size-4`.element,
+			el.icon.eyeOff`size-4`.element,
+			(checked) => {
+				deps.settings.bars[id].shown = checked;
 				deps.onChange();
-			};
-		});
-		const lock = el.button`btn btn-xs btn-square btn-ghost`.mount(row, 'lock', (button) => {
-			button.type = 'button';
-			button.title = 'Lock';
-			button.onclick = () => {
-				deps.setLocked(id, !deps.isLocked(id));
+			},
+			'tooltip-top tooltip-start',
+		);
+		const lock = mountIconToggle(
+			row,
+			'lock',
+			el.icon.lock`size-4`.element,
+			el.icon.lockOpen`size-4`.element,
+			(checked) => {
+				deps.setLocked(id, checked);
 				deps.onChange();
-			};
+			},
+			'tooltip-top tooltip-start',
+		);
+		const layout = mountLayoutSelect(row, 'layout', deps.settings.bars[id].layout, (layoutId) => {
+			deps.settings.bars[id].layout = layoutId;
+			deps.onChange();
 		});
-		const slider = el.div`flex min-w-0 flex-1 flex-col items-center`.mount(row, 'pages');
-		const range = el.input.range`range range-xs w-full`.mount(slider, 'count', (input) => {
-			input.min = '1';
-			input.max = String(MAX_PAGES);
-			input.step = '1';
-			input.oninput = () => {
-				const bar = deps.settings.bars[id];
-				bar.pageCount = Number(input.value);
-				clampPage(bar);
-				deps.onChange();
-			};
-		});
-		const value = el.span`text-xs tabular-nums`.mount(slider, 'value');
-		const layouts: HTMLButtonElement[] = [];
-		const mountRow = (layoutsInRow: readonly Layout[], rowId: string) => {
-			const line = el.div`flex flex-wrap gap-1`.mount(block, rowId);
-			for (const option of layoutsInRow) {
-				const layoutButton =
-					el.button`btn btn-xs btn-ghost flex h-auto flex-col gap-0.5 px-1 py-1`.mount(
-						line,
-						option.id,
-						(button) => {
-							button.type = 'button';
-							button.title = option.id;
-							mountGlyph(button, option);
-							el.span`text-[10px] leading-none`.mount(button, 'label', (node) => {
-								node.textContent = option.id;
-							});
-							button.onclick = () => {
-								deps.settings.bars[id].layout = option.id;
-								deps.onChange();
-							};
-						},
-					);
-				layouts.push(layoutButton);
-			}
-		};
-		mountRow(ten, 'layouts-10');
-		mountRow(twelve, 'layouts-12');
-		bars.set(id, { eye, lock, range, value, layouts });
+		bars.set(id, { eye, lock, layout });
 	}
+
+	el.button`btn btn-sm btn-primary search-value w-full`.mount(root, 'manage', (button) => {
+		button.type = 'button';
+		button.textContent = 'Manage Hotbars';
+		button.onclick = () => deps.onManage();
+	});
 
 	const sync = () => {
 		for (const id of BAR_IDS) {
@@ -149,20 +200,12 @@ export const mountHotbarControls = (
 			if (!widgets) continue;
 			const bar = deps.settings.bars[id];
 			const shown = bar.shown;
-			widgets.eye.className = buttonClass(shown);
-			widgets.eye.title = shown ? 'Hide' : 'Show';
-			widgets.eye.replaceChildren((shown ? el.icon.eye : el.icon.eyeOff)`size-4`.element);
+			widgets.eye.input.checked = shown;
+			widgets.eye.toggle.setAttribute('data-tip', shown ? 'Hide' : 'Show');
 			const locked = deps.isLocked(id);
-			widgets.lock.className = buttonClass(locked);
-			widgets.lock.title = locked ? 'Unlock' : 'Lock';
-			widgets.lock.replaceChildren((locked ? el.icon.lock : el.icon.lockOpen)`size-4`.element);
-			widgets.range.value = String(bar.pageCount);
-			widgets.value.textContent = String(bar.pageCount);
-			for (const button of widgets.layouts) {
-				const active = button.title === bar.layout;
-				button.classList.toggle('btn-primary', active);
-				button.classList.toggle('btn-ghost', !active);
-			}
+			widgets.lock.input.checked = locked;
+			widgets.lock.toggle.setAttribute('data-tip', locked ? 'Unlock' : 'Lock');
+			widgets.layout.sync(bar.layout);
 		}
 	};
 

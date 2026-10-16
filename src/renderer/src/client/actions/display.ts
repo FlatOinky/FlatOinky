@@ -29,7 +29,7 @@ export const createActionDisplay = (
 	onClick: (() => void) | undefined,
 ): ActionDisplay => {
 	const button =
-		el.button`indicator relative size-full aspect-square shrink-0 overflow-visible rounded-box border-2 border-primary/50 bg-base-200 p-0 transition hover:border-primary active:scale-95`.then(
+		el.button`pointer-events-auto indicator relative size-full aspect-square shrink-0 overflow-visible rounded-box border-2 border-primary/50 bg-base-200 p-0 transition hover:border-primary active:scale-95`.then(
 			(button) => {
 				button.type = 'button';
 				button.style.containerType = 'size';
@@ -68,7 +68,7 @@ export const createActionDisplay = (
 		node.style.borderRadius = 'inherit';
 	});
 	const count =
-		el.span`indicator-item indicator-start indicator-top badge badge-sm badge-primary pointer-events-none h-4! min-h-0! min-w-0! px-1! font-bold leading-none ring-2 ring-base-100 shadow`.mount(
+		el.span`indicator-item indicator-start indicator-top badge badge-sm badge-primary pointer-events-none h-4! min-h-0! min-w-0! px-1! font-bold leading-none ring-2 ring-base-100 shadow [--indicator-x:-25%]`.mount(
 			button,
 			'uses',
 		);

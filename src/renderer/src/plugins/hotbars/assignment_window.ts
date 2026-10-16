@@ -2,13 +2,16 @@ import type { Lifecycle, PluginContext } from '../../client';
 import type { DeepReadonly, ClientAction } from '../../client/actions';
 import { comboToLabels } from '../../client/keybinds';
 import * as el from '../../client/ui/elements';
+import { mountIconToggle, mountLayoutSelect } from './hotbar_controls';
 import { mountSlot } from './hotbar_slot';
 import {
 	assignSlot,
 	BAR_IDS,
+	clampPage,
 	clearSlot,
 	hotbarSectionId,
 	layoutById,
+	MAX_PAGES,
 	slotAction,
 	slotCount,
 	swapSlots,
@@ -45,6 +48,8 @@ const groupActions = (actions: readonly DeepReadonly<ClientAction>[]) => {
 	return groups;
 };
 
+const TAB_GROUP = 'oinky-hotbar-window-tabs';
+
 export const initAssignmentWindow = (
 	parentLifecycle: Lifecycle,
 	context: PluginContext,
@@ -52,11 +57,35 @@ export const initAssignmentWindow = (
 	listen: (listener: () => void) => () => void,
 	onChange: () => void,
 	onClose: () => void,
+	isLocked: (id: BarId) => boolean,
+	setLocked: (id: BarId, locked: boolean) => void,
 ): AssignmentWindowApi => {
 	const lifecycle = parentLifecycle.spawnLifecycle();
+	let selected: BarId = '1';
+	let schedule = (): void => {};
+	const tabRadios = new Map<BarId, HTMLInputElement>();
+	const tablist =
+		el.div`tabs tabs-box tabs-xs shrink-0 overflow-x-auto bg-transparent gap-1 border-none shadow-none`
+			.element;
+	for (const id of BAR_IDS) {
+		const tab = el.label`tab shrink-0`.mount(tablist, `tab-${id}`);
+		const radio = el.input.radio``.mount(tab, 'input');
+		radio.name = TAB_GROUP;
+		radio.checked = id === selected;
+		radio.onchange = () => {
+			if (!radio.checked) return;
+			selected = id;
+			schedule();
+		};
+		el.span``.mount(tab, 'label', (span) => {
+			span.textContent = `Hotbar #${id}`;
+		});
+		tabRadios.set(id, radio);
+	}
 	const window = context.ui.windows.initWindow(lifecycle, {
 		id: 'hotbars',
 		title: 'Hotbars',
+		titleSlot: tablist,
 		icon: el.icon.keyboard`size-4`.element,
 		storage: context.storages.profile,
 		lockable: false,
@@ -69,21 +98,22 @@ export const initAssignmentWindow = (
 		onClose,
 		onPreMount: (mounted) => {
 			mounted.body.className = 'flex h-full min-h-0 flex-row';
+			mounted.frame
+				.querySelector('[oinky-window="title-slot"]')
+				?.classList.add('min-w-0', 'overflow-hidden');
 		},
 	});
 
-	const pagesPane =
-		el.div`flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-2 pt-3`.mount(
-			window.body,
-			'hotbars',
-		);
+	const pagesPane = el.div`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden`.mount(
+		window.body,
+		'hotbars',
+	);
 	const actionsPane =
 		el.div`min-h-0 w-[45%] overflow-y-auto border-l border-base-300 p-2 pt-3`.mount(
 			window.body,
 			'actions',
 		);
 
-	let selected: BarId = '1';
 	let dragCommitted = false;
 	let content = lifecycle.spawnLifecycle();
 	let alive = true;
@@ -91,14 +121,6 @@ export const initAssignmentWindow = (
 	lifecycle.onCleanup(() => {
 		alive = false;
 	});
-
-	const shownBars = (): BarId[] => BAR_IDS.filter((id) => settings.bars[id].shown);
-
-	const selectedBar = (): BarId | undefined => {
-		const shown = shownBars();
-		if (shown.includes(selected)) return selected;
-		return shown[0];
-	};
 
 	const paintActions = () => {
 		const groups = groupActions(context.actions.getAll());
@@ -199,11 +221,11 @@ export const initAssignmentWindow = (
 		};
 	};
 
-	const paintBar = (barId: BarId) => {
+	const paintBar = (parent: HTMLElement, barId: BarId) => {
 		const bar = settings.bars[barId];
 		const layout = layoutById(bar.layout);
 		const count = slotCount(layout);
-		const pages = el.div`flex flex-col gap-3`.mount(pagesPane, 'pages');
+		const pages = el.div`flex flex-col gap-3`.mount(parent, 'pages');
 		for (let page = 0; page < bar.pageCount; page++) {
 			const block = el.div`flex flex-col gap-1`.mount(pages, `page-${page}`);
 			el.div`text-xs font-medium`.mount(block, 'label', (node) => {
@@ -238,39 +260,81 @@ export const initAssignmentWindow = (
 		}
 	};
 
-	let schedule = (): void => {};
+	const header = el.div`flex shrink-0 flex-col gap-2 p-2 pt-3`.mount(pagesPane, 'header');
+	const settingsRow = el.div`flex items-center gap-2`.mount(header, 'settings');
+	const showToggle = mountIconToggle(
+		settingsRow,
+		'show',
+		el.icon.eye`size-4`.element,
+		el.icon.eyeOff`size-4`.element,
+		(checked) => {
+			settings.bars[selected].shown = checked;
+			onChange();
+		},
+	);
+	const lockToggle = mountIconToggle(
+		settingsRow,
+		'lock',
+		el.icon.lock`size-4`.element,
+		el.icon.lockOpen`size-4`.element,
+		(checked) => {
+			setLocked(selected, checked);
+			onChange();
+		},
+	);
+	const layoutSelect = mountLayoutSelect(
+		settingsRow,
+		'layout',
+		settings.bars[selected].layout,
+		(layoutId) => {
+			settings.bars[selected].layout = layoutId;
+			onChange();
+		},
+	);
+	const pageCount = el.div`flex flex-col items-center`.mount(header, 'page-count');
+	const pageRange = el.input.range`range range-xs w-full`.mount(pageCount, 'count', (input) => {
+		input.min = '1';
+		input.max = String(MAX_PAGES);
+		input.step = '1';
+		input.oninput = () => {
+			const current = settings.bars[selected];
+			current.pageCount = Number(input.value);
+			clampPage(current);
+			pageValue.textContent = String(current.pageCount);
+			onChange();
+		};
+	});
+	const pageValue = el.span`text-xs tabular-nums`.mount(pageCount, 'value');
+	const pagesScroll = el.div`min-h-0 flex-1 overflow-y-auto px-2 pb-2`.mount(
+		pagesPane,
+		'pages-scroll',
+	);
+
+	const syncHeader = () => {
+		const bar = settings.bars[selected];
+		for (const id of BAR_IDS) {
+			const radio = tabRadios.get(id);
+			if (radio) radio.checked = id === selected;
+		}
+		const shown = bar.shown;
+		showToggle.input.checked = shown;
+		showToggle.toggle.setAttribute('data-tip', shown ? 'Hide' : 'Show');
+		const locked = isLocked(selected);
+		lockToggle.input.checked = locked;
+		lockToggle.toggle.setAttribute('data-tip', locked ? 'Unlock' : 'Lock');
+		layoutSelect.sync(bar.layout);
+		if (document.activeElement !== pageRange) pageRange.value = String(bar.pageCount);
+		pageValue.textContent = String(bar.pageCount);
+	};
 
 	const paint = () => {
 		content.cleanup();
 		content = lifecycle.spawnLifecycle();
 		actionsPane.replaceChildren();
-		pagesPane.replaceChildren();
+		pagesScroll.replaceChildren();
 		paintActions();
-		const shown = shownBars();
-		const tabs = el.div`flex flex-wrap items-center gap-1`.mount(pagesPane, 'tabs');
-		for (const id of shown) {
-			const active = id === selectedBar();
-			el.button`${active ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost'}`.mount(
-				tabs,
-				`tab-${id}`,
-				(button) => {
-					button.type = 'button';
-					button.textContent = `Hotbar #${id}`;
-					button.onclick = () => {
-						selected = id;
-						schedule();
-					};
-				},
-			);
-		}
-		const barId = selectedBar();
-		if (!barId) {
-			el.div`text-sm text-base-content/60`.mount(pagesPane, 'empty', (node) => {
-				node.textContent = 'No hotbars are shown. Turn one on from the Hotbars menu.';
-			});
-			return;
-		}
-		paintBar(barId);
+		syncHeader();
+		paintBar(pagesScroll, selected);
 	};
 
 	schedule = () => {

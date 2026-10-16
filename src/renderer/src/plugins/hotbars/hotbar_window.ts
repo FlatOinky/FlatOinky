@@ -50,10 +50,7 @@ const mountPageControls = (
 	onChange: () => void,
 ) => {
 	const bar = settings.bars[id];
-	const controls = el.div`pointer-events-auto flex flex-row items-stretch gap-1`.mount(
-		parent,
-		'controls',
-	);
+	const controls = el.div`flex flex-row items-stretch gap-1`.mount(parent, 'controls');
 	const dots = el.div`flex flex-col items-center justify-center gap-px`.mount(controls, 'dots');
 	for (let page = 0; page < bar.pageCount; page++) {
 		const filled = page === bar.page;
@@ -128,7 +125,7 @@ export const initHotbarWindow = (
 				'bar',
 			);
 		root.setAttribute('oinky-window-interactive', '');
-		const grid = el.div`pointer-events-auto`.mount(root, 'slots', (node) => {
+		const grid = el.div``.mount(root, 'slots', (node) => {
 			node.style.display = 'grid';
 			node.style.gridTemplateColumns = `repeat(${current.columns}, ${SLOT_PX}px)`;
 			node.style.gridTemplateRows = `repeat(${current.rows}, ${SLOT_PX}px)`;

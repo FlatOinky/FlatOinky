@@ -1,7 +1,23 @@
 import * as el from '../../client/ui/elements';
 import type { PluginActions } from '../../client/actions';
-import bankIcon from '../../assets/bank.png';
+import bankIcon from '../../assets/actions/bank.png';
 import stuckIcon from '../../assets/actions/stuck.png';
+import ticksIcon from '../../assets/actions/ticks.png';
+import helpIcon from '../../assets/actions/help.png';
+import replyIcon from '../../assets/actions/reply.png';
+import replyTabIcon from '../../assets/actions/reply_tab.png';
+import checkStatusesIcon from '../../assets/actions/check_statuses.png';
+import meteorCheckIcon from '../../assets/actions/meteor_check.png';
+import meteorIcon from '../../assets/actions/meteor.png';
+import bondfireCheckIcon from '../../assets/actions/bondfire_check.png';
+import ancientCheckIcon from '../../assets/actions/ancient_check.png';
+import stormCheckIcon from '../../assets/actions/storm_check.png';
+import evilTreeCheckIcon from '../../assets/actions/evil_tree_check.png';
+import evilTreeIcon from '../../assets/actions/evil_tree.png';
+import evilTreeClearIcon from '../../assets/actions/evil_tree_clear.png';
+import alienPingIcon from '../../assets/actions/alien_ping.png';
+import gemMeteorPingIcon from '../../assets/actions/gem_meteor_ping.png';
+import superStormIcon from '../../assets/actions/super_storm.png';
 import { pmState } from './chat_state';
 import { updateChatTabs } from './chat_tabs';
 import { Channels, ChatElements, Settings } from './chat_types';
@@ -28,9 +44,28 @@ const actionIcon =
 const TELEPORT_BOOK_ICON = 'https://flatmmo.com/images/items/teleport_scrolls_book.png';
 const COLLECTION_LOG_ICON = 'https://flatmmo.com/images/ui/packsack.png';
 const STUCK_BACKGROUND = 'radial-gradient(circle at 50% 30%, #f0d8c4, #a85a48 48%, #3a2428)';
+const HELP_BACKGROUND = 'radial-gradient(circle at 50% 38%, #f0d4ff, #8a3ec4 48%, #2a143c)';
+const TICKS_BACKGROUND = 'linear-gradient(180deg, #7ed48a, #2f8a3c 42%, #a82830 62%, #4a1418)';
 const COLLECTION_BACKGROUND = 'linear-gradient(160deg, #e8c48a, #a86b3c 55%, #4a2c18)';
 const TELEPORT_BACKGROUND = 'linear-gradient(145deg, #f0d8a8, #8a5a32 42%, #24366e)';
 const BANK_BACKGROUND = 'radial-gradient(circle at 50% 42%, #ffe56a, #c49212 46%, #3a2410)';
+const REPLY_BACKGROUND = 'radial-gradient(circle at 50% 40%, #f0c44a, #c49212 48%, #4a3008)';
+const REPLY_TAB_BACKGROUND = 'linear-gradient(145deg, #f0c44a, #c49212 40%, #8a9098 68%, #3a3e44)';
+const STATUSES_BACKGROUND = 'radial-gradient(circle at 40% 38%, #8a8e98, #3a3e48 50%, #16181c)';
+const METEOR_CHECK_BACKGROUND = 'radial-gradient(circle at 42% 40%, #c0c6d0, #6a7380 46%, #243044)';
+const METEOR_BACKGROUND = 'radial-gradient(circle at 50% 42%, #b4b0a8, #5c5854 48%, #242220)';
+const BONDFIRE_BACKGROUND = 'linear-gradient(180deg, #f0c44a, #e05018 42%, #3a6a30 62%, #142818)';
+const ANCIENT_BACKGROUND = 'radial-gradient(circle at 48% 38%, #c4b4f0, #5a3ec8 46%, #3a2418)';
+const STORM_BACKGROUND = 'radial-gradient(circle at 50% 40%, #f0d4a0, #c49850 48%, #4a3420)';
+const EVIL_TREE_CHECK_BACKGROUND =
+	'radial-gradient(circle at 50% 32%, #f0a8a4, #c46060 48%, #5a3034)';
+const EVIL_TREE_BACKGROUND = 'radial-gradient(circle at 50% 30%, #e88884, #a84848 50%, #4a2828)';
+const EVIL_TREE_CLEAR_BACKGROUND =
+	'radial-gradient(circle at 50% 36%, #f3eee8, #c8b8bc 50%, #4a4450)';
+const SUPER_STORM_BACKGROUND = 'radial-gradient(circle at 50% 38%, #c4cedc, #5a6a88 48%, #1c2838)';
+const ALIEN_BACKGROUND = 'radial-gradient(circle at 50% 48%, #6a8a50, #2a5a28 46%, #101c10)';
+const GEM_METEOR_BACKGROUND =
+	'repeating-conic-gradient(#2c2c2c 0 12deg, #c45c5e 12deg 18deg, #2c2c2c 18deg 30deg, #3a5080 30deg 36deg, #2c2c2c 36deg 48deg, #4a8a62 48deg 54deg, #2c2c2c 54deg 66deg, #6aafc4 66deg 72deg)';
 
 export type ChatCommand = {
 	name: string;
@@ -190,6 +225,8 @@ const replyCommand: ChatCommand = {
 	description: 'Reply to the latest private message.',
 	aliases: ['reply', 'r'],
 	requiresArgs: true,
+	display: actionIcon(replyIcon),
+	background: REPLY_BACKGROUND,
 	run: (args, context) => {
 		const username = ensurePmUsername(context);
 		if (!username) return false;
@@ -204,6 +241,8 @@ const replyTabCommand: ChatCommand = {
 	name: 'Reply Tab',
 	description: 'Open the PM tab for the latest private message.',
 	aliases: ['replytab', 'rt'],
+	display: actionIcon(replyTabIcon),
+	background: REPLY_TAB_BACKGROUND,
 	run: (args, context) => {
 		const username = ensurePmUsername(context);
 		if (!username) return false;
@@ -232,6 +271,8 @@ const helpCommand: ChatCommand = {
 	description: 'get default flat mmo commands help menu',
 	aliases: ['help', 'h'],
 	section: 'Misc',
+	display: actionIcon(helpIcon),
+	background: HELP_BACKGROUND,
 	run: (_args, context) => {
 		context.send('', '/help');
 	},
@@ -242,6 +283,8 @@ const ticksCommand: ChatCommand = {
 	description: 'Toggle receiving ticks pings from the server',
 	aliases: ['ticks', 't'],
 	section: 'Misc',
+	display: actionIcon(ticksIcon),
+	background: TICKS_BACKGROUND,
 	run: (_args, context) => {
 		context.send('', '/ticks');
 	},
@@ -288,6 +331,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Check Statuses',
 		description: 'Yell for world event statuses',
 		aliases: ['statuses'],
+		display: actionIcon(checkStatusesIcon),
+		background: STATUSES_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !s');
 		},
@@ -296,6 +341,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Check Meteor',
 		description: 'Yell for meteor status',
 		aliases: ['meteor'],
+		display: actionIcon(meteorCheckIcon),
+		background: METEOR_CHECK_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !m');
 		},
@@ -304,6 +351,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Check Bondfire',
 		description: 'Yell for bondfire status',
 		aliases: ['bondfire'],
+		display: actionIcon(bondfireCheckIcon),
+		background: BONDFIRE_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !bondfire');
 		},
@@ -312,6 +361,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Check Ancient Ore',
 		description: 'Yell for ancient ore status',
 		aliases: ['ancient'],
+		display: actionIcon(ancientCheckIcon),
+		background: ANCIENT_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !ancient');
 		},
@@ -320,6 +371,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Check Storm Scroll',
 		description: 'Yell for storm scroll status',
 		aliases: ['scroll'],
+		display: actionIcon(stormCheckIcon),
+		background: STORM_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !storm');
 		},
@@ -328,6 +381,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Check Tree',
 		description: 'Yell for tree status',
 		aliases: ['tree'],
+		display: actionIcon(evilTreeCheckIcon),
+		background: EVIL_TREE_CHECK_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !tree');
 		},
@@ -337,6 +392,8 @@ const dounbotCommands: ChatCommand[] = [
 		description: 'Sets the meteor value',
 		aliases: ['set-meteor'],
 		requiresArgs: true,
+		display: actionIcon(meteorIcon),
+		background: METEOR_BACKGROUND,
 		run: (args, context) => {
 			const message = args.join(' ').trim();
 			if (!message) return false;
@@ -349,6 +406,8 @@ const dounbotCommands: ChatCommand[] = [
 		description: 'Sets the evil tree value (requires 10k donation)',
 		aliases: ['set-tree'],
 		requiresArgs: true,
+		display: actionIcon(evilTreeIcon),
+		background: EVIL_TREE_BACKGROUND,
 		run: (args, context) => {
 			const message = args.join(' ').trim();
 			if (!message) return false;
@@ -360,6 +419,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Clear Evil Tree',
 		description: 'Clears the currently set evil tree (requires 10k donation)',
 		aliases: ['clear-tree', 'reset-tree'],
+		display: actionIcon(evilTreeClearIcon),
+		background: EVIL_TREE_CLEAR_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !resettree');
 		},
@@ -368,6 +429,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Ping Alien',
 		description: 'Triggers the alien ping in discord (requires 10k donation)',
 		aliases: ['ping-alien'],
+		display: actionIcon(alienPingIcon),
+		background: ALIEN_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !alien');
 		},
@@ -376,6 +439,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Ping Gem Meteor',
 		description: 'Triggers the gem meteor ping in discord (requires 10k donation)',
 		aliases: ['ping-gemmeteor'],
+		display: actionIcon(gemMeteorPingIcon),
+		background: GEM_METEOR_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !gemmeteor');
 		},
@@ -384,6 +449,8 @@ const dounbotCommands: ChatCommand[] = [
 		name: 'Ping Super Storm',
 		description: 'Triggers the super storm ping in discord (requires 10k donation)',
 		aliases: ['ping-superstorm'],
+		display: actionIcon(superStormIcon),
+		background: SUPER_STORM_BACKGROUND,
 		run: (_args, context) => {
 			context.send('', '/yell !superstorm');
 		},

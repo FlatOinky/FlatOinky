@@ -233,7 +233,7 @@ mountHeaderExtras? })` builds a per-cue `AlertScope` card.
      a plugin lifecycle tears the window down (so settings restarts can restore it).
      `closable: false` removes the frame close button and the taskbar Close item.
      `lockToggle: false` removes the frame lock control; the window can still be locked with
-     `setLocked(locked)`. `taskbar: false` omits the taskbar button and its menu.
+     `setLocked(locked)`. Locked windows overlay the game canvas, so their whitespace stays click-through; only controls that must receive clicks add `pointer-events-auto`. `taskbar: false` omits the taskbar button and its menu.
      `windows.initToolbarWindow(lifecycle, { ..., grabberEdge? })` is the same window
      with a thin frame and no resize edges. `grabberEdge` (`left` by default, or
      `right` / `top` / `bottom`) places the close, grabber, and lock strip and is fixed
