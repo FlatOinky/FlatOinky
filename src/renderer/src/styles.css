@@ -253,6 +253,23 @@
 	color: var(--color-base-content);
 }
 
+.oinky-tooltip {
+	position: fixed;
+	z-index: 1000;
+	width: max-content;
+	max-width: 20rem;
+	transform: translate(-50%, -100%);
+	pointer-events: none;
+	border-radius: var(--radius-field);
+	background: var(--color-neutral);
+	color: var(--color-neutral-content);
+	padding-block: 0.25rem;
+	padding-inline: 0.5rem;
+	text-align: center;
+	font-size: 0.875rem;
+	line-height: 1.25;
+}
+
 /* Now onto customizing flat mmo styles for our own sake */
 
 body {

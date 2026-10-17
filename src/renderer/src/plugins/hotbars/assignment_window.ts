@@ -32,20 +32,14 @@ const hasType = (types: ReadonlyArray<string>, type: string): boolean => types.i
 const dragTypes = (data: DataTransfer | null): readonly string[] => (data ? [...data.types] : []);
 
 const groupActions = (actions: readonly DeepReadonly<ClientAction>[]) => {
-	const groups = new Map<string, Map<string, DeepReadonly<ClientAction>[]>>();
+	const sections = new Map<string, DeepReadonly<ClientAction>[]>();
 	for (const action of actions) {
-		const heading = action.owner.category ?? action.owner.name;
-		const sectionName = action.category ?? '';
-		let sections = groups.get(heading);
-		if (!sections) {
-			sections = new Map();
-			groups.set(heading, sections);
-		}
-		const list = sections.get(sectionName) ?? [];
+		const name = action.category ?? '';
+		const list = sections.get(name) ?? [];
 		list.push(action);
-		sections.set(sectionName, list);
+		sections.set(name, list);
 	}
-	return groups;
+	return sections;
 };
 
 const TAB_GROUP = 'oinky-hotbar-window-tabs';
@@ -123,42 +117,36 @@ export const initAssignmentWindow = (
 	});
 
 	const paintActions = () => {
-		const groups = groupActions(context.actions.getAll());
-		const headings = [...groups.keys()].sort((left, right) => left.localeCompare(right));
-		headings.forEach((heading, headingIndex) => {
-			const block = el.div`mb-4 flex flex-col gap-2`.mount(actionsPane, `group-${headingIndex}`);
-			el.h2`text-sm font-bold`.mount(block, 'heading', (node) => {
-				node.textContent = heading;
-			});
-			const sections = groups.get(heading);
-			if (!sections) return;
-			const names = [...sections.keys()].sort((left, right) => {
-				if (!left) return -1;
-				if (!right) return 1;
-				return left.localeCompare(right);
-			});
-			for (const [sectionIndex, name] of names.entries()) {
-				const section = el.div`flex flex-col gap-1`.mount(block, `section-${sectionIndex}`);
-				if (name) {
-					el.h3`text-xs font-medium text-base-content/60`.mount(section, 'heading', (node) => {
-						node.textContent = name;
-					});
+		const sections = groupActions(context.actions.getAll());
+		const names = [...sections.keys()].sort((left, right) => {
+			if (!left) return -1;
+			if (!right) return 1;
+			return left.localeCompare(right);
+		});
+		names.forEach((name, sectionIndex) => {
+			const section = el.div`mb-4 flex flex-col gap-1`.mount(
+				actionsPane,
+				`section-${sectionIndex}`,
+			);
+			if (name) {
+				el.h2`text-sm font-bold`.mount(section, 'heading', (node) => {
+					node.textContent = name;
+				});
+			}
+			const grid = el.div`flex flex-wrap gap-1`.mount(section, 'tiles');
+			for (const [tileIndex, action] of (sections.get(name) ?? []).entries()) {
+				const frame = el.div`size-10 shrink-0`.mount(grid, `tile-${tileIndex}`);
+				const tile = action.display(content, { interactive: false });
+				if (tile instanceof HTMLElement) {
+					tile.draggable = true;
+					tile.ondragstart = (event) => {
+						event.stopPropagation();
+						event.dataTransfer?.setData(ACTION_MIME, action.key);
+						event.dataTransfer?.setData('text/plain', `action:${action.key}`);
+						if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+					};
 				}
-				const grid = el.div`flex flex-wrap gap-1`.mount(section, 'tiles');
-				for (const [tileIndex, action] of (sections.get(name) ?? []).entries()) {
-					const frame = el.div`size-10 shrink-0`.mount(grid, `tile-${tileIndex}`);
-					const tile = action.display(content, { interactive: false });
-					if (tile instanceof HTMLElement) {
-						tile.draggable = true;
-						tile.ondragstart = (event) => {
-							event.stopPropagation();
-							event.dataTransfer?.setData(ACTION_MIME, action.key);
-							event.dataTransfer?.setData('text/plain', `action:${action.key}`);
-							if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
-						};
-					}
-					frame.append(tile);
-				}
+				frame.append(tile);
 			}
 		});
 	};

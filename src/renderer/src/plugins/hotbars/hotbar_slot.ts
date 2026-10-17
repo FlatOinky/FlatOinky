@@ -22,9 +22,11 @@ export const mountSlot = (
 	const action = options.actionKey ? options.resolve(options.actionKey) : undefined;
 
 	if (action) {
-		const tile = action.display(lifecycle, { interactive: options.interactive });
+		const tile = action.display(lifecycle, {
+			interactive: options.interactive,
+			tipDelay: options.interactive,
+		});
 		if (tile instanceof HTMLElement) tile.classList.add('size-full');
-		tile.setAttribute('title', action.name);
 		cell.append(tile);
 	} else if (options.actionKey) {
 		el.div`flex size-full items-center justify-center rounded-box border-2 border-base-content/20 bg-base-200 opacity-40`.mount(

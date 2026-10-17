@@ -2,6 +2,7 @@ import type { Lifecycle } from '../client';
 import type { Keybinds, Keycombo } from './keybinds';
 import type { Logger } from './logging';
 import { createActionDisplay, type ActionDisplay } from './actions/display';
+import { bindTooltip } from './ui/tooltip';
 import { advancePool, createPool, preparePool, spendUse, type PoolState } from './actions/pool';
 
 export type ActionStatus = ActionResult['status'];
@@ -36,6 +37,8 @@ export type ActionOptions = {
 export type ActionDisplayOptions = {
 	/** When false, the tile does not run the action and is removed from tab order. */
 	interactive?: boolean;
+	/** Wait before showing the action-name tooltip. Live hotbar slots use this. */
+	tipDelay?: boolean;
 };
 
 export type ClientAction = {
@@ -264,11 +267,16 @@ export const initActions = (lifecycle: Lifecycle, keybinds: Keybinds, log: Logge
 					options.display,
 					interactive ? () => action.execute() : undefined,
 				);
+				const unbindTip = bindTooltip(display.element, {
+					text: options.name,
+					delay: displayOptions?.tipDelay ? 1000 : 0,
+				});
 				record.displays.add(display);
 				views.add(record);
 				paintRecord(record, performance.now());
 				ensureTick();
 				const remove = () => {
+					unbindTip();
 					record.displays.delete(display);
 					display.remove();
 					if (record.displays.size === 0) views.delete(record);
@@ -286,9 +294,8 @@ export const initActions = (lifecycle: Lifecycle, keybinds: Keybinds, log: Logge
 			group: namespace,
 			key: options.id,
 			name: options.name,
-			category: owner.category,
 			section: options.category,
-			plugin: { id: namespace, name: owner.name, category: owner.category },
+			plugin: { id: namespace, name: owner.name },
 			requestKeycombo: options.requestKeycombo,
 			callback: () => action.execute().status === 'complete',
 		});

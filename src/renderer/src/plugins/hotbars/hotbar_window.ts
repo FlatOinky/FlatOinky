@@ -52,7 +52,7 @@ const mountPageControls = (
 	const bar = settings.bars[id];
 	const controls = el.div`flex flex-row items-stretch gap-1`.mount(parent, 'controls');
 	const dots = el.div`flex flex-col items-center justify-center gap-px`.mount(controls, 'dots');
-	for (let page = 0; page < bar.pageCount; page++) {
+	for (let page = bar.pageCount - 1; page >= 0; page--) {
 		const filled = page === bar.page;
 		el.span`${filled ? 'bg-base-content' : 'bg-base-content/30'} w-1.5 min-h-px max-h-1.5 flex-1 rounded-full`.mount(
 			dots,
