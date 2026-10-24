@@ -1,4 +1,5 @@
 import { app, ipcMain, Notification, dialog, webContents } from 'electron';
+import { registerUserScriptsIpc } from './user_scripts/ipc';
 import * as storage from './storage';
 import * as flatMmo from './flat_mmo';
 import * as updater from './updater';
@@ -393,4 +394,6 @@ export const ipcMainSetup = (): void => {
 			},
 		};
 	});
+
+	registerUserScriptsIpc(sessions, sendToSession);
 };

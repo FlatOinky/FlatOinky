@@ -40,8 +40,9 @@ client.
     intercept each other.
   - `ipc_main.ts` — IPC handlers (login, worlds, client HTML/assets, storage/profiles,
     file save, notifications, saveReferences from a ReferenceManifest, window reload,
-    asset-cache clear, openDevTools, updater check/download/install/channel, and
-    getAppState).
+    asset-cache clear, openDevTools, updater check/download/install/channel,
+    getAppState, and user scripts: catalog, install, enablement, updates, GM values,
+    and the `GM_xmlhttpRequest` proxy).
   - `updater.ts` — electron-updater wrapper: channel (`latest`/`beta`), check,
     download, install, and update events to the renderer.
   - `app_state.ts` — window focus plus `powerMonitor` suspend/resume, broadcast as
@@ -51,6 +52,9 @@ client.
   - `database.ts` — `initDatabase` factory for `node:sqlite` DatabaseSync instances
     under userData/storage (storage + asset cache).
   - `flat_mmo.ts`, `asset_proxy.ts`, `storage.ts`, `client_window.ts`, `files.ts`.
+  - `user_scripts/` — Greasyfork installs, library resolution, update checks, trust,
+    enablement, GM values, and the `GM_xmlhttpRequest` proxy. `ipc.ts` is registered
+    from `ipcMainSetup`.
 - `src/preload/index.ts` — context bridge exposing safe APIs to the renderer.
 - `src/renderer/src/` — renderer / UI.
   - `main.ts` — page routing and mounting (login, character select, client).
@@ -63,7 +67,7 @@ client.
   - `env.d.ts` — Vite client type reference.
   - `index.d.ts` — `Window` / `Globals` and game global declarations.
   - `client/settings.ts` — the Client Window (Profiles & Plugins, Plugin Settings,
-    System Settings, and Keybinds tabs) and the registry plugins use to add their own
+    System Settings, Keybinds, and User Scripts tabs) and the registry plugins use to add their own
     sections. Systems register through `systemSettings.initSection`, which is not on
     `PluginContext`.
   - `client/client_storage.ts` — reactive settings storage scoped to global, profile,
@@ -83,7 +87,8 @@ client.
     gated by the Devtools enable toggle; log-level controls live in the Devtools tray.
   - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file,
     clearAssetCache, saveReferences, openDevTools, notifications, updates, getAppState)
-    plus re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`.
+    plus re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`
+    and the user-script API from `client/ipc_renderer/ipc_user_scripts.ts`.
   - `client/updater.ts` — update UI state machine wired to the main updater.
   - `client/app_state.ts` — `initAppState` factory: `active` / `background` /
     `suspended` from main `appState` plus `document.visibilitychange`.
@@ -98,10 +103,15 @@ client.
     (`plugin/<namespace>/<id>`).
   - `client/systems.ts` and `client/systems/` — always-on client systems (app menu,
     window appearance settings, alerts tray/settings, context
-    menu, updates UI, keybinds, devtools including logging, profiles); never toggleable. Systems other than profiles live on a restartable child
+    menu, updates UI, keybinds, devtools including logging, profiles, user scripts); never toggleable. Systems other than profiles and user scripts live on a restartable child
     lifecycle rebuilt on profile swap. Profiles contributes the Profiles & Plugins tab
     of the Client Window (profile CRUD plus per-profile plugin enable toggles). Keybinds
-    contributes the Keybinds tab.
+    contributes the Keybinds tab. User scripts contributes the User Scripts tab (the panel
+    stays on the root lifecycle; the app-menu entry is on the systems lifecycle) and injects
+    enabled scripts after plugins start.
+  - `client/user_scripts.ts` and `client/user_scripts/` — installed-script state, GM value
+    cache, tray menu, and per-script injection. `initClient` returns `injectUserScripts`,
+    which `main.ts` calls after `resolvePluginsReady()`.
   - `client/ui.ts` and `client/ui/` — overlay mount, taskbar, floating windows, and
     the typed DOM builders in `elements.ts`.
   - `plugins/`, `templates/`, `assets/`, `styles/`.
@@ -116,13 +126,17 @@ characters, character↔profile mappings, per-scope `*_settings` documents keyed
 `context` plus `namespace` (`plugins` + `oinky/<name>` for plugins, `systems` +
 `<name>` for client internals — including `client`, `updater`, `notifications`
 (alerts; namespace name kept for compatibility),
-`logging`, `devtools`, `keybinds`, and `plugins` for the per-profile enabled-plugin map; Plugin
+`logging`, `devtools`, `keybinds`, `plugins` for the per-profile enabled-plugin map, and
+`userScripts` for the User Scripts tab; Plugin
 Settings and the Keybinds tab group by category then section, and System Settings uses each
 section name as a category with items directly under it), and per-scope append-only
 `*_collections` rows keyed the same way (plugins fold a collection name into the
 namespace as `oinky/<name>/<collection>`). `client`, `notifications` (alerts), `logging`,
 `keybinds`, and
-`plugins` use profile storage; `updater` and `devtools` use global storage. Collections
+`plugins` use profile storage; `updater`, `devtools`, and `userScripts` use global storage. User
+scripts also use their own tables (`user_scripts`, `user_script_externals`,
+`user_script_enabled`, `user_script_trusted`, `user_script_skips`, `user_script_values`):
+installs and GM values are global, enablement is per character. Hub scripts and trusted authors are keyed by `source` plus the hub's integer id; externals stay keyed by URL. Collections
 are read with `fetch(quantity)`, written with `append(value, max?)`, and cleared with
 `clear(match?)` (optional field match via `json_extract`). Multiple windows share one
 main process and the same SQLite files. Settings writes are broadcast to other windows

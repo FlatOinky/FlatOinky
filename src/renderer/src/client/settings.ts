@@ -1720,7 +1720,7 @@ const initSettingsMenu = (
 
 // #region initSettingsWindow
 
-export type ClientWindowTab = 'profiles' | 'plugins' | 'system' | 'keybinds';
+export type ClientWindowTab = 'profiles' | 'plugins' | 'system' | 'keybinds' | 'userScripts';
 
 const TAB_GROUP = 'oinky-client-window-tabs';
 
@@ -1729,6 +1729,7 @@ const CLIENT_WINDOW_TABS = [
 	{ id: 'plugins', label: 'Plugin Settings' },
 	{ id: 'system', label: 'System Settings' },
 	{ id: 'keybinds', label: 'Keybinds' },
+	{ id: 'userScripts', label: 'User Scripts' },
 ] as const satisfies ReadonlyArray<{
 	id: ClientWindowTab;
 	label: string;
@@ -1815,6 +1816,7 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 	let settingsWindow: ReturnType<typeof initSettingsWindow> | undefined;
 	let activeTab: ClientWindowTab = 'plugins';
 	let keybindsOnVisible: (() => void) | undefined;
+	let userScriptsOnVisible: (() => void) | undefined;
 
 	const isWindowOpen = () =>
 		settingsWindow !== undefined && settingsWindow.window.state.minimized === false;
@@ -1858,6 +1860,7 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		if (activeTab === 'plugins') pluginFlush.flush();
 		else if (activeTab === 'system') systemFlush.flush();
 		else if (activeTab === 'keybinds') keybindsOnVisible?.();
+		else if (activeTab === 'userScripts') userScriptsOnVisible?.();
 	};
 
 	const createSettingsWindow = () => {
@@ -1885,6 +1888,7 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		if (tab === 'plugins') pluginFlush.flush(true);
 		if (tab === 'system') systemFlush.flush(true);
 		if (tab === 'keybinds') keybindsOnVisible?.();
+		if (tab === 'userScripts') userScriptsOnVisible?.();
 	};
 
 	for (const entry of CLIENT_WINDOW_TABS) {
@@ -1902,7 +1906,7 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 	};
 
 	const mountPanel = (
-		tab: 'profiles' | 'keybinds',
+		tab: 'profiles' | 'keybinds' | 'userScripts',
 		panelLifecycle: Lifecycle,
 		element: HTMLElement,
 		onVisible?: () => void,
@@ -1910,11 +1914,15 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		const panel = clientTabs.tabs[tab].panel;
 		panel.replaceChildren(element);
 		if (tab === 'keybinds') keybindsOnVisible = onVisible;
+		if (tab === 'userScripts') userScriptsOnVisible = onVisible;
 		panelLifecycle.onCleanup(() => {
 			if (tab === 'keybinds' && keybindsOnVisible === onVisible) keybindsOnVisible = undefined;
+			if (tab === 'userScripts' && userScriptsOnVisible === onVisible)
+				userScriptsOnVisible = undefined;
 			if (panel.contains(element)) element.remove();
 		});
 		if (tab === 'keybinds' && isTabVisible('keybinds')) onVisible?.();
+		if (tab === 'userScripts' && isTabVisible('userScripts')) onVisible?.();
 	};
 
 	const trayButton = ui.taskbar.initTrayButton(lifecycle, 'settings', {
@@ -2018,6 +2026,13 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		},
 		mountKeybinds: (keybindsLifecycle: Lifecycle, element: HTMLElement, onVisible?: () => void) => {
 			mountPanel('keybinds', keybindsLifecycle, element, onVisible);
+		},
+		mountUserScripts: (
+			scriptsLifecycle: Lifecycle,
+			element: HTMLElement,
+			onVisible?: () => void,
+		) => {
+			mountPanel('userScripts', scriptsLifecycle, element, onVisible);
 		},
 		get settingsWindow() {
 			return settingsWindow;

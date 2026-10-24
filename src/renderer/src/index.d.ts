@@ -28,6 +28,9 @@ declare global {
 			// on this so the socket opens only once plugin hooks are registered.
 			pluginsReady?: Promise<void>;
 			pluginsStarted?: boolean;
+			userScripts?: {
+				run: (source: string, id: number, fn: (...args: unknown[]) => void) => void;
+			};
 		};
 	}
 	// FlatMMO stuff

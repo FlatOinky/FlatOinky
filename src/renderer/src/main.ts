@@ -440,8 +440,9 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 	// connect_to_websocket runs. Plugin init follows the script: some plugins
 	// read game globals defined there.
 	rootElement.innerHTML = renderClientPage();
+	let client: Awaited<ReturnType<typeof initClient>> | undefined;
 	try {
-		const client = await initClient(character, references);
+		client = await initClient(character, references);
 		if (client) flatOinky.client = client;
 		document.body.appendChild(scriptElement);
 		await client?.startPlugins();
@@ -449,6 +450,7 @@ const mountClientPage = async (rootElement: HTMLDivElement): Promise<void> => {
 		if (!scriptElement.isConnected) document.body.appendChild(scriptElement);
 		resolvePluginsReady();
 	}
+	await client?.injectUserScripts();
 };
 
 // #endregion

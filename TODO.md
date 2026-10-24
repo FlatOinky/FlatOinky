@@ -13,25 +13,19 @@ Items which should be covered are the ground items, inventory items, equipped it
 - The brick background is imported and applied in `src/renderer/src/main.ts` (around the `html { background-image: ... }` rule).
 - The image is already vendored at `src/renderer/src/assets/backgrounds/background3.png`, so it does not need to be fetched from flatmmo.com.
 
-# Third-Party User scripts
+# Split "Profiles & Plugins" Tab
 
-Users will be able to open a window and browse a list of user scripts provided from Greasyfork.
+So the idea here is to split the tab into two tabs, one for managing the profiles, and the other for managing enabled plugins for the profile.
 
-Once the user has found a script they want, they'll click the "Install button where the user will get
-a pop up to confirm the scripts installation (download & injecting into the browser). When there
-are newer versions of installed scripts users will get a window popup listing the scripts with
-an update button. Trusted scripts will get updated automatically.
+## Profiles tab
 
-- **User scripts:** scripts written by others to be installed
-- installation confirmation will offer "Confirm", "Confirm & Trust Author", "Deny"
-- use greasyfork to find scripts from other users
-  - `https://api.greasyfork.org/en/scripts/by-site/flatmmo.com.json` returns the list of user scripts that we can install
-- store saved user scripts along with the version
-- checks and offers script updates to the player so they can
-- updates to scripts must be confirmed unless user has marked author as trusted
-- trusted authors should be able to be managed in a separate window
-- some scripts require others, they will need confirmation too, but will be displayed along side of the normal confirmation
--
+This tab is respo
+
+## Plugins tab
+
+## Unsure / undecided
+
+So a problem which is feeling thinking about this change is the menu is feeling a bit disorganized. Lets think about a few solutions on this. If this section is still here, that means the solution to this hasn't been decided since that result in this section being deleted and the new section being added.
 
 # Chat Tabs
 

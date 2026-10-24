@@ -28,7 +28,8 @@ flowchart LR
 
 `mountClientPage` fetches the play page and assets over IPC, runs them through
 [src/transpilers.ts](src/transpilers.ts), appends HTML/style/script to
-`document.body`, then calls `initClient`. Always-on systems start from
+`document.body`, then calls `initClient`. After plugins start and `pluginsReady`
+resolves, it injects enabled user scripts. Always-on systems start from
 [src/client/systems.ts](src/client/systems.ts). Toggleable plugins are registered
 from the [src/plugins.ts](src/plugins.ts) barrel.
 
@@ -40,10 +41,11 @@ Layout under `src/`:
 - `styles.css` + `styles/` — Tailwind/DaisyUI entry and component CSS
 - `client/` — settings, storage, profiles, IPC facade, updater, systems, UI toolkit
 - `client/systems/` — always-on features (app menu, windows, alerts,
-  updates, context menu, keybinds, devtools including logging, profiles). Systems other than profiles live on a restartable
+  updates, context menu, keybinds, devtools including logging, profiles, user scripts). Systems other than profiles and user scripts live on a restartable
   child lifecycle rebuilt on profile swap; the profiles system contributes the Profiles &
   Plugins tab of the Client Window and drives that restart. The keybinds system contributes
-  the Keybinds tab.
+  the Keybinds tab. The user scripts system contributes the User Scripts tab. Its panel
+  stays on the root lifecycle; the app-menu entry is on the systems lifecycle.
 - `plugins/` — toggleable plugins, one entry file each at this folder's root
   (`chat`, `audio`, `metrics`, `themes`, `mouse`, `keybinds`, `hotbars`,
   `states`, `audio_cues`, `afk`, …). A sibling directory of the same name holds
@@ -120,7 +122,7 @@ Layout under `src/`:
   action row. The Mouse plugin's **Collapse targets** setting passes this flag.
 - **CSS isolation** — game styles are injected as
   `@layer fmmo { @scope (html) to (.flat-oinky) { ... } }`, so they stop at the Oinky
-  root. Oinky UI lives under `.flat-oinky`; Tailwind preflight is scoped there in
+  root. `GM_addStyle` uses the same wrapper. Oinky UI lives under `.flat-oinky`; Tailwind preflight is scoped there in
   [src/styles.css](src/styles.css).
 - **Anchors** — `main.ts` tags game `<td>` cells with
   `fmmo-container="canvas|ui|topbar|misc<n>"`. Prefer those attributes when attaching
@@ -130,7 +132,8 @@ Layout under `src/`:
   before injection, so the game no longer shadows the built-in `Map`. Renderer
   code can use `Map` as usual.
 - **Globals** — type declarations are split across three files:
-  - [src/index.d.ts](src/index.d.ts) — `Window` / `Globals` and game global functions
+  - [src/index.d.ts](src/index.d.ts) — `Window` / `Globals`, game global functions, and
+    `flatOinky.userScripts` (the bridge user scripts call)
   - [src/fmmo.d.ts](src/fmmo.d.ts) — `FMMO` namespace types (`World`, `Character`, …)
   - [src/env.d.ts](src/env.d.ts) — Vite client types
     Extend the matching file; do not cast with `any`.
@@ -178,7 +181,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      `plugins` with the plugin's `oinky/<name>` namespace; client internals use context
      `systems` with bare namespaces (`client`, `updater`, `notifications` (alerts;
      namespace name kept for compatibility),
-     `logging`, `devtools`, `keybinds`, `plugins` for the enabled-plugin map). `keybinds`
+     `logging`, `devtools`, `keybinds`, `plugins` for the enabled-plugin map,
+     `userScripts` for the User Scripts tab). `keybinds`
      uses profile storage. Logging emit is
      gated by the Devtools enable toggle.
 

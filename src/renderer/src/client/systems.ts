@@ -11,12 +11,14 @@ import type { Profiles } from './profiles';
 import type { ClientSettings } from './settings';
 import type { ClientUI } from './ui';
 import type { Updater } from './updater';
+import type { UserScriptsRuntime } from './user_scripts';
 import { initAppSystem } from './systems/app';
 import { initDevtoolsSystem } from './systems/devtools';
 import { initAlertsSystem } from './systems/alerts';
 import { initKeybindsSystem } from './systems/keybinds';
 import { initProfilesSystem } from './systems/profiles';
 import { initUpdatesSystem } from './systems/updates';
+import { initUserScriptsMenu, initUserScriptsSystem } from './systems/user_scripts';
 import { initWindowsSystem } from './systems/windows';
 
 export type SystemsContext = {
@@ -35,6 +37,8 @@ export type SystemsContext = {
 	profiles: Profiles;
 	plugins: ClientPlugins;
 	logging: Logging;
+	userScripts: UserScriptsRuntime;
+	userScriptsStorage: ClientStorage;
 	references: FMMO.ReferenceManifest;
 	appState: AppState;
 };
@@ -57,6 +61,8 @@ export const initSystems = async (
 		profiles,
 		plugins,
 		logging,
+		userScripts,
+		userScriptsStorage,
 		references,
 		appState,
 	}: SystemsContext,
@@ -86,6 +92,7 @@ export const initSystems = async (
 		setContextMenu(contextMenu);
 
 		initUpdatesSystem(systems, ui, updater, settings);
+		initUserScriptsMenu(systems, ui, settings);
 		await initDevtoolsSystem(systems, ui, settings, logging, references, setRecordSocketMessage);
 	};
 
@@ -99,6 +106,7 @@ export const initSystems = async (
 		restartSystems,
 		restartPlugins: () => plugins.restart(),
 	});
+	initUserScriptsSystem(lifecycle, ui, settings, userScripts, userScriptsStorage);
 
 	await startSystems();
 };

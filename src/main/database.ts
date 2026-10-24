@@ -3,7 +3,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { app } from 'electron';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS profiles (
@@ -67,6 +67,61 @@ CREATE INDEX IF NOT EXISTS idx_profile_collections_lookup
 	ON profile_collections (profile_id, context, namespace, id);
 CREATE INDEX IF NOT EXISTS idx_character_collections_lookup
 	ON character_collections (character_id, context, namespace, id);
+CREATE TABLE IF NOT EXISTS user_scripts (
+	source TEXT NOT NULL,
+	id INTEGER NOT NULL,
+	user_installed INTEGER NOT NULL DEFAULT 0,
+	name TEXT NOT NULL,
+	namespace TEXT NOT NULL DEFAULT '',
+	version TEXT NOT NULL DEFAULT '',
+	code_updated_at TEXT NOT NULL DEFAULT '',
+	description TEXT NOT NULL DEFAULT '',
+	license TEXT,
+	total_installs INTEGER NOT NULL DEFAULT 0,
+	url TEXT NOT NULL DEFAULT '',
+	code_url TEXT NOT NULL DEFAULT '',
+	users TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(users)),
+	deleted INTEGER NOT NULL DEFAULT 0,
+	meta_block TEXT NOT NULL DEFAULT '',
+	headers TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(headers)),
+	code TEXT NOT NULL DEFAULT '',
+	requires TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(requires)),
+	PRIMARY KEY (source, id)
+);
+CREATE TABLE IF NOT EXISTS user_script_externals (
+	url TEXT PRIMARY KEY,
+	body TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS user_script_enabled (
+	source TEXT NOT NULL,
+	script_id INTEGER NOT NULL,
+	character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+	PRIMARY KEY (source, script_id, character_id),
+	FOREIGN KEY (source, script_id) REFERENCES user_scripts(source, id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS user_script_trusted (
+	source TEXT NOT NULL,
+	user_id INTEGER NOT NULL,
+	name TEXT NOT NULL,
+	url TEXT NOT NULL DEFAULT '',
+	PRIMARY KEY (source, user_id)
+);
+CREATE TABLE IF NOT EXISTS user_script_skips (
+	source TEXT NOT NULL,
+	script_id INTEGER NOT NULL,
+	version TEXT NOT NULL,
+	code_updated_at TEXT NOT NULL,
+	PRIMARY KEY (source, script_id),
+	FOREIGN KEY (source, script_id) REFERENCES user_scripts(source, id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS user_script_values (
+	source TEXT NOT NULL,
+	script_id INTEGER NOT NULL,
+	key TEXT NOT NULL,
+	value TEXT NOT NULL CHECK (json_valid(value)),
+	PRIMARY KEY (source, script_id, key),
+	FOREIGN KEY (source, script_id) REFERENCES user_scripts(source, id) ON DELETE CASCADE
+);
 `;
 
 export type DatabaseOptions = {

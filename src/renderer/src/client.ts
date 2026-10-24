@@ -18,6 +18,7 @@ import type {
 } from './client/context_menu';
 import { getAppVersion, saveFile } from './client/ipc_renderer';
 import { initLogging, type Logger, type LogLevel, type LogMethod } from './client/logging';
+import { initUserScripts } from './client/user_scripts';
 import { initTimers, type ClientTimers } from './client/timers';
 import type { Alerts } from './client/alerts';
 import { createPluginActions, type Actions } from './client/actions';
@@ -854,6 +855,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		pluginsStorage,
 		loggingStorage,
 		keybindsStorage,
+		userScriptsStorage,
 	] = await Promise.all([
 		createProfileStorage('systems', 'client', lifecycle),
 		createGlobalStorage('systems', 'updater', lifecycle),
@@ -862,11 +864,13 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		createProfileStorage('systems', 'plugins', lifecycle),
 		createProfileStorage('systems', 'logging', lifecycle),
 		createProfileStorage('systems', 'keybinds', lifecycle),
+		createGlobalStorage('systems', 'userScripts', lifecycle),
 	]);
 	const settings = initSettings(lifecycle, ui, clientStorage);
 	const updater = initUpdater(lifecycle, ui, updaterStorage, version);
 	const pluginsRef: { current?: ClientPlugins } = {};
 	const logging = initLogging(loggingStorage, () => pluginsRef.current?.api.events.chatMessage);
+	const userScripts = initUserScripts(lifecycle, ui, logging.createLogger('User Scripts'), version);
 	const appState = await initAppState(lifecycle);
 	const timers = initTimers(lifecycle, appState, logging.createLogger('Timers'));
 
@@ -905,6 +909,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		keybindsStorage,
 		setAlerts: (next) => {
 			alerts = next;
+			userScripts.setAlerts(next);
 		},
 		setContextMenu: (next) => {
 			contextMenu = next;
@@ -921,6 +926,8 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		profiles,
 		plugins,
 		logging,
+		userScripts,
+		userScriptsStorage,
 		references,
 		appState,
 	});
@@ -942,6 +949,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		pluginsApi: plugins.api,
 		profiles,
 		startPlugins,
+		injectUserScripts: () => userScripts.inject(),
 		handleBeforeConnect: () => {
 			connectWebsocketHooks(plugins, Globals.websocket, (direction, message) =>
 				recordSocketMessage(direction, message),

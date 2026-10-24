@@ -3,6 +3,7 @@ import type { ElectronAPI } from '@electron-toolkit/preload';
 export const { ipcRenderer } = window.electron as ElectronAPI;
 
 export * as ipcStorage from './ipc_renderer/ipc_storage';
+export * as ipcUserScripts from './ipc_renderer/ipc_user_scripts';
 
 export type AppStatePayload = {
 	focused: boolean;
