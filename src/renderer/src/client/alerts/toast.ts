@@ -21,6 +21,7 @@ type ToastEntry = {
 	remainingMs: number;
 	deadline: number | undefined;
 	timeoutId: ReturnType<typeof setTimeout> | undefined;
+	focusedOnce: boolean;
 };
 
 export const initToasts = (
@@ -29,18 +30,24 @@ export const initToasts = (
 	settings: ToastSettings,
 	appState: AppState,
 ) => {
-	const container = el.div`toast toast-top toast-center absolute oinky-toast-layer`.mount(
-		root,
-		'alerts/toasts',
-	);
+	const container =
+		el.div`toast toast-top toast-center absolute oinky-toast-layer pointer-events-none`.mount(
+			root,
+			'alerts/toasts',
+		);
 
 	const entries = new Set<ToastEntry>();
 
-	const shouldTick = (): boolean => {
+	const markFocused = (entry: ToastEntry): void => {
+		if (appState.activity === 'active') entry.focusedOnce = true;
+	};
+
+	const shouldTick = (entry: ToastEntry): boolean => {
 		const mode = settings.toastAutoDismiss;
 		if (mode === 'never') return false;
 		if (mode === 'always') return true;
-		return appState.activity === 'active';
+		if (appState.activity === 'suspended') return false;
+		return entry.focusedOnce;
 	};
 
 	const dismiss = (entry: ToastEntry) => {
@@ -61,7 +68,7 @@ export const initToasts = (
 	};
 
 	const resume = (entry: ToastEntry) => {
-		if (!shouldTick() || entry.timeoutId !== undefined) return;
+		if (!shouldTick(entry) || entry.timeoutId !== undefined) return;
 		if (entry.remainingMs <= 0) {
 			dismiss(entry);
 			return;
@@ -72,7 +79,8 @@ export const initToasts = (
 
 	const syncTimers = () => {
 		for (const entry of entries) {
-			if (shouldTick()) resume(entry);
+			markFocused(entry);
+			if (shouldTick(entry)) resume(entry);
 			else pause(entry);
 		}
 	};
@@ -80,9 +88,12 @@ export const initToasts = (
 	lifecycle.onCleanup(appState.subscribe(syncTimers));
 
 	const show = ({ title, message, icon }: ToastShowOptions): void => {
-		const alert = el.div`alert alert-horizontal`.mount(container);
+		const alert =
+			el.div`alert alert-horizontal px-2.5 py-1 gap-2 bg-none bg-base-100/(--oinky-window-opacity)`.mount(
+				container,
+			);
 		if (icon) {
-			el.img`size-8 pixelated object-contain shrink-0`.mount(alert, undefined, (img) => {
+			el.img`size-6 pixelated object-contain shrink-0`.mount(alert, undefined, (img) => {
 				img.src = icon;
 				img.alt = '';
 			});
@@ -102,13 +113,19 @@ export const initToasts = (
 			remainingMs: Math.max(2, Math.min(30, settings.toastDismissAfter)) * 1000,
 			deadline: undefined,
 			timeoutId: undefined,
+			focusedOnce: false,
 		};
-		el.button`btn btn-xs btn-square btn-ghost shrink-0`.mount(alert, undefined, (button) => {
-			button.type = 'button';
-			button.setAttribute('aria-label', 'Dismiss');
-			el.icon.x`size-4`.mount(button);
-			button.onclick = () => dismiss(entry);
-		});
+		markFocused(entry);
+		el.button`btn btn-xs btn-square btn-ghost btn-error ml-auto self-center shrink-0 pointer-events-auto`.mount(
+			alert,
+			undefined,
+			(button) => {
+				button.type = 'button';
+				button.setAttribute('aria-label', 'Dismiss');
+				el.icon.x`size-4`.mount(button);
+				button.onclick = () => dismiss(entry);
+			},
+		);
 		entries.add(entry);
 		resume(entry);
 	};

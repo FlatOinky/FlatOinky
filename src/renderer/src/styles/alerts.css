@@ -23,7 +23,3 @@
 	pointer-events: none;
 	z-index: 30;
 }
-
-.oinky-toast-layer > * {
-	pointer-events: auto;
-}

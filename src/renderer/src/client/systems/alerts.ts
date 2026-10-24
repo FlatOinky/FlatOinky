@@ -232,7 +232,8 @@ export const initAlertsSystem = (
 		}),
 		helpers.select({
 			label: 'Auto Dismiss',
-			description: 'When toast pop-ups close themselves.',
+			description:
+				'Foreground waits until this window is focused, then keeps counting if it is left again. Sleep pauses the countdown.',
 			options: [
 				{ label: 'Never', value: 'never' },
 				{ label: 'Foreground', value: 'foreground' },
