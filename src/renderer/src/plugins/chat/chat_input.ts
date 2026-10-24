@@ -40,7 +40,7 @@ export const sendChatLine = (prefix: string, message: string): void => {
 		Globals.websocket?.send('CHAT=' + message);
 		return;
 	}
-	const messageChunks = chunkMessageBySize(message, hasPrefix ? 100 - prefix.length - 1 : 100);
+	const messageChunks = chunkMessageBySize(message, hasPrefix ? 200 - prefix.length - 1 : 200);
 	if (messageChunks.length > 2) {
 		add_to_chat('none', 'none', 'none', 'red', 'Message length too large');
 		return;
