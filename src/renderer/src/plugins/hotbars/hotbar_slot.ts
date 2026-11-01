@@ -6,6 +6,8 @@ export type HotbarSlotOptions = {
 	actionKey: string | undefined;
 	label: string;
 	interactive: boolean;
+	/** Live bars use a thin solid empty outline. The assignment window keeps the dashed target. */
+	quietEmpty?: boolean;
 	resolve: (key: string) => DeepReadonly<ClientAction> | undefined;
 };
 
@@ -38,10 +40,10 @@ export const mountSlot = (
 			},
 		);
 	} else {
-		el.div`size-full rounded-box border-2 border-dashed border-base-content/25 bg-base-200/40`.mount(
-			cell,
-			'empty',
-		);
+		const empty = options.quietEmpty
+			? 'size-full rounded-box border border-base-content/20 bg-base-200/40'
+			: 'size-full rounded-box border-2 border-dashed border-base-content/25 bg-base-200/40';
+		el.div`${empty}`.mount(cell, 'empty');
 	}
 
 	if (options.label) {

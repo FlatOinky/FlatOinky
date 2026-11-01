@@ -9,6 +9,7 @@ import {
 	BAR_IDS,
 	clampPage,
 	clearSlot,
+	DEFAULT_LAYOUT_ID,
 	hotbarSectionId,
 	layoutById,
 	MAX_PAGES,
@@ -98,12 +99,13 @@ export const initAssignmentWindow = (
 		},
 	});
 
-	const pagesPane = el.div`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden`.mount(
-		window.body,
-		'hotbars',
-	);
+	const pagesPane =
+		el.div`flex min-h-0 w-[calc(6*2.5rem+5*0.25rem+1.75rem)] shrink-0 flex-col overflow-hidden`.mount(
+			window.body,
+			'hotbars',
+		);
 	const actionsPane =
-		el.div`min-h-0 w-[45%] overflow-y-auto border-l border-base-300 p-2 pt-3`.mount(
+		el.div`min-h-0 min-w-0 flex-1 overflow-y-auto border-l border-base-300 p-2 pt-3`.mount(
 			window.body,
 			'actions',
 		);
@@ -211,8 +213,9 @@ export const initAssignmentWindow = (
 
 	const paintBar = (parent: HTMLElement, barId: BarId) => {
 		const bar = settings.bars[barId];
-		const layout = layoutById(bar.layout);
-		const count = slotCount(layout);
+		const assignable = slotCount(layoutById(bar.layout));
+		const editor = layoutById(DEFAULT_LAYOUT_ID);
+		const count = slotCount(editor);
 		const pages = el.div`flex flex-col gap-3`.mount(parent, 'pages');
 		for (let page = 0; page < bar.pageCount; page++) {
 			const block = el.div`flex flex-col gap-1`.mount(pages, `page-${page}`);
@@ -222,20 +225,24 @@ export const initAssignmentWindow = (
 			const grid = el.div``.mount(block, 'slots', (node) => {
 				node.style.display = 'grid';
 				node.style.width = 'max-content';
-				node.style.gridTemplateColumns = `repeat(${layout.columns}, 2.5rem)`;
+				node.style.gridTemplateColumns = `repeat(${editor.columns}, 2.5rem)`;
 				node.style.gap = '0.25rem';
 				node.style.paddingTop = '0.75rem';
 				node.style.paddingLeft = '0.75rem';
 			});
 			for (let slot = 1; slot <= count; slot++) {
-				const actionKey = slotAction(bar, page, slot);
-				const combo = context.keybinds.getCombo(hotbarSectionId(barId), `slot-${slot}`);
+				const inLayout = slot <= assignable;
+				const actionKey = inLayout ? slotAction(bar, page, slot) : undefined;
+				const combo = inLayout
+					? context.keybinds.getCombo(hotbarSectionId(barId), `slot-${slot}`)
+					: undefined;
 				const cell = mountSlot(content, grid, `slot-${slot}`, {
 					actionKey,
 					label: combo ? comboToLabels(combo).join('+') : '',
 					interactive: false,
 					resolve: (key) => context.actions.get(key),
 				});
+				if (!inLayout) continue;
 				bindDrop(cell, barId, page, slot);
 				cell.oncontextmenu = (event) => {
 					event.preventDefault();

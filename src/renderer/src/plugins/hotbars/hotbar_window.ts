@@ -64,18 +64,26 @@ const mountPageControls = (
 		pageStep(settings.bars[id], direction);
 		onChange();
 	};
-	el.button`btn btn-ghost btn-square size-4! min-h-0! p-0`.mount(buttons, 'up', (button) => {
-		button.type = 'button';
-		button.title = 'Page Up';
-		button.append(el.icon.chevronUp`size-3`.element);
-		button.onclick = () => step(1);
-	});
-	el.button`btn btn-ghost btn-square size-4! min-h-0! p-0`.mount(buttons, 'down', (button) => {
-		button.type = 'button';
-		button.title = 'Page Down';
-		button.append(el.icon.chevronDown`size-3`.element);
-		button.onclick = () => step(-1);
-	});
+	el.button`pointer-events-auto btn btn-ghost btn-square size-4! min-h-0! p-0`.mount(
+		buttons,
+		'up',
+		(button) => {
+			button.type = 'button';
+			button.title = 'Page Up';
+			button.append(el.icon.chevronUp`size-3`.element);
+			button.onclick = () => step(1);
+		},
+	);
+	el.button`pointer-events-auto btn btn-ghost btn-square size-4! min-h-0! p-0`.mount(
+		buttons,
+		'down',
+		(button) => {
+			button.type = 'button';
+			button.title = 'Page Down';
+			button.append(el.icon.chevronDown`size-3`.element);
+			button.onclick = () => step(-1);
+		},
+	);
 };
 
 export const initHotbarWindow = (
@@ -138,6 +146,7 @@ export const initHotbarWindow = (
 				actionKey: slotAction(bar, bar.page, slot),
 				label: combo ? comboToLabels(combo).join('+') : '',
 				interactive: true,
+				quietEmpty: true,
 				resolve: (key) => context.actions.get(key),
 			});
 		}
