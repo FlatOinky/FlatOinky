@@ -22,6 +22,14 @@ export {
 
 export type KeybindCallback = (event: KeyboardEvent) => boolean | void;
 
+/** What the activity HUD shows for a bind. The Keybinds list keeps the registration name. */
+export type KeybindActivity = {
+	name: string;
+	/** Stable identity so a held combo can keep one mounted display. */
+	token?: string;
+	display?: (lifecycle: Lifecycle) => Element;
+};
+
 export type KeybindView = {
 	group: string;
 	key: string;
@@ -57,6 +65,12 @@ export type KeybindPluginMeta = {
 export type KeybindFired = {
 	name: string;
 	combo: Keycombo;
+	display?: (lifecycle: Lifecycle) => Element;
+};
+
+export type KeybindHeld = KeybindView & {
+	token?: string;
+	display?: (lifecycle: Lifecycle) => Element;
 };
 
 export type KeybindActivitySettings = {
@@ -79,6 +93,7 @@ type KeybindRegistration = {
 	section?: string;
 	callback: KeybindCallback;
 	requestKeycombo?: Keycombo;
+	activity?: () => KeybindActivity | undefined;
 };
 
 type Assignments = Record<string, Record<string, string | null>>;
@@ -271,15 +286,21 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		return [...groups.values()];
 	};
 
-	const matchHeld = (combo: Keycombo): KeybindView | null => {
+	const activityOf = (registration: KeybindRegistration): KeybindActivity =>
+		registration.activity?.() ?? { name: registration.name };
+
+	const matchHeld = (combo: Keycombo): KeybindHeld | null => {
 		const registration = matchCombo(combo);
 		if (!registration) return null;
+		const activity = activityOf(registration);
 		return {
 			group: registration.group,
 			key: registration.key,
-			name: registration.name,
+			name: activity.name,
 			combo,
 			overlapping: false,
+			token: activity.token,
+			display: activity.display,
 		};
 	};
 
@@ -331,6 +352,7 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 			name: string,
 			callback: KeybindCallback,
 			requestKeycombo?: Keycombo,
+			activity?: () => KeybindActivity | undefined,
 		) => {
 			const registration: KeybindRegistration = {
 				group: sectionId,
@@ -340,6 +362,7 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 				section: displayLabel(sectionName),
 				callback,
 				requestKeycombo,
+				activity,
 			};
 			const id = registrationId(sectionId, key);
 			owned.set(id, registration);
@@ -412,7 +435,8 @@ export const initKeybinds = (lifecycle: Lifecycle, storage: ClientStorage, root:
 		if (handled === false) return;
 		event.preventDefault();
 		event.stopImmediatePropagation();
-		notifyFired({ name: registration.name, combo });
+		const activity = activityOf(registration);
+		notifyFired({ name: activity.name, combo, display: activity.display });
 	};
 
 	const handleFocusIn = (event: FocusEvent) => {

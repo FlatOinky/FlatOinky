@@ -99,7 +99,7 @@ export const initHotbarWindow = (
 	const window = context.ui.windows.initToolbarWindow(lifecycle, {
 		id: `hotbar-${id}`,
 		title: `Hotbar ${id}`,
-		icon: el.icon.keyboard`size-4`.element,
+		icon: el.icon.layoutGrid`size-4`.element,
 		storage: context.storages.profile,
 		closable: false,
 		lockToggle: false,

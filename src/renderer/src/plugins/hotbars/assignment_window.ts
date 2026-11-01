@@ -81,7 +81,7 @@ export const initAssignmentWindow = (
 		id: 'hotbars',
 		title: 'Hotbars',
 		titleSlot: tablist,
-		icon: el.icon.keyboard`size-4`.element,
+		icon: el.icon.layoutGridAdd`size-4`.element,
 		storage: context.storages.profile,
 		lockable: false,
 		initialState: {

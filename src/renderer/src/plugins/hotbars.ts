@@ -116,7 +116,7 @@ export const HotbarsPlugin: Plugin = {
 		const { trayMenu } = context.ui.taskbar.initTrayButtonMenu(lifecycle, 'hotbars', {
 			button: {
 				title: 'Hotbars',
-				icon: el.icon.appsFilled``.element,
+				icon: el.icon.layoutGrid``.element,
 			},
 		});
 		const trayBody = el.div`max-h-[70vh] overflow-y-auto`.mount(trayMenu, 'body');

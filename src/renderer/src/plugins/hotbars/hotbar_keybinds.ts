@@ -12,6 +12,19 @@ import {
 	type HotbarsSettings,
 } from './hotbar_types';
 
+const slotActionAt = (
+	context: PluginContext,
+	settings: HotbarsSettings,
+	id: BarId,
+	slot: number,
+) => {
+	const bar = settings.bars[id];
+	if (!bar.shown || slot > slotCount(layoutById(bar.layout))) return undefined;
+	const actionKey = slotAction(bar, bar.page, slot);
+	if (!actionKey) return undefined;
+	return context.actions.get(actionKey);
+};
+
 const fireSlot = (
 	context: PluginContext,
 	settings: HotbarsSettings,
@@ -20,11 +33,25 @@ const fireSlot = (
 ): boolean => {
 	const bar = settings.bars[id];
 	if (!bar.shown || slot > slotCount(layoutById(bar.layout))) return false;
-	const actionKey = slotAction(bar, bar.page, slot);
-	if (!actionKey) return true;
-	const action = context.actions.get(actionKey);
+	const action = slotActionAt(context, settings, id, slot);
 	if (!action) return true;
 	return action.execute().status === 'complete';
+};
+
+/** Activity label for the current page. Empty and missing actions keep the slot name. */
+const slotActivity = (
+	context: PluginContext,
+	settings: HotbarsSettings,
+	id: BarId,
+	slot: number,
+) => {
+	const action = slotActionAt(context, settings, id, slot);
+	if (!action) return undefined;
+	return {
+		name: action.name,
+		token: action.key,
+		display: (lifecycle: Lifecycle) => action.display(lifecycle, { interactive: false }),
+	};
 };
 
 const firePage = (
@@ -55,6 +82,7 @@ export const registerHotbarKeybinds = (
 				`Slot ${slot}`,
 				() => fireSlot(context, settings, id, slot),
 				id === '1' ? defaultSlotCombo(slot) : undefined,
+				() => slotActivity(context, settings, id, slot),
 			);
 		}
 		section.register('page-up', 'Page Up', () => firePage(settings, id, 1, onChange));
