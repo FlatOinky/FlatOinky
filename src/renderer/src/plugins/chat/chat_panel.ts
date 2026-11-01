@@ -129,6 +129,8 @@ const handleWheel = (
 	const hitIsCanvas = target === canvas;
 	const hitIsMessage = target instanceof Node && chatMessageContainer.contains(target);
 	if (!hitIsCanvas && !hitIsMessage) return;
+	event.preventDefault();
+	event.stopPropagation();
 	const targetScrollTop = chatMessageContainer.scrollTop + event.deltaY;
 	const willBeSticky = checkIsAtBottom(chatMessageContainer, targetScrollTop);
 	elements.stickiness.isSticky = willBeSticky;
@@ -263,8 +265,8 @@ export const initChat = (
 
 	const wheelHandler = (event: WheelEvent) =>
 		handleWheel(event, elements, settings, panel, context.canvas);
-	document.addEventListener('wheel', wheelHandler);
-	lifecycle.onCleanup(() => document.removeEventListener('wheel', wheelHandler));
+	document.addEventListener('wheel', wheelHandler, { capture: true, passive: false });
+	lifecycle.onCleanup(() => document.removeEventListener('wheel', wheelHandler, { capture: true }));
 
 	chatInput.onkeydown = handleChatInputKeydown(chatInput, channels, commandsMenu, commandContext);
 	chatInput.oninput = handleChatInputInput(chatInput, commandsMenu, commandContext);
