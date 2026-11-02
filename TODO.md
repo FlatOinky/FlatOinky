@@ -156,3 +156,31 @@ So a problem which is feeling thinking about this change is the menu is feeling 
     - if user is in local map allow trading, otherwise no
     - add 'Mute' action
     - add 'Report' action (the action that the examine window uses)
+
+# Taskbar v2
+
+Taskbar v2 will be customizable with widgets, tray items, and other building blocks (spacer, vertical line, ect) to build a layout similar to how hotbars are customizable with actions.
+
+```ts
+context.taskbar.windows.register();
+context.taskbar.wigets.register();
+```
+
+# Blocks
+
+Users will use a window to manage the taskbar by dragging and dropping blocks which can place and order:
+
+- Chat Widget Block; singleton; currently a named special slot for chat
+- Open Window Block; singleton; button; can request registered windows to open/focus
+- Windows Block; singleton; container; for open windows buttons
+- Tray Block; singleton; container; tray icon menus
+- Spacer Block; repeatable; w-full flex-1; without it
+- Divider Block; repeatable; small vertical divider
+
+# Window Registry
+
+# Tray Registry
+
+# Widget Registry
+
+# Menu Registry

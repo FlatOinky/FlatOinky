@@ -53,6 +53,7 @@ declare global {
 	function request_unfocus_chatbox(): void;
 	function open_key_bindings_modal(): void;
 	function get_level(playerXP: number, includeVirtual?: boolean): number;
+	function get_xp_required(level: number): number;
 	function get_var(key: string): number;
 	function format_snake_case(value: string): string;
 	var farming_patch_timers: { [patch: string]: { seed: string; timer: number } };
