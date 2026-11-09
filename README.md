@@ -67,7 +67,7 @@ A desktop application for Flat MMO
 
 #### Tweaks
 
-- Darken Sky, to dim the sky map for easier viewing
+- Canvas Effects, CSS filters for the game canvas, globally and per map, with the cloud map dimmed by default
 - Dynamic Canvas, which scales the game canvas to fit the window
 - Clear Stuck Projectiles (automatic) and a Clear Projectiles Now button
 

@@ -310,6 +310,7 @@ export const icon = {
 	testPipe2Filled: setupIconElement('icon-[tabler--test-pipe-2-filled]'),
 	tools: setupIconElement('icon-[tabler--tools]'),
 	tree: setupIconElement('icon-[tabler--tree]'),
+	trash: setupIconElement('icon-[tabler--trash]'),
 	users: setupIconElement('icon-[tabler--users]'),
 	world: setupIconElement('icon-[tabler--world]'),
 	volume: setupIconElement('icon-[tabler--volume]'),

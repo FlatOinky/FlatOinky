@@ -15,7 +15,7 @@ export { HotbarsPlugin } from './plugins/hotbars';
 export { DynamicCanvasPlugin } from './plugins/dynamic_canvas';
 export { ObjectShakePlugin } from './plugins/object_shake';
 export { ProjectilesPlugin } from './plugins/projectiles';
-export { DarkenSkyPlugin } from './plugins/darken_sky';
+export { CanvasEffectsPlugin } from './plugins/canvas_effects';
 export { RenderCachePlugin } from './plugins/render_cache';
 export { XpDropsPlugin } from './plugins/xp_drops';
 export { ParticlesPlugin } from './plugins/particles';
