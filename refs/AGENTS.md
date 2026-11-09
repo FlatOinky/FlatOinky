@@ -34,11 +34,14 @@ On click, the main process assembles the archive from:
 - the last `play.html` retained when `getClientHtmlText` ran (avoids re-POSTing `play.php`),
 - the inline entries from the manifest,
 - a fresh `getClientAsset` fetch for each remote URL (with a per-asset error placeholder),
-- `socket_messages-<ISO>.txt` — last 1000 websocket string frames captured while
+- `socket_messages-<ISO>.txt` — last 5000 websocket string frames captured while
   Devtools was enabled (one per line: ISO-8601 UTC timestamp, `send` or `receive`, then
   the message; empty if none). Outbound `CONNECT=` payloads are stored as
   `CONNECT=<scrubbed>`. The filename stamp is ISO-8601 with `:` replaced by `-` so
   successive unpacks into `refs/` do not overwrite earlier dumps.
+- `snapshots/<ISO>/` — a live state snapshot taken at click time (not retained between
+  saves). See the contents guide. Only `Globals.connect_str` and outbound `CONNECT=`
+  payloads are scrubbed; entity dumps and `live-dom.html` keep other players' usernames.
 
 `Globals.connect_str` is scrubbed in main before packing.
 
@@ -63,9 +66,22 @@ Top level:
 - `inline-0.js` — inline reload/navigation guard extracted from the page.
 - `inline-23.js` — inline bootstrap: sets `Globals.connect_str` and calls `connect(...)` /
   `position_chat()`.
-- `socket_messages-<ISO>.txt` — session-captured websocket string frames (last 1000,
+- `socket_messages-<ISO>.txt` — session-captured websocket string frames (last 5000,
   only while Devtools was enabled; each line is `ISO-8601 timestamp` then `send` or
   `receive` then the message). Filename is timestamped so multiple unpacks accumulate.
+- `snapshots/<ISO>/` — one folder per save:
+  - `server.json` — `Globals` (including `global_variables` and `local_id`) and
+    server-pushed tables (sell prices, quests, achievements, levels, potions, farming
+    timers, loot and XP trackers, teleport tiles, current map).
+  - `entities.json` — full dumps of players, NPCs, map objects, items, bank, projectiles,
+    particles, hit splats, and equipment maps. Includes other players' usernames.
+  - `settings.json` — `localStorage`, live display toggles, canvas metrics, weather flags.
+  - `environment.json` — app version, update channel, Electron/Chrome versions, zoom,
+    character, active profile, enabled plugins, installed user scripts, keybind assignments.
+  - `live-dom.html` — the document at save time. The injected game script and style
+    bodies are replaced with a pointer to `transpiled/`.
+  - `transpiled/script.js` and `transpiled/style.css` — the script and style actually
+    injected (after Flat Oinky's rewrites), not the raw sources at the archive root.
 - `flat-mmo-references.tar.gz` — the original archive the above were extracted from.
 
 `js/` — external client scripts:

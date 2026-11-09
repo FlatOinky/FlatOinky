@@ -39,7 +39,8 @@ client.
     does not take the lock, so a prod instance and a `pnpm dev` instance cannot
     intercept each other.
   - `ipc_main.ts` — IPC handlers (login, worlds, client HTML/assets, storage/profiles,
-    file save, notifications, saveReferences from a ReferenceManifest, window reload,
+    file save, notifications, saveReferences from a ReferenceManifest (first-party
+    sources plus a live state snapshot), window reload,
     asset-cache clear, openDevTools, updater check/download/install/channel,
     getAppState, and user scripts: catalog, install, enablement, updates, GM values,
     and the `GM_xmlhttpRequest` proxy).

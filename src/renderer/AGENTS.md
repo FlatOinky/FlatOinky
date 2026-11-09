@@ -62,7 +62,9 @@ Layout under `src/`:
   reachable from it (`character`, `ui`, `canvas`, `container`, `ipc`, `alerts`,
   `contextMenu`, `keybinds`, `actions`, `log`, `settings`, `storages`, `collections`,
   `timers`, `isLocalUsername`, `getPlayer`, `getLocalPlayer`). System-only APIs (`updater`,
-  openDevTools, saveReferences) stay off the context. `alerts`, `contextMenu`, `keybinds`,
+  openDevTools, saveReferences) stay off the context. Save References also archives a
+  live state snapshot (server tables, entities, settings, transpiled sources, live DOM,
+  and Oinky environment). `alerts`, `contextMenu`, `keybinds`,
   and `actions` are getters that throw if accessed before those systems are initialized.
   Plugins register actions with `context.actions.register(options, callback)`. The plugin
   namespace, name, and category are already bound, and that owner is stored on the action.

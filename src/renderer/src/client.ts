@@ -930,6 +930,7 @@ export const initClient = async (character: FMMO.Character, references: FMMO.Ref
 		userScriptsStorage,
 		references,
 		appState,
+		character,
 	});
 
 	const startPlugins = async () => {

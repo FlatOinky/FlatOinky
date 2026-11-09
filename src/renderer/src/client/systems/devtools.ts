@@ -11,6 +11,15 @@ import {
 } from '../settings';
 import type { ClientUI } from '../ui';
 import * as el from '../ui/elements';
+import { collectSnapshot, type SnapshotDeps } from './devtools/snapshot';
+
+export type DevtoolsDeps = SnapshotDeps & {
+	ui: ClientUI;
+	clientSettings: ClientSettings;
+	logging: Logging;
+	references: FMMO.ReferenceManifest;
+	setRecordSocketMessage: (fn: (direction: 'send' | 'receive', message: string) => void) => void;
+};
 
 const initialSettings = {
 	enabledDevtools: false,
@@ -51,11 +60,19 @@ const loggingNodes = (logging: Logging): SettingsNode[] => {
 
 export const initDevtoolsSystem = async (
 	lifecycle: Lifecycle,
-	ui: ClientUI,
-	clientSettings: ClientSettings,
-	logging: Logging,
-	references: FMMO.ReferenceManifest,
-	setRecordSocketMessage: (fn: (direction: 'send' | 'receive', message: string) => void) => void,
+	{
+		ui,
+		clientSettings,
+		logging,
+		references,
+		setRecordSocketMessage,
+		plugins,
+		userScripts,
+		keybindsStorage,
+		profiles,
+		updater,
+		character,
+	}: DevtoolsDeps,
 ): Promise<void> => {
 	const storage = await createGlobalStorage('systems', 'devtools', lifecycle);
 	const settings = storage.reactive('settings', initialSettings);
@@ -108,16 +125,34 @@ export const initDevtoolsSystem = async (
 				button.textContent = 'Save References';
 				button.onclick = () => {
 					const stamp = new Date().toISOString().replaceAll(':', '-');
-					saveReferences({
-						...references,
-						inline: [
-							...references.inline,
-							{
-								name: `socket_messages-${stamp}.txt`,
-								content: socketMessages.join('\n'),
-							},
-						],
-					});
+					const save = (snapshot: FMMO.Reference[]): void => {
+						saveReferences({
+							...references,
+							inline: [
+								...references.inline,
+								{
+									name: `socket_messages-${stamp}.txt`,
+									content: socketMessages.join('\n'),
+								},
+								...snapshot,
+							],
+						});
+					};
+					const snapshotDeps: SnapshotDeps = {
+						plugins,
+						userScripts,
+						keybindsStorage,
+						profiles,
+						updater,
+						character,
+					};
+					void collectSnapshot(snapshotDeps, stamp)
+						.then(save)
+						.catch((error: unknown) => {
+							const message = error instanceof Error ? error.message : String(error);
+							logging.logger.error(`Save References snapshot failed: ${message}`);
+							save([]);
+						});
 				};
 			});
 		});

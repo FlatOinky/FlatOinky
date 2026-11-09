@@ -41,6 +41,7 @@ export type SystemsContext = {
 	userScriptsStorage: ClientStorage;
 	references: FMMO.ReferenceManifest;
 	appState: AppState;
+	character: FMMO.Character;
 };
 
 export const initSystems = async (
@@ -65,6 +66,7 @@ export const initSystems = async (
 		userScriptsStorage,
 		references,
 		appState,
+		character,
 	}: SystemsContext,
 ): Promise<void> => {
 	let systemsLifecycle: Lifecycle | null = null;
@@ -93,7 +95,19 @@ export const initSystems = async (
 
 		initUpdatesSystem(systems, ui, updater, settings);
 		initUserScriptsMenu(systems, ui, settings);
-		await initDevtoolsSystem(systems, ui, settings, logging, references, setRecordSocketMessage);
+		await initDevtoolsSystem(systems, {
+			ui,
+			clientSettings: settings,
+			logging,
+			references,
+			setRecordSocketMessage,
+			plugins,
+			userScripts,
+			keybindsStorage,
+			profiles,
+			updater,
+			character,
+		});
 	};
 
 	const restartSystems = async (): Promise<void> => {
