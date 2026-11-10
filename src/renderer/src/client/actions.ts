@@ -102,7 +102,7 @@ const normalizeStatus = (value: ReturnType<ActionCallback>): ActionStatus => {
 
 const sweepRemaining = (record: ActionRecord, now: number): number => {
 	const regenLeft = record.pool
-		? timeLeft(record.pool.regenStartedAt, record.pool.regenMs, now)
+		? timeLeft(record.pool.regens[0] ?? null, record.pool.regenMs, now)
 		: 0;
 	const limitLeft =
 		record.rateLimitMs === null ? 0 : timeLeft(record.lastCompletedAt, record.rateLimitMs, now);

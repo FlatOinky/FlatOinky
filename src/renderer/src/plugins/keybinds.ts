@@ -99,6 +99,7 @@ export const KeybindsPlugin: Plugin = {
 				display: icon(eatIcon),
 				background: glow('32% 28%', '#f3d2b0', '#c45c48', '#5c2424'),
 				requestKeycombo: { keys: ['Digit2'] },
+				rateLimit: 2850,
 			},
 			() => sendShortcut(2),
 		);
@@ -121,6 +122,7 @@ export const KeybindsPlugin: Plugin = {
 				background: glow('40% 35%', '#efe8c4', '#b7a56a', '#5c5430'),
 				display: icon(DODGE_ICON),
 				requestKeycombo: { keys: ['Digit4'] },
+				rateLimit: 500,
 				pool: {
 					cap: () => {
 						const level = agilityLevel();

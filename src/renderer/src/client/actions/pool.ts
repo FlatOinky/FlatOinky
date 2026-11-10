@@ -6,37 +6,44 @@ export type PoolState = {
 	cap: number;
 	uses: number;
 	regenMs: number;
-	regenStartedAt: number | null;
+	regens: number[];
 };
 
 export const readPoolValue = (value: PoolValue): number =>
 	typeof value === 'function' ? value() : value;
 
-// Reads cap and regenerateRate. `now` starts regen when the pool is below cap and
-// nothing is already regenerating. A non-positive rate fills the pool immediately.
+// Reads cap and regenerateRate, then reconciles one start timestamp per missing use.
+// A non-positive rate fills the pool immediately. `now` starts timers for uses the
+// pool is still short of when the cap grows or the pool is created below cap.
 export const syncPool = (state: PoolState, now?: number): void => {
 	const cap = Math.max(0, readPoolValue(state.capSource));
 	state.cap = cap;
 	state.regenMs = Math.max(0, readPoolValue(state.regenSource));
 	if (state.uses > cap) state.uses = cap;
 	if (state.uses < 0) state.uses = 0;
-	if (state.regenMs <= 0 || state.uses >= cap) {
-		if (state.regenMs <= 0) state.uses = cap;
-		state.regenStartedAt = null;
+	if (state.regenMs <= 0) {
+		state.uses = cap;
+		state.regens = [];
 		return;
 	}
-	if (state.regenStartedAt === null && now !== undefined) state.regenStartedAt = now;
+	const tracked = state.uses + state.regens.length;
+	if (tracked > cap) state.regens.length = Math.max(0, cap - state.uses);
+	if (tracked < cap && now !== undefined) {
+		for (let missing = cap - tracked; missing > 0; missing -= 1) state.regens.push(now);
+	}
 };
 
 export const advancePool = (state: PoolState, now: number): void => {
-	if (state.regenStartedAt === null) return;
-	while (state.regenStartedAt !== null) {
-		const duration = state.regenMs;
-		if (duration <= 0 || now - state.regenStartedAt < duration) break;
-		state.uses += 1;
-		state.regenStartedAt += duration;
-		syncPool(state, state.regenStartedAt);
+	const duration = state.regenMs;
+	let completed = 0;
+	while (state.regens.length > 0) {
+		const startedAt = state.regens[0];
+		if (startedAt === undefined || duration <= 0 || now - startedAt < duration) break;
+		state.regens.shift();
+		completed += 1;
 	}
+	if (completed > 0) state.uses += completed;
+	if (completed > 0 || state.regens.length > 0) syncPool(state);
 };
 
 // Advance, re-read cap and rate, then advance again so a shorter new rate can
@@ -48,8 +55,9 @@ export const preparePool = (state: PoolState, now: number): void => {
 };
 
 export const spendUse = (state: PoolState, now: number): void => {
-	if (state.uses > 0) state.uses -= 1;
-	if (state.uses < state.cap && state.regenStartedAt === null) state.regenStartedAt = now;
+	if (state.uses <= 0) return;
+	state.uses -= 1;
+	state.regens.push(now);
 };
 
 export const createPool = (
@@ -64,7 +72,7 @@ export const createPool = (
 		cap: 0,
 		uses: 0,
 		regenMs: 0,
-		regenStartedAt: null,
+		regens: [],
 	};
 	syncPool(state);
 	const cap = state.cap;
