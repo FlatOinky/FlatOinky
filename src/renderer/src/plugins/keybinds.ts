@@ -232,7 +232,7 @@ export const KeybindsPlugin: Plugin = {
 				}
 				close_global_market();
 				const focused = context.ui.windows.getFocusedWindow();
-				if (!focused || focused.state.locked || focused.state.minimized) return;
+				if (!focused || focused.toolbar || focused.state.locked || focused.state.minimized) return;
 				focused.hideWindow();
 			},
 		);

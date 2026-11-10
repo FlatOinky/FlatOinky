@@ -186,7 +186,10 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	root.appendChild(container);
 
 	const windowFrames: Partial<{ [windowId: string]: HTMLElement }> = {};
-	const liveWindows = new Map<string, { id: string; state: WindowState; hideWindow: () => void }>();
+	const liveWindows = new Map<
+		string,
+		{ id: string; state: WindowState; toolbar: boolean; hideWindow: () => void }
+	>();
 	let focusSequence = 0;
 	let focusedId: string | undefined;
 
@@ -571,7 +574,12 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 				windowButton?.setAttribute('data-tip', title);
 			},
 		};
-		liveWindows.set(id, { id, state: windowState, hideWindow: api.hideWindow });
+		liveWindows.set(id, {
+			id,
+			state: windowState,
+			toolbar: variant.attributes?.['oinky-window-kind'] === 'toolbar',
+			hideWindow: api.hideWindow,
+		});
 		return api;
 	};
 
@@ -656,6 +664,8 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			prepare: ({ state, defaultState }) => {
 				state.width = defaultState.width;
 				state.height = defaultState.height;
+				// The toolbar frame has no minimize control to undo a stored minimize.
+				state.minimized = false;
 			},
 		});
 	};
