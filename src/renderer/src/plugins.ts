@@ -1,6 +1,7 @@
 export { ChatPlugin } from './plugins/chat';
 export { AudioPlugin } from './plugins/audio';
 export { BotWatcherPlugin } from './plugins/bot_watcher';
+export { MeteorTrackerPlugin } from './plugins/meteor_tracker';
 export { StallTrackerPlugin } from './plugins/stall_tracker';
 export { MetricsPlugin } from './plugins/metrics';
 export { ThemesPlugin } from './plugins/themes';
