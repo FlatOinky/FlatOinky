@@ -219,6 +219,7 @@ export type PluginEvents = {
 	makeUiChange?: (item: null | string, completed: number, total: number, sessionXp: number) => void;
 	setMap?: (map: string) => void;
 	objectDepleted?: (object: FMMO.MapObject) => void;
+	objectsUpdated?: (objects: FMMO.MapObject[]) => void;
 	updateSleep?: (value: number) => void;
 	updateWorship?: (value: number) => void;
 	updateHealth?: (username: string, current: number, max: number, showBar: boolean) => void;
@@ -575,6 +576,9 @@ const initPlugins = (
 			objectDepleted: (object) => {
 				dispatchEvent((instance) => instance.callbacks.events?.objectDepleted?.(object));
 			},
+			objectsUpdated: (objects) => {
+				dispatchEvent((instance) => instance.callbacks.events?.objectsUpdated?.(objects));
+			},
 			updateSleep: (value) => {
 				dispatchEvent((instance) => instance.callbacks.events?.updateSleep?.(value));
 			},
@@ -728,6 +732,7 @@ const createClientHooks = (plugins: ClientPlugins) => {
 						if (filename === undefined || filename === object.filename) continue;
 						plugins.api.events.objectDepleted(object);
 					}
+					plugins.api.events.objectsUpdated(map_objects);
 				});
 				return;
 			}

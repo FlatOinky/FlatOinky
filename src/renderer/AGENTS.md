@@ -111,7 +111,9 @@ Layout under `src/`:
   add a new hook or mutator by updating the matching list and the nested types in
   [src/client.ts](src/client.ts). `objectDepleted` fires after `UPDATE_OBJECTS` when
   an existing map object's `filename` changes (the snapshot is taken before the game
-  applies the command; the event runs on a microtask with the new object). Paint-path
+  applies the command; the event runs on a microtask with the new object).
+  `objectsUpdated` fires in that same microtask with the current `map_objects`, including
+  objects that were already empty when the map loaded. Paint-path
   mutators must use fixed-arity dispatchers
   (no rest/spread) so they stay allocation-free. `contextMenu` is a map of target type
   to `(target) => ContextMenuItem[]`; plugins branch on `target.subtype` inside a type
@@ -230,7 +232,9 @@ mountHeaderExtras? })` builds a per-cue `AlertScope` card.
 5. **UI** — on `context.ui`:
    - Taskbar (`context.ui.taskbar`): `initMenuItem`, `initTrayButton`,
      `initTrayButtonMenu`, `initWidget`, `initActivity`, `initMenuAction`,
-     `initWindowButton`, plus `elements` (e.g. `chatContainer`)
+     `initWindowButton`, plus `elements` (e.g. `chatContainer`).
+     `initTrayButtonMenu` returns `setBadge(value)`. A number or string shows a badge in
+     the button corner; `null`, `0`, or `''` hides it.
    - Windows: `windows.initWindow(lifecycle, { id, title, storage, titleSlot?, closable?, taskbar?, lockToggle?, ... })` persists
      `WindowState` (including `open`) under `window/${id}`; `windows.isOpen(storage, id)`
      reads that flag before the window exists. `titleSlot` replaces the text title inside

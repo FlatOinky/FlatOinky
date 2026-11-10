@@ -153,6 +153,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			`oink-taskbar-tray-${trayMenu.getAttribute('oinky') ?? id}`.replaceAll('/', '-'),
 		);
 
+		trayButton.classList.add('indicator');
 		trayButton.style.anchorName = `--${anchorId}`;
 		trayButton.setAttribute('popovertarget', popoverId);
 
@@ -160,7 +161,22 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 		trayMenu.setAttribute('id', popoverId);
 		trayMenu.style.setProperty('position-anchor', `--${anchorId}`);
 
-		return { trayButton, trayMenu, anchorId, popoverId };
+		let badge: HTMLSpanElement | undefined;
+		const setBadge = (value: number | string | null) => {
+			if (value === null || value === 0 || value === '') {
+				if (badge) badge.style.display = 'none';
+				return;
+			}
+			if (!badge) {
+				badge = document.createElement('span');
+				badge.className = 'indicator-item badge badge-primary badge-xs pointer-events-none';
+				trayButton.appendChild(badge);
+			}
+			badge.style.display = '';
+			badge.textContent = String(value);
+		};
+
+		return { trayButton, trayMenu, anchorId, popoverId, setBadge };
 	};
 
 	const initWindowButton = (

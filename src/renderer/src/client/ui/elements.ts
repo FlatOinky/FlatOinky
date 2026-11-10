@@ -241,6 +241,7 @@ export const icon = {
 	binoculars: setupIconElement('icon-[tabler--binoculars]'),
 	bread: setupIconElement('icon-[tabler--bread]'),
 	breadOff: setupIconElement('icon-[tabler--bread-off]'),
+	buildingStore: setupIconElement('icon-[tabler--building-store]'),
 	bulb: setupIconElement('icon-[tabler--bulb]'),
 	bulbOff: setupIconElement('icon-[tabler--bulb-off]'),
 	chartLine: setupIconElement('icon-[tabler--chart-line]'),
