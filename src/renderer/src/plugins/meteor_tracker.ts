@@ -297,6 +297,7 @@ export const MeteorTrackerPlugin: Plugin = {
 		const mountReportButton = (container: HTMLElement) =>
 			el.button`btn btn-sm btn-primary w-full`.mount(container, 'report', (button) => {
 				button.textContent = 'Report Meteor';
+				button.disabled = true;
 				button.onclick = () => reportAction.execute();
 			});
 
@@ -336,7 +337,7 @@ export const MeteorTrackerPlugin: Plugin = {
 			if (!trackerWindow || trackerWindow.window.state.minimized) return;
 			paintList(trackerWindow.list, trackerWindow.rows);
 			const found = currentChecklist(Date.now()).found;
-			trackerWindow.report.style.display = found ? '' : 'none';
+			trackerWindow.report.disabled = !found;
 		};
 
 		const createWindow = (): TrackerWindow => {
@@ -382,7 +383,7 @@ export const MeteorTrackerPlugin: Plugin = {
 			if (!trayMenu.matches(':popover-open')) return;
 			paintList(trayRowsHost, trayRows);
 			footer.textContent = `Next Meteor in ${formatCountdown(hourFloor(now) + HOUR_MS - now)}`;
-			reportButton.style.display = current.found ? '' : 'none';
+			reportButton.disabled = !current.found;
 		};
 
 		const paint = (now = Date.now()) => {
