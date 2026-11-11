@@ -139,6 +139,8 @@ const extractClientPage = (clientDocument: Document): ExtractedClientPage => {
 	};
 };
 
+const characterPageUrl = (path: string): string => new URL(path, `${FLAT_MMO_ORIGIN}/`).href;
+
 const parseCharactersHtmlText = (htmlText: string): FMMO.Character[] => {
 	if (typeof htmlText !== 'string' || htmlText.length < 1) return [];
 	const charactersDocument = parseHtmlText(htmlText);
@@ -147,11 +149,19 @@ const parseCharactersHtmlText = (htmlText: string): FMMO.Character[] => {
 	);
 	newsLinkText = charactersDocument.querySelector('a[href=news]')?.textContent ?? newsLinkText;
 	return [...characterElements.values()]
-		.map((element) => ({
-			id: element.getAttribute('onclick')?.slice(17, -1) ?? '',
-			username: element.querySelector('h2')?.innerText.trim() ?? '',
-			level: element.children?.[3].textContent?.slice(7) ?? '',
-		}))
+		.map((element) => {
+			const levelRow = [...element.querySelectorAll('div')].find((node) =>
+				/level\s*:/i.test(node.textContent ?? ''),
+			);
+			const trophyPath =
+				levelRow?.querySelector('img')?.getAttribute('src') ?? 'images/icons/total.png';
+			return {
+				id: element.getAttribute('onclick')?.match(/clicks_character\((\d+)\)/)?.[1] ?? '',
+				username: element.querySelector('h2')?.innerText.trim() ?? '',
+				level: levelRow?.textContent?.match(/level\s*:\s*(\d+)/i)?.[1] ?? '',
+				trophy: characterPageUrl(trophyPath),
+			};
+		})
 		.filter(({ id, username }) => id.length > 0 && username.length > 0);
 };
 

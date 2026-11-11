@@ -12,6 +12,7 @@ declare namespace FMMO {
 		id: string;
 		username: string;
 		level: string;
+		trophy: string;
 	};
 
 	export type Reference = { name: string; content: string };
