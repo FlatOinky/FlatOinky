@@ -169,7 +169,8 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 			}
 			if (!badge) {
 				badge = document.createElement('span');
-				badge.className = 'indicator-item badge badge-primary badge-xs pointer-events-none';
+				badge.className =
+					'indicator-item badge badge-primary badge-xs pointer-events-none min-w-0! px-1!';
 				trayButton.appendChild(badge);
 			}
 			badge.style.display = '';
