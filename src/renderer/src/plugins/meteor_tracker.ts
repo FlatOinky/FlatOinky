@@ -313,7 +313,10 @@ export const MeteorTrackerPlugin: Plugin = {
 				},
 			},
 		);
-		const body = el.div`flex flex-col gap-1.5 py-2.5 px-1.5 text-sm min-w-52`.mount(trayMenu, 'body');
+		const body = el.div`flex flex-col gap-1.5 py-2.5 px-1.5 text-sm min-w-52`.mount(
+			trayMenu,
+			'body',
+		);
 		const trayList = el.div`flex flex-col max-h-72 overflow-y-auto`.mount(body, 'list');
 		const trayRowsHost = el.div`mx-1 my-1 flex flex-col`.mount(trayList, 'rows');
 		const trayRows = new Map<string, LocationRow>();

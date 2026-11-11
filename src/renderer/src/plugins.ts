@@ -3,6 +3,7 @@ export { AudioPlugin } from './plugins/audio';
 export { BotWatcherPlugin } from './plugins/bot_watcher';
 export { MeteorTrackerPlugin } from './plugins/meteor_tracker';
 export { StallTrackerPlugin } from './plugins/stall_tracker';
+export { FarmingTrackerPlugin } from './plugins/farming_tracker';
 export { MetricsPlugin } from './plugins/metrics';
 export { ThemesPlugin } from './plugins/themes';
 export { TileKickersPlugin } from './plugins/tile_kickers';

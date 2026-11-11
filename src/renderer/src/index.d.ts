@@ -54,6 +54,8 @@ declare global {
 	function open_key_bindings_modal(): void;
 	function get_level(playerXP: number, includeVirtual?: boolean): number;
 	function get_var(key: string): number;
+	function format_snake_case(value: string): string;
+	var farming_patch_timers: { [patch: string]: { seed: string; timer: number } };
 	function toggle_sound(): void;
 	function toggle_music(): void;
 	function add_to_chat(
