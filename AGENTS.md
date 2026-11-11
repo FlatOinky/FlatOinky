@@ -41,7 +41,9 @@ client.
   - `ipc_main.ts` — IPC handlers (login, worlds, client HTML/assets, storage/profiles,
     file save, notifications, saveReferences from a ReferenceManifest (first-party
     sources plus a live state snapshot), window reload,
-    asset-cache clear, openDevTools, updater check/download/install/channel,
+    asset-cache clear, clearAllData (wipe this environment's databases and
+    session storage except cookies, then relaunch), openDevTools, updater
+    check/download/install/channel,
     getAppState, and user scripts: catalog, install, enablement, updates, GM values,
     and the `GM_xmlhttpRequest` proxy).
   - `updater.ts` — electron-updater wrapper: channel (`latest`/`beta`), check,
@@ -87,7 +89,7 @@ client.
   - `client/logging.ts` — `initLogging` factory backing `PluginContext.log`. Emit is
     gated by the Devtools enable toggle; log-level controls live in the Devtools tray.
   - `client/ipc_renderer.ts` — renderer-side IPC facade (reload, save file,
-    clearAssetCache, saveReferences, openDevTools, notifications, updates, getAppState)
+    clearAssetCache, clearAllData, saveReferences, openDevTools, notifications, updates, getAppState)
     plus re-exports of the storage/profile API from `client/ipc_renderer/ipc_storage.ts`
     and the user-script API from `client/ipc_renderer/ipc_user_scripts.ts`.
   - `client/updater.ts` — update UI state machine wired to the main updater.

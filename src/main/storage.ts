@@ -140,6 +140,16 @@ const pendingSettings = new Map<string, PendingSettingsDocument>();
 let settingsFlushTimer: ReturnType<typeof setTimeout> | undefined;
 let settingsFirstPendingAt: number | undefined;
 
+/** Drop queued setting writes without persisting them. */
+export const discardPendingSettings = (): void => {
+	if (settingsFlushTimer !== undefined) {
+		clearTimeout(settingsFlushTimer);
+		settingsFlushTimer = undefined;
+	}
+	settingsFirstPendingAt = undefined;
+	pendingSettings.clear();
+};
+
 /**
  * Flush all pending setting updates to the database.
  */

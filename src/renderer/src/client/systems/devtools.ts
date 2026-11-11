@@ -1,6 +1,6 @@
 import type { Lifecycle } from '../../client';
 import { createGlobalStorage } from '../client_storage';
-import { openDevTools, saveReferences } from '../ipc_renderer';
+import { clearAllData, openDevTools, saveReferences } from '../ipc_renderer';
 import type { Logging } from '../logging';
 import { logLevelLabels, logLevels } from '../logging';
 import {
@@ -156,6 +156,19 @@ export const initDevtoolsSystem = async (
 				};
 			});
 		});
+		el.div`divider my-0`.mount(body);
+		const dangerMenu = el.ul`menu w-full p-0`.mount(body);
+		el.li``.mount(dangerMenu, 'clearAllData', (item) => {
+			el.button`text-error`.mount(item, 'button', (button) => {
+				button.textContent = 'Clear all data';
+				button.onclick = () => {
+					const isConfirmed = window.confirm(
+						'Clear all Flat Oinky data? This deletes every profile, setting, history, user script, and cache, then restarts the app. You will stay signed in.',
+					);
+					if (isConfirmed) clearAllData();
+				};
+			});
+		});
 	};
 
 	syncDevtoolsMenu();
@@ -166,7 +179,7 @@ export const initDevtoolsSystem = async (
 		.append(
 			helpers.toggle(
 				'Enable Devtools',
-				'Show the Devtools tray, including logging controls, Open DevTools, and Save References.',
+				'Show the Devtools tray, including logging controls, Open DevTools, Save References, and Clear all data.',
 				() => settings.enabledDevtools,
 				(value) => {
 					settings.enabledDevtools = value;

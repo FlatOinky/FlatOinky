@@ -18,6 +18,8 @@ export const openDevTools = (): void => ipcRenderer.send('openDevTools');
 
 export const clearAssetCache = (): Promise<void> => ipcRenderer.invoke('clearAssetCache');
 
+export const clearAllData = (): void => ipcRenderer.send('clearAllData');
+
 export const getAssetCacheSize = (): Promise<number> => ipcRenderer.invoke('getAssetCacheSize');
 
 export const createNotification = (title: string, message?: string): void => {

@@ -5,6 +5,7 @@ import * as flatMmo from './flat_mmo';
 import * as updater from './updater';
 import { getAppState } from './app_state';
 import { clearAssetCache, getAssetCacheSizeBytes } from './asset_cache';
+import { clearAllData } from './clear_data';
 import { saveFile, saveReferencesArchive } from './files';
 import type { StorageKey } from './storage';
 
@@ -16,6 +17,9 @@ export const ipcMainSetup = (): void => {
 	});
 
 	ipcMain.handle('clearAssetCache', () => clearAssetCache());
+	ipcMain.on('clearAllData', () => {
+		void clearAllData();
+	});
 	ipcMain.handle('getAssetCacheSize', () => getAssetCacheSizeBytes());
 
 	let lastRequestFileSaveTimestamp = 0;

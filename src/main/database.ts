@@ -136,6 +136,14 @@ const openDatabases = new Set<{
 	filename: string;
 	close: () => void;
 }>();
+
+type RegisteredDatabase = {
+	filename: string;
+	getFilePath: () => string;
+	close: () => void;
+};
+
+const registeredDatabases = new Set<RegisteredDatabase>();
 let closingHooked = false;
 
 const ensureClosingHook = (): void => {
@@ -166,6 +174,18 @@ export const initDatabase = (options: DatabaseOptions) => {
 	const getFilePath = (): string =>
 		path.join(app.getPath('userData'), 'oinky-storage', options.filename);
 
+	const close = (): void => {
+		if (!database) return;
+		database.close();
+		database = undefined;
+	};
+
+	registeredDatabases.add({
+		filename: options.filename,
+		getFilePath,
+		close,
+	});
+
 	const getDatabase = (): DatabaseSync => {
 		if (database) return database;
 		const filepath = getFilePath();
@@ -176,15 +196,7 @@ export const initDatabase = (options: DatabaseOptions) => {
 			database.exec(pragma);
 		}
 		applySchema(database);
-		const handle = {
-			filename: options.filename,
-			close: () => {
-				if (!database) return;
-				database.close();
-				database = undefined;
-			},
-		};
-		openDatabases.add(handle);
+		openDatabases.add({ filename: options.filename, close });
 		ensureClosingHook();
 		return database;
 	};
@@ -207,6 +219,21 @@ export const initDatabase = (options: DatabaseOptions) => {
 	};
 
 	return { getDatabase, getFilePath, transaction };
+};
+
+/** Close every registered database and delete its file, including WAL sidecars. */
+export const removeAllDatabases = (): void => {
+	for (const entry of registeredDatabases) {
+		try {
+			entry.close();
+		} catch (error) {
+			console.warn(`Failed to close database ${entry.filename}:`, error);
+		}
+		const filepath = entry.getFilePath();
+		for (const suffix of ['', '-wal', '-shm']) {
+			fs.rmSync(`${filepath}${suffix}`, { force: true });
+		}
+	}
 };
 
 export const { getDatabase, transaction } = initDatabase({
