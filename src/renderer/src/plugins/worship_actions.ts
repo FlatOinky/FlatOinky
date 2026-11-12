@@ -133,11 +133,11 @@ const useWorship = (ability: WorshipAbility): void => {
 	Globals.websocket?.send(`USE_WORSHIP=${ability.slug}`);
 };
 
-export const WorshipPlugin: Plugin = {
-	namespace: 'oinky/worship',
-	name: 'Worship',
+export const WorshipActionsPlugin: Plugin = {
+	namespace: 'oinky/worship_actions',
+	name: 'Worship Actions',
 	category: 'Adapters',
-	description: 'Worship abilities as actions.',
+	description: 'Registers worship abilities as client actions.',
 	init: (_lifecycle, context) => {
 		for (const ability of abilities) {
 			context.actions.register(

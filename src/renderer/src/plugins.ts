@@ -21,5 +21,5 @@ export { RenderCachePlugin } from './plugins/render_cache';
 export { StallTrackerPlugin } from './plugins/stall_tracker';
 export { ThemesPlugin } from './plugins/themes';
 export { TileKickersPlugin } from './plugins/tile_kickers';
-export { WorshipPlugin } from './plugins/worship';
+export { WorshipActionsPlugin } from './plugins/worship_actions';
 export { XpDropsPlugin } from './plugins/xp_drops';
