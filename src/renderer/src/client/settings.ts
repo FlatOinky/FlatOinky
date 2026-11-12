@@ -1772,7 +1772,17 @@ type MountedClientTab = {
 	panel: HTMLElement;
 };
 
-const initClientWindowTabs = () => {
+const CLIENT_WINDOW_TAB_STORAGE = 'window/client-window';
+
+const isClientWindowTab = (value: unknown): value is ClientWindowTab =>
+	typeof value === 'string' && CLIENT_WINDOW_TABS.some((entry) => entry.id === value);
+
+const readClientWindowTab = (storage: ClientStorage): ClientWindowTab => {
+	const stored = storage.get(CLIENT_WINDOW_TAB_STORAGE);
+	return isClientWindowTab(stored) ? stored : 'profiles';
+};
+
+const initClientWindowTabs = (initialTab: ClientWindowTab) => {
 	const tablist =
 		el.div`tabs tabs-box tabs-xs shrink-0 bg-transparent gap-1 border-none shadow-none`.element;
 	const panels = el.div`h-full min-h-0`.element;
@@ -1782,11 +1792,12 @@ const initClientWindowTabs = () => {
 		const tab = el.label`tab`.mount(tablist, `${entry.id}-tab`);
 		const radio = el.input.radio``.mount(tab, 'input');
 		radio.name = TAB_GROUP;
+		radio.checked = entry.id === initialTab;
 		el.span``.mount(tab, 'label', (span) => {
 			span.textContent = entry.label;
 		});
 		const panel = el.div`h-full min-h-0 overflow-hidden`.mount(panels, `${entry.id}-panel`);
-		if (entry.id !== 'plugins') panel.classList.add('hidden');
+		if (entry.id !== initialTab) panel.classList.add('hidden');
 		tabs[entry.id] = { radio, panel };
 	}
 
@@ -1809,12 +1820,12 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 	const systemMenu = initSettingsMenu(lifecycle, systemRegistry, {
 		id: 'system',
 	});
-	const clientTabs = initClientWindowTabs();
+	let activeTab = readClientWindowTab(storage);
+	const clientTabs = initClientWindowTabs(activeTab);
 	clientTabs.tabs.plugins.panel.appendChild(pluginMenu.container);
 	clientTabs.tabs.system.panel.appendChild(systemMenu.container);
 
 	let settingsWindow: ReturnType<typeof initSettingsWindow> | undefined;
-	let activeTab: ClientWindowTab = 'plugins';
 	let keybindsOnVisible: (() => void) | undefined;
 	let userScriptsOnVisible: (() => void) | undefined;
 
@@ -1877,8 +1888,16 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		return newWindow;
 	};
 
+	const trayButton = ui.taskbar.initTrayButton(lifecycle, 'settings', {
+		title: 'Client Settings',
+		icon: ui.el.icon.settings``.element,
+	});
+
 	const selectTab = (tab: ClientWindowTab) => {
 		activeTab = tab;
+		if (storage.get(CLIENT_WINDOW_TAB_STORAGE) !== tab) {
+			storage.set(CLIENT_WINDOW_TAB_STORAGE, tab);
+		}
 		for (const entry of CLIENT_WINDOW_TABS) {
 			const mounted = clientTabs.tabs[entry.id];
 			mounted.radio.checked = entry.id === tab;
@@ -1925,11 +1944,7 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 		if (tab === 'userScripts' && isTabVisible('userScripts')) onVisible?.();
 	};
 
-	const trayButton = ui.taskbar.initTrayButton(lifecycle, 'settings', {
-		title: tabTitle('plugins'),
-		icon: ui.el.icon.settings``.element,
-	});
-	trayButton.onclick = () => openTab('plugins');
+	trayButton.onclick = () => openTab(activeTab);
 
 	const openMenuSection = (
 		tab: 'plugins' | 'system',
@@ -2012,8 +2027,6 @@ export const initSettings = (lifecycle: Lifecycle, ui: ClientUi, storage: Client
 			options.storage,
 		);
 	};
-
-	clientTabs.tabs.plugins.radio.checked = true;
 
 	return {
 		helpers: settingsHelpers,
