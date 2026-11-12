@@ -294,6 +294,8 @@ export type Plugin = {
 	description?: string;
 	/** Used when the profile has no stored enabled flag. Defaults to true. */
 	enabledByDefault?: boolean;
+	/** Start and dispatch order. Lower runs first. Defaults to 0. */
+	loadOrder?: number;
 	/** Rebuild the plugin when another window changes its storage. */
 	onRemoteSettings?: 'restart';
 	init: (
@@ -315,7 +317,7 @@ export type ClientPlugins = ReturnType<typeof initPlugins>;
 
 /**
  * Collects registered mutators for one name into a reused array, folds them
- * back-to-front (first-registered outermost), and memoizes the chain on the
+ * back-to-front (lowest loadOrder outermost), and memoizes the chain on the
  * original identity. Paint-path mutators must use fixed-arity wrappers — no
  * rest params or spread calls.
  */
@@ -387,7 +389,9 @@ const initPlugins = (
 	};
 
 	const notify = () => {
-		instanceList = Object.values(instances);
+		instanceList = Object.entries(instances)
+			.sort(([a], [b]) => (registry[a]?.loadOrder ?? 0) - (registry[b]?.loadOrder ?? 0))
+			.map(([, instance]) => instance);
 		refreshMutators();
 		for (const listener of listeners) listener();
 	};
@@ -427,6 +431,7 @@ const initPlugins = (
 		registry[plugin.namespace] = {
 			...plugin,
 			category: normalizePluginCategory(plugin.category),
+			loadOrder: plugin.loadOrder ?? 0,
 		};
 		notify();
 	};
@@ -505,7 +510,10 @@ const initPlugins = (
 
 	const startEnabled = async () => {
 		await migratePlugins(lifecycle, pluginsStorage);
-		for (const namespace of Object.keys(registry)) {
+		const namespaces = Object.values(registry)
+			.sort((a, b) => (a.loadOrder ?? 0) - (b.loadOrder ?? 0))
+			.map((plugin) => plugin.namespace);
+		for (const namespace of namespaces) {
 			if (!isEnabled(namespace)) continue;
 			await startPlugin(namespace);
 		}

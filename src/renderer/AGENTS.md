@@ -156,6 +156,8 @@ Minimal examples: [src/plugins/themes.ts](src/plugins/themes.ts) (small) and
      and its plugins in alphabetical order.
    - optional `enabledByDefault: false` when a fresh profile should leave the plugin off
      (a stored enabled flag always wins)
+   - optional `loadOrder` (default 0). Plugins start and dispatch in ascending order;
+     equal orders keep registration order
    - `init(lifecycle, context)` → `PluginCallbacks` (may be async)
    - optional `onRemoteSettings: 'restart'` when live-applying another window's
      settings is impractical (chat and metrics use this)
