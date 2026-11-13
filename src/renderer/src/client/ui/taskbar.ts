@@ -4,6 +4,7 @@ import {
 	createSvgIcon,
 	initElement,
 	mountElement,
+	setText,
 	type SvgIconOptions,
 	type SvgIconPath,
 } from './ui_utils';
@@ -174,7 +175,7 @@ export const initTaskbar = (lifecycle: Lifecycle, root: HTMLElement) => {
 				trayButton.appendChild(badge);
 			}
 			badge.style.display = '';
-			badge.textContent = String(value);
+			setText(badge, String(value));
 		};
 
 		return { trayButton, trayMenu, anchorId, popoverId, setBadge };

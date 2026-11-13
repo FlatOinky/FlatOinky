@@ -1,6 +1,5 @@
 import type { ElectronAPI } from '@electron-toolkit/preload';
 import type { StorageKey } from '../client_storage';
-
 const { ipcRenderer } = window.electron as ElectronAPI;
 
 export type ScopeKind = 'global' | 'profile' | 'character';

@@ -68,6 +68,11 @@ export const fadeRemoveElement = (
 	});
 };
 
+/** Assigning `textContent` always replaces the child Text node, even when the text is unchanged. */
+export const setText = (node: Node, text: string): void => {
+	if (node.textContent !== text) node.textContent = text;
+};
+
 export const getParentOinkyId = (element: Element | null | undefined): string => {
 	if (!element || element === document.body) return '';
 	return element.getAttribute('oinky') ?? getParentOinkyId(element.parentElement);

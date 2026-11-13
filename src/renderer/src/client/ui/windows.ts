@@ -33,7 +33,7 @@ const setStylePx = (
 
 const updateWindowFramePosition = (
 	frame: HTMLElement,
-	state: WindowState,
+	state: WindowRect,
 	options?: { size?: boolean },
 ) => {
 	if (options?.size !== false) {
@@ -133,6 +133,9 @@ type WindowState = {
 	open: boolean;
 };
 
+/** Geometry edited during a drag; it is written to the persisted state once, on release. */
+type WindowRect = Pick<WindowState, 'width' | 'height' | 'top' | 'left'>;
+
 type WindowOptions = {
 	id: string;
 	title: string;
@@ -162,7 +165,7 @@ type ToolbarWindowOptions = WindowOptions & {
 type GeometryDragHandler = (
 	element: HTMLElement,
 	mode: 'move' | 'resize',
-	onDelta: (x: number, y: number) => void,
+	onDelta: (rect: WindowRect, x: number, y: number) => void,
 	mouseDownCallback?: () => void,
 	mouseUpCallback?: () => void,
 ) => void;
@@ -287,17 +290,18 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 		const handleGeometryDrag: GeometryDragHandler = (
 			element: HTMLElement,
 			mode: 'move' | 'resize',
-			onDelta: (x: number, y: number) => void,
+			onDelta: (rect: WindowRect, x: number, y: number) => void,
 			mouseDownCallback?: () => void,
 			mouseUpCallback?: () => void,
 		) => {
 			let originLeft = 0;
 			let originTop = 0;
 			let rafId = 0;
+			const rect: WindowRect = { width: 0, height: 0, top: 0, left: 0 };
 
 			const applyMoveTransform = () => {
-				const dx = snapPx(windowState.left) - snapPx(originLeft);
-				const dy = snapPx(windowState.top) - snapPx(originTop);
+				const dx = snapPx(rect.left) - snapPx(originLeft);
+				const dy = snapPx(rect.top) - snapPx(originTop);
 				const next = dx === 0 && dy === 0 ? '' : `translate3d(${dx}px, ${dy}px, 0)`;
 				if (windowFrame.style.transform === next) return;
 				windowFrame.style.transform = next;
@@ -309,7 +313,7 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 					applyMoveTransform();
 					return;
 				}
-				updateWindowFramePosition(windowFrame, windowState);
+				updateWindowFramePosition(windowFrame, rect);
 			};
 
 			const scheduleVisual = () => {
@@ -323,6 +327,8 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 					rafId = 0;
 				}
 				if (mode === 'move') {
+					windowState.left = rect.left;
+					windowState.top = rect.top;
 					updateWindowFramePosition(windowFrame, windowState, { size: false });
 					windowFrame.style.transform = 'none';
 					// Flush used style while transition is still disabled so clearing
@@ -351,10 +357,14 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			handleElementDrag(
 				element,
 				(x, y) => {
-					onDelta(x, y);
+					onDelta(rect, x, y);
 					scheduleVisual();
 				},
 				() => {
+					rect.width = windowState.width;
+					rect.height = windowState.height;
+					rect.top = windowState.top;
+					rect.left = windowState.left;
 					originLeft = windowState.left;
 					originTop = windowState.top;
 					windowFrame.setAttribute('oinky-window-dragging', '');
@@ -372,9 +382,9 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 			handleGeometryDrag(
 				windowDraggable,
 				'move',
-				(x, y) => {
-					windowState.left = windowState.left + x;
-					windowState.top = windowState.top + y;
+				(rect, x, y) => {
+					rect.left = rect.left + x;
+					rect.top = rect.top + y;
 				},
 				() => {
 					windowDraggable.classList.remove('cursor-grab');
@@ -586,63 +596,63 @@ export const initWindows = (lifecycle: Lifecycle, root: HTMLElement, taskbar: Ta
 	const initWindow = (lifecycle: Lifecycle, options: WindowOptions) => {
 		return setupWindow(lifecycle, options, {
 			html: windowFrameTemplate,
-			prepare: ({ frame, state, handleGeometryDrag }) => {
+			prepare: ({ frame, handleGeometryDrag }) => {
 				const handleFrameEdgeDrag = (
 					windowEdge: HTMLElement,
-					callback: (x: number, y: number) => void,
+					callback: (rect: WindowRect, x: number, y: number) => void,
 				) => handleGeometryDrag(windowEdge, 'resize', callback);
 				const frameEdges = frame.querySelectorAll<HTMLDivElement>('div[oinky-window-edge]');
 				frameEdges.forEach((windowEdge) => {
 					const position = windowEdge.getAttribute('oinky-window-edge');
 					switch (position) {
 						case 'top-left': {
-							return handleFrameEdgeDrag(windowEdge, (x, y) => {
-								state.height = state.height - y;
-								state.width = state.width - x;
-								state.top = state.top + y;
-								state.left = state.left + x;
+							return handleFrameEdgeDrag(windowEdge, (rect, x, y) => {
+								rect.height = rect.height - y;
+								rect.width = rect.width - x;
+								rect.top = rect.top + y;
+								rect.left = rect.left + x;
 							});
 						}
 						case 'top-center': {
-							return handleFrameEdgeDrag(windowEdge, (_x, y) => {
-								state.height = state.height - y;
-								state.top = state.top + y;
+							return handleFrameEdgeDrag(windowEdge, (rect, _x, y) => {
+								rect.height = rect.height - y;
+								rect.top = rect.top + y;
 							});
 						}
 						case 'top-right': {
-							return handleFrameEdgeDrag(windowEdge, (x, y) => {
-								state.height = state.height - y;
-								state.width = state.width + x;
-								state.top = state.top + y;
+							return handleFrameEdgeDrag(windowEdge, (rect, x, y) => {
+								rect.height = rect.height - y;
+								rect.width = rect.width + x;
+								rect.top = rect.top + y;
 							});
 						}
 						case 'middle-left': {
-							return handleFrameEdgeDrag(windowEdge, (x, _y) => {
-								state.width = state.width - x;
-								state.left = state.left + x;
+							return handleFrameEdgeDrag(windowEdge, (rect, x, _y) => {
+								rect.width = rect.width - x;
+								rect.left = rect.left + x;
 							});
 						}
 						case 'middle-right': {
-							return handleFrameEdgeDrag(windowEdge, (x, _y) => {
-								state.width = state.width + x;
+							return handleFrameEdgeDrag(windowEdge, (rect, x, _y) => {
+								rect.width = rect.width + x;
 							});
 						}
 						case 'bottom-left': {
-							return handleFrameEdgeDrag(windowEdge, (x, y) => {
-								state.height = state.height + y;
-								state.width = state.width - x;
-								state.left = state.left + x;
+							return handleFrameEdgeDrag(windowEdge, (rect, x, y) => {
+								rect.height = rect.height + y;
+								rect.width = rect.width - x;
+								rect.left = rect.left + x;
 							});
 						}
 						case 'bottom-center': {
-							return handleFrameEdgeDrag(windowEdge, (_x, y) => {
-								state.height = state.height + y;
+							return handleFrameEdgeDrag(windowEdge, (rect, _x, y) => {
+								rect.height = rect.height + y;
 							});
 						}
 						case 'bottom-right': {
-							return handleFrameEdgeDrag(windowEdge, (x, y) => {
-								state.height = state.height + y;
-								state.width = state.width + x;
+							return handleFrameEdgeDrag(windowEdge, (rect, x, y) => {
+								rect.height = rect.height + y;
+								rect.width = rect.width + x;
 							});
 						}
 						default:

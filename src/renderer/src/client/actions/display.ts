@@ -1,4 +1,5 @@
 import * as el from '../ui/elements';
+import { setText } from '../ui/ui_utils';
 
 export type ActionPaint = {
 	pooled: boolean;
@@ -80,7 +81,7 @@ export const createActionDisplay = (
 		button.classList.toggle('border-neutral/50', pooled && uses === 0);
 		count.classList.toggle('hidden', !pooled);
 		if (!pooled) return;
-		count.textContent = String(uses);
+		setText(count, String(uses));
 		count.classList.toggle('badge-primary', uses > 0);
 		count.classList.toggle('badge-neutral', uses === 0);
 	};

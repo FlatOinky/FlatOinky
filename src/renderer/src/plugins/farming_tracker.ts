@@ -1,6 +1,7 @@
 import { Lifecycle, Plugin, PluginContext } from '../client';
 import { initialAlertScope } from '../client/alerts';
 import * as el from '../client/ui/elements';
+import { setText } from '../client/ui/ui_utils';
 
 // #region constants
 
@@ -242,15 +243,15 @@ export const FarmingTrackerPlugin: Plugin = {
 				if (row.image.src !== src) row.image.src = src;
 				row.image.style.display = '';
 				row.seedling.style.display = 'none';
-				row.seed.textContent = format_snake_case(entry.seed);
+				setText(row.seed, format_snake_case(entry.seed));
 			} else {
 				row.image.style.display = 'none';
 				row.seedling.style.display = '';
-				row.seed.textContent = status === 'unknown' ? 'Unknown' : 'Empty';
+				setText(row.seed, status === 'unknown' ? 'Unknown' : 'Empty');
 			}
 			row.countdown.style.display = status === 'growing' ? '' : 'none';
 			if (status === 'growing' && entry)
-				row.countdown.textContent = formatCountdown(entry.readyAt - now);
+				setText(row.countdown, formatCountdown(entry.readyAt - now));
 		};
 
 		const paintList = (list: HTMLElement, rows: Map<string, PatchRow>, now: number) => {
@@ -273,7 +274,10 @@ export const FarmingTrackerPlugin: Plugin = {
 				ordered.push(row.root);
 				paintRow(row, patch, now);
 			}
-			list.append(...ordered);
+			const orderChanged =
+				list.children.length !== ordered.length ||
+				ordered.some((node, index) => list.children[index] !== node);
+			if (orderChanged) list.append(...ordered);
 		};
 
 		const paintWindow = (now: number) => {

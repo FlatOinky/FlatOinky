@@ -1,6 +1,7 @@
 import { Plugin, type Lifecycle, type PluginContext } from '../client';
 import type { SettingsNode } from '../client/settings';
 import * as el from '../client/ui/elements';
+import { setText } from '../client/ui/ui_utils';
 
 // #region constants
 
@@ -120,7 +121,7 @@ const paintRow = (row: LocationRow, view: LocationView, label: string) => {
 	row.name.className = `font-medium text-sm leading-tight truncate min-w-0 flex-1${
 		view.status === 'checked' ? ' text-base-content/40' : ''
 	}`;
-	if (!row.editing) row.name.textContent = label;
+	if (!row.editing) setText(row.name, label);
 	row.gem.style.display = found && view.gem ? '' : 'none';
 };
 

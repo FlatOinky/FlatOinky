@@ -4,6 +4,7 @@ import { Lifecycle, Plugin, PluginContext, unescapeMessage, type ChatMessage } f
 import { initialAlertScope } from '../client/alerts';
 import type { SettingsNode } from '../client/settings';
 import * as el from '../client/ui/elements';
+import { setText } from '../client/ui/ui_utils';
 
 // #region constants
 
@@ -407,6 +408,8 @@ type WatcherRow = IconCircle & {
 	dismiss: HTMLButtonElement;
 };
 
+const dismissHandlers = new WeakMap<HTMLButtonElement, () => void>();
+
 const mountDismissButton = (container: HTMLElement, extra: string): HTMLButtonElement =>
 	el.button`btn btn-ghost btn-xs btn-square shrink-0 text-base-content/40`.mount(
 		container,
@@ -417,6 +420,13 @@ const mountDismissButton = (container: HTMLElement, extra: string): HTMLButtonEl
 			button.className = `${button.className} ${extra}`.trim();
 			el.icon.x`size-3.5`.mount(button);
 			button.style.display = 'none';
+			button.onclick = (event) => {
+				const onDismiss = dismissHandlers.get(button);
+				if (!onDismiss) return;
+				event.preventDefault();
+				event.stopPropagation();
+				onDismiss();
+			};
 		},
 	);
 
@@ -489,12 +499,12 @@ const mountWatcherStack = (container: HTMLElement, id: string): WatcherStack => 
 
 const paintCountdown = (target: HTMLElement, view: CategoryView, extra = '') => {
 	if (view.countdownMs !== undefined) {
-		target.textContent = formatCountdown(view.countdownMs);
+		setText(target, formatCountdown(view.countdownMs));
 		target.className =
 			`tabular-nums font-semibold text-sm ${extra} ${PHASE_COUNTDOWN[view.phase]}`.trim();
 		target.style.display = 'block';
 	} else {
-		target.textContent = '';
+		setText(target, '');
 		target.style.display = 'none';
 	}
 };
@@ -503,14 +513,8 @@ const paintDismiss = (button: HTMLButtonElement, view: CategoryView, onDismiss?:
 	const show = !!view.dismissible;
 	button.style.display = show ? '' : 'none';
 	button.title = view.dismissTitle ?? 'Dismiss';
-	button.onclick =
-		show && onDismiss
-			? (event) => {
-					event.preventDefault();
-					event.stopPropagation();
-					onDismiss();
-				}
-			: null;
+	if (show && onDismiss) dismissHandlers.set(button, onDismiss);
+	else dismissHandlers.delete(button);
 };
 
 const renderPopupRow = (
@@ -524,10 +528,10 @@ const renderPopupRow = (
 	if (hidden) return;
 	paintIconCircle(row, view.phase, icon, !!view.isGem);
 	const summary = view.label === CATEGORY_LABELS.storm ? '' : (view.summary ?? '');
-	row.summary.textContent = summary;
+	setText(row.summary, summary);
 	row.summary.title = summary;
 	row.summary.style.display = summary ? 'block' : 'none';
-	row.detail.textContent = view.detail ?? '';
+	setText(row.detail, view.detail ?? '');
 	row.detail.style.display = view.detail ? 'block' : 'none';
 	paintCountdown(row.countdown, view, 'shrink-0');
 	paintDismiss(row.dismiss, view, onDismiss);
@@ -544,11 +548,11 @@ const renderWindowStack = (
 	if (hidden) return;
 	paintIconCircle(stack, view.phase, icon, !!view.isGem);
 	const summary = view.summary ?? '';
-	stack.summary.textContent = summary;
+	setText(stack.summary, summary);
 	stack.summary.title = summary;
 	stack.summary.style.display = summary ? 'block' : 'none';
 	if (stack.detail) {
-		stack.detail.textContent = view.detail ?? '';
+		setText(stack.detail, view.detail ?? '');
 		stack.detail.style.display = view.detail ? 'block' : 'none';
 	}
 	paintCountdown(stack.countdown, view);
@@ -1130,7 +1134,7 @@ const initBotWatcher = (
 		const status = state.lastStatusAt
 			? `Last !s ${formatRelative(state.lastStatusAt, now)}`
 			: 'No !s yet — ask in chat';
-		watcherTray.footer.textContent = settings.enabled ? status : 'Tracking paused';
+		setText(watcherTray.footer, settings.enabled ? status : 'Tracking paused');
 	};
 
 	const paintWindow = (now: number) => {

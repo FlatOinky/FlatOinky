@@ -1,6 +1,7 @@
 import type { Lifecycle } from '../../client';
 import { settingsHelpers } from '../../client/settings';
 import * as el from '../../client/ui/elements';
+import { setText } from '../../client/ui/ui_utils';
 import type { AudioAlerts } from './audio_alerts';
 import type { AudioEngine } from './audio_engine';
 import type { AudioKind, AudioSettings, SoundMode } from './audio_types';
@@ -72,7 +73,7 @@ const bindVolumeInput = (
 	const label = input.parentElement?.querySelector<HTMLElement>('[data-volume-label]');
 	let dragging = false;
 	const paintLabel = () => {
-		if (label) label.textContent = `${Math.round(getValue() * 100)}%`;
+		if (label) setText(label, `${Math.round(getValue() * 100)}%`);
 		label?.classList.toggle('text-warning', getValue() > 1);
 	};
 	const paintValue = () => {
@@ -294,7 +295,7 @@ export const mountAudioRow = (
 	const nameEl = title ?? inlineTitle;
 	const update = () => {
 		const override = getOverride(deps.settings, kind, id);
-		if (nameEl) nameEl.textContent = displayNameFor(id, kind);
+		if (nameEl) setText(nameEl, displayNameFor(id, kind));
 		mute.checked = !override.muted;
 		if (
 			showAlert &&
@@ -319,7 +320,7 @@ export const mountAudioRow = (
 		paintVolume();
 		if (detail) {
 			const heard = options.getHeardAt?.() ?? null;
-			detail.textContent = options.getHeardAt ? `${id} · ${formatHeardAt(heard)}` : id;
+			setText(detail, options.getHeardAt ? `${id} · ${formatHeardAt(heard)}` : id);
 		}
 	};
 	update();
@@ -467,11 +468,11 @@ export const mountGlobalSoundControls = (
 
 	const update = () => {
 		const mode = deps.settings.soundMode;
-		title.textContent = 'Sound';
+		setText(title, 'Sound');
 		cycle.classList.toggle('min-w-28', options.layout !== 'stacked');
 		modeLabel.classList.toggle('hidden', options.layout === 'stacked');
 		if (options.layout !== 'stacked') {
-			modeLabel.textContent = SOUND_MODE_LABELS[mode];
+			setText(modeLabel, SOUND_MODE_LABELS[mode]);
 		}
 		iconHost.replaceChildren(
 			mode === 'off' ? el.icon.volumeOff`size-4`.element : el.icon.volume`size-4`.element,
