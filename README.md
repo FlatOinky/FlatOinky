@@ -52,12 +52,7 @@ A desktop application for Flat MMO
 
 #### Monitor
 
-- Per-cue desktop notifications, sound, screen flash, and toast, under Audio Cues in Plugin Settings
-- Listens for
-  - Gem Drop
-  - Falling Tree
-  - Bird Nest
-  - Alien Encounter
+- Per-sound alerts in the Audio Controls window: desktop notification, sound, screen flash, and toast, including when that sound is muted
 - Crafting progress above the taskbar showing the item, how many are done, session XP, and a cancel button
 
 #### Themes

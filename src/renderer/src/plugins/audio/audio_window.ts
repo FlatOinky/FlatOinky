@@ -5,6 +5,7 @@ import type { AudioControlDeps } from './audio_controls';
 import { createCoalescedPaint, mountAudioRow, type AudioRow } from './audio_controls';
 import type { AudioRegistry } from './audio_registry';
 import type { AudioKind } from './audio_types';
+import { displayNameFor } from './sound_names';
 
 export type AudioWindowApi = {
 	show: () => void;
@@ -22,7 +23,7 @@ export const initAudioWindow = (
 	const lifecycle = parentLifecycle.spawnLifecycle();
 	const window = context.ui.windows.initWindow(lifecycle, {
 		id: 'audio',
-		title: 'Individual volumes',
+		title: 'Audio Controls',
 		icon: el.icon.volume``.element,
 		storage: context.storages.profile,
 		lockable: false,
@@ -66,13 +67,16 @@ export const initAudioWindow = (
 	const trackRows: Record<string, AudioRow> = {};
 
 	const syncKind = (kind: AudioKind, list: HTMLElement, rows: Record<string, AudioRow>) => {
-		const entries = registry.allKnown(kind);
+		const entries = registry
+			.allKnown(kind)
+			.sort((a, b) => displayNameFor(a.id, kind).localeCompare(displayNameFor(b.id, kind)));
 		const seen: Record<string, true> = {};
 		for (const entry of entries) {
 			seen[entry.id] = true;
 			if (rows[entry.id]) continue;
 			rows[entry.id] = mountAudioRow(list, entry.id, kind, deps, {
 				detail: true,
+				alert: true,
 				getHeardAt: () => registry.lookup(entry.id)?.lastAt ?? null,
 			});
 		}

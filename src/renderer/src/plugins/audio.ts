@@ -5,6 +5,7 @@ import {
 	mountGlobalSoundControls,
 	type AudioControlDeps,
 } from './audio/audio_controls';
+import { createAudioAlerts } from './audio/audio_alerts';
 import { createAudioEngine } from './audio/audio_engine';
 import { createAudioRegistry } from './audio/audio_registry';
 import { createAudioSync } from './audio/audio_sync';
@@ -37,11 +38,12 @@ export const AudioPlugin: Plugin = {
 	name: 'Audio',
 	category: 'Adapters',
 	description:
-		'Play and mix in-game sounds and music, with per-sound volume and a tri-state filter.',
+		'Play and mix in-game sounds and music, with per-sound volume, alerts, and a tri-state filter.',
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialAudioSettings);
 		const registry = await createAudioRegistry(context.collections.profile<AudioPlay>('plays'));
 		const engine = createAudioEngine(lifecycle, settings);
+		const alerts = createAudioAlerts(settings, context.alerts);
 		const sync = createAudioSync(settings, context.log);
 
 		hideUpstreamAudioControls(lifecycle);
@@ -55,6 +57,7 @@ export const AudioPlugin: Plugin = {
 		const deps: AudioControlDeps = {
 			settings,
 			engine,
+			alerts,
 			onChange: notify,
 			setSoundMode: (mode) => {
 				sync.setSoundMode(mode);
@@ -103,7 +106,7 @@ export const AudioPlugin: Plugin = {
 			{ element: globalControls, sync: notify },
 			el.button`btn btn-sm btn-primary search-value`.then((button) => {
 				button.type = 'button';
-				button.textContent = 'Manage individual volumes';
+				button.textContent = 'Open audio controls';
 				button.onclick = () => showWindow();
 			}),
 			el.button`btn btn-sm btn-ghost search-value`.then((button) => {
@@ -135,6 +138,7 @@ export const AudioPlugin: Plugin = {
 				playSound: (url) => {
 					const id = audioIdOf(url);
 					registry.record(id, 'sound');
+					alerts.trigger(id);
 					void engine.playSound(id);
 					return false;
 				},

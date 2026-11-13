@@ -48,7 +48,7 @@ Layout under `src/`:
   stays on the root lifecycle; the app-menu entry is on the systems lifecycle.
 - `plugins/` — toggleable plugins, one entry file each at this folder's root
   (`chat`, `audio`, `metrics`, `themes`, `mouse`, `keybinds`, `hotbars`,
-  `states`, `audio_cues`, `afk`, …). A sibling directory of the same name holds
+  `states`, `afk`, …). A sibling directory of the same name holds
   that plugin's support modules.
 - `templates/`, `assets/`
 

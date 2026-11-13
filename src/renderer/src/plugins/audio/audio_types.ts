@@ -1,3 +1,5 @@
+import { initialAlertScope, type AlertScope } from '../../client/alerts';
+
 export type SoundMode = 'all' | 'essential' | 'off';
 export type AudioKind = 'sound' | 'track';
 
@@ -5,6 +7,8 @@ export type AudioOverride = {
 	muted: boolean;
 	volume: number;
 };
+
+export type AudioAlert = AlertScope & { whileMuted: boolean };
 
 export type AudioSettings = {
 	soundMode: SoundMode;
@@ -14,6 +18,7 @@ export type AudioSettings = {
 	musicRepeat: boolean;
 	sounds: Record<string, AudioOverride>;
 	tracks: Record<string, AudioOverride>;
+	alerts: Record<string, AudioAlert>;
 };
 
 export type AudioPlay = {
@@ -32,6 +37,12 @@ export const VOLUME_RANGE = { min: 0, max: 1.5, step: 0.05, default: 1 } as cons
 
 export const DEFAULT_OVERRIDE: AudioOverride = { muted: false, volume: VOLUME_RANGE.default };
 
+export const DEFAULT_ALERT: AudioAlert = {
+	...initialAlertScope,
+	enabled: false,
+	whileMuted: true,
+};
+
 export const initialAudioSettings: AudioSettings = {
 	soundMode: 'all',
 	soundVolume: VOLUME_RANGE.default,
@@ -40,6 +51,7 @@ export const initialAudioSettings: AudioSettings = {
 	musicRepeat: false,
 	sounds: {},
 	tracks: {},
+	alerts: {},
 };
 
 export const SOUND_MODE_ORDER: SoundMode[] = ['all', 'essential', 'off'];
@@ -79,6 +91,38 @@ export const setOverride = (
 		bag[id] = merged;
 	}
 	return getOverride(settings, kind, id);
+};
+
+const alertIsDefault = (alert: AudioAlert): boolean =>
+	alert.enabled === DEFAULT_ALERT.enabled &&
+	alert.whileMuted === DEFAULT_ALERT.whileMuted &&
+	alert.enableNotification === DEFAULT_ALERT.enableNotification &&
+	alert.enableAudio === DEFAULT_ALERT.enableAudio &&
+	alert.enableFlash === DEFAULT_ALERT.enableFlash &&
+	alert.enableToast === DEFAULT_ALERT.enableToast;
+
+const alertsOf = (settings: AudioSettings): Record<string, AudioAlert> => {
+	if (!Object.hasOwn(settings, 'alerts')) settings.alerts = {};
+	return settings.alerts;
+};
+
+export const getAlert = (settings: AudioSettings, id: string): AudioAlert => ({
+	...DEFAULT_ALERT,
+	...(Object.hasOwn(settings, 'alerts') ? settings.alerts[id] : undefined),
+});
+
+export const setAlert = (
+	settings: AudioSettings,
+	id: string,
+	next: Partial<AudioAlert>,
+): AudioAlert => {
+	const merged: AudioAlert = { ...getAlert(settings, id), ...next };
+	if (alertIsDefault(merged)) {
+		if (Object.hasOwn(settings, 'alerts')) delete settings.alerts[id];
+	} else {
+		alertsOf(settings)[id] = merged;
+	}
+	return getAlert(settings, id);
 };
 
 export const resolveGain = (settings: AudioSettings, kind: AudioKind, id: string): number => {

@@ -1,11 +1,14 @@
 import type { Lifecycle } from '../../client';
 import { settingsHelpers } from '../../client/settings';
 import * as el from '../../client/ui/elements';
+import type { AudioAlerts } from './audio_alerts';
 import type { AudioEngine } from './audio_engine';
 import type { AudioKind, AudioSettings, SoundMode } from './audio_types';
 import {
 	cycleSoundMode,
+	getAlert,
 	getOverride,
+	setAlert,
 	setOverride,
 	snapVolume,
 	SOUND_MODE_LABELS,
@@ -16,6 +19,7 @@ import { displayNameFor } from './sound_names';
 export type AudioControlDeps = {
 	settings: AudioSettings;
 	engine: AudioEngine;
+	alerts: AudioAlerts;
 	onChange: () => void;
 	setSoundMode: (mode: SoundMode) => void;
 	tracks: () => string[];
@@ -124,6 +128,20 @@ const mountMuteSwap = (container: HTMLElement, id: string, tip: string) => {
 	return input;
 };
 
+const mountAlertSwap = (container: HTMLElement, id: string) => {
+	const input = el.input.checkbox``.element;
+	settingsHelpers.swapToggle(
+		input,
+		el.icon.bell`size-4`.element,
+		el.icon.bellOff`size-4`.element,
+		'Alert',
+		'tooltip-start',
+		container,
+		id,
+	);
+	return input;
+};
+
 const mountStacked = (container: HTMLElement, id: string, label: string) => {
 	const root = el.div`flex flex-col gap-1 py-1`.mount(container, id);
 	const title = el.div`text-sm leading-tight px-0.5 search-value`.mount(root, 'title');
@@ -160,9 +178,11 @@ export const mountAudioRow = (
 		detail?: boolean;
 		getHeardAt?: () => number | null;
 		layout?: 'inline' | 'stacked';
+		alert?: boolean;
 	} = {},
 ): AudioRow => {
 	const stacked = options.layout === 'stacked';
+	const showAlert = options.alert === true && kind === 'sound';
 	const root = stacked
 		? el.div`flex flex-col gap-1 py-1 search-item`.mount(container, id)
 		: el.div`flex flex-col gap-0.5 py-1 search-item`.mount(container, id);
@@ -178,6 +198,7 @@ export const mountAudioRow = (
 	}
 	const row = el.div`flex items-center gap-1.5`.mount(root, stacked ? 'controls' : 'row');
 	const mute = mountMuteSwap(row, 'mute', 'Mute');
+	const alertToggle = showAlert ? mountAlertSwap(row, 'alert') : undefined;
 	let inlineTitle: HTMLElement | undefined;
 	if (!stacked) {
 		const text = el.div`flex flex-col min-w-0 flex-1`.mount(row, 'text');
@@ -188,6 +209,46 @@ export const mountAudioRow = (
 	}
 	const volume = mountVolumeSlider(row, 'volume');
 	mountTestButton(row, () => deps.engine.test(id, kind));
+
+	let drawer: HTMLElement | undefined;
+	let whileMuted: HTMLInputElement | undefined;
+	let notificationInput: HTMLInputElement | undefined;
+	let audioInput: HTMLInputElement | undefined;
+	let flashInput: HTMLInputElement | undefined;
+	let toastInput: HTMLInputElement | undefined;
+	if (showAlert && alertToggle) {
+		drawer = el.div`grid transition-[grid-template-rows] duration-200 grid-rows-[0fr]`.mount(
+			root,
+			'alert-drawer',
+		);
+		const clip = el.div`min-h-0 overflow-hidden`.mount(drawer, 'clip');
+		const panel =
+			el.div`bg-base-200/(--oinky-window-opacity) in-locked-window:bg-base-200/(--oinky-window-locked-opacity) rounded-b-box border border-t-0 border-base-300 mx-1 px-2 py-1.5 flex items-center`.mount(
+				clip,
+				'panel',
+			);
+		whileMuted = el.input.checkbox``.element;
+		settingsHelpers.swapToggle(
+			whileMuted,
+			el.icon.bellExclamation`size-4`.element,
+			el.icon.bellX`size-4`.element,
+			'Trigger while muted',
+			'tooltip-right',
+			panel,
+			'while-muted',
+		);
+		el.div`divider divider-horizontal mx-1 h-8 min-h-8 w-4 shrink-0`.mount(panel, 'divider');
+		notificationInput = el.input.checkbox``.element;
+		audioInput = el.input.checkbox``.element;
+		flashInput = el.input.checkbox``.element;
+		toastInput = el.input.checkbox``.element;
+		const channels = settingsHelpers.alertChannelToggles(
+			{ notificationInput, audioInput, flashInput, toastInput },
+			() => deps.alerts.test(id),
+		);
+		channels.classList.add('min-w-0', 'flex-1');
+		panel.append(channels);
+	}
 
 	const paintVolume = bindVolumeInput(
 		volume,
@@ -205,11 +266,56 @@ export const mountAudioRow = (
 		deps.onChange();
 	};
 
+	const commitAlert = (next: Parameters<typeof setAlert>[2]) => {
+		setAlert(deps.settings, id, next);
+		deps.onChange();
+	};
+	if (alertToggle) {
+		alertToggle.onchange = () => commitAlert({ enabled: alertToggle.checked });
+	}
+	if (whileMuted) {
+		const mutedToggle = whileMuted;
+		mutedToggle.onchange = () => commitAlert({ whileMuted: mutedToggle.checked });
+	}
+	const commitChannels = () => {
+		if (!notificationInput || !audioInput || !flashInput || !toastInput) return;
+		commitAlert({
+			enableNotification: notificationInput.checked,
+			enableAudio: audioInput.checked,
+			enableFlash: flashInput.checked,
+			enableToast: toastInput.checked,
+		});
+	};
+	if (notificationInput) notificationInput.onchange = commitChannels;
+	if (audioInput) audioInput.onchange = commitChannels;
+	if (flashInput) flashInput.onchange = commitChannels;
+	if (toastInput) toastInput.onchange = commitChannels;
+
 	const nameEl = title ?? inlineTitle;
 	const update = () => {
 		const override = getOverride(deps.settings, kind, id);
 		if (nameEl) nameEl.textContent = displayNameFor(id, kind);
 		mute.checked = !override.muted;
+		if (
+			showAlert &&
+			alertToggle &&
+			drawer &&
+			whileMuted &&
+			notificationInput &&
+			audioInput &&
+			flashInput &&
+			toastInput
+		) {
+			const alert = getAlert(deps.settings, id);
+			alertToggle.checked = alert.enabled;
+			whileMuted.checked = alert.whileMuted;
+			notificationInput.checked = alert.enableNotification;
+			audioInput.checked = alert.enableAudio;
+			flashInput.checked = alert.enableFlash;
+			toastInput.checked = alert.enableToast;
+			drawer.classList.toggle('grid-rows-[1fr]', alert.enabled);
+			drawer.classList.toggle('grid-rows-[0fr]', !alert.enabled);
+		}
 		paintVolume();
 		if (detail) {
 			const heard = options.getHeardAt?.() ?? null;

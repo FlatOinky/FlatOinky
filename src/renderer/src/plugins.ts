@@ -10,7 +10,6 @@ export { KeybindsPlugin } from './plugins/keybinds';
 export { MeteorTrackerPlugin } from './plugins/meteor_tracker';
 export { MetricsPlugin } from './plugins/metrics';
 export { MonitorAfkPlugin } from './plugins/afk';
-export { MonitorAudioPlugin } from './plugins/audio_cues';
 export { MonitorStatesPlugin } from './plugins/states';
 export { MousePlugin } from './plugins/mouse';
 export { ObjectShakePlugin } from './plugins/object_shake';
