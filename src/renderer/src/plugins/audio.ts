@@ -39,6 +39,7 @@ export const AudioPlugin: Plugin = {
 	category: 'Adapters',
 	description:
 		'Play and mix in-game sounds and music, with per-sound volume, alerts, and a tri-state filter.',
+	loadOrder: -10.2,
 	init: async (lifecycle, context) => {
 		const settings = context.storages.profile.reactive('settings', initialAudioSettings);
 		const registry = await createAudioRegistry(context.collections.profile<AudioPlay>('plays'));

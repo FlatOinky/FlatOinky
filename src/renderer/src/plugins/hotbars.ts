@@ -19,6 +19,7 @@ export const HotbarsPlugin: Plugin = {
 	name: 'Hotbars',
 	category: 'UI',
 	description: 'Pages of action slots on toolbar windows.',
+	loadOrder: -10.1,
 	init: (lifecycle, context) => {
 		const listeners = new Set<() => void>();
 		const emit = () => {
