@@ -80,10 +80,10 @@ renames the location.
   - The found location first, then unchecked locations, then checked ones. Each group
     keeps the list order.
   - Footer with a countdown to the next hour.
-  - "Report Meteor" button, shown once the meteor has been found.
-  - "Open window" button, like Bot Watcher's.
+  - One row of buttons: "Open window" (two thirds) and "/y !sm" (one third). The report
+    button stays disabled until the meteor has been found.
 - **Tray badge**: the number of unchecked locations, hidden once the meteor is found.
-- **Floating window** with the same rows and the same "Report Meteor" button. It opens from
+- **Floating window** with the same rows and a full-width "/y !sm" button. It opens from
   the tray's "Open window" button, and its open state is restored on reload.
 
 ## Report Meteor action
@@ -96,7 +96,7 @@ renames the location.
 - When found, it yells the location using the user's custom name:
   - Normal: `/y !sm <name>`
   - Gem: `/y !sm GEM <name>`
-- The tray and window "Report Meteor" buttons run this action.
+- The tray and window "/y !sm" buttons run this action.
 
 ## State
 

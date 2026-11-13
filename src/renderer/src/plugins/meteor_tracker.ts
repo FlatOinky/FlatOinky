@@ -83,8 +83,7 @@ const sameList = (left: string[], right: string[]): boolean =>
 
 const DOT_CLASS = 'size-2 rounded-full shrink-0';
 
-const ROW_CLASS =
-	'group flex gap-2.5 items-center py-1.5 pl-1.5 pr-0 border-b border-base-content/5 last:border-b-0';
+const ROW_CLASS = 'group mx-1 flex items-center gap-2 rounded-lg px-1.5 py-1';
 
 const mountRow = (container: HTMLElement, map: string): LocationRow => {
 	const root = el.div`${ROW_CLASS}`.mount(container, map);
@@ -93,10 +92,10 @@ const mountRow = (container: HTMLElement, map: string): LocationRow => {
 		root,
 		'name',
 	);
-	const gem = el.icon.diamond`size-4 shrink-0`.mount(root, 'gem');
+	const gem = el.icon.diamond`size-3.5 shrink-0`.mount(root, 'gem');
 	gem.style.display = 'none';
 	const pencil =
-		el.button`btn btn-ghost btn-xs btn-square shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity`.mount(
+		el.button`grid w-4 shrink-0 self-stretch -my-1 place-items-center rounded-sm text-base-content/60 hover:text-base-content opacity-0 group-hover:opacity-100 focus-visible:opacity-100`.mount(
 			root,
 			'rename',
 			(button) => {
@@ -111,7 +110,7 @@ const mountRow = (container: HTMLElement, map: string): LocationRow => {
 const paintRow = (row: LocationRow, view: LocationView, label: string) => {
 	const found = view.status === 'found';
 	row.root.className = `${ROW_CLASS}${
-		found ? ' bg-success/15 ring-1 ring-success/50 rounded-box' : ''
+		found ? ' bg-success/15 ring-1 ring-inset ring-success/50' : ''
 	}${found && view.gem ? ' aura aura-rainbow' : ''}`;
 	if (found && view.gem) row.root.style.setProperty('--aura-radius', '0.5rem');
 	else row.root.style.removeProperty('--aura-radius');
@@ -227,7 +226,9 @@ export const MeteorTrackerPlugin: Plugin = {
 		const beginRename = (row: LocationRow, map: string) => {
 			if (row.editing) return;
 			row.editing = true;
-			const input = el.input.text`input input-xs min-w-0 flex-1`.element;
+			const input = el.input
+				.text`min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-sm font-medium leading-tight outline-none`
+				.element;
 			input.value = displayName(map);
 			let finished = false;
 			const finish = (save: boolean) => {
@@ -295,9 +296,9 @@ export const MeteorTrackerPlugin: Plugin = {
 			},
 		);
 
-		const mountReportButton = (container: HTMLElement) =>
-			el.button`btn btn-sm btn-primary w-full`.mount(container, 'report', (button) => {
-				button.textContent = 'Report Meteor';
+		const mountReportButton = (container: HTMLElement, className: string) =>
+			el.button`${className}`.mount(container, 'report', (button) => {
+				button.textContent = '/y !sm';
 				button.disabled = true;
 				button.onclick = () => reportAction.execute();
 			});
@@ -314,19 +315,19 @@ export const MeteorTrackerPlugin: Plugin = {
 				},
 			},
 		);
-		const body = el.div`flex flex-col gap-1.5 py-2.5 px-1.5 text-sm min-w-52`.mount(
-			trayMenu,
-			'body',
-		);
-		const trayList = el.div`flex flex-col max-h-72 overflow-y-auto`.mount(body, 'list');
-		const trayRowsHost = el.div`mx-1 my-1 flex flex-col`.mount(trayList, 'rows');
+		const body = el.div`flex flex-col gap-1.5 p-2.5 text-sm min-w-52`.mount(trayMenu, 'body');
+		const trayList = el.div`flex flex-col gap-0.5 max-h-72 overflow-y-auto`.mount(body, 'list');
 		const trayRows = new Map<string, LocationRow>();
 		const footer = el.div`text-xs text-base-content/50 pt-1 tabular-nums`.mount(body, 'footer');
-		const reportButton = mountReportButton(body);
-		el.button`btn btn-sm w-full`.mount(body, 'open-window', (button) => {
+		const actions = el.div`grid grid-cols-3 gap-1.5`.mount(body, 'actions');
+		el.button`btn btn-sm min-w-0 col-span-2`.mount(actions, 'open-window', (button) => {
 			button.textContent = 'Open window';
 			button.onclick = () => showWindow();
 		});
+		const reportButton = mountReportButton(
+			actions,
+			'btn btn-sm btn-primary min-w-0 px-1 whitespace-nowrap',
+		);
 
 		type TrackerWindow = {
 			lifecycle: Lifecycle;
@@ -354,9 +355,9 @@ export const MeteorTrackerPlugin: Plugin = {
 				initialState: { width: 240, height: 360, top: 76, left: 188 },
 				onClose: () => {},
 			});
-			window.body.className = 'flex flex-col gap-1.5 p-2 overflow-y-auto min-h-0';
-			const list = el.div`flex flex-col`.mount(window.body, 'list');
-			const report = mountReportButton(window.body);
+			window.body.className = 'flex flex-col gap-1.5 p-2.5 overflow-y-auto min-h-0';
+			const list = el.div`flex flex-col gap-0.5`.mount(window.body, 'list');
+			const report = mountReportButton(window.body, 'btn btn-sm btn-primary w-full');
 			const created: TrackerWindow = {
 				lifecycle: child,
 				window,
@@ -385,7 +386,7 @@ export const MeteorTrackerPlugin: Plugin = {
 			).length;
 			setBadge(current.found ? null : unchecked);
 			if (!trayMenu.matches(':popover-open')) return;
-			paintList(trayRowsHost, trayRows);
+			paintList(trayList, trayRows);
 			footer.textContent = `Next Meteor in ${formatCountdown(hourFloor(now) + HOUR_MS - now)}`;
 			reportButton.disabled = !current.found;
 		};
